@@ -14,6 +14,6 @@ services:
       - key: PORT
         value: 10000
       - key: ALLOWED_ORIGINS
-        sync: false
+        value: https://modo1.netlify.app,http://localhost:5173
       - key: DIAGNOSTIC_PROVIDER
         value: demo

@@ -9,7 +9,9 @@ O repositório inclui `render.yaml`.
 3. Mantenha `DIAGNOSTIC_PROVIDER=demo` até o workflow estar pronto.
 4. Publique e valide `/health`.
 
-Build: `npm install && npm run build --workspace=@modo/contracts && npm run build --workspace=@modo/api`
+Build: `npm install --include=dev && npm run build --workspace=@modo/contracts && npm run build --workspace=@modo/api`
+
+O parâmetro `--include=dev` é necessário porque o Render executa o build com `NODE_ENV=production`, enquanto TypeScript, `@types/node` e outras ferramentas de compilação ficam em `devDependencies`.
 
 Start: `npm run start --workspace=@modo/api`
 

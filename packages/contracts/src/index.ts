@@ -89,3 +89,98 @@ export const LeadCreateRequestSchema = z.object({
   consent: z.literal(true),
 });
 export type LeadCreateRequest = z.infer<typeof LeadCreateRequestSchema>;
+
+export const PlanSlugSchema = z.enum(["start", "presenca", "pro", "business"]);
+export type PlanSlug = z.infer<typeof PlanSlugSchema>;
+
+export const ContentUnitTypeSchema = z.enum([
+  "static_post",
+  "story",
+  "carousel",
+  "short_video_script",
+  "channel_adaptation",
+]);
+export type ContentUnitType = z.infer<typeof ContentUnitTypeSchema>;
+
+export const contentCreditCost: Record<ContentUnitType, number> = {
+  static_post: 1,
+  story: 1,
+  carousel: 2,
+  short_video_script: 2,
+  channel_adaptation: 1,
+};
+
+export const PlanEntitlementSchema = z.object({
+  priceCents: z.number().int().nonnegative(),
+  monthlyCredits: z.number().int().positive(),
+  maxBrands: z.number().int().positive(),
+  maxChannels: z.number().int().positive(),
+  maxUsers: z.number().int().positive(),
+  maxCarouselsPerMonth: z.number().int().nonnegative(),
+  maxShortVideoScriptsPerMonth: z.number().int().nonnegative(),
+  includedRevisionCycles: z.number().int().nonnegative(),
+  scheduling: z.boolean(),
+  analytics: z.boolean(),
+  customApprovalFlows: z.boolean(),
+});
+export type PlanEntitlement = z.infer<typeof PlanEntitlementSchema>;
+
+export const planEntitlements: Record<PlanSlug, PlanEntitlement> = {
+  start: {
+    priceCents: 9900,
+    monthlyCredits: 6,
+    maxBrands: 1,
+    maxChannels: 1,
+    maxUsers: 1,
+    maxCarouselsPerMonth: 2,
+    maxShortVideoScriptsPerMonth: 0,
+    includedRevisionCycles: 1,
+    scheduling: false,
+    analytics: false,
+    customApprovalFlows: false,
+  },
+  presenca: {
+    priceCents: 19900,
+    monthlyCredits: 15,
+    maxBrands: 1,
+    maxChannels: 2,
+    maxUsers: 1,
+    maxCarouselsPerMonth: 5,
+    maxShortVideoScriptsPerMonth: 2,
+    includedRevisionCycles: 2,
+    scheduling: true,
+    analytics: false,
+    customApprovalFlows: false,
+  },
+  pro: {
+    priceCents: 39900,
+    monthlyCredits: 30,
+    maxBrands: 2,
+    maxChannels: 4,
+    maxUsers: 3,
+    maxCarouselsPerMonth: 10,
+    maxShortVideoScriptsPerMonth: 6,
+    includedRevisionCycles: 3,
+    scheduling: true,
+    analytics: true,
+    customApprovalFlows: false,
+  },
+  business: {
+    priceCents: 79000,
+    monthlyCredits: 60,
+    maxBrands: 4,
+    maxChannels: 8,
+    maxUsers: 8,
+    maxCarouselsPerMonth: 12,
+    maxShortVideoScriptsPerMonth: 12,
+    includedRevisionCycles: 3,
+    scheduling: true,
+    analytics: true,
+    customApprovalFlows: true,
+  },
+};
+
+export const PlanSelectionSchema = z.object({
+  plan: PlanSlugSchema,
+});
+export type PlanSelection = z.infer<typeof PlanSelectionSchema>;

@@ -3,7 +3,7 @@ services:
     name: modo-api
     runtime: node
     plan: starter
-    buildCommand: npm install && npm run build --workspace=@modo/contracts && npm run build --workspace=@modo/api
+    buildCommand: npm install --include=dev && npm run build --workspace=@modo/contracts && npm run build --workspace=@modo/api
     startCommand: npm run start --workspace=@modo/api
     healthCheckPath: /health
     envVars:

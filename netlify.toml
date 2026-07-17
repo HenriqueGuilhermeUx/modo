@@ -5,6 +5,7 @@
 
 [build.environment]
   NODE_VERSION = "22"
+  VITE_API_URL = "https://modo-api-3m10.onrender.com"
 
 [[redirects]]
   from = "/*"

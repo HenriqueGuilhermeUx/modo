@@ -17,7 +17,3 @@ services:
         sync: false
       - key: DIAGNOSTIC_PROVIDER
         value: demo
-      - key: N8N_DIAGNOSTIC_WEBHOOK_URL
-        sync: false
-      - key: N8N_WEBHOOK_SECRET
-        sync: false

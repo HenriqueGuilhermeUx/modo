@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: modo-api
+    runtime: node
+    plan: starter
+    buildCommand: npm install && npm run build --workspace=@modo/contracts && npm run build --workspace=@modo/api
+    startCommand: npm run start --workspace=@modo/api
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_VERSION
+        value: 22
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: ALLOWED_ORIGINS
+        sync: false
+      - key: DIAGNOSTIC_PROVIDER
+        value: demo
+      - key: N8N_DIAGNOSTIC_WEBHOOK_URL
+        sync: false
+      - key: N8N_WEBHOOK_SECRET
+        sync: false

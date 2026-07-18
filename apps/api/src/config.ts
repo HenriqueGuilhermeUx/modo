@@ -8,6 +8,13 @@ const emptyToUndefined = (value: unknown) => {
 };
 
 const optionalTrimmedString = z.preprocess(emptyToUndefined, z.string().optional());
+const booleanFromEnvironment = z.preprocess((value) => {
+  if (typeof value !== "string") return value;
+  const normalized = value.trim().toLowerCase();
+  if (["true", "1", "yes", "on"].includes(normalized)) return true;
+  if (["false", "0", "no", "off", ""].includes(normalized)) return false;
+  return value;
+}, z.boolean().default(false));
 
 const ConfigSchema = z
   .object({
@@ -21,6 +28,8 @@ const ConfigSchema = z
     DEMO_DIAGNOSTIC_DELAY_MS: z.coerce.number().int().nonnegative().default(5200),
     N8N_DIAGNOSTIC_WEBHOOK_URL: optionalTrimmedString,
     N8N_WEBHOOK_SECRET: optionalTrimmedString,
+    DATABASE_URL: optionalTrimmedString,
+    DATABASE_SSL: booleanFromEnvironment,
   })
   .superRefine((values, context) => {
     if (values.DIAGNOSTIC_PROVIDER !== "n8n") return;

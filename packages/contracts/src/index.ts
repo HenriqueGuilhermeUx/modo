@@ -184,3 +184,46 @@ export const PlanSelectionSchema = z.object({
   plan: PlanSlugSchema,
 });
 export type PlanSelection = z.infer<typeof PlanSelectionSchema>;
+
+export const BillingAccountIdSchema = z
+  .string()
+  .trim()
+  .min(3)
+  .max(100)
+  .regex(/^[a-zA-Z0-9_-]+$/, "Use apenas letras, números, hífen e underscore.");
+
+export const DemoSubscriptionCreateRequestSchema = z.object({
+  accountId: BillingAccountIdSchema,
+  plan: PlanSlugSchema,
+});
+export type DemoSubscriptionCreateRequest = z.infer<typeof DemoSubscriptionCreateRequestSchema>;
+
+export const CreditConsumeRequestSchema = z.object({
+  contentType: ContentUnitTypeSchema,
+  referenceId: z.string().trim().min(3).max(160),
+  metadata: z.record(z.string(), z.unknown()).optional(),
+});
+export type CreditConsumeRequest = z.infer<typeof CreditConsumeRequestSchema>;
+
+export const UsageByTypeSchema = z.object({
+  static_post: z.number().int().nonnegative(),
+  story: z.number().int().nonnegative(),
+  carousel: z.number().int().nonnegative(),
+  short_video_script: z.number().int().nonnegative(),
+  channel_adaptation: z.number().int().nonnegative(),
+});
+export type UsageByType = z.infer<typeof UsageByTypeSchema>;
+
+export const BillingUsageSchema = z.object({
+  accountId: BillingAccountIdSchema,
+  plan: PlanSlugSchema,
+  storage: z.enum(["memory", "postgres"]),
+  periodStart: z.string().datetime(),
+  periodEnd: z.string().datetime(),
+  creditsGranted: z.number().int().nonnegative(),
+  creditsUsed: z.number().int().nonnegative(),
+  creditsRemaining: z.number().int().nonnegative(),
+  usageByType: UsageByTypeSchema,
+  entitlements: PlanEntitlementSchema,
+});
+export type BillingUsage = z.infer<typeof BillingUsageSchema>;

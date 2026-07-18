@@ -8,15 +8,24 @@ function createProvider() {
     if (!config.N8N_DIAGNOSTIC_WEBHOOK_URL) {
       throw new Error("N8N_DIAGNOSTIC_WEBHOOK_URL é obrigatório quando DIAGNOSTIC_PROVIDER=n8n.");
     }
-    return new N8nDiagnosticProvider(config.N8N_DIAGNOSTIC_WEBHOOK_URL, config.N8N_WEBHOOK_SECRET);
+    return new N8nDiagnosticProvider(
+      config.N8N_DIAGNOSTIC_WEBHOOK_URL,
+      config.N8N_WEBHOOK_SECRET,
+    );
   }
   return new DemoDiagnosticProvider(config.DEMO_DIAGNOSTIC_DELAY_MS);
 }
 
-const app = await createApp({provider: createProvider(), allowedOrigins: config.allowedOrigins, logger: true});
+const app = await createApp({
+  provider: createProvider(),
+  allowedOrigins: config.allowedOrigins,
+  logger: true,
+  databaseUrl: config.DATABASE_URL,
+  databaseSsl: config.DATABASE_SSL,
+});
 
 try {
-  await app.listen({host: "0.0.0.0", port: config.PORT});
+  await app.listen({ host: "0.0.0.0", port: config.PORT });
 } catch (error) {
   app.log.error(error);
   process.exit(1);

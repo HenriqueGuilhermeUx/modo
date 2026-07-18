@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { BillingError, BillingService } from "./billing-service.js";
+import { BillingService } from "./billing-service.js";
 
 describe("BillingService", () => {
   it("grants plan credits and consumes content idempotently", async () => {
@@ -45,7 +45,7 @@ describe("BillingService", () => {
         contentType: "carousel",
         referenceId: "carousel_3",
       }),
-    ).rejects.toMatchObject<Partial<BillingError>>({ code: "CAROUSEL_LIMIT_REACHED" });
+    ).rejects.toMatchObject({ code: "CAROUSEL_LIMIT_REACHED" });
   });
 
   it("blocks consumption when the monthly credit balance is exhausted", async () => {
@@ -65,6 +65,6 @@ describe("BillingService", () => {
         contentType: "static_post",
         referenceId: "post_7",
       }),
-    ).rejects.toMatchObject<Partial<BillingError>>({ code: "INSUFFICIENT_CREDITS" });
+    ).rejects.toMatchObject({ code: "INSUFFICIENT_CREDITS" });
   });
 });

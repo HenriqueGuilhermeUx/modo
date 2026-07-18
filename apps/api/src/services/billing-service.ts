@@ -7,8 +7,9 @@ import {
   type PlanSlug,
   type UsageByType,
 } from "@modo/contracts";
-import pg, { type Pool, type PoolClient } from "pg";
 import { randomUUID } from "node:crypto";
+import pg from "pg";
+import type { Pool, PoolClient } from "pg";
 
 const { Pool: PgPool } = pg;
 
@@ -39,8 +40,8 @@ interface MemoryLedgerEntry {
 interface SubscriptionRow {
   account_id: string;
   plan_slug: PlanSlug;
-  period_start: Date | string;
-  period_end: Date | string;
+  period_start: Date;
+  period_end: Date;
 }
 
 interface UsageAggregateRow {
@@ -65,11 +66,13 @@ export class BillingError extends Error {
 }
 
 function addBillingMonth(date: Date) {
-  const next = new Date(date);
+  const next = new Date(date.getTime());
   const originalDay = next.getUTCDate();
   next.setUTCDate(1);
   next.setUTCMonth(next.getUTCMonth() + 1);
-  const lastDay = new Date(Date.UTC(next.getUTCFullYear(), next.getUTCMonth() + 1, 0)).getUTCDate();
+  const lastDay = new Date(
+    Date.UTC(next.getUTCFullYear(), next.getUTCMonth() + 1, 0),
+  ).getUTCDate();
   next.setUTCDate(Math.min(originalDay, lastDay));
   return next;
 }
@@ -139,7 +142,10 @@ export class BillingService {
     await this.pool?.end();
   }
 
-  async createOrUpdateDemoSubscription(accountId: string, plan: PlanSlug): Promise<BillingUsage> {
+  async createOrUpdateDemoSubscription(
+    accountId: string,
+    plan: PlanSlug,
+  ): Promise<BillingUsage> {
     if (this.pool) return this.createOrUpdatePostgresSubscription(accountId, plan);
     return this.createOrUpdateMemorySubscription(accountId, plan);
   }
@@ -179,7 +185,7 @@ export class BillingService {
   private ensureMemoryCurrentPeriod(subscription: MemorySubscription) {
     const now = new Date();
     while (now >= subscription.periodEnd) {
-      subscription.periodStart = new Date(subscription.periodEnd);
+      subscription.periodStart = new Date(subscription.periodEnd.getTime());
       subscription.periodEnd = addBillingMonth(subscription.periodEnd);
       this.memoryLedger.push({
         id: randomUUID(),
@@ -187,7 +193,7 @@ export class BillingService {
         entryType: "grant",
         credits: planEntitlements[subscription.plan].monthlyCredits,
         referenceId: `period:${subscription.periodStart.toISOString()}`,
-        periodStart: new Date(subscription.periodStart),
+        periodStart: new Date(subscription.periodStart.getTime()),
         metadata: { plan: subscription.plan, renewal: true },
         createdAt: now,
       });
@@ -198,7 +204,11 @@ export class BillingService {
   private getMemorySubscription(accountId: string) {
     const subscription = this.subscriptions.get(accountId);
     if (!subscription) {
-      throw new BillingError("SUBSCRIPTION_NOT_FOUND", 404, "Assinatura não encontrada para esta conta.");
+      throw new BillingError(
+        "SUBSCRIPTION_NOT_FOUND",
+        404,
+        "Assinatura não encontrada para esta conta.",
+      );
     }
     return this.ensureMemoryCurrentPeriod(subscription);
   }
@@ -216,7 +226,9 @@ export class BillingService {
     for (const entry of entries) {
       if (entry.credits > 0) creditsGranted += entry.credits;
       if (entry.credits < 0) creditsUsed += Math.abs(entry.credits);
-      if (entry.entryType === "usage" && entry.contentType) usageByType[entry.contentType] += 1;
+      if (entry.entryType === "usage" && entry.contentType) {
+        usageByType[entry.contentType] += 1;
+      }
     }
 
     return {
@@ -256,7 +268,7 @@ export class BillingService {
       credits: -contentCreditCost[input.contentType],
       contentType: input.contentType,
       referenceId: input.referenceId,
-      periodStart: new Date(subscription.periodStart),
+      periodStart: new Date(subscription.periodStart.getTime()),
       metadata: input.metadata ?? {},
       createdAt: new Date(),
     });
@@ -342,7 +354,7 @@ export class BillingService {
           -contentCreditCost[input.contentType],
           input.contentType,
           input.referenceId,
-          new Date(subscription.period_start),
+          subscription.period_start,
           JSON.stringify(input.metadata ?? {}),
         ],
       );
@@ -366,17 +378,21 @@ export class BillingService {
       [accountId],
     );
     if (!result.rowCount) {
-      throw new BillingError("SUBSCRIPTION_NOT_FOUND", 404, "Assinatura não encontrada para esta conta.");
+      throw new BillingError(
+        "SUBSCRIPTION_NOT_FOUND",
+        404,
+        "Assinatura não encontrada para esta conta.",
+      );
     }
 
     const subscription = result.rows[0];
-    let periodStart = new Date(subscription.period_start);
-    let periodEnd = new Date(subscription.period_end);
+    let periodStart = new Date(subscription.period_start.getTime());
+    let periodEnd = new Date(subscription.period_end.getTime());
     const now = new Date();
     let renewed = false;
 
     while (now >= periodEnd) {
-      periodStart = new Date(periodEnd);
+      periodStart = new Date(periodEnd.getTime());
       periodEnd = addBillingMonth(periodEnd);
       renewed = true;
     }
@@ -388,7 +404,13 @@ export class BillingService {
          WHERE account_id = $1`,
         [accountId, periodStart, periodEnd],
       );
-      await this.insertPostgresGrant(client, accountId, subscription.plan_slug, periodStart, true);
+      await this.insertPostgresGrant(
+        client,
+        accountId,
+        subscription.plan_slug,
+        periodStart,
+        true,
+      );
     }
 
     return {
@@ -421,7 +443,10 @@ export class BillingService {
     );
   }
 
-  private async buildPostgresUsage(client: PoolClient, subscription: SubscriptionRow): Promise<BillingUsage> {
+  private async buildPostgresUsage(
+    client: PoolClient,
+    subscription: SubscriptionRow,
+  ): Promise<BillingUsage> {
     const result = await client.query<UsageAggregateRow>(
       `SELECT
         COALESCE(SUM(CASE WHEN credits > 0 THEN credits ELSE 0 END), 0)::int AS credits_granted,
@@ -433,7 +458,7 @@ export class BillingService {
         COUNT(*) FILTER (WHERE entry_type = 'usage' AND content_type = 'channel_adaptation')::int AS channel_adaptation
        FROM modo_credit_ledger
        WHERE account_id = $1 AND period_start = $2`,
-      [subscription.account_id, new Date(subscription.period_start)],
+      [subscription.account_id, subscription.period_start],
     );
     const aggregate = result.rows[0];
     const creditsGranted = Number(aggregate.credits_granted);
@@ -450,8 +475,8 @@ export class BillingService {
       accountId: subscription.account_id,
       plan: subscription.plan_slug,
       storage: "postgres",
-      periodStart: new Date(subscription.period_start).toISOString(),
-      periodEnd: new Date(subscription.period_end).toISOString(),
+      periodStart: subscription.period_start.toISOString(),
+      periodEnd: subscription.period_end.toISOString(),
       creditsGranted,
       creditsUsed,
       creditsRemaining: Math.max(0, creditsGranted - creditsUsed),
@@ -481,7 +506,8 @@ export class BillingService {
     }
     if (
       contentType === "short_video_script" &&
-      usage.usageByType.short_video_script >= usage.entitlements.maxShortVideoScriptsPerMonth
+      usage.usageByType.short_video_script >=
+        usage.entitlements.maxShortVideoScriptsPerMonth
     ) {
       throw new BillingError(
         "VIDEO_SCRIPT_LIMIT_REACHED",

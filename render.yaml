@@ -25,3 +25,9 @@ services:
         value: 30
       - key: ENABLE_DEMO_BILLING
         value: false
+      - key: PAYMENTS_PROVIDER
+        value: disabled
+      - key: WOOVI_APP_ID
+        sync: false
+      - key: WOOVI_WEBHOOK_AUTHORIZATION
+        sync: false

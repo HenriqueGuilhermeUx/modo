@@ -1,13 +1,17 @@
+import AdminWorkspace from "./AdminWorkspace";
 import App from "./App";
 import BillingWorkspace from "./BillingWorkspace";
 import ContentWorkspace from "./ContentWorkspace";
 import DirectorWorkspace from "./DirectorWorkspace";
+import InvitationWorkspace from "./InvitationWorkspace";
 import LinkedInWorkspace from "./LinkedInWorkspace";
 import Portal from "./Portal";
 import SignalWorkspace from "./SignalWorkspace";
 
 export default function Root() {
   const path = window.location.pathname;
+  if (path.startsWith("/admin")) return <AdminWorkspace />;
+  if (path.startsWith("/convite/")) return <InvitationWorkspace />;
   if (path.startsWith("/app/planos")) return <BillingWorkspace />;
   if (path.startsWith("/app/director")) return <DirectorWorkspace />;
   if (path.startsWith("/app/linkedin")) return <LinkedInWorkspace />;

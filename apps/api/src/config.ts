@@ -8,7 +8,6 @@ const emptyToUndefined = (value: unknown) => {
 };
 
 const optionalTrimmedString = z.preprocess(emptyToUndefined, z.string().optional());
-const optionalUrl = z.preprocess(emptyToUndefined, z.string().url().optional());
 const booleanFromEnvironment = z.preprocess((value) => {
   if (typeof value !== "string") return value;
   const normalized = value.trim().toLowerCase();
@@ -33,10 +32,9 @@ const ConfigSchema = z
     DATABASE_SSL: booleanFromEnvironment,
     AUTH_SESSION_DAYS: z.coerce.number().int().min(1).max(365).default(30),
     ENABLE_DEMO_BILLING: booleanFromEnvironment,
-    PAYMENTS_PROVIDER: z.enum(["disabled", "mercado_pago"]).default("disabled"),
-    MERCADO_PAGO_ACCESS_TOKEN: optionalTrimmedString,
-    MERCADO_PAGO_WEBHOOK_SECRET: optionalTrimmedString,
-    PUBLIC_APP_URL: optionalUrl.default("https://modo1.netlify.app"),
+    PAYMENTS_PROVIDER: z.enum(["disabled", "woovi"]).default("disabled"),
+    WOOVI_APP_ID: optionalTrimmedString,
+    WOOVI_WEBHOOK_AUTHORIZATION: optionalTrimmedString,
   })
   .superRefine((values, context) => {
     if (values.DIAGNOSTIC_PROVIDER === "n8n") {
@@ -57,19 +55,19 @@ const ConfigSchema = z
       }
     }
 
-    if (values.PAYMENTS_PROVIDER === "mercado_pago") {
-      if (!values.MERCADO_PAGO_ACCESS_TOKEN) {
+    if (values.PAYMENTS_PROVIDER === "woovi") {
+      if (!values.WOOVI_APP_ID) {
         context.addIssue({
           code: "custom",
-          path: ["MERCADO_PAGO_ACCESS_TOKEN"],
-          message: "Informe o Access Token do Mercado Pago.",
+          path: ["WOOVI_APP_ID"],
+          message: "Informe o AppID da Woovi.",
         });
       }
-      if (!values.MERCADO_PAGO_WEBHOOK_SECRET) {
+      if (!values.WOOVI_WEBHOOK_AUTHORIZATION) {
         context.addIssue({
           code: "custom",
-          path: ["MERCADO_PAGO_WEBHOOK_SECRET"],
-          message: "Informe a assinatura secreta do webhook do Mercado Pago.",
+          path: ["WOOVI_WEBHOOK_AUTHORIZATION"],
+          message: "Informe a autorização secreta do webhook Woovi.",
         });
       }
     }

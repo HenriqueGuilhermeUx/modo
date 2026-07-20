@@ -1,6 +1,6 @@
 {
   "name": "@modo/contracts",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "private": true,
   "type": "module",
   "main": "dist/index.js",
@@ -10,7 +10,8 @@
     "./content": {"types": "./src/content.ts", "import": "./dist/content.js"},
     "./payment": {"types": "./src/payment.ts", "import": "./dist/payment.js"},
     "./linkedin": {"types": "./src/linkedin.ts", "import": "./dist/linkedin.js"},
-    "./creative-intelligence": {"types": "./src/creative-intelligence.ts", "import": "./dist/creative-intelligence.js"}
+    "./creative-intelligence": {"types": "./src/creative-intelligence.ts", "import": "./dist/creative-intelligence.js"},
+    "./signal": {"types": "./src/signal.ts", "import": "./dist/signal.js"}
   },
   "files": ["dist"],
   "scripts": {"build": "tsc -p tsconfig.json", "typecheck": "tsc -p tsconfig.json --noEmit"},

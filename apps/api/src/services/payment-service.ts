@@ -210,15 +210,28 @@ export class PaymentService {
     const eventKey = `${event}:${eventObjectId}`;
     if (!(await this.registerEvent(eventKey, event, providerId, body))) return null;
 
-    const subscription = await this.fetchSubscription(providerId);
-    const parsed = this.parseCorrelationID(subscription.correlationID);
-    await this.persist(parsed.accountId, parsed.plan, subscription);
+    try {
+      const subscription = await this.fetchSubscription(providerId);
+      const parsed = this.parseCorrelationID(subscription.correlationID);
+      await this.persist(parsed.accountId, parsed.plan, subscription);
 
-    const action = this.mapLifecycleAction(event);
-    if (!action) return null;
+      const action = this.mapLifecycleAction(event);
+      if (!action) return null;
 
-    if (action === "paid") await this.markPayment(providerId);
-    return { ...parsed, providerId, event, eventKey, action };
+      if (action === "paid") await this.markPayment(providerId);
+      return { ...parsed, providerId, event, eventKey, action };
+    } catch (error) {
+      await this.releaseEvent(eventKey);
+      throw error;
+    }
+  }
+
+  async releaseEvent(eventKey: string) {
+    if (!this.pool) {
+      this.memoryEvents.delete(eventKey);
+      return;
+    }
+    await this.pool.query(`DELETE FROM modo_payment_events WHERE event_key=$1`, [eventKey]);
   }
 
   async cancelLatest(accountId: string) {

@@ -20,6 +20,7 @@ const ConfigSchema = z
   .object({
     NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
     PORT: z.coerce.number().int().positive().default(4000),
+    PUBLIC_API_URL: z.preprocess(emptyToUndefined, z.string().url().default("http://localhost:4000")),
     ALLOWED_ORIGINS: z.preprocess(
       emptyToUndefined,
       z.string().default("http://localhost:5173"),
@@ -28,6 +29,10 @@ const ConfigSchema = z
     DEMO_DIAGNOSTIC_DELAY_MS: z.coerce.number().int().nonnegative().default(5200),
     N8N_DIAGNOSTIC_WEBHOOK_URL: optionalTrimmedString,
     N8N_WEBHOOK_SECRET: optionalTrimmedString,
+    CONTENT_PROVIDER: z.enum(["demo", "n8n"]).default("demo"),
+    CONTENT_DEMO_DELAY_MS: z.coerce.number().int().nonnegative().default(1800),
+    N8N_CONTENT_WEBHOOK_URL: optionalTrimmedString,
+    N8N_CONTENT_SECRET: optionalTrimmedString,
     DATABASE_URL: optionalTrimmedString,
     DATABASE_SSL: booleanFromEnvironment,
     AUTH_SESSION_DAYS: z.coerce.number().int().min(1).max(365).default(30),
@@ -55,6 +60,24 @@ const ConfigSchema = z
       }
     }
 
+    if (values.CONTENT_PROVIDER === "n8n") {
+      const webhookUrl = z.string().url().safeParse(values.N8N_CONTENT_WEBHOOK_URL);
+      if (!webhookUrl.success) {
+        context.addIssue({
+          code: "custom",
+          path: ["N8N_CONTENT_WEBHOOK_URL"],
+          message: "Informe uma URL válida quando CONTENT_PROVIDER=n8n.",
+        });
+      }
+      if (!values.N8N_CONTENT_SECRET) {
+        context.addIssue({
+          code: "custom",
+          path: ["N8N_CONTENT_SECRET"],
+          message: "Informe um segredo quando CONTENT_PROVIDER=n8n.",
+        });
+      }
+    }
+
     if (values.PAYMENTS_PROVIDER === "woovi") {
       if (!values.WOOVI_APP_ID) {
         context.addIssue({
@@ -78,6 +101,7 @@ const parsed = ConfigSchema.parse(process.env);
 export const config = {
   ...parsed,
   N8N_WEBHOOK_SECRET: parsed.N8N_WEBHOOK_SECRET ?? "",
+  N8N_CONTENT_SECRET: parsed.N8N_CONTENT_SECRET ?? "",
   allowedOrigins: parsed.ALLOWED_ORIGINS.split(",")
     .map((origin) => origin.trim())
     .filter(Boolean),

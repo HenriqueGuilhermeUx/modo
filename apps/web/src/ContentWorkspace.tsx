@@ -6,13 +6,17 @@ import {
 import {
   type ContentObjective,
   type ContentRequest,
+  type GeneratedContent,
 } from "@modo/contracts/content";
 import { type FormEvent, useEffect, useMemo, useState } from "react";
 import {
+  approveContentRequest,
   createContentRequest,
   getDashboard,
   getSessionToken,
   listContentRequests,
+  requestContentRevision,
+  retryContentRequest,
 } from "./api";
 
 const formatLabels: Record<ContentUnitType, string> = {
@@ -34,16 +38,90 @@ const objectiveLabels: Record<ContentObjective, string> = {
 const statusLabels: Record<ContentRequest["status"], string> = {
   queued: "Na fila",
   processing: "Em produção",
-  ready: "Pronto",
+  ready: "Pronto para revisar",
+  approved: "Aprovado",
+  revision_requested: "Revisão solicitada",
   failed: "Falhou",
   cancelled: "Cancelado",
 };
+
+function OutputPanel({ output }: { output: GeneratedContent }) {
+  return (
+    <div className="content-output">
+      <section className="content-output-lead">
+        <small>GANCHO</small>
+        <h3>{output.hook}</h3>
+      </section>
+      <section><small>TÍTULO</small><p>{output.title}</p></section>
+      <section><small>LEGENDA</small><p className="content-caption">{output.caption}</p></section>
+      <section><small>CHAMADA PARA AÇÃO</small><p>{output.cta}</p></section>
+      <section><small>DIREÇÃO VISUAL</small><p>{output.visualDirection}</p></section>
+
+      {output.slides.length > 0 && (
+        <section className="content-structured-block">
+          <small>CARROSSEL</small>
+          <div className="content-slide-list">
+            {output.slides.map((slide, index) => (
+              <article key={`${slide.title}-${index}`}>
+                <span>{String(index + 1).padStart(2, "0")}</span>
+                <div><strong>{slide.title}</strong><p>{slide.body}</p></div>
+              </article>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {output.script.length > 0 && (
+        <section className="content-structured-block">
+          <small>ROTEIRO</small>
+          <div className="content-slide-list">
+            {output.script.map((scene, index) => (
+              <article key={`${scene.scene}-${index}`}>
+                <span>{String(index + 1).padStart(2, "0")}</span>
+                <div>
+                  <strong>{scene.scene}</strong>
+                  <p><b>Visual:</b> {scene.visual}</p>
+                  <p><b>Locução:</b> {scene.voiceover}</p>
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {output.storyFrames.length > 0 && (
+        <section className="content-structured-block">
+          <small>SEQUÊNCIA DE STORIES</small>
+          <div className="content-slide-list">
+            {output.storyFrames.map((frame, index) => (
+              <article key={`${frame.headline}-${index}`}>
+                <span>{String(index + 1).padStart(2, "0")}</span>
+                <div>
+                  <strong>{frame.headline}</strong>
+                  <p>{frame.body}</p>
+                  {frame.interaction && <p><b>Interação:</b> {frame.interaction}</p>}
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {output.adaptationNotes.length > 0 && (
+        <section><small>NOTAS DE ADAPTAÇÃO</small><ul>{output.adaptationNotes.map((note) => <li key={note}>{note}</li>)}</ul></section>
+      )}
+
+      <div className="content-hashtags">{output.hashtags.map((tag) => <span key={tag}>{tag}</span>)}</div>
+    </div>
+  );
+}
 
 export default function ContentWorkspace() {
   const [dashboard, setDashboard] = useState<Dashboard | null>(null);
   const [requests, setRequests] = useState<ContentRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [actionId, setActionId] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [brandId, setBrandId] = useState("");
@@ -51,9 +129,12 @@ export default function ContentWorkspace() {
   const [objective, setObjective] = useState<ContentObjective>("autoridade");
   const [channel, setChannel] = useState("Instagram");
   const [brief, setBrief] = useState("");
+  const [expandedId, setExpandedId] = useState("");
+  const [revisionId, setRevisionId] = useState("");
+  const [revisionInstructions, setRevisionInstructions] = useState("");
 
-  async function load() {
-    setLoading(true);
+  async function load(showSpinner = true) {
+    if (showSpinner) setLoading(true);
     try {
       const [currentDashboard, currentRequests] = await Promise.all([
         getDashboard(),
@@ -66,7 +147,7 @@ export default function ContentWorkspace() {
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Não foi possível carregar a produção.");
     } finally {
-      setLoading(false);
+      if (showSpinner) setLoading(false);
     }
   }
 
@@ -78,9 +159,22 @@ export default function ContentWorkspace() {
     void load();
   }, []);
 
+  useEffect(() => {
+    const hasActiveWork = requests.some((request) =>
+      ["queued", "processing", "revision_requested"].includes(request.status),
+    );
+    if (!hasActiveWork) return;
+    const timer = window.setInterval(() => void load(false), 4000);
+    return () => window.clearInterval(timer);
+  }, [requests]);
+
   const cost = contentCreditCost[contentType];
+  const productionAllowed = Boolean(
+    dashboard && ["active", "retrying"].includes(dashboard.usage.status),
+  );
   const canSubmit = Boolean(
     dashboard &&
+      productionAllowed &&
       brandId &&
       brief.trim().length >= 10 &&
       dashboard.usage.creditsRemaining >= cost,
@@ -90,6 +184,10 @@ export default function ContentWorkspace() {
     [dashboard, brandId],
   );
 
+  function replaceRequest(next: ContentRequest) {
+    setRequests((current) => current.map((item) => item.id === next.id ? next : item));
+  }
+
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
     if (!canSubmit) return;
@@ -97,21 +195,57 @@ export default function ContentWorkspace() {
     setError("");
     setSuccess("");
     try {
-      const result = await createContentRequest({
-        brandId,
-        contentType,
-        objective,
-        channel,
-        brief,
-      });
+      const result = await createContentRequest({ brandId, contentType, objective, channel, brief });
       setRequests((current) => [result.request, ...current]);
       setDashboard((current) => current ? { ...current, usage: result.usage } : current);
       setBrief("");
-      setSuccess("Pedido criado e créditos reservados. Ele já está na fila da MODO.");
+      setSuccess("Pedido criado. A produção já começou e esta tela atualizará automaticamente.");
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Não foi possível criar o pedido.");
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  async function handleApprove(id: string) {
+    setActionId(id);
+    setError("");
+    try {
+      replaceRequest(await approveContentRequest(id));
+      setSuccess("Conteúdo aprovado e encerrado com sucesso.");
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Não foi possível aprovar.");
+    } finally {
+      setActionId("");
+    }
+  }
+
+  async function handleRevision(id: string) {
+    if (revisionInstructions.trim().length < 5) return;
+    setActionId(id);
+    setError("");
+    try {
+      replaceRequest(await requestContentRevision(id, revisionInstructions));
+      setRevisionId("");
+      setRevisionInstructions("");
+      setSuccess("Revisão solicitada. A nova versão já entrou em produção.");
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Não foi possível solicitar a revisão.");
+    } finally {
+      setActionId("");
+    }
+  }
+
+  async function handleRetry(id: string) {
+    setActionId(id);
+    setError("");
+    try {
+      replaceRequest(await retryContentRequest(id));
+      setSuccess("Pedido reenviado sem novo consumo de créditos.");
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Não foi possível reenviar.");
+    } finally {
+      setActionId("");
     }
   }
 
@@ -127,15 +261,23 @@ export default function ContentWorkspace() {
     <div className="workspace-shell">
       <header className="workspace-header">
         <a href="/app"><img src="/logo.svg" alt="MODO" /></a>
-        <nav><a href="/app">Painel</a><a className="active" href="/app/content">Criar conteúdo</a></nav>
+        <nav><a href="/app">Painel</a><a className="active" href="/app/content">Criar conteúdo</a><a href="/app/planos">Planos</a></nav>
         <div className="workspace-balance"><small>Saldo</small><strong>{dashboard.usage.creditsRemaining}</strong><span>créditos</span></div>
       </header>
 
       <main className="workspace-main">
         <section className="workspace-intro">
-          <div><div className="section-kicker">MODO CREATE</div><h1>Transforme uma intenção em conteúdo.</h1><p>Escolha a marca, o objetivo e o formato. A MODO registra o pedido, reserva a capacidade e prepara o trabalho para a automação.</p></div>
+          <div><div className="section-kicker">MODO CREATE</div><h1>Da intenção à aprovação.</h1><p>Crie o pedido, acompanhe a produção, revise o material e aprove a versão final no mesmo fluxo.</p></div>
           <a className="button button-outline" href="/app">← Voltar ao painel</a>
         </section>
+
+        {!productionAllowed && (
+          <div className="workspace-blocked">
+            <strong>Produção temporariamente bloqueada.</strong>
+            <p>Regularize ou reative sua assinatura para criar novos conteúdos.</p>
+            <a className="button button-primary" href="/app/planos">Ver assinatura</a>
+          </div>
+        )}
 
         <div className="workspace-grid">
           <form className="workspace-form" onSubmit={handleSubmit}>
@@ -155,7 +297,7 @@ export default function ContentWorkspace() {
                 <div className="workspace-summary"><span>Marca: <strong>{selectedBrand?.name}</strong></span><span>Formato: <strong>{formatLabels[contentType]}</strong></span><span>Saldo após pedido: <strong>{Math.max(0, dashboard.usage.creditsRemaining - cost)}</strong></span></div>
                 {error && <div className="portal-error">{error}</div>}
                 {success && <div className="workspace-success">{success}</div>}
-                <button className="button button-primary button-full" disabled={!canSubmit || submitting}>{submitting ? "Enviando para a fila..." : `Criar pedido · ${cost} crédito${cost > 1 ? "s" : ""}`}</button>
+                <button className="button button-primary button-full" disabled={!canSubmit || submitting}>{submitting ? "Enviando para produção..." : `Criar pedido · ${cost} crédito${cost > 1 ? "s" : ""}`}</button>
                 {dashboard.usage.creditsRemaining < cost && <small className="workspace-warning">Saldo insuficiente para este formato. Escolha um formato de 1 crédito ou faça upgrade.</small>}
               </>
             )}
@@ -163,10 +305,54 @@ export default function ContentWorkspace() {
 
           <section className="workspace-history">
             <div className="workspace-history-heading"><div><small>HISTÓRICO</small><h2>Produção solicitada</h2></div><span>{requests.length} pedido(s)</span></div>
-            {requests.length === 0 ? <div className="workspace-empty-history"><strong>A fila ainda está vazia.</strong><p>Seu primeiro pedido aparecerá aqui com o status de processamento.</p></div> : <div className="workspace-request-list">{requests.map((request) => {
-              const brand = dashboard.brands.find((item) => item.id === request.brandId);
-              return <article key={request.id}><div className={`workspace-status ${request.status}`}>{statusLabels[request.status]}</div><h3>{formatLabels[request.contentType]} · {objectiveLabels[request.objective]}</h3><p>{request.brief}</p><div><span>{brand?.name || "Marca"}</span><span>{request.channel}</span><span>-{request.creditsCharged} crédito{request.creditsCharged > 1 ? "s" : ""}</span></div></article>;
-            })}</div>}
+            {requests.length === 0 ? (
+              <div className="workspace-empty-history"><strong>A fila ainda está vazia.</strong><p>Seu primeiro pedido aparecerá aqui com o status de processamento.</p></div>
+            ) : (
+              <div className="workspace-request-list">
+                {requests.map((request) => {
+                  const brand = dashboard.brands.find((item) => item.id === request.brandId);
+                  const expanded = expandedId === request.id;
+                  const canRevise = request.status === "ready" && request.revisionCount < request.maxRevisions;
+                  return (
+                    <article className={`workspace-request-card ${expanded ? "expanded" : ""}`} key={request.id}>
+                      <button className="workspace-request-summary" type="button" onClick={() => setExpandedId(expanded ? "" : request.id)}>
+                        <div className={`workspace-status ${request.status}`}>{statusLabels[request.status]}</div>
+                        <h3>{formatLabels[request.contentType]} · {objectiveLabels[request.objective]}</h3>
+                        <p>{request.brief}</p>
+                        <div><span>{brand?.name || "Marca"}</span><span>{request.channel}</span><span>-{request.creditsCharged} crédito{request.creditsCharged > 1 ? "s" : ""}</span></div>
+                        <small>{expanded ? "Fechar detalhes ↑" : "Ver detalhes ↓"}</small>
+                      </button>
+
+                      {expanded && (
+                        <div className="workspace-request-detail">
+                          {request.output && <OutputPanel output={request.output} />}
+                          {["queued", "processing", "revision_requested"].includes(request.status) && (
+                            <div className="content-processing"><div className="portal-spinner" /><div><strong>A MODO está produzindo.</strong><p>O resultado aparecerá aqui automaticamente.</p></div></div>
+                          )}
+                          {request.status === "failed" && (
+                            <div className="content-failed"><strong>A produção encontrou um problema.</strong><p>{request.error}</p><button className="button button-primary" disabled={actionId === request.id} onClick={() => void handleRetry(request.id)}>Reenviar sem cobrar créditos</button></div>
+                          )}
+                          {request.status === "ready" && (
+                            <div className="content-review-actions">
+                              <div><strong>{request.revisionCount}/{request.maxRevisions}</strong><span>revisões utilizadas</span></div>
+                              <button className="button button-primary" disabled={actionId === request.id} onClick={() => void handleApprove(request.id)}>Aprovar conteúdo</button>
+                              {canRevise && <button className="button button-secondary" onClick={() => setRevisionId(revisionId === request.id ? "" : request.id)}>Solicitar revisão</button>}
+                            </div>
+                          )}
+                          {revisionId === request.id && canRevise && (
+                            <div className="content-revision-form">
+                              <label>O que precisa mudar?<textarea value={revisionInstructions} onChange={(event) => setRevisionInstructions(event.target.value)} minLength={5} maxLength={1500} placeholder="Ex.: deixe o tom mais direto, reduza a legenda e destaque o benefício financeiro no segundo slide." /></label>
+                              <div><button className="button button-secondary" onClick={() => setRevisionId("")}>Cancelar</button><button className="button button-primary" disabled={revisionInstructions.trim().length < 5 || actionId === request.id} onClick={() => void handleRevision(request.id)}>Enviar revisão</button></div>
+                            </div>
+                          )}
+                          {request.status === "approved" && <div className="content-approved"><strong>✓ Conteúdo aprovado</strong><p>Esta versão está pronta para a próxima etapa de publicação.</p></div>}
+                        </div>
+                      )}
+                    </article>
+                  );
+                })}
+              </div>
+            )}
           </section>
         </div>
       </main>

@@ -3,6 +3,7 @@ import { PublicPlanSlugSchema } from "./index.js";
 
 export const WooviCheckoutRequestSchema = z.object({
   plan: PublicPlanSlugSchema,
+  couponCode: z.string().trim().toUpperCase().min(3).max(32).regex(/^[A-Z0-9_-]+$/).optional(),
   customer: z.object({
     name: z.string().trim().min(2).max(120),
     email: z.string().email().max(180),
@@ -28,5 +29,11 @@ export const WooviCheckoutResponseSchema = z.object({
   emv: z.string(),
   status: z.string(),
   pixRecurringStatus: z.string(),
+  discount: z.object({
+    code: z.string(),
+    originalPriceCents: z.number().int().nonnegative(),
+    finalPriceCents: z.number().int().positive(),
+    savedCents: z.number().int().nonnegative(),
+  }).optional(),
 });
 export type WooviCheckoutResponse = z.infer<typeof WooviCheckoutResponseSchema>;

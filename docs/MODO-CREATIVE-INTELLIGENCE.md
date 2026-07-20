@@ -81,6 +81,8 @@ O mesmo cérebro opera em:
 - Reels;
 - Stories;
 - YouTube Shorts;
+- TikTok;
+- WhatsApp;
 - Blog;
 - E-mail;
 - Site.

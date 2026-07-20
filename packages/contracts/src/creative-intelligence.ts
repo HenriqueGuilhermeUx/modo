@@ -8,6 +8,8 @@ export const CreativeChannelSchema = z.enum([
   "reels",
   "stories",
   "youtube_shorts",
+  "tiktok",
+  "whatsapp",
   "blog",
   "email",
   "website",

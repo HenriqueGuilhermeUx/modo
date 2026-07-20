@@ -22,6 +22,8 @@ const channelLabels: Record<CreativeChannel, string> = {
   reels: "Reels",
   stories: "Stories",
   youtube_shorts: "YouTube Shorts",
+  tiktok: "TikTok",
+  whatsapp: "WhatsApp",
   blog: "Blog",
   email: "E-mail",
   website: "Site",

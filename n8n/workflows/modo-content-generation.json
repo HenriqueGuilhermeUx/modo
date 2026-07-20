@@ -1,0 +1,125 @@
+{
+  "name": "MODO — Geração de conteúdo",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "modo-content-generation",
+        "authentication": "headerAuth",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "9a3340ef-72df-49a5-a842-2a94bf8edcc5",
+      "name": "MODO Content Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [-520, 0],
+      "webhookId": "a13f4dc2-a4e3-4606-9242-1c49a7a9be3a",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_MODO_SECRET_CREDENTIAL",
+          "name": "MODO Content Secret"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const payload = $json.body ?? $json;\nconst request = payload.request;\nconst brand = payload.brand;\nconst schema = {\n  type: 'object',\n  additionalProperties: false,\n  required: ['hook','title','caption','cta','hashtags','visualDirection','slides','script','storyFrames','adaptationNotes'],\n  properties: {\n    hook: { type: 'string' },\n    title: { type: 'string' },\n    caption: { type: 'string' },\n    cta: { type: 'string' },\n    hashtags: { type: 'array', items: { type: 'string' }, maxItems: 15 },\n    visualDirection: { type: 'string' },\n    slides: { type: 'array', maxItems: 12, items: { type: 'object', additionalProperties: false, required: ['title','body'], properties: { title: { type: 'string' }, body: { type: 'string' } } } },\n    script: { type: 'array', maxItems: 12, items: { type: 'object', additionalProperties: false, required: ['scene','visual','voiceover'], properties: { scene: { type: 'string' }, visual: { type: 'string' }, voiceover: { type: 'string' } } } },\n    storyFrames: { type: 'array', maxItems: 10, items: { type: 'object', additionalProperties: false, required: ['headline','body','interaction'], properties: { headline: { type: 'string' }, body: { type: 'string' }, interaction: { type: 'string' } } } },\n    adaptationNotes: { type: 'array', maxItems: 10, items: { type: 'string' } }\n  }\n};\nconst revision = request.revisionInstructions ? `\\nINSTRUÇÕES DE REVISÃO: ${request.revisionInstructions}\\nVERSÃO ANTERIOR: ${JSON.stringify(request.output)}` : '';\nconst prompt = `Crie uma peça de conteúdo em português do Brasil.\\nMARCA: ${brand.name}\\nNICHO: ${brand.niche}\\nSITE: ${brand.websiteUrl || 'não informado'}\\nINSTAGRAM: ${brand.instagramHandle || 'não informado'}\\nFORMATO: ${request.contentType}\\nOBJETIVO: ${request.objective}\\nCANAL: ${request.channel}\\nBRIEFING: ${request.brief}${revision}\\n\\nRegras: seja específico, evite clichês, preserve coerência com o formato, use hashtags relevantes sem excesso e deixe vazias as estruturas que não pertencem ao formato.`;\nreturn [{ json: {\n  callbackUrl: payload.callbackUrl,\n  requestId: request.id,\n  openaiBody: {\n    model: 'gpt-5.6-luna',\n    store: false,\n    input: [\n      { role: 'system', content: [{ type: 'input_text', text: 'Você é estrategista e redator sênior da MODO. Entregue conteúdo publicável, claro, útil e orientado ao objetivo da marca.' }] },\n      { role: 'user', content: [{ type: 'input_text', text: prompt }] }\n    ],\n    text: { format: { type: 'json_schema', name: 'modo_generated_content', description: 'Conteúdo estruturado para revisão no portal MODO', strict: true, schema } }\n  }\n} }];"
+      },
+      "id": "2f7c669e-7dfd-4ce9-8fa5-2d94f0bf96fa",
+      "name": "Build OpenAI Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-280, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/responses",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify($json.openaiBody) }}",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "58b2848c-99d2-484f-ab24-c343a34350fd",
+      "name": "OpenAI Structured Content",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-20, 0],
+      "onError": "continueRegularOutput",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_OPENAI_HEADER_CREDENTIAL",
+          "name": "OpenAI API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const source = $('Build OpenAI Payload').item.json;\nconst response = $json;\nif (response.error) {\n  return [{ json: { callbackUrl: source.callbackUrl, callbackBody: { status: 'failed', error: response.error.message || JSON.stringify(response.error), providerRunId: response.id } } }];\n}\nlet text = response.output_text;\nif (!text && Array.isArray(response.output)) {\n  for (const item of response.output) {\n    for (const content of item.content ?? []) {\n      if (content.type === 'output_text' && content.text) text = content.text;\n    }\n  }\n}\nif (!text) {\n  return [{ json: { callbackUrl: source.callbackUrl, callbackBody: { status: 'failed', error: 'A OpenAI não retornou conteúdo estruturado.', providerRunId: response.id } } }];\n}\ntry {\n  return [{ json: { callbackUrl: source.callbackUrl, callbackBody: { status: 'completed', output: JSON.parse(text), providerRunId: response.id } } }];\n} catch (error) {\n  return [{ json: { callbackUrl: source.callbackUrl, callbackBody: { status: 'failed', error: `Resposta JSON inválida: ${error.message}`, providerRunId: response.id } } }];\n}"
+      },
+      "id": "eed2cc3c-4078-4da0-b37d-bced8ee053c1",
+      "name": "Normalize Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [240, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.callbackUrl }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify($json.callbackBody) }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "65af2813-418f-42d1-a90d-fb7a0f83624e",
+      "name": "Return Result to MODO",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [500, 0],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_MODO_SECRET_CREDENTIAL",
+          "name": "MODO Content Secret"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "MODO Content Webhook": {
+      "main": [[{ "node": "Build OpenAI Payload", "type": "main", "index": 0 }]]
+    },
+    "Build OpenAI Payload": {
+      "main": [[{ "node": "OpenAI Structured Content", "type": "main", "index": 0 }]]
+    },
+    "OpenAI Structured Content": {
+      "main": [[{ "node": "Normalize Result", "type": "main", "index": 0 }]]
+    },
+    "Normalize Result": {
+      "main": [[{ "node": "Return Result to MODO", "type": "main", "index": 0 }]]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "none",
+    "saveManualExecutions": true
+  },
+  "versionId": "1b8d3e30-63f6-441a-906c-d443f99322e5",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}

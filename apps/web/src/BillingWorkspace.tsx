@@ -2,10 +2,12 @@ import {
   planEntitlements,
   type Dashboard,
   type PublicPlanSlug,
+  type SubscriptionStatus,
 } from "@modo/contracts";
 import type { WooviCheckoutResponse } from "@modo/contracts/payment";
 import { type FormEvent, useEffect, useMemo, useState } from "react";
 import {
+  cancelWooviSubscription,
   createWooviCheckout,
   getDashboard,
   getSessionToken,
@@ -26,8 +28,20 @@ const planDescriptions: Record<PublicPlanSlug, string> = {
   business: "Para equipes e operações mais complexas.",
 };
 
+const statusLabels: Record<SubscriptionStatus, string> = {
+  active: "Ativa",
+  retrying: "Pagamento em retentativa",
+  suspended: "Suspensa",
+  canceled: "Cancelada",
+};
+
 function normalizeDigits(value: string) {
   return value.replace(/\D/g, "");
+}
+
+function isOperational(dashboard: Dashboard) {
+  return dashboard.usage.plan !== "trial" &&
+    ["active", "retrying"].includes(dashboard.usage.status);
 }
 
 export default function BillingWorkspace() {
@@ -41,10 +55,10 @@ export default function BillingWorkspace() {
   const [plan, setPlan] = useState<PublicPlanSlug>(initialPlan);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [canceling, setCanceling] = useState(false);
   const [error, setError] = useState("");
   const [checkout, setCheckout] = useState<WooviCheckoutResponse | null>(null);
   const [copied, setCopied] = useState(false);
-  const [activated, setActivated] = useState(false);
 
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
@@ -77,27 +91,25 @@ export default function BillingWorkspace() {
       .then((data) => {
         setDashboard(data);
         setName(data.user.name);
-        if (data.usage.plan !== "trial") setActivated(true);
       })
       .catch((caught) => setError(caught instanceof Error ? caught.message : "Não foi possível carregar sua conta."))
       .finally(() => setLoading(false));
   }, []);
 
   useEffect(() => {
-    if (!checkout || activated) return;
+    if (!checkout || !dashboard || isOperational(dashboard)) return;
     const timer = window.setInterval(() => {
       getDashboard()
         .then((data) => {
           setDashboard(data);
-          if (data.usage.plan !== "trial") {
-            setActivated(true);
+          if (data.usage.plan === plan && data.usage.status === "active") {
             window.clearInterval(timer);
           }
         })
         .catch(() => undefined);
     }, 5000);
     return () => window.clearInterval(timer);
-  }, [checkout, activated]);
+  }, [checkout, dashboard, plan]);
 
   async function handleCheckout(event: FormEvent) {
     event.preventDefault();
@@ -140,6 +152,21 @@ export default function BillingWorkspace() {
     setCopied(true);
   }
 
+  async function handleCancel() {
+    if (!window.confirm("Cancelar a recorrência da MODO? A produção será bloqueada imediatamente.")) return;
+    setCanceling(true);
+    setError("");
+    try {
+      const result = await cancelWooviSubscription();
+      if (dashboard) setDashboard({ ...dashboard, usage: result.usage });
+      setCheckout(null);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Não foi possível cancelar a assinatura.");
+    } finally {
+      setCanceling(false);
+    }
+  }
+
   async function handleLogout() {
     await logoutAccount();
     window.location.href = "/app";
@@ -165,6 +192,9 @@ export default function BillingWorkspace() {
     );
   }
 
+  const operational = isOperational(dashboard);
+  const paidPlan = dashboard.usage.plan !== "trial";
+
   return (
     <div className="billing-shell">
       <header className="billing-topbar">
@@ -186,20 +216,34 @@ export default function BillingWorkspace() {
           <aside>
             <small>Plano atual</small>
             <strong>{dashboard.usage.plan === "trial" ? "Teste gratuito" : planNames[dashboard.usage.plan]}</strong>
-            <span>{dashboard.usage.creditsRemaining} créditos disponíveis</span>
+            <span className={`billing-status status-${dashboard.usage.status}`}>{statusLabels[dashboard.usage.status]}</span>
           </aside>
         </section>
 
-        {activated ? (
-          <section className="billing-success">
-            <div>✓</div>
-            <span>ASSINATURA ATIVADA</span>
-            <h2>Seu plano já está em modo presença.</h2>
-            <p>Os novos créditos e limites já estão disponíveis no painel.</p>
-            <a className="button button-primary" href="/app">Ir para o painel</a>
+        {error && <div className="portal-error portal-error-wide">{error}</div>}
+
+        {operational ? (
+          <section className={`billing-success ${dashboard.usage.status === "retrying" ? "billing-warning" : ""}`}>
+            <div>{dashboard.usage.status === "retrying" ? "!" : "✓"}</div>
+            <span>{dashboard.usage.status === "retrying" ? "COBRANÇA EM RETENTATIVA" : "ASSINATURA ATIVA"}</span>
+            <h2>{dashboard.usage.status === "retrying" ? "Seu acesso segue ativo durante as tentativas." : "Seu plano está em modo presença."}</h2>
+            <p>{dashboard.usage.status === "retrying" ? "A Woovi fará novas tentativas. Atualize o saldo da conta vinculada para evitar suspensão." : "Créditos e limites estão disponíveis até o fim deste ciclo."}</p>
+            <div className="billing-success-actions">
+              <a className="button button-primary" href="/app">Ir para o painel</a>
+              <button className="button button-secondary" onClick={handleCancel} disabled={canceling}>
+                {canceling ? "Cancelando..." : "Cancelar assinatura"}
+              </button>
+            </div>
           </section>
         ) : (
           <>
+            {paidPlan && (
+              <section className={`billing-lifecycle-alert ${dashboard.usage.status}`}>
+                <strong>{dashboard.usage.status === "suspended" ? "Assinatura suspensa" : "Assinatura cancelada"}</strong>
+                <p>{dashboard.usage.status === "suspended" ? "As tentativas de cobrança terminaram sem pagamento. Ative novamente para liberar um novo ciclo." : "A recorrência foi encerrada. Escolha um plano para voltar a produzir."}</p>
+              </section>
+            )}
+
             <section className="billing-plan-grid">
               {(Object.keys(planNames) as PublicPlanSlug[]).map((slug) => {
                 const item = planEntitlements[slug];
@@ -245,7 +289,6 @@ export default function BillingWorkspace() {
                   <label>Complemento<input value={complement} onChange={(event) => setComplement(event.target.value)} /></label>
                 </div>
 
-                {error && <div className="portal-error">{error}</div>}
                 <button className="button button-primary button-full" disabled={submitting}>
                   {submitting ? "Criando Pix Automático..." : `Ativar por ${price}/mês`}
                 </button>
@@ -260,8 +303,8 @@ export default function BillingWorkspace() {
                 <div><small>Marcas</small><strong>{selectedEntitlement.maxBrands}</strong></div>
                 <div><small>Canais</small><strong>{selectedEntitlement.maxChannels}</strong></div>
                 <ul>
-                  <li>Cancelamento conforme regras da assinatura</li>
-                  <li>Ativação automática após autorização</li>
+                  <li>Cancelamento direto pelo painel</li>
+                  <li>Ativação automática após pagamento</li>
                   <li>Pagamento processado pela Woovi</li>
                 </ul>
               </aside>
@@ -272,7 +315,7 @@ export default function BillingWorkspace() {
                 <div>
                   <span>AGUARDANDO AUTORIZAÇÃO</span>
                   <h2>Conclua no seu banco.</h2>
-                  <p>Depois da autorização, esta tela atualizará automaticamente e liberará seu plano.</p>
+                  <p>Depois do pagamento, esta tela atualizará automaticamente e liberará seu novo ciclo.</p>
                 </div>
                 <div className="billing-pending-actions">
                   <a className="button button-primary" href={checkout.paymentLinkUrl} target="_blank" rel="noreferrer">Abrir pagamento</a>

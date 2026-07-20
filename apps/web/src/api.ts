@@ -17,6 +17,13 @@ import {
   type LoginRequest,
   type RegisterRequest,
 } from "@modo/contracts";
+import {
+  ContentRequestCreateSchema,
+  ContentRequestListSchema,
+  ContentRequestSchema,
+  type ContentRequest,
+  type ContentRequestCreate,
+} from "@modo/contracts/content";
 
 const API_URL = (import.meta.env.VITE_API_URL || "http://localhost:4000").replace(/\/$/, "");
 const TOKEN_KEY = "modo.sessionToken";
@@ -96,6 +103,27 @@ export async function createBrand(input: BrandCreateRequest): Promise<Brand> {
       true,
     ),
   );
+}
+
+export async function listContentRequests(): Promise<ContentRequest[]> {
+  return ContentRequestListSchema.parse(
+    await request<unknown>("/api/v1/content-requests", undefined, true),
+  ).requests;
+}
+
+export async function createContentRequest(input: ContentRequestCreate) {
+  const payload = await request<{ request: unknown; usage: Dashboard["usage"] }>(
+    "/api/v1/content-requests",
+    {
+      method: "POST",
+      body: JSON.stringify(ContentRequestCreateSchema.parse(input)),
+    },
+    true,
+  );
+  return {
+    request: ContentRequestSchema.parse(payload.request),
+    usage: payload.usage,
+  };
 }
 
 export async function logoutAccount() {

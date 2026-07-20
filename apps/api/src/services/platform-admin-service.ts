@@ -339,59 +339,71 @@ export class PlatformAdminService {
   }
 
   async listOrganizations(): Promise<AdminOrganization[]> {
-    const result = await this.requirePool().query<{
-      id: string;
-      name: string;
-      owner_name: string;
-      owner_email: string;
-      plan_slug: PlanSlug;
-      status: SubscriptionStatus;
-      credits_granted: number;
-      credits_used: number;
-      brands: number;
-      users: number;
-      content_requests: number;
-      created_at: Date;
-    }>(`
-      SELECT o.id,o.name,o.created_at,
-        COALESCE(MAX(u.name) FILTER (WHERE m.role='owner'),MAX(u.name),'Sem responsável') AS owner_name,
-        COALESCE(MAX(u.email) FILTER (WHERE m.role='owner'),MAX(u.email),'indisponivel@modo.local') AS owner_email,
-        COALESCE(s.plan_slug,'trial') AS plan_slug,
-        COALESCE(s.status,'canceled') AS status,
-        COALESCE(SUM(l.credits) FILTER (WHERE l.period_start=s.period_start AND l.credits>0),0)::int AS credits_granted,
-        COALESCE(ABS(SUM(l.credits) FILTER (WHERE l.period_start=s.period_start AND l.credits<0)),0)::int AS credits_used,
-        COUNT(DISTINCT b.id)::int AS brands,
-        COUNT(DISTINCT m.user_id)::int AS users,
-        COUNT(DISTINCT c.id)::int AS content_requests
-      FROM modo_organizations o
-      LEFT JOIN modo_memberships m ON m.organization_id=o.id
-      LEFT JOIN modo_users u ON u.id=m.user_id
-      LEFT JOIN modo_subscriptions s ON s.account_id=o.id
-      LEFT JOIN modo_credit_ledger l ON l.account_id=o.id
-      LEFT JOIN modo_brands b ON b.organization_id=o.id
-      LEFT JOIN modo_content_requests c ON c.organization_id=o.id
-      GROUP BY o.id,o.name,o.created_at,s.plan_slug,s.status,s.period_start
-      ORDER BY o.created_at DESC
-      LIMIT 500
-    `);
-    return result.rows.map((row) => ({
-      id: row.id,
-      name: row.name,
-      ownerName: row.owner_name,
-      ownerEmail: row.owner_email,
-      plan: row.plan_slug,
-      status: row.status,
-      creditsGranted: Number(row.credits_granted),
-      creditsUsed: Number(row.credits_used),
-      creditsRemaining: Math.max(0, Number(row.credits_granted) - Number(row.credits_used)),
-      brands: Number(row.brands),
-      users: Number(row.users),
-      contentRequests: Number(row.content_requests),
-      createdAt: row.created_at.toISOString(),
-    }));
-  }
+  const result = await this.requirePool().query<{
+    id: string;
+    name: string;
+    owner_name: string;
+    owner_email: string;
+    plan_slug: PlanSlug;
+    status: SubscriptionStatus;
+    credits_granted: number;
+    credits_used: number;
+    brands: number;
+    users: number;
+    content_requests: number;
+    created_at: Date;
+  }>(`
+    SELECT o.id,o.name,o.created_at,
+      COALESCE((
+        SELECT u.name FROM modo_memberships m
+        JOIN modo_users u ON u.id=m.user_id
+        WHERE m.organization_id=o.id
+        ORDER BY CASE m.role WHEN 'owner' THEN 0 WHEN 'admin' THEN 1 ELSE 2 END,m.created_at ASC
+        LIMIT 1
+      ),'Sem responsável') AS owner_name,
+      COALESCE((
+        SELECT u.email FROM modo_memberships m
+        JOIN modo_users u ON u.id=m.user_id
+        WHERE m.organization_id=o.id
+        ORDER BY CASE m.role WHEN 'owner' THEN 0 WHEN 'admin' THEN 1 ELSE 2 END,m.created_at ASC
+        LIMIT 1
+      ),'sem-responsavel@modo.app') AS owner_email,
+      COALESCE(s.plan_slug,'trial') AS plan_slug,
+      COALESCE(s.status,'canceled') AS status,
+      COALESCE((
+        SELECT SUM(l.credits)::int FROM modo_credit_ledger l
+        WHERE l.account_id=o.id AND l.period_start=s.period_start AND l.credits>0
+      ),0) AS credits_granted,
+      COALESCE((
+        SELECT ABS(SUM(l.credits))::int FROM modo_credit_ledger l
+        WHERE l.account_id=o.id AND l.period_start=s.period_start AND l.credits<0
+      ),0) AS credits_used,
+      (SELECT COUNT(*)::int FROM modo_brands b WHERE b.organization_id=o.id) AS brands,
+      (SELECT COUNT(*)::int FROM modo_memberships m WHERE m.organization_id=o.id) AS users,
+      (SELECT COUNT(*)::int FROM modo_content_requests c WHERE c.organization_id=o.id) AS content_requests
+    FROM modo_organizations o
+    LEFT JOIN modo_subscriptions s ON s.account_id=o.id
+    ORDER BY o.created_at DESC
+    LIMIT 500
+  `);
+  return result.rows.map((row) => ({
+    id: row.id,
+    name: row.name,
+    ownerName: row.owner_name,
+    ownerEmail: row.owner_email,
+    plan: row.plan_slug,
+    status: row.status,
+    creditsGranted: Number(row.credits_granted),
+    creditsUsed: Number(row.credits_used),
+    creditsRemaining: Math.max(0, Number(row.credits_granted) - Number(row.credits_used)),
+    brands: Number(row.brands),
+    users: Number(row.users),
+    contentRequests: Number(row.content_requests),
+    createdAt: row.created_at.toISOString(),
+  }));
+}
 
-  async createInvitation(input: AdminInvitationCreate): Promise<AdminInvitation> {
+async createInvitation(input: AdminInvitationCreate): Promise<AdminInvitation> {
     const token = randomBytes(32).toString("base64url");
     const expiresAt = addDays(new Date(), input.expiresInDays);
     const result = await this.requirePool().query<InvitationRow>(

@@ -1,0 +1,53 @@
+name: Apply Multichannel Completion
+on:
+  pull_request:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  patch:
+    if: github.head_ref == 'ci/add-tiktok-whatsapp'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Add TikTok and WhatsApp to MODO channels
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          set -e
+          git clone --quiet --depth 1 "https://x-access-token:${GH_TOKEN}@github.com/${REPOSITORY}.git" repo
+          cd repo
+          python3 - <<'PY'
+          from pathlib import Path
+
+          changes = {
+            'packages/contracts/src/creative-intelligence.ts': [
+              ('  "youtube_shorts",\n  "blog",', '  "youtube_shorts",\n  "tiktok",\n  "whatsapp",\n  "blog",'),
+            ],
+            'apps/web/src/DirectorWorkspace.tsx': [
+              ('  youtube_shorts: "YouTube Shorts",\n  blog: "Blog",', '  youtube_shorts: "YouTube Shorts",\n  tiktok: "TikTok",\n  whatsapp: "WhatsApp",\n  blog: "Blog",'),
+            ],
+            'apps/web/src/SignalWorkspace.tsx': [
+              ('  youtube_shorts: "YouTube Shorts",\n  blog: "Blog",', '  youtube_shorts: "YouTube Shorts",\n  tiktok: "TikTok",\n  whatsapp: "WhatsApp",\n  blog: "Blog",'),
+              ('  youtube: "youtube_shorts",\n  blog: "blog",', '  youtube: "youtube_shorts",\n  tiktok: "tiktok",\n  whatsapp: "whatsapp",\n  zap: "whatsapp",\n  blog: "blog",'),
+            ],
+            'docs/MODO-CREATIVE-INTELLIGENCE.md': [
+              ('- YouTube Shorts;\n- Blog;', '- YouTube Shorts;\n- TikTok;\n- WhatsApp;\n- Blog;'),
+            ],
+          }
+
+          for filename, replacements in changes.items():
+            path = Path(filename)
+            text = path.read_text()
+            for old, new in replacements:
+              if old not in text:
+                raise SystemExit(f'Expected text not found in {filename}: {old!r}')
+              text = text.replace(old, new)
+            path.write_text(text)
+          PY
+          git config user.name "MODO CI"
+          git config user.email "actions@github.com"
+          git add packages/contracts/src/creative-intelligence.ts apps/web/src/DirectorWorkspace.tsx apps/web/src/SignalWorkspace.tsx docs/MODO-CREATIVE-INTELLIGENCE.md
+          git commit -m "complete TikTok and WhatsApp channel support"
+          git push origin HEAD:main

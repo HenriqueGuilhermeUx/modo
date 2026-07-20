@@ -45,6 +45,14 @@ services:
         sync: false
       - key: WOOVI_WEBHOOK_AUTHORIZATION
         sync: false
+      - key: PLATFORM_ADMIN_EMAIL
+        sync: false
+      - key: PLATFORM_ADMIN_PASSWORD
+        sync: false
+      - key: PLATFORM_ADMIN_NAME
+        value: Administrador MODO
+      - key: PLATFORM_ADMIN_SESSION_HOURS
+        value: 12
       - key: LINKEDIN_CLIENT_ID
         sync: false
       - key: LINKEDIN_CLIENT_SECRET

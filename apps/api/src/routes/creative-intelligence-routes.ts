@@ -6,7 +6,9 @@ import {
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import { z } from "zod";
 import { AuthError, type AuthService } from "../services/auth-service.js";
+import { ContentService } from "../services/content-service.js";
 import { CreativeIntelligenceService } from "../services/creative-intelligence-service.js";
+import { registerLinkedInRoutes } from "./linkedin-routes.js";
 
 interface Options {
   auth: AuthService;
@@ -38,8 +40,28 @@ export async function registerCreativeIntelligenceRoutes(
     databaseUrl: options.databaseUrl,
     databaseSsl: options.databaseSsl,
   });
-  await service.initialize();
-  app.addHook("onClose", async () => service.close());
+  const linkedInContent = new ContentService({
+    databaseUrl: options.databaseUrl,
+    databaseSsl: options.databaseSsl,
+  });
+  await Promise.all([service.initialize(), linkedInContent.initialize()]);
+  app.addHook("onClose", async () => {
+    await Promise.all([service.close(), linkedInContent.close()]);
+  });
+
+  await registerLinkedInRoutes(app, {
+    auth: options.auth,
+    content: linkedInContent,
+    clientId: process.env.LINKEDIN_CLIENT_ID,
+    clientSecret: process.env.LINKEDIN_CLIENT_SECRET,
+    redirectUri: process.env.LINKEDIN_REDIRECT_URI,
+    scopes: process.env.LINKEDIN_SCOPES,
+    encryptionSecret: process.env.LINKEDIN_TOKEN_ENCRYPTION_SECRET,
+    apiVersion: process.env.LINKEDIN_API_VERSION,
+    webUrl: process.env.PUBLIC_WEB_URL,
+    databaseUrl: options.databaseUrl,
+    databaseSsl: options.databaseSsl,
+  });
 
   app.get("/api/v1/director/profile/:brandId", async (request) => {
     const brandId = z.string().uuid().parse((request.params as { brandId: string }).brandId);

@@ -11,7 +11,7 @@ function brandNameFromUrl(rawUrl: string): string {
 }
 
 export class DemoDiagnosticProvider implements DiagnosticProvider {
-  constructor(private readonly delayMs = 5200) {}
+  constructor(private readonly delayMs = 2600) {}
 
   async generate(input: DiagnosticCreateRequest): Promise<DiagnosticResult> {
     await sleep(this.delayMs);

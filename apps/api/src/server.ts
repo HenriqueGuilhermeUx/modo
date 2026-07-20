@@ -24,6 +24,11 @@ const app = await createApp({
   paymentsProvider: config.PAYMENTS_PROVIDER,
   wooviAppId: config.WOOVI_APP_ID,
   wooviWebhookAuthorization: config.WOOVI_WEBHOOK_AUTHORIZATION,
+  contentProvider: config.CONTENT_PROVIDER,
+  contentWebhookUrl: config.N8N_CONTENT_WEBHOOK_URL,
+  contentSecret: config.N8N_CONTENT_SECRET,
+  publicApiUrl: config.PUBLIC_API_URL,
+  contentDemoDelayMs: config.CONTENT_DEMO_DELAY_MS,
 });
 
 try {

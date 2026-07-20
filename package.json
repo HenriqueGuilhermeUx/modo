@@ -1,6 +1,6 @@
 {
   "name": "modo",
-  "version": "0.1.0",
+  "version": "0.9.0",
   "private": true,
   "description": "MODO — agência inteligente de presença digital.",
   "workspaces": ["apps/*", "packages/*"],
@@ -11,6 +11,7 @@
     "build": "npm run build --workspace=@modo/contracts && npm run build --workspace=@modo/api && npm run build --workspace=@modo/web",
     "test": "npm run test --workspace=@modo/api",
     "typecheck": "npm run typecheck --workspace=@modo/contracts && npm run typecheck --workspace=@modo/api && npm run typecheck --workspace=@modo/web",
+    "smoke:production": "node scripts/smoke-production.mjs",
     "postinstall": "npm run build --workspace=@modo/contracts"
   },
   "engines": {"node": ">=20"}

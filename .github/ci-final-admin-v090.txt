@@ -1,0 +1,1 @@
+Final validation for MODO platform admin, invitations, credits, subscriptions, discount campaigns, Woovi coupons and production smoke tooling.

@@ -15,12 +15,16 @@ services:
         value: 10000
       - key: PUBLIC_API_URL
         value: https://modo-api-3m10.onrender.com
+      - key: PUBLIC_WEB_URL
+        value: https://modo1.netlify.app
       - key: ALLOWED_ORIGINS
         value: https://modo1.netlify.app,http://localhost:5173
       - key: DIAGNOSTIC_PROVIDER
         value: demo
+      - key: DEMO_DIAGNOSTIC_DELAY_MS
+        value: 2600
       - key: CONTENT_PROVIDER
-        value: demo
+        sync: false
       - key: CONTENT_DEMO_DELAY_MS
         value: 1800
       - key: N8N_CONTENT_WEBHOOK_URL
@@ -36,8 +40,20 @@ services:
       - key: ENABLE_DEMO_BILLING
         value: false
       - key: PAYMENTS_PROVIDER
-        value: disabled
+        sync: false
       - key: WOOVI_APP_ID
         sync: false
       - key: WOOVI_WEBHOOK_AUTHORIZATION
         sync: false
+      - key: LINKEDIN_CLIENT_ID
+        sync: false
+      - key: LINKEDIN_CLIENT_SECRET
+        sync: false
+      - key: LINKEDIN_REDIRECT_URI
+        value: https://modo-api-3m10.onrender.com/api/v1/linkedin/callback
+      - key: LINKEDIN_SCOPES
+        value: r_liteprofile w_member_social
+      - key: LINKEDIN_TOKEN_ENCRYPTION_SECRET
+        sync: false
+      - key: LINKEDIN_API_VERSION
+        value: 202606

@@ -13,10 +13,20 @@ services:
         value: production
       - key: PORT
         value: 10000
+      - key: PUBLIC_API_URL
+        value: https://modo-api-3m10.onrender.com
       - key: ALLOWED_ORIGINS
         value: https://modo1.netlify.app,http://localhost:5173
       - key: DIAGNOSTIC_PROVIDER
         value: demo
+      - key: CONTENT_PROVIDER
+        value: demo
+      - key: CONTENT_DEMO_DELAY_MS
+        value: 1800
+      - key: N8N_CONTENT_WEBHOOK_URL
+        sync: false
+      - key: N8N_CONTENT_SECRET
+        sync: false
       - key: DATABASE_URL
         sync: false
       - key: DATABASE_SSL

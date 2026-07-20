@@ -19,6 +19,7 @@ import {
   retryContentRequest,
 } from "./api";
 import CreativeDirector from "./CreativeDirector";
+import { recordCreativeFeedback } from "./director-api";
 import ProductionProgress from "./ProductionProgress";
 
 const formatLabels: Record<ContentUnitType, string> = {
@@ -45,6 +46,15 @@ const statusLabels: Record<ContentRequest["status"], string> = {
   revision_requested: "Revisão solicitada",
   failed: "Falhou",
   cancelled: "Cancelado",
+};
+
+type DirectorPrefill = {
+  brandId: string;
+  contentType: ContentUnitType;
+  objective: ContentObjective;
+  channel: string;
+  brief: string;
+  recommendationId?: string;
 };
 
 function OutputPanel({ output }: { output: GeneratedContent }) {
@@ -111,6 +121,8 @@ export default function ContentWorkspace() {
   const [expandedId, setExpandedId] = useState("");
   const [revisionId, setRevisionId] = useState("");
   const [revisionInstructions, setRevisionInstructions] = useState("");
+  const [prefilledFromDirector, setPrefilledFromDirector] = useState(false);
+  const [sourceRecommendationId, setSourceRecommendationId] = useState("");
 
   async function load(showSpinner = true) {
     if (showSpinner) setLoading(true);
@@ -118,7 +130,28 @@ export default function ContentWorkspace() {
       const [currentDashboard, currentRequests] = await Promise.all([getDashboard(), listContentRequests()]);
       setDashboard(currentDashboard);
       setRequests(currentRequests);
-      setBrandId((current) => current || currentDashboard.brands[0]?.id || "");
+
+      const rawPrefill = window.sessionStorage.getItem("modo.directorPrefill");
+      if (rawPrefill) {
+        try {
+          const prefill = JSON.parse(rawPrefill) as DirectorPrefill;
+          if (currentDashboard.brands.some((item) => item.id === prefill.brandId)) {
+            setBrandId(prefill.brandId);
+            setContentType(prefill.contentType);
+            setObjective(prefill.objective);
+            setChannel(prefill.channel);
+            setBrief(prefill.brief);
+            setSourceRecommendationId(prefill.recommendationId || "");
+            setPrefilledFromDirector(true);
+            setSuccess("O Diretor já preparou esta solicitação. Revise e envie para produção.");
+          }
+        } catch {
+          // Ignore invalid session data.
+        }
+        window.sessionStorage.removeItem("modo.directorPrefill");
+      } else {
+        setBrandId((current) => current || currentDashboard.brands[0]?.id || "");
+      }
       setError("");
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Não foi possível carregar a produção.");
@@ -162,6 +195,15 @@ export default function ContentWorkspace() {
       setRequests((current) => [result.request, ...current]);
       setDashboard((current) => current ? { ...current, usage: result.usage } : current);
       setExpandedId(result.request.id);
+      if (sourceRecommendationId) {
+        await recordCreativeFeedback(brandId, {
+          recommendationId: sourceRecommendationId,
+          contentRequestId: result.request.id,
+          signal: "accepted",
+        }).catch(() => undefined);
+        setSourceRecommendationId("");
+      }
+      setPrefilledFromDirector(false);
       setSuccess("Pedido assumido pelo Diretor de Criação. Você pode acompanhar as etapas abaixo.");
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Não foi possível criar o pedido.");
@@ -170,12 +212,16 @@ export default function ContentWorkspace() {
     }
   }
 
-  async function handleApprove(id: string) {
-    setActionId(id);
+  async function handleApprove(request: ContentRequest) {
+    setActionId(request.id);
     setError("");
     try {
-      replaceRequest(await approveContentRequest(id));
-      setSuccess("Conteúdo aprovado e encerrado com sucesso.");
+      replaceRequest(await approveContentRequest(request.id));
+      await recordCreativeFeedback(request.brandId, {
+        contentRequestId: request.id,
+        signal: "approved",
+      }).catch(() => undefined);
+      setSuccess("Conteúdo aprovado. A MODO usará esta decisão nas próximas sugestões.");
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Não foi possível aprovar.");
     } finally {
@@ -183,15 +229,20 @@ export default function ContentWorkspace() {
     }
   }
 
-  async function handleRevision(id: string) {
+  async function handleRevision(request: ContentRequest) {
     if (revisionInstructions.trim().length < 5) return;
-    setActionId(id);
+    setActionId(request.id);
     setError("");
     try {
-      replaceRequest(await requestContentRevision(id, revisionInstructions));
+      replaceRequest(await requestContentRevision(request.id, revisionInstructions));
+      await recordCreativeFeedback(request.brandId, {
+        contentRequestId: request.id,
+        signal: "revision_requested",
+        notes: revisionInstructions,
+      }).catch(() => undefined);
       setRevisionId("");
       setRevisionInstructions("");
-      setSuccess("Revisão solicitada. O Diretor de Criação já iniciou a nova versão.");
+      setSuccess("Revisão solicitada. O Diretor aprendeu a preferência e iniciou a nova versão.");
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Não foi possível solicitar a revisão.");
     } finally {
@@ -220,14 +271,14 @@ export default function ContentWorkspace() {
     <div className="workspace-shell">
       <header className="workspace-header">
         <a href="/app"><img src="/logo.svg" alt="MODO" /></a>
-        <nav><a href="/app">Painel</a><a className="active" href="/app/content">Criar conteúdo</a><a href="/app/planos">Planos</a></nav>
+        <nav><a href="/app">Painel</a><a href="/app/director">Diretor</a><a className="active" href="/app/content">Criar</a><a href="/app/linkedin">LinkedIn</a><a href="/app/planos">Planos</a></nav>
         <div className="workspace-balance"><small>Saldo</small><strong>{dashboard.usage.creditsRemaining}</strong><span>créditos</span></div>
       </header>
 
       <main className="workspace-main">
         <section className="workspace-intro">
           <div><div className="section-kicker">MODO CREATE</div><h1>Seu Diretor de Criação, dentro da plataforma.</h1><p>Escolha o que o conteúdo precisa fazer. A MODO define o ângulo, estrutura a mensagem, produz e entrega para sua aprovação.</p></div>
-          <a className="button button-outline" href="/app">← Voltar ao painel</a>
+          <a className="button button-outline" href="/app/director">← Ver plano criativo</a>
         </section>
 
         {!productionAllowed && <div className="workspace-blocked"><strong>Produção temporariamente bloqueada.</strong><p>Regularize ou reative sua assinatura para criar novos conteúdos.</p><a className="button button-primary" href="/app/planos">Ver assinatura</a></div>}
@@ -246,14 +297,22 @@ export default function ContentWorkspace() {
                   <label>Canal<input value={channel} onChange={(event) => setChannel(event.target.value)} placeholder="Instagram" /></label>
                 </div>
 
-                <CreativeDirector
-                  brandName={selectedBrand?.name || ""}
-                  contentType={contentType}
-                  objective={objective}
-                  value={brief}
-                  onChange={setBrief}
-                  onObjectiveChange={setObjective}
-                />
+                {prefilledFromDirector ? (
+                  <section className="director-prefill-card">
+                    <div><small>PLANO DO MODO DIRECTOR</small><strong>Briefing estratégico preparado.</strong><p>Você pode ajustar detalhes antes de enviar. A intenção, o formato e o canal já foram definidos.</p></div>
+                    <label>Direção para produção<textarea value={brief} onChange={(event) => setBrief(event.target.value)} minLength={10} maxLength={2000} /></label>
+                    <button type="button" className="button button-outline" onClick={() => { setPrefilledFromDirector(false); setBrief(""); setSourceRecommendationId(""); }}>Criar outra direção</button>
+                  </section>
+                ) : (
+                  <CreativeDirector
+                    brandName={selectedBrand?.name || ""}
+                    contentType={contentType}
+                    objective={objective}
+                    value={brief}
+                    onChange={setBrief}
+                    onObjectiveChange={setObjective}
+                  />
+                )}
 
                 <div className="workspace-summary"><span>Marca: <strong>{selectedBrand?.name}</strong></span><span>Formato: <strong>{formatLabels[contentType]}</strong></span><span>Objetivo: <strong>{objectiveLabels[objective]}</strong></span><span>Saldo após pedido: <strong>{Math.max(0, dashboard.usage.creditsRemaining - cost)}</strong></span></div>
                 {error && <div className="portal-error">{error}</div>}
@@ -289,8 +348,8 @@ export default function ContentWorkspace() {
                           {request.output && <OutputPanel output={request.output} />}
                           {["queued", "processing", "revision_requested"].includes(request.status) && <ProductionProgress request={request} />}
                           {request.status === "failed" && <div className="content-failed"><strong>A produção encontrou um problema.</strong><p>{request.error}</p><button type="button" className="button button-primary" disabled={actionId === request.id} onClick={() => void handleRetry(request.id)}>Reenviar sem cobrar créditos</button></div>}
-                          {request.status === "ready" && <div className="content-review-actions"><div><strong>{request.revisionCount}/{request.maxRevisions}</strong><span>revisões utilizadas</span></div><button type="button" className="button button-primary" disabled={actionId === request.id} onClick={() => void handleApprove(request.id)}>Aprovar conteúdo</button>{canRevise && <button type="button" className="button button-secondary" onClick={() => setRevisionId(revisionId === request.id ? "" : request.id)}>Solicitar revisão</button>}</div>}
-                          {revisionId === request.id && canRevise && <div className="content-revision-form"><label>O que precisa mudar?<textarea value={revisionInstructions} onChange={(event) => setRevisionInstructions(event.target.value)} minLength={5} maxLength={1500} placeholder="Ex.: deixe o tom mais direto, reduza a legenda e destaque o benefício financeiro no segundo slide." /></label><div><button type="button" className="button button-secondary" onClick={() => setRevisionId("")}>Cancelar</button><button type="button" className="button button-primary" disabled={revisionInstructions.trim().length < 5 || actionId === request.id} onClick={() => void handleRevision(request.id)}>Enviar revisão</button></div></div>}
+                          {request.status === "ready" && <div className="content-review-actions"><div><strong>{request.revisionCount}/{request.maxRevisions}</strong><span>revisões utilizadas</span></div><button type="button" className="button button-primary" disabled={actionId === request.id} onClick={() => void handleApprove(request)}>Aprovar conteúdo</button>{canRevise && <button type="button" className="button button-secondary" onClick={() => setRevisionId(revisionId === request.id ? "" : request.id)}>Solicitar revisão</button>}</div>}
+                          {revisionId === request.id && canRevise && <div className="content-revision-form"><label>O que precisa mudar?<textarea value={revisionInstructions} onChange={(event) => setRevisionInstructions(event.target.value)} minLength={5} maxLength={1500} placeholder="Ex.: deixe o tom mais direto, reduza a legenda e destaque o benefício financeiro no segundo slide." /></label><div><button type="button" className="button button-secondary" onClick={() => setRevisionId("")}>Cancelar</button><button type="button" className="button button-primary" disabled={revisionInstructions.trim().length < 5 || actionId === request.id} onClick={() => void handleRevision(request)}>Enviar revisão</button></div></div>}
                           {request.status === "approved" && <div className="content-approved"><strong>✓ Conteúdo aprovado</strong><p>Esta versão está pronta para a próxima etapa de publicação.</p></div>}
                         </div>
                       )}

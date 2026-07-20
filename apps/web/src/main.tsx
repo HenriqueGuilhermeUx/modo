@@ -13,6 +13,7 @@ import "./landing-enhancements.css";
 import "./director.css";
 import "./director-prefill.css";
 import "./linkedin.css";
+import "./signal.css";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

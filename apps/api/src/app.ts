@@ -71,7 +71,7 @@ export async function createApp(options: CreateAppOptions) {
   app.get("/health", async () => ({
     status: "ok",
     service: "modo-api",
-    version: "0.5.0",
+    version: "0.5.1",
     billingStorage: billing.storage,
     accountStorage: auth.storage,
     contentStorage: content.storage,
@@ -156,16 +156,28 @@ export async function createApp(options: CreateAppOptions) {
   });
 
   app.post("/api/v1/payments/woovi/webhook", async (request, reply) => {
+    const body = request.body as Record<string, unknown>;
+    const isRegistrationTest = Boolean(
+      body.event &&
+      body.data_criacao &&
+      !body.globalID &&
+      !body.paymentSubscriptionGlobalID,
+    );
+
+    if (isRegistrationTest) {
+      return reply.code(200).send();
+    }
+
     const authorization = String(
       request.headers["x-openpix-authorization"] || request.headers.authorization || "",
     );
     payments.validateWebhookAuthorization(authorization);
-    const activation = await payments.processWebhook(request.body as Record<string, unknown>);
+    const activation = await payments.processWebhook(body);
     if (activation) {
       await billing.createOrUpdateDemoSubscription(activation.accountId, activation.plan);
       request.log.info({ accountId: activation.accountId, plan: activation.plan }, "Plano MODO ativado via Woovi");
     }
-    return reply.code(202).send({ received: true, activated: Boolean(activation) });
+    return reply.code(200).send();
   });
 
   app.post("/api/v1/diagnostics", { config: { rateLimit: { max: 8, timeWindow: "10 minutes" } } }, async (request, reply) => {

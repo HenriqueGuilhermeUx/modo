@@ -20,6 +20,7 @@ import Fastify, { type FastifyRequest } from "fastify";
 import { randomUUID } from "node:crypto";
 import type { DiagnosticProvider } from "./providers/diagnostic-provider.js";
 import { registerCreativeIntelligenceRoutes } from "./routes/creative-intelligence-routes.js";
+import { registerPlatformAdminRoutes } from "./routes/platform-admin-routes.js";
 import { assertPublicHttpUrl } from "./security/public-url.js";
 import { AuthError, AuthService } from "./services/auth-service.js";
 import { BillingError, BillingService } from "./services/billing-service.js";
@@ -32,6 +33,7 @@ import { CreativeIntelligenceError } from "./services/creative-intelligence-serv
 import { DiagnosticService } from "./services/diagnostic-service.js";
 import { LeadService } from "./services/lead-service.js";
 import { PaymentError, PaymentService } from "./services/payment-service.js";
+import { PlatformAdminError, PlatformAdminService } from "./services/platform-admin-service.js";
 
 export interface CreateAppOptions {
   provider: DiagnosticProvider;
@@ -82,6 +84,15 @@ export async function createApp(options: CreateAppOptions) {
     databaseUrl: options.databaseUrl,
     databaseSsl: options.databaseSsl,
   });
+  const admin = new PlatformAdminService({
+    databaseUrl: options.databaseUrl,
+    databaseSsl: options.databaseSsl,
+    email: process.env.PLATFORM_ADMIN_EMAIL,
+    password: process.env.PLATFORM_ADMIN_PASSWORD,
+    name: process.env.PLATFORM_ADMIN_NAME,
+    sessionHours: Number(process.env.PLATFORM_ADMIN_SESSION_HOURS || 12),
+    publicWebUrl: process.env.PUBLIC_WEB_URL,
+  });
   const automation = new ContentAutomationService({
     provider: options.contentProvider,
     webhookUrl: options.contentWebhookUrl,
@@ -96,14 +107,16 @@ export async function createApp(options: CreateAppOptions) {
       options.paymentsProvider === "woovi" ? options.wooviWebhookAuthorization : undefined,
     databaseUrl: options.databaseUrl,
     databaseSsl: options.databaseSsl,
+    discounts: admin,
   });
 
   await billing.initialize();
   await auth.initialize();
   await content.initialize();
   await payments.initialize();
+  await admin.initialize();
   app.addHook("onClose", async () => {
-    await Promise.all([billing.close(), auth.close(), content.close(), payments.close()]);
+    await Promise.all([billing.close(), auth.close(), content.close(), payments.close(), admin.close()]);
   });
 
   const allowed = options.allowedOrigins ?? ["http://localhost:5173"];
@@ -122,16 +135,24 @@ export async function createApp(options: CreateAppOptions) {
     databaseUrl: options.databaseUrl,
     databaseSsl: options.databaseSsl,
   });
+  await registerPlatformAdminRoutes(app, {
+    auth,
+    billing,
+    admin,
+    databaseUrl: options.databaseUrl,
+    databaseSsl: options.databaseSsl,
+  });
 
   app.get("/health", async () => ({
     status: "ok",
     service: "modo-api",
-    version: "0.8.0",
+    version: "0.9.0",
     billingStorage: billing.storage,
     accountStorage: auth.storage,
     contentStorage: content.storage,
     contentProvider: automation.mode,
     creativeIntelligence: "enabled",
+    platformAdmin: admin.enabled ? "enabled" : "disabled",
     paymentsProvider: payments.enabled ? "woovi" : "disabled",
   }));
 

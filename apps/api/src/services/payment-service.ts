@@ -12,11 +12,26 @@ const planNames: Record<PublicPlanSlug, string> = {
   business: "MODO Business",
 };
 
+interface DiscountQuoteLike {
+  reservationId: string;
+  code: string;
+  originalPriceCents: number;
+  finalPriceCents: number;
+  savedCents: number;
+}
+
+interface DiscountProvider {
+  reserveDiscount(accountId: string, plan: PublicPlanSlug, code?: string): Promise<DiscountQuoteLike | null>;
+  linkDiscountToProvider(reservationId: string, providerId: string): Promise<void>;
+  releaseDiscount(reservationId: string): Promise<void>;
+}
+
 interface PaymentServiceOptions {
   appId?: string;
   webhookAuthorization?: string;
   databaseUrl?: string;
   databaseSsl?: boolean;
+  discounts?: DiscountProvider;
 }
 
 interface WooviSubscription {
@@ -64,12 +79,14 @@ export class PaymentService {
   private readonly appId?: string;
   private readonly webhookAuthorization?: string;
   private readonly pool?: Pool;
+  private readonly discounts?: DiscountProvider;
   private readonly memorySubscriptions = new Map<string, WooviSubscription>();
   private readonly memoryEvents = new Set<string>();
 
   constructor(options: PaymentServiceOptions) {
     this.appId = options.appId;
     this.webhookAuthorization = options.webhookAuthorization;
+    this.discounts = options.discounts;
     if (options.databaseUrl) {
       this.pool = new PgPool({
         connectionString: options.databaseUrl,
@@ -121,8 +138,11 @@ export class PaymentService {
   }
 
   async createCheckout(accountId: string, input: WooviCheckoutRequest) {
-    const correlationID = `modo:${accountId}:${input.plan}:${randomUUID()}`;
-    const dayGenerateCharge = Math.min(27, Math.max(1, new Date().getUTCDate()));
+  const discount = await this.discounts?.reserveDiscount(accountId, input.plan, input.couponCode);
+  const value = discount?.finalPriceCents ?? planEntitlements[input.plan].priceCents;
+  const correlationID = `modo:${accountId}:${input.plan}:${randomUUID()}`;
+  const dayGenerateCharge = Math.min(27, Math.max(1, new Date().getUTCDate()));
+  try {
     const response = await fetch("https://api.woovi.com/api/v1/subscriptions", {
       method: "POST",
       headers: {
@@ -130,9 +150,11 @@ export class PaymentService {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        value: planEntitlements[input.plan].priceCents,
+        value,
         name: planNames[input.plan],
-        comment: `${planNames[input.plan]} — assinatura mensal MODO`,
+        comment: discount
+          ? `${planNames[input.plan]} — assinatura mensal MODO — cupom ${discount.code}`
+          : `${planNames[input.plan]} — assinatura mensal MODO`,
         correlationID,
         frequency: "MONTHLY",
         type: "PIX_RECURRING",
@@ -174,6 +196,7 @@ export class PaymentService {
     }
 
     await this.persist(accountId, input.plan, subscription);
+    if (discount) await this.discounts?.linkDiscountToProvider(discount.reservationId, subscription.globalID);
     return {
       subscriptionId: subscription.globalID,
       correlationID,
@@ -181,10 +204,24 @@ export class PaymentService {
       emv: subscription.pixRecurring.emv,
       status: subscription.status,
       pixRecurringStatus: subscription.pixRecurring.status || "CREATED",
+      ...(discount
+        ? {
+            discount: {
+              code: discount.code,
+              originalPriceCents: discount.originalPriceCents,
+              finalPriceCents: discount.finalPriceCents,
+              savedCents: discount.savedCents,
+            },
+          }
+        : {}),
     };
+  } catch (error) {
+    if (discount) await this.discounts?.releaseDiscount(discount.reservationId);
+    throw error;
   }
+}
 
-  validateWebhookAuthorization(value: string) {
+validateWebhookAuthorization(value: string) {
     if (!this.webhookAuthorization) {
       throw new PaymentError("WEBHOOK_NOT_CONFIGURED", 503, "Webhook Woovi não configurado.");
     }

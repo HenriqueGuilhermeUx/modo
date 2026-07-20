@@ -24,6 +24,12 @@ import {
   type ContentRequest,
   type ContentRequestCreate,
 } from "@modo/contracts/content";
+import {
+  WooviCheckoutRequestSchema,
+  WooviCheckoutResponseSchema,
+  type WooviCheckoutRequest,
+  type WooviCheckoutResponse,
+} from "@modo/contracts/payment";
 
 const API_URL = (import.meta.env.VITE_API_URL || "http://localhost:4000").replace(/\/$/, "");
 const TOKEN_KEY = "modo.sessionToken";
@@ -124,6 +130,21 @@ export async function createContentRequest(input: ContentRequestCreate) {
     request: ContentRequestSchema.parse(payload.request),
     usage: payload.usage,
   };
+}
+
+export async function createWooviCheckout(
+  input: WooviCheckoutRequest,
+): Promise<WooviCheckoutResponse> {
+  return WooviCheckoutResponseSchema.parse(
+    await request<unknown>(
+      "/api/v1/payments/checkout",
+      {
+        method: "POST",
+        body: JSON.stringify(WooviCheckoutRequestSchema.parse(input)),
+      },
+      true,
+    ),
+  );
 }
 
 export async function logoutAccount() {

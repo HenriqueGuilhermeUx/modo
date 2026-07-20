@@ -96,6 +96,9 @@ export type PlanSlug = z.infer<typeof PlanSlugSchema>;
 export const PublicPlanSlugSchema = z.enum(["start", "presenca", "pro", "business"]);
 export type PublicPlanSlug = z.infer<typeof PublicPlanSlugSchema>;
 
+export const SubscriptionStatusSchema = z.enum(["active", "retrying", "suspended", "canceled"]);
+export type SubscriptionStatus = z.infer<typeof SubscriptionStatusSchema>;
+
 export const ContentUnitTypeSchema = z.enum([
   "static_post",
   "story",
@@ -231,6 +234,7 @@ export type UsageByType = z.infer<typeof UsageByTypeSchema>;
 export const BillingUsageSchema = z.object({
   accountId: BillingAccountIdSchema,
   plan: PlanSlugSchema,
+  status: SubscriptionStatusSchema,
   storage: z.enum(["memory", "postgres"]),
   periodStart: z.string().datetime(),
   periodEnd: z.string().datetime(),

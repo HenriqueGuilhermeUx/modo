@@ -287,7 +287,9 @@ export class CreativeIntelligenceService {
   async generatePlan(accountId: string, brand: Brand): Promise<CreativePlan> {
     const profile = await this.getProfile(accountId, brand.id);
     const learned = await this.learningWeights(accountId, brand.id);
-    const channels = profile.preferredChannels.length ? profile.preferredChannels : ["instagram", "linkedin"];
+    const channels: CreativeChannel[] = profile.preferredChannels.length
+      ? profile.preferredChannels
+      : ["instagram", "linkedin"];
     const person = profile.peopleAvailable[0] || "fundador, especialista ou pessoa responsável pela marca";
     const location = profile.locations[0] || "ambiente real de trabalho, com luz frontal e pouco ruído";
     const question = profile.recurringQuestions[0] || "a dúvida que mais impede o cliente de avançar";
@@ -378,7 +380,7 @@ export class CreativeIntelligenceService {
         title: "Mostre um bastidor que revela qualidade",
         rationale: "O público costuma ver o resultado, mas não enxerga as escolhas que sustentam a qualidade.",
         objective: "autoridade",
-        channels: ["stories", "reels", "instagram", "facebook"],
+        channels: ["stories", "reels", "instagram", "facebook"] as CreativeChannel[],
         effortMinutes: 7,
         expectedOutcome: "Materializar diferenciais e aumentar percepção de valor.",
         brief: `Mostre um processo real de ${brand.name} e explique uma escolha que melhora a entrega para o cliente.`,

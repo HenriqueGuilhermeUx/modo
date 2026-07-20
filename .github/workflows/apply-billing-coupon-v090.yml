@@ -1,0 +1,59 @@
+name: Apply Billing Coupon v0.9.0
+on:
+  pull_request:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  patch:
+    if: github.head_ref == 'ci/apply-billing-coupon-v090'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Add coupon field to billing
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          set -e
+          git clone --quiet --depth 1 "https://x-access-token:${GH_TOKEN}@github.com/${REPOSITORY}.git" repo
+          cd repo
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('apps/web/src/BillingWorkspace.tsx')
+          text = path.read_text()
+          text = text.replace(
+            '  const [complement, setComplement] = useState("");\n',
+            '  const [complement, setComplement] = useState("");\n  const [couponCode, setCouponCode] = useState("");\n',
+          )
+          text = text.replace(
+            '      const result = await createWooviCheckout({\n        plan,\n',
+            '      const result = await createWooviCheckout({\n        plan,\n        couponCode: couponCode.trim() || undefined,\n',
+          )
+          text = text.replace(
+            '                  <label>Complemento<input value={complement} onChange={(event) => setComplement(event.target.value)} /></label>\n',
+            '                  <label>Complemento<input value={complement} onChange={(event) => setComplement(event.target.value)} /></label>\n                  <label className="field-wide billing-coupon-field">Cupom de desconto<input value={couponCode} onChange={(event) => setCouponCode(event.target.value.toUpperCase().replace(/[^A-Z0-9_-]/g, ""))} placeholder="Ex.: MODO20" /></label>\n',
+          )
+          text = text.replace(
+            '                 <div><small>Mensalidade</small><strong>{price}</strong></div>\n',
+            '                 <div><small>Mensalidade</small><strong>{checkout?.discount ? money(checkout.discount.finalPriceCents) : price}</strong></div>\n                 {checkout?.discount && <div className="billing-discount-line"><small>Cupom {checkout.discount.code}</small><strong>-{money(checkout.discount.savedCents)}</strong></div>}\n',
+          )
+          text = text.replace(
+            '                 <p>Depois do pagamento, esta tela atualizará automaticamente e liberará seu novo ciclo.</p>\n',
+            '                 <p>Depois do pagamento, esta tela atualizará automaticamente e liberará seu novo ciclo.</p>\n                 {checkout.discount && <p><strong>{checkout.discount.code}</strong> aplicado: de {money(checkout.discount.originalPriceCents)} por {money(checkout.discount.finalPriceCents)}.</p>}\n',
+          )
+          helper = '''\nfunction money(cents: number) {\n  return new Intl.NumberFormat("pt-BR", {\n    style: "currency",\n    currency: "BRL",\n  }).format(cents / 100);\n}\n'''
+          marker = '\nfunction isOperational(dashboard: Dashboard) {'
+          if helper.strip() not in text:
+            text = text.replace(marker, helper + marker)
+          path.write_text(text)
+          PY
+          cat >> apps/web/src/billing-lifecycle.css <<'CSS'
+          .billing-coupon-field input{text-transform:uppercase;letter-spacing:.06em;font-weight:800}.billing-discount-line{color:#087655!important;background:#e8fbf4;border-radius:10px;padding:9px 11px!important}.billing-discount-line small,.billing-discount-line strong{color:#087655!important}
+          CSS
+          git config user.name "MODO CI"
+          git config user.email "actions@github.com"
+          git add apps/web/src/BillingWorkspace.tsx apps/web/src/billing-lifecycle.css
+          git commit -m "add coupon field to billing checkout"
+          git push origin HEAD:main

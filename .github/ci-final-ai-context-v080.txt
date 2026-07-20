@@ -1,0 +1,1 @@
+Validate MODO Memory and Signal context injection into n8n/OpenAI generation.

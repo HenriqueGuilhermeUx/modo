@@ -21,3 +21,7 @@ services:
         sync: false
       - key: DATABASE_SSL
         value: false
+      - key: AUTH_SESSION_DAYS
+        value: 30
+      - key: ENABLE_DEMO_BILLING
+        value: false

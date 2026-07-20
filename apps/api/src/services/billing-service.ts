@@ -80,6 +80,14 @@ function addBillingMonth(date: Date) {
   return next;
 }
 
+function nextCycleStart(previous?: Date) {
+  const now = new Date();
+  if (previous && now.getTime() <= previous.getTime()) {
+    return new Date(previous.getTime() + 1);
+  }
+  return now;
+}
+
 function emptyUsageByType(): UsageByType {
   return {
     static_post: 0,
@@ -224,7 +232,8 @@ export class BillingService {
     );
     if (existingGrant) return this.getMemoryUsage(accountId);
 
-    const now = new Date();
+    const previous = this.subscriptions.get(accountId);
+    const now = nextCycleStart(previous?.periodStart);
     const subscription: MemorySubscription = {
       accountId,
       plan,
@@ -349,7 +358,11 @@ export class BillingService {
         return usage;
       }
 
-      const periodStart = new Date();
+      const previous = await client.query<{ period_start: Date }>(
+        `SELECT period_start FROM modo_subscriptions WHERE account_id = $1 FOR UPDATE`,
+        [accountId],
+      );
+      const periodStart = nextCycleStart(previous.rows[0]?.period_start);
       const periodEnd = addBillingMonth(periodStart);
       const result = await client.query<SubscriptionRow>(
         `INSERT INTO modo_subscriptions(account_id, plan_slug, status, period_start, period_end)

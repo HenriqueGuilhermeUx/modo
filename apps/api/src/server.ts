@@ -8,10 +8,7 @@ function createProvider() {
     if (!config.N8N_DIAGNOSTIC_WEBHOOK_URL) {
       throw new Error("N8N_DIAGNOSTIC_WEBHOOK_URL é obrigatório quando DIAGNOSTIC_PROVIDER=n8n.");
     }
-    return new N8nDiagnosticProvider(
-      config.N8N_DIAGNOSTIC_WEBHOOK_URL,
-      config.N8N_WEBHOOK_SECRET,
-    );
+    return new N8nDiagnosticProvider(config.N8N_DIAGNOSTIC_WEBHOOK_URL, config.N8N_WEBHOOK_SECRET);
   }
   return new DemoDiagnosticProvider(config.DEMO_DIAGNOSTIC_DELAY_MS);
 }
@@ -22,6 +19,8 @@ const app = await createApp({
   logger: true,
   databaseUrl: config.DATABASE_URL,
   databaseSsl: config.DATABASE_SSL,
+  sessionDays: config.AUTH_SESSION_DAYS,
+  enableDemoBilling: config.ENABLE_DEMO_BILLING,
 });
 
 try {

@@ -29,6 +29,13 @@ const app = await createApp({
   contentSecret: config.N8N_CONTENT_SECRET,
   publicApiUrl: config.PUBLIC_API_URL,
   contentDemoDelayMs: config.CONTENT_DEMO_DELAY_MS,
+  publicWebUrl: config.PUBLIC_WEB_URL,
+  linkedinClientId: config.LINKEDIN_CLIENT_ID,
+  linkedinClientSecret: config.LINKEDIN_CLIENT_SECRET,
+  linkedinRedirectUri: config.LINKEDIN_REDIRECT_URI,
+  linkedinScopes: config.LINKEDIN_SCOPES,
+  linkedinEncryptionSecret: config.LINKEDIN_TOKEN_ENCRYPTION_SECRET,
+  linkedinApiVersion: config.LINKEDIN_API_VERSION,
 });
 
 try {

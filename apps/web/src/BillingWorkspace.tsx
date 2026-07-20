@@ -39,6 +39,13 @@ function normalizeDigits(value: string) {
   return value.replace(/\D/g, "");
 }
 
+function money(cents: number) {
+  return new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  }).format(cents / 100);
+}
+
 function isOperational(dashboard: Dashboard) {
   return dashboard.usage.plan !== "trial" &&
     ["active", "retrying"].includes(dashboard.usage.status);
@@ -70,6 +77,7 @@ export default function BillingWorkspace() {
   const [city, setCity] = useState("");
   const [state, setState] = useState("");
   const [complement, setComplement] = useState("");
+  const [couponCode, setCouponCode] = useState("");
 
   const selectedEntitlement = planEntitlements[plan];
   const price = useMemo(
@@ -120,6 +128,7 @@ export default function BillingWorkspace() {
     try {
       const result = await createWooviCheckout({
         plan,
+        couponCode: couponCode.trim() || undefined,
         customer: {
           name,
           email: dashboard.user.email,
@@ -287,6 +296,7 @@ export default function BillingWorkspace() {
                   <label>Bairro<input value={neighborhood} onChange={(event) => setNeighborhood(event.target.value)} required /></label>
                   <label>Cidade<input value={city} onChange={(event) => setCity(event.target.value)} required /></label>
                   <label>Complemento<input value={complement} onChange={(event) => setComplement(event.target.value)} /></label>
+                  <label className="field-wide billing-coupon-field">Cupom de desconto<input value={couponCode} onChange={(event) => setCouponCode(event.target.value.toUpperCase().replace(/[^A-Z0-9_-]/g, ""))} placeholder="Ex.: MODO20" /></label>
                 </div>
 
                 <button className="button button-primary button-full" disabled={submitting}>
@@ -316,6 +326,7 @@ export default function BillingWorkspace() {
                   <span>AGUARDANDO AUTORIZAÇÃO</span>
                   <h2>Conclua no seu banco.</h2>
                   <p>Depois do pagamento, esta tela atualizará automaticamente e liberará seu novo ciclo.</p>
+                 {checkout.discount && <p><strong>{checkout.discount.code}</strong> aplicado: de {money(checkout.discount.originalPriceCents)} por {money(checkout.discount.finalPriceCents)}.</p>}
                 </div>
                 <div className="billing-pending-actions">
                   <a className="button button-primary" href={checkout.paymentLinkUrl} target="_blank" rel="noreferrer">Abrir pagamento</a>

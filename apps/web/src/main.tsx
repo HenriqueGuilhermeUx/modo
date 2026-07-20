@@ -5,6 +5,7 @@ import "./styles.css";
 import "./pricing.css";
 import "./portal.css";
 import "./workspace.css";
+import "./portal-action.css";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

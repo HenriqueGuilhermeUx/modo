@@ -6,10 +6,7 @@ import {
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import { z } from "zod";
 import { AuthError, type AuthService } from "../services/auth-service.js";
-import {
-  CreativeIntelligenceError,
-  CreativeIntelligenceService,
-} from "../services/creative-intelligence-service.js";
+import { CreativeIntelligenceService } from "../services/creative-intelligence-service.js";
 
 interface Options {
   auth: AuthService;
@@ -94,12 +91,5 @@ export async function registerCreativeIntelligenceRoutes(
     return reply.code(201).send(
       await service.recordFeedback(context.organization.id, brandId, feedback),
     );
-  });
-
-  app.setErrorHandler((error, request, reply) => {
-    if (error instanceof CreativeIntelligenceError) {
-      return reply.code(error.statusCode).send({ code: error.code, message: error.message });
-    }
-    return app.errorHandler(error, request, reply);
   });
 }

@@ -22,9 +22,8 @@ const app = await createApp({
   sessionDays: config.AUTH_SESSION_DAYS,
   enableDemoBilling: config.ENABLE_DEMO_BILLING,
   paymentsProvider: config.PAYMENTS_PROVIDER,
-  mercadoPagoAccessToken: config.MERCADO_PAGO_ACCESS_TOKEN,
-  mercadoPagoWebhookSecret: config.MERCADO_PAGO_WEBHOOK_SECRET,
-  publicAppUrl: config.PUBLIC_APP_URL,
+  wooviAppId: config.WOOVI_APP_ID,
+  wooviWebhookAuthorization: config.WOOVI_WEBHOOK_AUTHORIZATION,
 });
 
 try {

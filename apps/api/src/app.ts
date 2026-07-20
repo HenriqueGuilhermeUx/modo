@@ -71,7 +71,7 @@ export async function createApp(options: CreateAppOptions) {
   app.get("/health", async () => ({
     status: "ok",
     service: "modo-api",
-    version: "0.5.1",
+    version: "0.6.0",
     billingStorage: billing.storage,
     accountStorage: auth.storage,
     contentStorage: content.storage,
@@ -155,6 +155,13 @@ export async function createApp(options: CreateAppOptions) {
     return reply.code(201).send(await payments.createCheckout(context.organization.id, input));
   });
 
+  app.post("/api/v1/payments/cancel", async (request) => {
+    const context = await auth.authenticate(bearerToken(request));
+    const result = await payments.cancelLatest(context.organization.id);
+    const usage = await billing.setStatus(context.organization.id, "canceled");
+    return { ...result, usage };
+  });
+
   app.post("/api/v1/payments/woovi/webhook", async (request, reply) => {
     const body = request.body as Record<string, unknown>;
     const isRegistrationTest = Boolean(
@@ -164,18 +171,29 @@ export async function createApp(options: CreateAppOptions) {
       !body.paymentSubscriptionGlobalID,
     );
 
-    if (isRegistrationTest) {
-      return reply.code(200).send();
-    }
+    if (isRegistrationTest) return reply.code(200).send();
 
     const authorization = String(
       request.headers["x-openpix-authorization"] || request.headers.authorization || "",
     );
     payments.validateWebhookAuthorization(authorization);
-    const activation = await payments.processWebhook(body);
-    if (activation) {
-      await billing.createOrUpdateDemoSubscription(activation.accountId, activation.plan);
-      request.log.info({ accountId: activation.accountId, plan: activation.plan }, "Plano MODO ativado via Woovi");
+    const lifecycle = await payments.processWebhook(body);
+
+    if (lifecycle?.action === "paid") {
+      await billing.applyPaidCycle(lifecycle.accountId, lifecycle.plan, lifecycle.eventKey);
+    } else if (lifecycle?.action === "retrying") {
+      await billing.setStatus(lifecycle.accountId, "retrying");
+    } else if (lifecycle?.action === "suspend") {
+      await billing.setStatus(lifecycle.accountId, "suspended");
+    } else if (lifecycle?.action === "cancel") {
+      await billing.setStatus(lifecycle.accountId, "canceled");
+    }
+
+    if (lifecycle) {
+      request.log.info(
+        { accountId: lifecycle.accountId, plan: lifecycle.plan, action: lifecycle.action },
+        "Ciclo de assinatura MODO atualizado via Woovi",
+      );
     }
     return reply.code(200).send();
   });

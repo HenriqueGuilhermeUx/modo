@@ -21,6 +21,7 @@ const ConfigSchema = z
     NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
     PORT: z.coerce.number().int().positive().default(4000),
     PUBLIC_API_URL: z.preprocess(emptyToUndefined, z.string().url().default("http://localhost:4000")),
+    PUBLIC_WEB_URL: z.preprocess(emptyToUndefined, z.string().url().default("http://localhost:5173")),
     ALLOWED_ORIGINS: z.preprocess(
       emptyToUndefined,
       z.string().default("http://localhost:5173"),
@@ -40,6 +41,15 @@ const ConfigSchema = z
     PAYMENTS_PROVIDER: z.enum(["disabled", "woovi"]).default("disabled"),
     WOOVI_APP_ID: optionalTrimmedString,
     WOOVI_WEBHOOK_AUTHORIZATION: optionalTrimmedString,
+    LINKEDIN_CLIENT_ID: optionalTrimmedString,
+    LINKEDIN_CLIENT_SECRET: optionalTrimmedString,
+    LINKEDIN_REDIRECT_URI: optionalTrimmedString,
+    LINKEDIN_SCOPES: z.preprocess(
+      emptyToUndefined,
+      z.string().default("r_liteprofile w_member_social"),
+    ),
+    LINKEDIN_TOKEN_ENCRYPTION_SECRET: optionalTrimmedString,
+    LINKEDIN_API_VERSION: z.preprocess(emptyToUndefined, z.string().default("202606")),
   })
   .superRefine((values, context) => {
     if (values.DIAGNOSTIC_PROVIDER === "n8n") {

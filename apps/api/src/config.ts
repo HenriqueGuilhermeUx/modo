@@ -30,6 +30,8 @@ const ConfigSchema = z
     N8N_WEBHOOK_SECRET: optionalTrimmedString,
     DATABASE_URL: optionalTrimmedString,
     DATABASE_SSL: booleanFromEnvironment,
+    AUTH_SESSION_DAYS: z.coerce.number().int().min(1).max(365).default(30),
+    ENABLE_DEMO_BILLING: booleanFromEnvironment,
   })
   .superRefine((values, context) => {
     if (values.DIAGNOSTIC_PROVIDER !== "n8n") return;

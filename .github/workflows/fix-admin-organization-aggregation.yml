@@ -1,0 +1,103 @@
+name: Fix Admin Organization Aggregation
+on:
+  pull_request:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  patch:
+    if: github.head_ref == 'ci/fix-admin-organization-aggregation'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fix exact organization metrics
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          set -e
+          git clone --quiet --depth 1 "https://x-access-token:${GH_TOKEN}@github.com/${REPOSITORY}.git" repo
+          cd repo
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          path = Path('apps/api/src/services/platform-admin-service.ts')
+          text = path.read_text()
+          pattern = re.compile(r'  async listOrganizations\(\): Promise<AdminOrganization\[]> \{.*?\n  \}\n\n  async createInvitation', re.S)
+          replacement = '''  async listOrganizations(): Promise<AdminOrganization[]> {
+            const result = await this.requirePool().query<{
+              id: string;
+              name: string;
+              owner_name: string;
+              owner_email: string;
+              plan_slug: PlanSlug;
+              status: SubscriptionStatus;
+              credits_granted: number;
+              credits_used: number;
+              brands: number;
+              users: number;
+              content_requests: number;
+              created_at: Date;
+            }>(`
+              SELECT o.id,o.name,o.created_at,
+                COALESCE((
+                  SELECT u.name FROM modo_memberships m
+                  JOIN modo_users u ON u.id=m.user_id
+                  WHERE m.organization_id=o.id
+                  ORDER BY CASE m.role WHEN 'owner' THEN 0 WHEN 'admin' THEN 1 ELSE 2 END,m.created_at ASC
+                  LIMIT 1
+                ),'Sem responsável') AS owner_name,
+                COALESCE((
+                  SELECT u.email FROM modo_memberships m
+                  JOIN modo_users u ON u.id=m.user_id
+                  WHERE m.organization_id=o.id
+                  ORDER BY CASE m.role WHEN 'owner' THEN 0 WHEN 'admin' THEN 1 ELSE 2 END,m.created_at ASC
+                  LIMIT 1
+                ),'sem-responsavel@modo.app') AS owner_email,
+                COALESCE(s.plan_slug,'trial') AS plan_slug,
+                COALESCE(s.status,'canceled') AS status,
+                COALESCE((
+                  SELECT SUM(l.credits)::int FROM modo_credit_ledger l
+                  WHERE l.account_id=o.id AND l.period_start=s.period_start AND l.credits>0
+                ),0) AS credits_granted,
+                COALESCE((
+                  SELECT ABS(SUM(l.credits))::int FROM modo_credit_ledger l
+                  WHERE l.account_id=o.id AND l.period_start=s.period_start AND l.credits<0
+                ),0) AS credits_used,
+                (SELECT COUNT(*)::int FROM modo_brands b WHERE b.organization_id=o.id) AS brands,
+                (SELECT COUNT(*)::int FROM modo_memberships m WHERE m.organization_id=o.id) AS users,
+                (SELECT COUNT(*)::int FROM modo_content_requests c WHERE c.organization_id=o.id) AS content_requests
+              FROM modo_organizations o
+              LEFT JOIN modo_subscriptions s ON s.account_id=o.id
+              ORDER BY o.created_at DESC
+              LIMIT 500
+            `);
+            return result.rows.map((row) => ({
+              id: row.id,
+              name: row.name,
+              ownerName: row.owner_name,
+              ownerEmail: row.owner_email,
+              plan: row.plan_slug,
+              status: row.status,
+              creditsGranted: Number(row.credits_granted),
+              creditsUsed: Number(row.credits_used),
+              creditsRemaining: Math.max(0, Number(row.credits_granted) - Number(row.credits_used)),
+              brands: Number(row.brands),
+              users: Number(row.users),
+              contentRequests: Number(row.content_requests),
+              createdAt: row.created_at.toISOString(),
+            }));
+          }
+
+          async createInvitation'''
+          text, count = pattern.subn(lambda _match: replacement, text)
+          if count != 1:
+            raise SystemExit(f'Could not replace listOrganizations; matches={count}')
+          path.write_text(text)
+          PY
+          git config user.name "MODO CI"
+          git config user.email "actions@github.com"
+          git add apps/api/src/services/platform-admin-service.ts
+          git commit -m "fix exact admin organization metrics"
+          git push origin HEAD:main

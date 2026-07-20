@@ -19,10 +19,5 @@ export default function Root() {
     );
   }
 
-  return (
-    <>
-      <App />
-      <a className="portal-entry" href="/app">Entrar</a>
-    </>
-  );
+  return <App />;
 }

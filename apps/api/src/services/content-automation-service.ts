@@ -2,6 +2,10 @@ import type { Brand } from "@modo/contracts";
 import type { ContentRequest, GeneratedContent } from "@modo/contracts/content";
 import { timingSafeEqual } from "node:crypto";
 import { ContentService } from "./content-service.js";
+import {
+  formatCreativeContext,
+  loadCreativeGenerationContext,
+} from "./creative-context.js";
 
 interface ContentAutomationOptions {
   provider?: "demo" | "n8n";
@@ -66,6 +70,18 @@ export class ContentAutomationService {
     }
 
     try {
+      const creativeContext = await loadCreativeGenerationContext(
+        processing.organizationId,
+        processing.brandId,
+      );
+      const formattedContext = formatCreativeContext(creativeContext);
+      const requestForAutomation: ContentRequest = {
+        ...processing,
+        brief: formattedContext
+          ? `${processing.brief}\n\nCONTEXTO APRENDIDO PELA MODO:\n${formattedContext}\n\nUse esse contexto apenas quando for relevante. Priorize evidências reais, respeite restrições e não invente dados.`
+          : processing.brief,
+      };
+
       const response = await fetch(this.webhookUrl, {
         method: "POST",
         headers: {
@@ -73,8 +89,9 @@ export class ContentAutomationService {
           "x-modo-content-secret": this.secret,
         },
         body: JSON.stringify({
-          request: processing,
+          request: requestForAutomation,
           brand,
+          creativeContext,
           callbackUrl: `${this.publicApiUrl}/api/v1/internal/content-requests/${processing.id}/result`,
         }),
         signal: AbortSignal.timeout(12_000),

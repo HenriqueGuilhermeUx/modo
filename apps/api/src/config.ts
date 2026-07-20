@@ -26,7 +26,7 @@ const ConfigSchema = z
       z.string().default("http://localhost:5173"),
     ),
     DIAGNOSTIC_PROVIDER: z.enum(["demo", "n8n"]).default("demo"),
-    DEMO_DIAGNOSTIC_DELAY_MS: z.coerce.number().int().nonnegative().default(5200),
+    DEMO_DIAGNOSTIC_DELAY_MS: z.coerce.number().int().nonnegative().default(2600),
     N8N_DIAGNOSTIC_WEBHOOK_URL: optionalTrimmedString,
     N8N_WEBHOOK_SECRET: optionalTrimmedString,
     CONTENT_PROVIDER: z.enum(["demo", "n8n"]).default("demo"),

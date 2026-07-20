@@ -5,7 +5,14 @@ import Portal from "./Portal";
 export default function Root() {
   const path = window.location.pathname;
   if (path.startsWith("/app/content")) return <ContentWorkspace />;
-  if (path.startsWith("/app")) return <Portal />;
+  if (path.startsWith("/app")) {
+    return (
+      <>
+        <Portal />
+        <a className="portal-workspace-entry" href="/app/content">Criar conteúdo ↗</a>
+      </>
+    );
+  }
 
   return (
     <>

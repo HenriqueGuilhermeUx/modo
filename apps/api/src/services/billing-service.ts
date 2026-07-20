@@ -5,6 +5,7 @@ import {
   type ContentUnitType,
   type CreditConsumeRequest,
   type PlanSlug,
+  type SubscriptionStatus,
   type UsageByType,
 } from "@modo/contracts";
 import { randomUUID } from "node:crypto";
@@ -21,6 +22,7 @@ interface BillingServiceOptions {
 interface MemorySubscription {
   accountId: string;
   plan: PlanSlug;
+  status: SubscriptionStatus;
   periodStart: Date;
   periodEnd: Date;
 }
@@ -40,6 +42,7 @@ interface MemoryLedgerEntry {
 interface SubscriptionRow {
   account_id: string;
   plan_slug: PlanSlug;
+  status: SubscriptionStatus;
   period_start: Date;
   period_end: Date;
 }
@@ -87,6 +90,10 @@ function emptyUsageByType(): UsageByType {
   };
 }
 
+function expirationStatus(plan: PlanSlug): SubscriptionStatus {
+  return plan === "trial" ? "canceled" : "suspended";
+}
+
 export class BillingService {
   private readonly pool?: Pool;
   private readonly subscriptions = new Map<string, MemorySubscription>();
@@ -120,6 +127,9 @@ export class BillingService {
         updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       );
 
+      ALTER TABLE modo_subscriptions
+        ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'active';
+
       CREATE TABLE IF NOT EXISTS modo_credit_ledger (
         id TEXT PRIMARY KEY,
         account_id TEXT NOT NULL REFERENCES modo_subscriptions(account_id) ON DELETE CASCADE,
@@ -146,8 +156,48 @@ export class BillingService {
     accountId: string,
     plan: PlanSlug,
   ): Promise<BillingUsage> {
-    if (this.pool) return this.createOrUpdatePostgresSubscription(accountId, plan);
-    return this.createOrUpdateMemorySubscription(accountId, plan);
+    const referenceId = `demo:${randomUUID()}`;
+    if (this.pool) return this.openPostgresCycle(accountId, plan, referenceId, false);
+    return this.openMemoryCycle(accountId, plan, referenceId, false);
+  }
+
+  async applyPaidCycle(
+    accountId: string,
+    plan: PlanSlug,
+    paymentReference: string,
+  ): Promise<BillingUsage> {
+    const referenceId = `payment:${paymentReference}`;
+    if (this.pool) return this.openPostgresCycle(accountId, plan, referenceId, true);
+    return this.openMemoryCycle(accountId, plan, referenceId, true);
+  }
+
+  async setStatus(accountId: string, status: SubscriptionStatus): Promise<BillingUsage> {
+    if (this.pool) {
+      const client = await this.requirePool().connect();
+      try {
+        await client.query("BEGIN");
+        const result = await client.query<SubscriptionRow>(
+          `UPDATE modo_subscriptions
+           SET status = $2, updated_at = NOW()
+           WHERE account_id = $1
+           RETURNING account_id, plan_slug, status, period_start, period_end`,
+          [accountId, status],
+        );
+        if (!result.rowCount) throw this.subscriptionNotFound();
+        const usage = await this.buildPostgresUsage(client, result.rows[0]);
+        await client.query("COMMIT");
+        return usage;
+      } catch (error) {
+        await client.query("ROLLBACK");
+        throw error;
+      } finally {
+        client.release();
+      }
+    }
+
+    const subscription = this.getMemorySubscription(accountId, false);
+    subscription.status = status;
+    return this.buildMemoryUsage(subscription);
   }
 
   async getUsage(accountId: string): Promise<BillingUsage> {
@@ -160,11 +210,25 @@ export class BillingService {
     return this.consumeMemory(accountId, input);
   }
 
-  private createOrUpdateMemorySubscription(accountId: string, plan: PlanSlug) {
+  private openMemoryCycle(
+    accountId: string,
+    plan: PlanSlug,
+    referenceId: string,
+    paid: boolean,
+  ) {
+    const existingGrant = this.memoryLedger.find(
+      (entry) =>
+        entry.accountId === accountId &&
+        entry.entryType === "grant" &&
+        entry.referenceId === referenceId,
+    );
+    if (existingGrant) return this.getMemoryUsage(accountId);
+
     const now = new Date();
     const subscription: MemorySubscription = {
       accountId,
       plan,
+      status: "active",
       periodStart: now,
       periodEnd: addBillingMonth(now),
     };
@@ -174,43 +238,28 @@ export class BillingService {
       accountId,
       entryType: "grant",
       credits: planEntitlements[plan].monthlyCredits,
-      referenceId: `period:${now.toISOString()}`,
+      referenceId,
       periodStart: now,
-      metadata: { plan },
+      metadata: { plan, paid },
       createdAt: now,
     });
     return this.buildMemoryUsage(subscription);
   }
 
-  private ensureMemoryCurrentPeriod(subscription: MemorySubscription) {
-    const now = new Date();
-    while (now >= subscription.periodEnd) {
-      subscription.periodStart = new Date(subscription.periodEnd.getTime());
-      subscription.periodEnd = addBillingMonth(subscription.periodEnd);
-      this.memoryLedger.push({
-        id: randomUUID(),
-        accountId: subscription.accountId,
-        entryType: "grant",
-        credits: planEntitlements[subscription.plan].monthlyCredits,
-        referenceId: `period:${subscription.periodStart.toISOString()}`,
-        periodStart: new Date(subscription.periodStart.getTime()),
-        metadata: { plan: subscription.plan, renewal: true },
-        createdAt: now,
-      });
+  private normalizeMemoryExpiration(subscription: MemorySubscription) {
+    if (
+      new Date() >= subscription.periodEnd &&
+      ["active", "retrying"].includes(subscription.status)
+    ) {
+      subscription.status = expirationStatus(subscription.plan);
     }
     return subscription;
   }
 
-  private getMemorySubscription(accountId: string) {
+  private getMemorySubscription(accountId: string, normalize = true) {
     const subscription = this.subscriptions.get(accountId);
-    if (!subscription) {
-      throw new BillingError(
-        "SUBSCRIPTION_NOT_FOUND",
-        404,
-        "Assinatura não encontrada para esta conta.",
-      );
-    }
-    return this.ensureMemoryCurrentPeriod(subscription);
+    if (!subscription) throw this.subscriptionNotFound();
+    return normalize ? this.normalizeMemoryExpiration(subscription) : subscription;
   }
 
   private buildMemoryUsage(subscription: MemorySubscription): BillingUsage {
@@ -234,6 +283,7 @@ export class BillingService {
     return {
       accountId: subscription.accountId,
       plan: subscription.plan,
+      status: subscription.status,
       storage: "memory",
       periodStart: subscription.periodStart.toISOString(),
       periodEnd: subscription.periodEnd.toISOString(),
@@ -251,6 +301,8 @@ export class BillingService {
 
   private consumeMemory(accountId: string, input: CreditConsumeRequest) {
     const subscription = this.getMemorySubscription(accountId);
+    this.assertProductionAllowed(subscription.status);
+
     const existing = this.memoryLedger.find(
       (entry) =>
         entry.accountId === accountId &&
@@ -275,13 +327,31 @@ export class BillingService {
     return this.buildMemoryUsage(subscription);
   }
 
-  private async createOrUpdatePostgresSubscription(accountId: string, plan: PlanSlug) {
+  private async openPostgresCycle(
+    accountId: string,
+    plan: PlanSlug,
+    referenceId: string,
+    paid: boolean,
+  ) {
     const client = await this.requirePool().connect();
     try {
       await client.query("BEGIN");
+      const duplicate = await client.query(
+        `SELECT id FROM modo_credit_ledger
+         WHERE account_id = $1 AND entry_type = 'grant' AND reference_id = $2
+         LIMIT 1`,
+        [accountId, referenceId],
+      );
+      if (duplicate.rowCount) {
+        const subscription = await this.loadPostgresSubscription(client, accountId, true);
+        const usage = await this.buildPostgresUsage(client, subscription);
+        await client.query("COMMIT");
+        return usage;
+      }
+
       const periodStart = new Date();
       const periodEnd = addBillingMonth(periodStart);
-      await client.query(
+      const result = await client.query<SubscriptionRow>(
         `INSERT INTO modo_subscriptions(account_id, plan_slug, status, period_start, period_end)
          VALUES ($1, $2, 'active', $3, $4)
          ON CONFLICT (account_id) DO UPDATE SET
@@ -289,16 +359,19 @@ export class BillingService {
            status = 'active',
            period_start = EXCLUDED.period_start,
            period_end = EXCLUDED.period_end,
-           updated_at = NOW()`,
+           updated_at = NOW()
+         RETURNING account_id, plan_slug, status, period_start, period_end`,
         [accountId, plan, periodStart, periodEnd],
       );
-      await this.insertPostgresGrant(client, accountId, plan, periodStart, false);
-      const usage = await this.buildPostgresUsage(client, {
-        account_id: accountId,
-        plan_slug: plan,
-        period_start: periodStart,
-        period_end: periodEnd,
-      });
+      await this.insertPostgresGrant(
+        client,
+        accountId,
+        plan,
+        periodStart,
+        referenceId,
+        paid,
+      );
+      const usage = await this.buildPostgresUsage(client, result.rows[0]);
       await client.query("COMMIT");
       return usage;
     } catch (error) {
@@ -313,7 +386,8 @@ export class BillingService {
     const client = await this.requirePool().connect();
     try {
       await client.query("BEGIN");
-      const subscription = await this.lockAndRenewPostgresSubscription(client, accountId);
+      let subscription = await this.loadPostgresSubscription(client, accountId, true);
+      subscription = await this.normalizePostgresExpiration(client, subscription);
       const usage = await this.buildPostgresUsage(client, subscription);
       await client.query("COMMIT");
       return usage;
@@ -329,7 +403,10 @@ export class BillingService {
     const client = await this.requirePool().connect();
     try {
       await client.query("BEGIN");
-      const subscription = await this.lockAndRenewPostgresSubscription(client, accountId);
+      let subscription = await this.loadPostgresSubscription(client, accountId, true);
+      subscription = await this.normalizePostgresExpiration(client, subscription);
+      this.assertProductionAllowed(subscription.status);
+
       const existing = await client.query(
         `SELECT id FROM modo_credit_ledger
          WHERE account_id = $1 AND entry_type = 'usage' AND reference_id = $2
@@ -369,55 +446,38 @@ export class BillingService {
     }
   }
 
-  private async lockAndRenewPostgresSubscription(client: PoolClient, accountId: string) {
+  private async loadPostgresSubscription(
+    client: PoolClient,
+    accountId: string,
+    forUpdate: boolean,
+  ) {
     const result = await client.query<SubscriptionRow>(
-      `SELECT account_id, plan_slug, period_start, period_end
+      `SELECT account_id, plan_slug, status, period_start, period_end
        FROM modo_subscriptions
-       WHERE account_id = $1 AND status = 'active'
-       FOR UPDATE`,
+       WHERE account_id = $1${forUpdate ? " FOR UPDATE" : ""}`,
       [accountId],
     );
-    if (!result.rowCount) {
-      throw new BillingError(
-        "SUBSCRIPTION_NOT_FOUND",
-        404,
-        "Assinatura não encontrada para esta conta.",
-      );
+    if (!result.rowCount) throw this.subscriptionNotFound();
+    return result.rows[0];
+  }
+
+  private async normalizePostgresExpiration(
+    client: PoolClient,
+    subscription: SubscriptionRow,
+  ) {
+    if (
+      new Date() < subscription.period_end ||
+      !["active", "retrying"].includes(subscription.status)
+    ) {
+      return subscription;
     }
 
-    const subscription = result.rows[0];
-    let periodStart = new Date(subscription.period_start.getTime());
-    let periodEnd = new Date(subscription.period_end.getTime());
-    const now = new Date();
-    let renewed = false;
-
-    while (now >= periodEnd) {
-      periodStart = new Date(periodEnd.getTime());
-      periodEnd = addBillingMonth(periodEnd);
-      renewed = true;
-    }
-
-    if (renewed) {
-      await client.query(
-        `UPDATE modo_subscriptions
-         SET period_start = $2, period_end = $3, updated_at = NOW()
-         WHERE account_id = $1`,
-        [accountId, periodStart, periodEnd],
-      );
-      await this.insertPostgresGrant(
-        client,
-        accountId,
-        subscription.plan_slug,
-        periodStart,
-        true,
-      );
-    }
-
-    return {
-      ...subscription,
-      period_start: periodStart,
-      period_end: periodEnd,
-    };
+    const status = expirationStatus(subscription.plan_slug);
+    await client.query(
+      `UPDATE modo_subscriptions SET status = $2, updated_at = NOW() WHERE account_id = $1`,
+      [subscription.account_id, status],
+    );
+    return { ...subscription, status };
   }
 
   private async insertPostgresGrant(
@@ -425,7 +485,8 @@ export class BillingService {
     accountId: string,
     plan: PlanSlug,
     periodStart: Date,
-    renewal: boolean,
+    referenceId: string,
+    paid: boolean,
   ) {
     await client.query(
       `INSERT INTO modo_credit_ledger(
@@ -436,9 +497,9 @@ export class BillingService {
         randomUUID(),
         accountId,
         planEntitlements[plan].monthlyCredits,
-        `period:${periodStart.toISOString()}`,
+        referenceId,
         periodStart,
-        JSON.stringify({ plan, renewal }),
+        JSON.stringify({ plan, paid }),
       ],
     );
   }
@@ -474,6 +535,7 @@ export class BillingService {
     return {
       accountId: subscription.account_id,
       plan: subscription.plan_slug,
+      status: subscription.status,
       storage: "postgres",
       periodStart: subscription.period_start.toISOString(),
       periodEnd: subscription.period_end.toISOString(),
@@ -483,6 +545,22 @@ export class BillingService {
       usageByType,
       entitlements: planEntitlements[subscription.plan_slug],
     };
+  }
+
+  private assertProductionAllowed(status: SubscriptionStatus) {
+    if (["active", "retrying"].includes(status)) return;
+    if (status === "suspended") {
+      throw new BillingError(
+        "SUBSCRIPTION_SUSPENDED",
+        402,
+        "A assinatura está suspensa por falta de pagamento. Regularize o Pix Automático para continuar.",
+      );
+    }
+    throw new BillingError(
+      "SUBSCRIPTION_CANCELED",
+      402,
+      "A assinatura foi cancelada. Ative um novo plano para voltar a produzir.",
+    );
   }
 
   private assertCapacity(usage: BillingUsage, contentType: ContentUnitType) {
@@ -515,6 +593,14 @@ export class BillingService {
         "O limite mensal de roteiros de vídeo deste plano foi atingido.",
       );
     }
+  }
+
+  private subscriptionNotFound() {
+    return new BillingError(
+      "SUBSCRIPTION_NOT_FOUND",
+      404,
+      "Assinatura não encontrada para esta conta.",
+    );
   }
 
   private requirePool() {

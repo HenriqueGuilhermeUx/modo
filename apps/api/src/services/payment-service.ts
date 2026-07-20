@@ -38,11 +38,15 @@ interface WooviSubscriptionResponse {
   subscription: WooviSubscription;
 }
 
-export interface PaymentActivation {
+export type PaymentLifecycleAction = "paid" | "retrying" | "suspend" | "cancel";
+
+export interface PaymentLifecycleEvent {
   accountId: string;
   plan: PublicPlanSlug;
   providerId: string;
   event: string;
+  eventKey: string;
+  action: PaymentLifecycleAction;
 }
 
 export class PaymentError extends Error {
@@ -61,7 +65,7 @@ export class PaymentService {
   private readonly webhookAuthorization?: string;
   private readonly pool?: Pool;
   private readonly memorySubscriptions = new Map<string, WooviSubscription>();
-  private readonly memoryActivated = new Set<string>();
+  private readonly memoryEvents = new Set<string>();
 
   constructor(options: PaymentServiceOptions) {
     this.appId = options.appId;
@@ -191,7 +195,7 @@ export class PaymentService {
     }
   }
 
-  async processWebhook(body: Record<string, unknown>): Promise<PaymentActivation | null> {
+  async processWebhook(body: Record<string, unknown>): Promise<PaymentLifecycleEvent | null> {
     const event = String(body.event || "");
     if (!event.startsWith("PIX_AUTOMATIC_")) return null;
 
@@ -210,17 +214,49 @@ export class PaymentService {
     const parsed = this.parseCorrelationID(subscription.correlationID);
     await this.persist(parsed.accountId, parsed.plan, subscription);
 
-    if (event === "PIX_AUTOMATIC_COBR_COMPLETED") {
-      await this.markPayment(providerId);
+    const action = this.mapLifecycleAction(event);
+    if (!action) return null;
+
+    if (action === "paid") await this.markPayment(providerId);
+    return { ...parsed, providerId, event, eventKey, action };
+  }
+
+  async cancelLatest(accountId: string) {
+    const providerId = await this.findLatestProviderId(accountId);
+    const response = await fetch(
+      `https://api.woovi.com/api/v1/subscriptions/${encodeURIComponent(providerId)}/cancel`,
+      {
+        method: "PUT",
+        headers: { Authorization: this.requireAppId() },
+      },
+    );
+    const payload = (await response.json().catch(() => ({}))) as {
+      message?: string;
+      errors?: Array<{ message?: string }>;
+    };
+    if (!response.ok) {
+      throw new PaymentError(
+        "SUBSCRIPTION_CANCEL_FAILED",
+        502,
+        payload.errors?.[0]?.message || payload.message || "Não foi possível cancelar a assinatura na Woovi.",
+      );
     }
 
-    const approved = subscription.pixRecurring?.status === "APPROVED";
-    if (!approved || !["PIX_AUTOMATIC_APPROVED", "PIX_AUTOMATIC_COBR_COMPLETED"].includes(event)) {
-      return null;
+    if (this.pool) {
+      await this.pool.query(
+        `UPDATE modo_payment_subscriptions
+         SET status='CANCELED', pix_recurring_status='CANCELED', updated_at=NOW()
+         WHERE global_id=$1`,
+        [providerId],
+      );
+    } else {
+      const current = this.memorySubscriptions.get(providerId);
+      if (current) {
+        current.status = "CANCELED";
+        current.pixRecurring = { ...current.pixRecurring, status: "CANCELED" };
+      }
     }
-
-    const claimed = await this.claimActivation(providerId);
-    return claimed ? { ...parsed, providerId, event } : null;
+    return { providerId, canceled: true };
   }
 
   async fetchSubscription(globalID: string) {
@@ -240,6 +276,14 @@ export class PaymentService {
       );
     }
     return payload.subscription;
+  }
+
+  private mapLifecycleAction(event: string): PaymentLifecycleAction | null {
+    if (event === "PIX_AUTOMATIC_COBR_COMPLETED") return "paid";
+    if (event === "PIX_AUTOMATIC_COBR_TRY_REJECTED") return "retrying";
+    if (event === "PIX_AUTOMATIC_COBR_REJECTED") return "suspend";
+    if (event === "PIX_AUTOMATIC_REJECTED") return "cancel";
+    return null;
   }
 
   private parseCorrelationID(value: string) {
@@ -290,8 +334,8 @@ export class PaymentService {
     body: Record<string, unknown>,
   ) {
     if (!this.pool) {
-      if (this.memoryActivated.has(`event:${eventKey}`)) return false;
-      this.memoryActivated.add(`event:${eventKey}`);
+      if (this.memoryEvents.has(eventKey)) return false;
+      this.memoryEvents.add(eventKey);
       return true;
     }
     const result = await this.pool.query(
@@ -302,26 +346,39 @@ export class PaymentService {
     return Boolean(result.rowCount);
   }
 
-  private async claimActivation(providerId: string) {
-    if (!this.pool) {
-      if (this.memoryActivated.has(`activation:${providerId}`)) return false;
-      this.memoryActivated.add(`activation:${providerId}`);
-      return true;
-    }
-    const result = await this.pool.query(
-      `UPDATE modo_payment_subscriptions SET activated_at=NOW(),updated_at=NOW()
-       WHERE global_id=$1 AND activated_at IS NULL RETURNING global_id`,
-      [providerId],
-    );
-    return Boolean(result.rowCount);
-  }
-
   private async markPayment(providerId: string) {
     if (!this.pool) return;
     await this.pool.query(
-      `UPDATE modo_payment_subscriptions SET last_payment_at=NOW(),updated_at=NOW() WHERE global_id=$1`,
+      `UPDATE modo_payment_subscriptions
+       SET activated_at=COALESCE(activated_at,NOW()),last_payment_at=NOW(),updated_at=NOW()
+       WHERE global_id=$1`,
       [providerId],
     );
+  }
+
+  private async findLatestProviderId(accountId: string) {
+    if (this.pool) {
+      const result = await this.pool.query<{ global_id: string }>(
+        `SELECT global_id FROM modo_payment_subscriptions
+         WHERE account_id=$1 AND COALESCE(pix_recurring_status,'') NOT IN ('CANCELED','REJECTED')
+         ORDER BY updated_at DESC LIMIT 1`,
+        [accountId],
+      );
+      if (!result.rowCount) {
+        throw new PaymentError("SUBSCRIPTION_NOT_FOUND", 404, "Assinatura Woovi não encontrada.");
+      }
+      return result.rows[0].global_id;
+    }
+
+    const match = [...this.memorySubscriptions.values()].reverse().find((subscription) => {
+      try {
+        return this.parseCorrelationID(subscription.correlationID).accountId === accountId;
+      } catch {
+        return false;
+      }
+    });
+    if (!match) throw new PaymentError("SUBSCRIPTION_NOT_FOUND", 404, "Assinatura Woovi não encontrada.");
+    return match.globalID;
   }
 
   private requireAppId() {

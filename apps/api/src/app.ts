@@ -179,14 +179,19 @@ export async function createApp(options: CreateAppOptions) {
     payments.validateWebhookAuthorization(authorization);
     const lifecycle = await payments.processWebhook(body);
 
-    if (lifecycle?.action === "paid") {
-      await billing.applyPaidCycle(lifecycle.accountId, lifecycle.plan, lifecycle.eventKey);
-    } else if (lifecycle?.action === "retrying") {
-      await billing.setStatus(lifecycle.accountId, "retrying");
-    } else if (lifecycle?.action === "suspend") {
-      await billing.setStatus(lifecycle.accountId, "suspended");
-    } else if (lifecycle?.action === "cancel") {
-      await billing.setStatus(lifecycle.accountId, "canceled");
+    try {
+      if (lifecycle?.action === "paid") {
+        await billing.applyPaidCycle(lifecycle.accountId, lifecycle.plan, lifecycle.eventKey);
+      } else if (lifecycle?.action === "retrying") {
+        await billing.setStatus(lifecycle.accountId, "retrying");
+      } else if (lifecycle?.action === "suspend") {
+        await billing.setStatus(lifecycle.accountId, "suspended");
+      } else if (lifecycle?.action === "cancel") {
+        await billing.setStatus(lifecycle.accountId, "canceled");
+      }
+    } catch (error) {
+      if (lifecycle) await payments.releaseEvent(lifecycle.eventKey);
+      throw error;
     }
 
     if (lifecycle) {

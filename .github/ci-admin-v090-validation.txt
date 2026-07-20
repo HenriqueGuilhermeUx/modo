@@ -1,0 +1,1 @@
+Validate platform admin, invitations, credit adjustments, subscription controls, discount campaigns, Woovi coupons and frontend routes.

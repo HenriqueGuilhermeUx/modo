@@ -21,6 +21,7 @@ import {
   ContentRequestCreateSchema,
   ContentRequestListSchema,
   ContentRequestSchema,
+  ContentRevisionRequestSchema,
   type ContentRequest,
   type ContentRequestCreate,
 } from "@modo/contracts/content";
@@ -117,6 +118,12 @@ export async function listContentRequests(): Promise<ContentRequest[]> {
   ).requests;
 }
 
+export async function getContentRequest(id: string): Promise<ContentRequest> {
+  return ContentRequestSchema.parse(
+    await request<unknown>(`/api/v1/content-requests/${id}`, undefined, true),
+  );
+}
+
 export async function createContentRequest(input: ContentRequestCreate) {
   const payload = await request<{ request: unknown; usage: Dashboard["usage"] }>(
     "/api/v1/content-requests",
@@ -130,6 +137,40 @@ export async function createContentRequest(input: ContentRequestCreate) {
     request: ContentRequestSchema.parse(payload.request),
     usage: payload.usage,
   };
+}
+
+export async function approveContentRequest(id: string): Promise<ContentRequest> {
+  return ContentRequestSchema.parse(
+    await request<unknown>(
+      `/api/v1/content-requests/${id}/approve`,
+      { method: "POST" },
+      true,
+    ),
+  );
+}
+
+export async function requestContentRevision(
+  id: string,
+  instructions: string,
+): Promise<ContentRequest> {
+  const input = ContentRevisionRequestSchema.parse({ instructions });
+  return ContentRequestSchema.parse(
+    await request<unknown>(
+      `/api/v1/content-requests/${id}/revisions`,
+      { method: "POST", body: JSON.stringify(input) },
+      true,
+    ),
+  );
+}
+
+export async function retryContentRequest(id: string): Promise<ContentRequest> {
+  return ContentRequestSchema.parse(
+    await request<unknown>(
+      `/api/v1/content-requests/${id}/retry`,
+      { method: "POST" },
+      true,
+    ),
+  );
 }
 
 export async function createWooviCheckout(

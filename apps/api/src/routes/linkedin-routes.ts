@@ -5,7 +5,8 @@ import {
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import { AuthError, type AuthService } from "../services/auth-service.js";
 import type { ContentService } from "../services/content-service.js";
-import { LinkedInService } from "../services/linkedin-service.js";
+import { renderLinkedInDocument } from "../services/linkedin-document.js";
+import { LinkedInError, LinkedInService } from "../services/linkedin-service.js";
 
 interface Options {
   auth: AuthService;
@@ -81,6 +82,28 @@ export async function registerLinkedInRoutes(app: FastifyInstance, options: Opti
   app.get("/api/v1/linkedin/publications", async (request) => {
     const context = await options.auth.authenticate(bearerToken(request));
     return { publications: await service.listPublications(context.organization.id) };
+  });
+
+  app.get("/api/v1/linkedin/content/:id/document", async (request, reply) => {
+    const context = await options.auth.authenticate(bearerToken(request));
+    const content = await options.content.getForOrganization(
+      (request.params as { id: string }).id,
+      context.organization.id,
+    );
+    if (!content.output) {
+      throw new LinkedInError(
+        "CONTENT_NOT_READY",
+        409,
+        "O conteúdo precisa estar pronto antes de gerar o documento.",
+      );
+    }
+    const pdf = await renderLinkedInDocument(content.output);
+    reply.header("content-type", "application/pdf");
+    reply.header(
+      "content-disposition",
+      `attachment; filename="modo-linkedin-${content.id}.pdf"`,
+    );
+    return reply.send(Buffer.from(pdf));
   });
 
   app.post("/api/v1/linkedin/publications", async (request, reply) => {

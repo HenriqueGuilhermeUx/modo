@@ -19,6 +19,7 @@ import { WooviCheckoutRequestSchema } from "@modo/contracts/payment";
 import Fastify, { type FastifyRequest } from "fastify";
 import { randomUUID } from "node:crypto";
 import type { DiagnosticProvider } from "./providers/diagnostic-provider.js";
+import { registerCreativeIntelligenceRoutes } from "./routes/creative-intelligence-routes.js";
 import { assertPublicHttpUrl } from "./security/public-url.js";
 import { AuthError, AuthService } from "./services/auth-service.js";
 import { BillingError, BillingService } from "./services/billing-service.js";
@@ -27,6 +28,7 @@ import {
   ContentAutomationService,
 } from "./services/content-automation-service.js";
 import { ContentError, ContentService } from "./services/content-service.js";
+import { CreativeIntelligenceError } from "./services/creative-intelligence-service.js";
 import { DiagnosticService } from "./services/diagnostic-service.js";
 import { LeadService } from "./services/lead-service.js";
 import { PaymentError, PaymentService } from "./services/payment-service.js";
@@ -115,15 +117,21 @@ export async function createApp(options: CreateAppOptions) {
     },
   });
   await app.register(rateLimit, { max: 80, timeWindow: "1 minute" });
+  await registerCreativeIntelligenceRoutes(app, {
+    auth,
+    databaseUrl: options.databaseUrl,
+    databaseSsl: options.databaseSsl,
+  });
 
   app.get("/health", async () => ({
     status: "ok",
     service: "modo-api",
-    version: "0.7.0",
+    version: "0.8.0",
     billingStorage: billing.storage,
     accountStorage: auth.storage,
     contentStorage: content.storage,
     contentProvider: automation.mode,
+    creativeIntelligence: "enabled",
     paymentsProvider: payments.enabled ? "woovi" : "disabled",
   }));
 
@@ -403,7 +411,8 @@ export async function createApp(options: CreateAppOptions) {
       error instanceof AuthError ||
       error instanceof PaymentError ||
       error instanceof ContentError ||
-      error instanceof ContentAutomationError
+      error instanceof ContentAutomationError ||
+      error instanceof CreativeIntelligenceError
     ) {
       return reply.code(error.statusCode).send({ code: error.code, message: error.message });
     }

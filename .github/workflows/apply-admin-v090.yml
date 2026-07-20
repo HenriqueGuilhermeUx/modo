@@ -1,0 +1,264 @@
+name: Apply Admin v0.9.0
+on:
+  pull_request:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  patch:
+    if: github.head_ref == 'ci/apply-admin-v090'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Integrate admin and discounts
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          set -e
+          git clone --quiet --depth 1 "https://x-access-token:${GH_TOKEN}@github.com/${REPOSITORY}.git" repo
+          cd repo
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          payment = Path('apps/api/src/services/payment-service.ts')
+          text = payment.read_text()
+          text = text.replace(
+          '''interface PaymentServiceOptions {
+            appId?: string;
+            webhookAuthorization?: string;
+            databaseUrl?: string;
+            databaseSsl?: boolean;
+          }
+          ''',
+          '''interface DiscountQuoteLike {
+            reservationId: string;
+            code: string;
+            originalPriceCents: number;
+            finalPriceCents: number;
+            savedCents: number;
+          }
+
+          interface DiscountProvider {
+            reserveDiscount(accountId: string, plan: PublicPlanSlug, code?: string): Promise<DiscountQuoteLike | null>;
+            linkDiscountToProvider(reservationId: string, providerId: string): Promise<void>;
+            releaseDiscount(reservationId: string): Promise<void>;
+          }
+
+          interface PaymentServiceOptions {
+            appId?: string;
+            webhookAuthorization?: string;
+            databaseUrl?: string;
+            databaseSsl?: boolean;
+            discounts?: DiscountProvider;
+          }
+          ''')
+          text = text.replace(
+          '''  private readonly pool?: Pool;
+            private readonly memorySubscriptions = new Map<string, WooviSubscription>();
+          ''',
+          '''  private readonly pool?: Pool;
+            private readonly discounts?: DiscountProvider;
+            private readonly memorySubscriptions = new Map<string, WooviSubscription>();
+          ''')
+          text = text.replace(
+          '''    this.appId = options.appId;
+              this.webhookAuthorization = options.webhookAuthorization;
+              if (options.databaseUrl) {
+          ''',
+          '''    this.appId = options.appId;
+              this.webhookAuthorization = options.webhookAuthorization;
+              this.discounts = options.discounts;
+              if (options.databaseUrl) {
+          ''')
+          pattern = re.compile(r'  async createCheckout\(accountId: string, input: WooviCheckoutRequest\) \{.*?\n  \}\n\n  validateWebhookAuthorization', re.S)
+          replacement = '''  async createCheckout(accountId: string, input: WooviCheckoutRequest) {
+            const discount = await this.discounts?.reserveDiscount(accountId, input.plan, input.couponCode);
+            const value = discount?.finalPriceCents ?? planEntitlements[input.plan].priceCents;
+            const correlationID = `modo:${accountId}:${input.plan}:${randomUUID()}`;
+            const dayGenerateCharge = Math.min(27, Math.max(1, new Date().getUTCDate()));
+            try {
+              const response = await fetch("https://api.woovi.com/api/v1/subscriptions", {
+                method: "POST",
+                headers: {
+                  Authorization: this.requireAppId(),
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                  value,
+                  name: planNames[input.plan],
+                  comment: discount
+                    ? `${planNames[input.plan]} — assinatura mensal MODO — cupom ${discount.code}`
+                    : `${planNames[input.plan]} — assinatura mensal MODO`,
+                  correlationID,
+                  frequency: "MONTHLY",
+                  type: "PIX_RECURRING",
+                  dayGenerateCharge,
+                  dayDue: 3,
+                  pixRecurringOptions: {
+                    journey: "PAYMENT_ON_APPROVAL",
+                    retryPolicy: "THREE_RETRIES_7_DAYS",
+                  },
+                  customer: {
+                    name: input.customer.name,
+                    email: input.customer.email,
+                    phone: input.customer.phone.replace(/\\D/g, ""),
+                    taxID: input.customer.taxID.replace(/\\D/g, ""),
+                    address: {
+                      ...input.customer.address,
+                      zipcode: input.customer.address.zipcode.replace(/\\D/g, ""),
+                    },
+                  },
+                }),
+              });
+
+              const payload = (await response.json().catch(() => ({}))) as Partial<WooviSubscriptionResponse> & {
+                message?: string;
+                errors?: Array<{ message?: string }>;
+              };
+              const subscription = payload.subscription;
+              if (
+                !response.ok ||
+                !subscription?.globalID ||
+                !subscription.paymentLinkUrl ||
+                !subscription.pixRecurring?.emv
+              ) {
+                throw new PaymentError(
+                  "CHECKOUT_CREATION_FAILED",
+                  502,
+                  payload.errors?.[0]?.message || payload.message || "Não foi possível iniciar o Pix Automático.",
+                );
+              }
+
+              await this.persist(accountId, input.plan, subscription);
+              if (discount) await this.discounts?.linkDiscountToProvider(discount.reservationId, subscription.globalID);
+              return {
+                subscriptionId: subscription.globalID,
+                correlationID,
+                paymentLinkUrl: subscription.paymentLinkUrl,
+                emv: subscription.pixRecurring.emv,
+                status: subscription.status,
+                pixRecurringStatus: subscription.pixRecurring.status || "CREATED",
+                ...(discount
+                  ? {
+                      discount: {
+                        code: discount.code,
+                        originalPriceCents: discount.originalPriceCents,
+                        finalPriceCents: discount.finalPriceCents,
+                        savedCents: discount.savedCents,
+                      },
+                    }
+                  : {}),
+              };
+            } catch (error) {
+              if (discount) await this.discounts?.releaseDiscount(discount.reservationId);
+              throw error;
+            }
+          }
+
+          validateWebhookAuthorization'''
+          text, count = pattern.subn(replacement, text)
+          if count != 1:
+            raise SystemExit(f'Could not replace createCheckout; matches={count}')
+          payment.write_text(text)
+
+          app = Path('apps/api/src/app.ts')
+          text = app.read_text()
+          text = text.replace(
+          'import { registerCreativeIntelligenceRoutes } from "./routes/creative-intelligence-routes.js";\n',
+          'import { registerCreativeIntelligenceRoutes } from "./routes/creative-intelligence-routes.js";\nimport { registerPlatformAdminRoutes } from "./routes/platform-admin-routes.js";\n')
+          text = text.replace(
+          'import { PaymentError, PaymentService } from "./services/payment-service.js";\n',
+          'import { PaymentError, PaymentService } from "./services/payment-service.js";\nimport { PlatformAdminError, PlatformAdminService } from "./services/platform-admin-service.js";\n')
+          text = text.replace(
+          '''  const content = new ContentService({
+              databaseUrl: options.databaseUrl,
+              databaseSsl: options.databaseSsl,
+            });
+          ''',
+          '''  const content = new ContentService({
+              databaseUrl: options.databaseUrl,
+              databaseSsl: options.databaseSsl,
+            });
+            const admin = new PlatformAdminService({
+              databaseUrl: options.databaseUrl,
+              databaseSsl: options.databaseSsl,
+              email: process.env.PLATFORM_ADMIN_EMAIL,
+              password: process.env.PLATFORM_ADMIN_PASSWORD,
+              name: process.env.PLATFORM_ADMIN_NAME,
+              sessionHours: Number(process.env.PLATFORM_ADMIN_SESSION_HOURS || 12),
+              publicWebUrl: process.env.PUBLIC_WEB_URL,
+            });
+          ''')
+          text = text.replace(
+          '''    databaseUrl: options.databaseUrl,
+              databaseSsl: options.databaseSsl,
+            });
+
+            await billing.initialize();
+          ''',
+          '''    databaseUrl: options.databaseUrl,
+              databaseSsl: options.databaseSsl,
+              discounts: admin,
+            });
+
+            await billing.initialize();
+          ''', 1)
+          text = text.replace(
+          '''  await content.initialize();
+            await payments.initialize();
+          ''',
+          '''  await content.initialize();
+            await payments.initialize();
+            await admin.initialize();
+          ''')
+          text = text.replace(
+          '''    await Promise.all([billing.close(), auth.close(), content.close(), payments.close()]);
+          ''',
+          '''    await Promise.all([billing.close(), auth.close(), content.close(), payments.close(), admin.close()]);
+          ''')
+          text = text.replace(
+          '''  await registerCreativeIntelligenceRoutes(app, {
+              auth,
+              databaseUrl: options.databaseUrl,
+              databaseSsl: options.databaseSsl,
+            });
+          ''',
+          '''  await registerCreativeIntelligenceRoutes(app, {
+              auth,
+              databaseUrl: options.databaseUrl,
+              databaseSsl: options.databaseSsl,
+            });
+            await registerPlatformAdminRoutes(app, {
+              auth,
+              billing,
+              admin,
+              databaseUrl: options.databaseUrl,
+              databaseSsl: options.databaseSsl,
+            });
+          ''')
+          text = text.replace('version: "0.8.0",', 'version: "0.9.0",')
+          text = text.replace(
+          '''    creativeIntelligence: "enabled",
+              paymentsProvider: payments.enabled ? "woovi" : "disabled",
+          ''',
+          '''    creativeIntelligence: "enabled",
+              platformAdmin: admin.enabled ? "enabled" : "disabled",
+              paymentsProvider: payments.enabled ? "woovi" : "disabled",
+          ''')
+          text = text.replace(
+          '''      error instanceof ContentAutomationError ||
+              error instanceof CreativeIntelligenceError
+          ''',
+          '''      error instanceof ContentAutomationError ||
+              error instanceof CreativeIntelligenceError ||
+              error instanceof PlatformAdminError
+          ''')
+          app.write_text(text)
+          PY
+          git config user.name "MODO CI"
+          git config user.email "actions@github.com"
+          git add apps/api/src/app.ts apps/api/src/services/payment-service.ts
+          git commit -m "integrate platform admin and checkout discounts"
+          git push origin HEAD:main

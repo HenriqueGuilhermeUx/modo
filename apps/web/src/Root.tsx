@@ -1,8 +1,11 @@
 import App from "./App";
+import ContentWorkspace from "./ContentWorkspace";
 import Portal from "./Portal";
 
 export default function Root() {
-  if (window.location.pathname.startsWith("/app")) return <Portal />;
+  const path = window.location.pathname;
+  if (path.startsWith("/app/content")) return <ContentWorkspace />;
+  if (path.startsWith("/app")) return <Portal />;
 
   return (
     <>

@@ -4,6 +4,7 @@ import Root from "./Root";
 import "./styles.css";
 import "./pricing.css";
 import "./portal.css";
+import "./workspace.css";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

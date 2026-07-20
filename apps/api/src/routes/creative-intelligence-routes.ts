@@ -9,6 +9,7 @@ import { AuthError, type AuthService } from "../services/auth-service.js";
 import { ContentService } from "../services/content-service.js";
 import { CreativeIntelligenceService } from "../services/creative-intelligence-service.js";
 import { registerLinkedInRoutes } from "./linkedin-routes.js";
+import { registerSignalRoutes } from "./signal-routes.js";
 
 interface Options {
   auth: AuthService;
@@ -40,18 +41,18 @@ export async function registerCreativeIntelligenceRoutes(
     databaseUrl: options.databaseUrl,
     databaseSsl: options.databaseSsl,
   });
-  const linkedInContent = new ContentService({
+  const auxiliaryContent = new ContentService({
     databaseUrl: options.databaseUrl,
     databaseSsl: options.databaseSsl,
   });
-  await Promise.all([service.initialize(), linkedInContent.initialize()]);
+  await Promise.all([service.initialize(), auxiliaryContent.initialize()]);
   app.addHook("onClose", async () => {
-    await Promise.all([service.close(), linkedInContent.close()]);
+    await Promise.all([service.close(), auxiliaryContent.close()]);
   });
 
   await registerLinkedInRoutes(app, {
     auth: options.auth,
-    content: linkedInContent,
+    content: auxiliaryContent,
     clientId: process.env.LINKEDIN_CLIENT_ID,
     clientSecret: process.env.LINKEDIN_CLIENT_SECRET,
     redirectUri: process.env.LINKEDIN_REDIRECT_URI,
@@ -59,6 +60,12 @@ export async function registerCreativeIntelligenceRoutes(
     encryptionSecret: process.env.LINKEDIN_TOKEN_ENCRYPTION_SECRET,
     apiVersion: process.env.LINKEDIN_API_VERSION,
     webUrl: process.env.PUBLIC_WEB_URL,
+    databaseUrl: options.databaseUrl,
+    databaseSsl: options.databaseSsl,
+  });
+  await registerSignalRoutes(app, {
+    auth: options.auth,
+    content: auxiliaryContent,
     databaseUrl: options.databaseUrl,
     databaseSsl: options.databaseSsl,
   });

@@ -147,6 +147,14 @@ export async function createWooviCheckout(
   );
 }
 
+export async function cancelWooviSubscription() {
+  return request<{ canceled: boolean; providerId: string; usage: Dashboard["usage"] }>(
+    "/api/v1/payments/cancel",
+    { method: "POST" },
+    true,
+  );
+}
+
 export async function logoutAccount() {
   await request<void>("/api/v1/auth/logout", { method: "POST" }, true).catch(() => undefined);
   clearSessionToken();

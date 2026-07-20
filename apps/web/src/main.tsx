@@ -10,6 +10,7 @@ import "./billing.css";
 import "./billing-lifecycle.css";
 import "./creative-director.css";
 import "./landing-enhancements.css";
+import "./director.css";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

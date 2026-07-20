@@ -90,8 +90,11 @@ export const LeadCreateRequestSchema = z.object({
 });
 export type LeadCreateRequest = z.infer<typeof LeadCreateRequestSchema>;
 
-export const PlanSlugSchema = z.enum(["start", "presenca", "pro", "business"]);
+export const PlanSlugSchema = z.enum(["trial", "start", "presenca", "pro", "business"]);
 export type PlanSlug = z.infer<typeof PlanSlugSchema>;
+
+export const PublicPlanSlugSchema = z.enum(["start", "presenca", "pro", "business"]);
+export type PublicPlanSlug = z.infer<typeof PublicPlanSlugSchema>;
 
 export const ContentUnitTypeSchema = z.enum([
   "static_post",
@@ -126,6 +129,19 @@ export const PlanEntitlementSchema = z.object({
 export type PlanEntitlement = z.infer<typeof PlanEntitlementSchema>;
 
 export const planEntitlements: Record<PlanSlug, PlanEntitlement> = {
+  trial: {
+    priceCents: 0,
+    monthlyCredits: 3,
+    maxBrands: 1,
+    maxChannels: 1,
+    maxUsers: 1,
+    maxCarouselsPerMonth: 1,
+    maxShortVideoScriptsPerMonth: 0,
+    includedRevisionCycles: 1,
+    scheduling: false,
+    analytics: false,
+    customApprovalFlows: false,
+  },
   start: {
     priceCents: 9900,
     monthlyCredits: 6,
@@ -180,9 +196,7 @@ export const planEntitlements: Record<PlanSlug, PlanEntitlement> = {
   },
 };
 
-export const PlanSelectionSchema = z.object({
-  plan: PlanSlugSchema,
-});
+export const PlanSelectionSchema = z.object({ plan: PublicPlanSlugSchema });
 export type PlanSelection = z.infer<typeof PlanSelectionSchema>;
 
 export const BillingAccountIdSchema = z
@@ -227,3 +241,76 @@ export const BillingUsageSchema = z.object({
   entitlements: PlanEntitlementSchema,
 });
 export type BillingUsage = z.infer<typeof BillingUsageSchema>;
+
+const PasswordSchema = z
+  .string()
+  .min(8, "A senha deve ter pelo menos 8 caracteres.")
+  .max(128)
+  .regex(/[A-Za-z]/, "A senha deve conter uma letra.")
+  .regex(/[0-9]/, "A senha deve conter um número.");
+
+export const RegisterRequestSchema = z.object({
+  name: z.string().trim().min(2).max(100),
+  email: z.string().trim().toLowerCase().email().max(180),
+  password: PasswordSchema,
+  organizationName: z.string().trim().min(2).max(120),
+});
+export type RegisterRequest = z.infer<typeof RegisterRequestSchema>;
+
+export const LoginRequestSchema = z.object({
+  email: z.string().trim().toLowerCase().email().max(180),
+  password: z.string().min(1).max(128),
+});
+export type LoginRequest = z.infer<typeof LoginRequestSchema>;
+
+export const UserPublicSchema = z.object({
+  id: z.string().uuid(),
+  name: z.string(),
+  email: z.string().email(),
+  createdAt: z.string().datetime(),
+});
+export type UserPublic = z.infer<typeof UserPublicSchema>;
+
+export const OrganizationPublicSchema = z.object({
+  id: BillingAccountIdSchema,
+  name: z.string(),
+  role: z.enum(["owner", "admin", "member"]),
+  createdAt: z.string().datetime(),
+});
+export type OrganizationPublic = z.infer<typeof OrganizationPublicSchema>;
+
+export const AuthSessionSchema = z.object({
+  token: z.string().min(20),
+  expiresAt: z.string().datetime(),
+  user: UserPublicSchema,
+  organization: OrganizationPublicSchema,
+});
+export type AuthSession = z.infer<typeof AuthSessionSchema>;
+
+export const BrandCreateRequestSchema = z.object({
+  name: z.string().trim().min(2).max(120),
+  websiteUrl: z.string().url().max(500).optional().or(z.literal("")),
+  instagramHandle: z.string().trim().max(80).optional().default(""),
+  niche: NicheSchema.default("outro"),
+});
+export type BrandCreateRequest = z.infer<typeof BrandCreateRequestSchema>;
+
+export const BrandSchema = z.object({
+  id: z.string().uuid(),
+  organizationId: BillingAccountIdSchema,
+  name: z.string(),
+  websiteUrl: z.string(),
+  instagramHandle: z.string(),
+  niche: NicheSchema,
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime(),
+});
+export type Brand = z.infer<typeof BrandSchema>;
+
+export const DashboardSchema = z.object({
+  user: UserPublicSchema,
+  organization: OrganizationPublicSchema,
+  usage: BillingUsageSchema,
+  brands: z.array(BrandSchema),
+});
+export type Dashboard = z.infer<typeof DashboardSchema>;

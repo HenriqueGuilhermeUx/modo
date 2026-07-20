@@ -7,6 +7,7 @@ describe("BillingService", () => {
     await service.initialize();
 
     const initial = await service.createOrUpdateDemoSubscription("account_test", "start");
+    expect(initial.status).toBe("active");
     expect(initial.creditsGranted).toBe(6);
     expect(initial.creditsRemaining).toBe(6);
 
@@ -24,6 +25,52 @@ describe("BillingService", () => {
     });
     expect(duplicate.creditsUsed).toBe(2);
     expect(duplicate.usageByType.carousel).toBe(1);
+  });
+
+  it("opens a paid cycle only once for the same Woovi payment", async () => {
+    const service = new BillingService();
+    await service.initialize();
+    await service.createOrUpdateDemoSubscription("account_paid", "trial");
+
+    const first = await service.applyPaidCycle(
+      "account_paid",
+      "presenca",
+      "PIX_AUTOMATIC_COBR_COMPLETED:installment_1",
+    );
+    const duplicate = await service.applyPaidCycle(
+      "account_paid",
+      "presenca",
+      "PIX_AUTOMATIC_COBR_COMPLETED:installment_1",
+    );
+
+    expect(first.plan).toBe("presenca");
+    expect(first.status).toBe("active");
+    expect(first.creditsGranted).toBe(15);
+    expect(duplicate.creditsGranted).toBe(15);
+  });
+
+  it("keeps production available during retries and blocks it after suspension", async () => {
+    const service = new BillingService();
+    await service.initialize();
+    await service.applyPaidCycle("account_lifecycle", "start", "payment_1");
+
+    const retrying = await service.setStatus("account_lifecycle", "retrying");
+    expect(retrying.status).toBe("retrying");
+    await expect(
+      service.consume("account_lifecycle", {
+        contentType: "static_post",
+        referenceId: "retry_post",
+      }),
+    ).resolves.toMatchObject({ creditsRemaining: 5 });
+
+    const suspended = await service.setStatus("account_lifecycle", "suspended");
+    expect(suspended.status).toBe("suspended");
+    await expect(
+      service.consume("account_lifecycle", {
+        contentType: "static_post",
+        referenceId: "blocked_post",
+      }),
+    ).rejects.toMatchObject({ code: "SUBSCRIPTION_SUSPENDED" });
   });
 
   it("enforces format sublimits before allowing extra production", async () => {

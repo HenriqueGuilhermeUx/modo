@@ -15,6 +15,8 @@ import "./director-prefill.css";
 import "./linkedin.css";
 import "./signal.css";
 import "./admin.css";
+import "./onboarding.css";
+import "./marketing-clarity.css";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

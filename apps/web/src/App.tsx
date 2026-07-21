@@ -1,5 +1,5 @@
 import { nicheLabels, type DiagnosticJob, type Niche } from "@modo/contracts";
-import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { captureLead, createDiagnostic, getDiagnostic } from "./api";
 
 const DIAGNOSTIC_CACHE_KEY = "modo.lastDiagnostic";
@@ -27,10 +27,12 @@ const stageCopy: Record<DiagnosticJob["stage"], string> = {
 const moduleItems = [
   ["Scan", "Diagnóstico e oportunidades"],
   ["Brand", "Memória e inteligência da marca"],
-  ["Plan", "Estratégia e calendário"],
-  ["Create", "Campanhas e conteúdos"],
+  ["Director", "Decisões, campanhas e missões"],
+  ["Create", "Conteúdos e adaptações"],
+  ["Capture", "Direção para vídeos e bastidores"],
   ["Approve", "Revisão simples"],
   ["Publish", "Agendamento e distribuição"],
+  ["Signal", "Desempenho e aprendizado"],
 ];
 
 type PricingPlan = {
@@ -180,14 +182,14 @@ export default function App() {
       window.location.href = `${target}${separator}plan=${encodeURIComponent(planSlug)}`;
       return;
     }
-    document.querySelector("#diagnostico")?.scrollIntoView({ behavior: "smooth" });
+    window.location.href = "/app";
   }
 
   return (
     <div className="site-shell">
       <header className="header container">
         <a href="#top"><Logo /></a>
-        <nav className="nav"><a href="#como-funciona">Como funciona</a><a href="#plataforma">Plataforma</a><a href="#plano">Planos</a></nav>
+        <nav className="nav"><a href="#como-funciona">Como funciona</a><a href="#linkedin">LinkedIn</a><a href="#plataforma">Plataforma</a><a href="#plano">Planos</a></nav>
         <div className="header-actions"><a className="header-login" href="/app">Entrar</a><a className="button button-small button-primary" href="#diagnostico">Analisar minha marca</a></div>
       </header>
 
@@ -196,13 +198,13 @@ export default function App() {
           <div className="hero-copy">
             <div className="eyebrow"><span /> Agência inteligente de presença digital</div>
             <h1>Sua marca em <strong>modo presença.</strong></h1>
-            <p className="hero-description">A MODO entende seu contexto, prepara a estratégia e transforma objetivos em campanhas prontas para você revisar e aprovar.</p>
-            <div className="hero-actions"><a className="button button-primary" href="#diagnostico">Analisar minha marca <span>↗</span></a><a className="text-link" href="#como-funciona">Ver como funciona ↓</a></div>
-            <div className="hero-proof"><span>Sem briefing interminável</span><span>Sem tela em branco</span><span>Com controle da marca</span></div>
+            <p className="hero-description">A MODO conhece sua empresa, decide o que vale comunicar, cria conteúdos para Instagram, Facebook e LinkedIn, orienta vídeos com pessoas reais e aprende com o desempenho.</p>
+            <div className="hero-actions"><a className="button button-primary" href="#diagnostico">Analisar minha marca <span>↗</span></a><a className="text-link" href="#como-funciona">Entender o potencial ↓</a></div>
+            <div className="hero-proof"><span>Sem precisar criar prompts</span><span>Com direção profissional</span><span>Com aprovação da empresa</span></div>
           </div>
           <div className="hero-visual">
             <div className="orb orb-one" /><div className="orb orb-two" />
-            <div className="mode-card mode-card-main"><div className="card-topline"><span className="status-dot" /> MODO está ativa <span className="card-menu">•••</span></div><div className="brand-row"><div className="brand-avatar">M</div><div><strong>Inteligência da marca</strong><small>Contexto atualizado</small></div></div><div className="progress-label"><span>Estratégia do ciclo</span><b>82%</b></div><div className="mini-progress"><span /></div><div className="task-list"><div><i className="done">✓</i><span>Diagnóstico</span><b>Concluído</b></div><div><i className="done">✓</i><span>Calendário</span><b>Concluído</b></div><div><i>3</i><span>Conteúdos</span><b>Para aprovar</b></div></div></div>
+            <div className="mode-card mode-card-main"><div className="card-topline"><span className="status-dot" /> MODO está ativa <span className="card-menu">•••</span></div><div className="brand-row"><div className="brand-avatar">M</div><div><strong>Inteligência da marca</strong><small>Contexto atualizado</small></div></div><div className="progress-label"><span>Estratégia do ciclo</span><b>82%</b></div><div className="mini-progress"><span /></div><div className="task-list"><div><i className="done">✓</i><span>LinkedIn de autoridade</span><b>Planejado</b></div><div><i className="done">✓</i><span>Vídeo com fundador</span><b>Dirigido</b></div><div><i>3</i><span>Conteúdos</span><b>Para aprovar</b></div></div></div>
             <div className="floating-card floating-approve"><span>Conteúdo aprovado</span><strong>✓</strong></div><div className="floating-card floating-signal"><small>Sinal da semana</small><strong>Autoridade ↑</strong></div>
           </div>
         </section>
@@ -210,10 +212,10 @@ export default function App() {
         <section className="diagnostic-section" id="diagnostico">
           {result && <div className="container diagnostic-ready"><div><span>✓</span><div><strong>Seu diagnóstico está pronto.</strong><p>O resultado continua salvo nesta sessão.</p></div></div><button type="button" className="button button-small button-primary" onClick={revealResult}>Ver diagnóstico</button></div>}
           <div className="container diagnostic-grid">
-            <div className="diagnostic-intro"><div className="section-kicker">MODO SCAN</div><h2>Veja o que sua marca deveria publicar <strong>antes de contratar.</strong></h2><p>Informe seu site. A MODO identifica o contexto da marca e prepara oportunidades personalizadas de conteúdo.</p><ul className="check-list"><li>Leitura inicial de posicionamento</li><li>Diagnóstico de oportunidade</li><li>Campanhas para autoridade, demanda e conexão</li></ul></div>
+            <div className="diagnostic-intro"><div className="section-kicker">MODO SCAN</div><h2>Veja o que sua marca deveria fazer e publicar <strong>antes de contratar.</strong></h2><p>Informe seu site. A MODO identifica o contexto e prepara oportunidades de autoridade, demanda, relacionamento e presença profissional.</p><ul className="check-list"><li>Leitura inicial de posicionamento</li><li>Diagnóstico de oportunidade</li><li>Campanhas para Instagram, Facebook e LinkedIn</li><li>Sugestões de vídeos, histórias e bastidores</li></ul></div>
             <form className="diagnostic-form" onSubmit={handleDiagnostic}>
-              <label>Site da marca<input type="text" inputMode="url" placeholder="www.suamarca.com.br" value={websiteUrl} onChange={(e) => setWebsiteUrl(e.target.value)} required /></label>
-              <label>Instagram <span>(opcional)</span><input type="text" placeholder="@suamarca" value={instagramHandle} onChange={(e) => setInstagramHandle(e.target.value)} /></label>
+              <label>Site da marca<input type="text" inputMode="url" placeholder="www.suamarca.com.br" value={websiteUrl} onChange={(event) => setWebsiteUrl(event.target.value)} required /></label>
+              <label>Instagram <span>(opcional)</span><input type="text" placeholder="@suamarca" value={instagramHandle} onChange={(event) => setInstagramHandle(event.target.value)} /></label>
               <fieldset><legend>Qual é o universo da marca?</legend><div className="niche-grid">{(Object.keys(nicheLabels) as Niche[]).map((key) => <button className={niche === key ? "niche active" : "niche"} type="button" key={key} onClick={() => setNiche(key)}><span>{nicheIcons[key]}</span>{nicheLabels[key]}</button>)}</div></fieldset>
               <button className="button button-primary button-full" disabled={job?.status === "processing"}>{job?.status === "processing" ? "Analisando..." : result ? "Gerar novo diagnóstico" : "Gerar meu diagnóstico"} <span>⚡</span></button>
               <small className="form-note">Demonstração gratuita. Nenhuma publicação é feita sem aprovação.</small>{error && <div className="form-error"><strong>Não conseguimos exibir o diagnóstico.</strong><span>{error}</span></div>}
@@ -229,19 +231,74 @@ export default function App() {
           <div className="diagnosis-card"><div className="diagnosis-number">01</div><div><small>Oportunidade principal</small><h3>{result.diagnosis.opportunity}</h3><p>{result.diagnosis.impact}</p><div className="recommendation"><b>Direção recomendada:</b> {result.diagnosis.recommendation}</div></div></div>
           <div className="campaign-heading"><div><div className="section-kicker">3 CAMPANHAS INICIAIS</div><h2>Conteúdo com uma função clara.</h2></div><p>Cada ideia ocupa um papel diferente na presença da marca.</p></div>
           <div className="campaign-grid">{campaigns.map((campaign, index) => { const locked = index > 0 && !leadCaptured; return <article className={locked ? "campaign-card locked" : "campaign-card"} key={campaign.id}><div className="campaign-top"><span>0{index + 1}</span><b>{campaign.eyebrow}</b></div><h3>{campaign.title}</h3><small>Direção visual</small><p>{campaign.visualDirection}</p><small>Legenda</small><p>{campaign.caption}</p><div className="campaign-tags">{campaign.hashtags.join(" ")}</div><div className="campaign-cta">{campaign.cta}</div>{locked && <div className="lock-layer"><div className="lock-icon">↗</div><strong>Libere a campanha completa</strong><span>Informe seu contato abaixo.</span></div>}</article>; })}</div>
-          {!leadCaptured ? <form className="lead-capture" onSubmit={handleLead}><div><small>RECEBA O PLANO COMPLETO</small><h3>Encontramos mais duas direções para sua marca.</h3></div><input placeholder="Seu nome" value={name} onChange={(e) => setName(e.target.value)} required /><input placeholder="WhatsApp ou e-mail" value={contact} onChange={(e) => setContact(e.target.value)} required /><button className="button button-primary" disabled={leadLoading}>{leadLoading ? "Liberando..." : "Liberar plano"}</button><small className="consent-copy">Ao continuar, você aceita receber contato sobre a MODO.</small></form> : <div className="lead-success"><span>✓</span><div><strong>Plano liberado.</strong><p>Agora você pode revisar todas as campanhas sugeridas.</p></div><button className="button button-primary" onClick={() => activatePlan("presenca")}>Ativar minha presença</button></div>}
+          {!leadCaptured ? <form className="lead-capture" onSubmit={handleLead}><div><small>RECEBA O PLANO COMPLETO</small><h3>Encontramos mais duas direções para sua marca.</h3></div><input placeholder="Seu nome" value={name} onChange={(event) => setName(event.target.value)} required /><input placeholder="WhatsApp ou e-mail" value={contact} onChange={(event) => setContact(event.target.value)} required /><button className="button button-primary" disabled={leadLoading}>{leadLoading ? "Liberando..." : "Liberar plano"}</button><small className="consent-copy">Ao continuar, você aceita receber contato sobre a MODO.</small></form> : <div className="lead-success"><span>✓</span><div><strong>Plano liberado.</strong><p>Agora você pode revisar todas as campanhas sugeridas.</p></div><button className="button button-primary" onClick={() => activatePlan("presenca")}>Ativar minha presença</button></div>}
         </div></section>}
 
-        <section className="how-section container" id="como-funciona"><div className="section-heading centered"><div className="section-kicker">COMO FUNCIONA</div><h2>Da marca à publicação, <strong>sem tela em branco.</strong></h2><p>A MODO prepara as decisões. Você mantém o controle.</p></div><div className="steps-grid">{[["01", "Entende", "Organiza contexto, produtos, público, voz e objetivos da marca."], ["02", "Planeja", "Transforma o contexto em pilares, campanhas e um calendário coerente."], ["03", "Cria", "Prepara títulos, legendas, estruturas visuais e chamadas para ação."], ["04", "Você aprova", "Revise, ajuste e aprove sem reuniões ou briefings intermináveis."], ["05", "Publica e aprende", "Organiza a distribuição e melhora os próximos ciclos com cada decisão."]].map(([number, title, copy]) => <article className="step" key={number}><span>{number}</span><h3>{title}</h3><p>{copy}</p></article>)}</div></section>
+        <section className="how-section container" id="como-funciona">
+          <div className="section-heading centered"><div className="section-kicker">COMO FUNCIONA</div><h2>Uma diretoria de criação para quem <strong>não sabe por onde começar.</strong></h2><p>A MODO entrega opções, explica as escolhas e transforma a realidade da empresa em um plano executável.</p></div>
+          <div className="steps-grid">{[
+            ["01", "Conhece", "Organiza contexto, produtos, público, voz, provas, pessoas e objetivos da empresa."],
+            ["02", "Decide", "Escolhe os temas, formatos, campanhas e canais com maior potencial."],
+            ["03", "Cria", "Produz posts, carrosséis, stories, documentos e roteiros prontos para revisão."],
+            ["04", "Dirige", "Explica quem deve aparecer, o que falar, como gravar e quais cenas registrar."],
+            ["05", "Aprende", "Usa aprovações, revisões, leads e desempenho para melhorar o próximo ciclo."],
+          ].map(([number, title, copy]) => <article className="step" key={number}><span>{number}</span><h3>{title}</h3><p>{copy}</p></article>)}</div>
+        </section>
 
-        <section className="platform-section" id="plataforma"><div className="container platform-grid"><div><div className="section-kicker light">MODO OPERATING SYSTEM</div><h2>Uma operação contínua para a presença da sua marca.</h2><p>O diagnóstico é só o começo. A MODO reúne inteligência da marca, estratégia, produção, aprovação e distribuição em um único fluxo.</p><a className="button button-light" href="#diagnostico">Começar pelo diagnóstico</a></div><div className="module-list">{moduleItems.map(([moduleName, description], index) => <div key={moduleName}><span>0{index + 1}</span><strong>MODO {moduleName}</strong><p>{description}</p><i>↗</i></div>)}</div></div></section>
+        <section className="business-potential-section">
+          <div className="container">
+            <div className="business-potential-heading"><div className="section-kicker">O QUE A MODO ENTREGA</div><h2>Mais do que peças visuais. Uma operação criativa que continua acontecendo.</h2><p>A empresa recebe conteúdo pronto, mas também direção para gerar histórias, provas, rostos e matéria-prima real — o que torna a presença menos genérica e mais difícil de copiar.</p></div>
+            <div className="business-potential-grid">
+              <article><span>01</span><h3>Conteúdo que a MODO cria</h3><p>Posts, carrosséis, stories, documentos, legendas, roteiros e adaptações.</p></article>
+              <article><span>02</span><h3>Conteúdo que a MODO dirige</h3><p>Vídeo com fundador, bastidores, demonstrações, entrevistas, histórias e depoimentos.</p></article>
+              <article><span>03</span><h3>Planos e campanhas</h3><p>Sequências coordenadas de conteúdo para autoridade, relacionamento, oferta e geração de demanda.</p></article>
+              <article><span>04</span><h3>Inteligência que aprende</h3><p>Aceites, revisões, publicações, leads e resultados alimentam as próximas recomendações.</p></article>
+            </div>
+          </div>
+        </section>
 
-        <section className="pricing-section" id="plano"><div className="container"><div className="pricing-heading"><div className="section-kicker">PLANOS MODO</div><h2>Capacidade clara para cada <strong>ritmo de presença.</strong></h2><p>Você sabe exatamente quantos conteúdos, marcas, canais e revisões estão incluídos. Sem promessa ilimitada escondendo custo ou perda de qualidade.</p></div><div className="pricing-grid">{pricingPlans.map((plan) => <article className={plan.featured ? "pricing-card featured" : "pricing-card"} key={plan.slug}>{plan.featured && <div className="pricing-badge">MAIS ESCOLHIDO</div>}<div className="pricing-card-head"><h3>{plan.name}</h3><p>{plan.audience}</p></div><div className="pricing-price">{plan.pricePrefix && <small>{plan.pricePrefix}</small>}<div><span>R$</span><strong>{plan.price}</strong><b>/mês</b></div></div><p className="pricing-description">{plan.description}</p><ul className="pricing-limits">{plan.limits.map((limit) => <li key={limit}>{limit}</li>)}</ul><button className={plan.featured ? "button button-primary button-full" : "button button-outline button-full"} onClick={() => activatePlan(plan.slug)}>{plan.cta} ↗</button></article>)}</div><div className="credit-rules"><div><strong>Como os créditos funcionam</strong><p>Post estático ou story: 1 crédito. Carrossel de até 7 páginas: 2 créditos. Roteiro de vídeo curto: 2 créditos.</p></div><div><strong>Canais e adaptações</strong><p>Publicar a mesma peça em outro canal não consome crédito extra. Uma adaptação específica de formato ou texto consome 1 crédito.</p></div><div><strong>Revisões e excedentes</strong><p>Revisões além do limite e capacidade adicional serão contratadas por pacotes, sem transformar o plano em uso ilimitado.</p></div></div></div></section>
+        <section className="linkedin-public-section" id="linkedin">
+          <div className="container linkedin-public-grid">
+            <div className="linkedin-public-copy">
+              <div className="section-kicker">MODO LINKEDIN</div>
+              <h2>Transforme conhecimento profissional em <strong>autoridade e oportunidades.</strong></h2>
+              <p>A MODO cria uma presença específica para LinkedIn — não apenas reaproveita uma legenda do Instagram. Ela organiza pontos de vista, histórias profissionais, cases, documentos em PDF, marca empregadora e conteúdo para founders e empresas B2B.</p>
+              <div className="linkedin-benefits">
+                <article><strong>Perfil profissional</strong><span>Conteúdo para founders, especialistas, executivos e consultores.</span></article>
+                <article><strong>Página da empresa</strong><span>Autoridade institucional, cultura, cases, soluções e recrutamento.</span></article>
+                <article><strong>Documentos em PDF</strong><span>Estruturas educativas e visuais prontas para publicação.</span></article>
+                <article><strong>Planejamento contínuo</strong><span>Séries editoriais, calendário, aprovação e aprendizado.</span></article>
+              </div>
+              <a className="button button-primary" href="/app/onboarding">Configurar minha presença no LinkedIn</a>
+            </div>
+            <aside className="linkedin-public-card">
+              <small>EXEMPLO DE FLUXO</small>
+              <h3>A MODO transforma uma experiência da empresa em uma campanha profissional.</h3>
+              <div className="linkedin-flow">
+                <div><span>01</span><p>Identifica uma história, resultado ou ponto de vista relevante.</p></div>
+                <div><span>02</span><p>Propõe três ângulos e escolhe o mais adequado ao objetivo.</p></div>
+                <div><span>03</span><p>Cria post, documento, abertura, CTA e direção visual.</p></div>
+                <div><span>04</span><p>A empresa revisa, aprova, publica e registra o desempenho.</p></div>
+                <div><span>05</span><p>O resultado influencia o próximo plano de autoridade.</p></div>
+              </div>
+              <p className="linkedin-public-note">A publicação direta depende das permissões oficiais do LinkedIn. A criação, aprovação, cópia e geração de documentos funcionam desde o primeiro acesso.</p>
+            </aside>
+          </div>
+        </section>
 
-        <section className="final-cta"><div className="container"><div><div className="section-kicker light">MODO ON</div><h2>Sua marca não precisa de mais uma ferramenta.</h2><p>Precisa de uma operação que continue acontecendo.</p></div><a className="button button-green" href="#diagnostico">Colocar minha marca em modo presença</a></div></section>
+        <section className="platform-section" id="plataforma"><div className="container platform-grid"><div><div className="section-kicker light">MODO OPERATING SYSTEM</div><h2>Uma operação contínua para toda a presença da empresa.</h2><p>O diagnóstico é só o começo. A MODO reúne memória, direção criativa, planejamento, produção, vídeos com participação humana, LinkedIn, aprovação, distribuição e aprendizado em um único fluxo.</p><a className="button button-light" href="/app/onboarding">Conhecer a MODO por dentro</a></div><div className="module-list">{moduleItems.map(([moduleName, description], index) => <div key={moduleName}><span>{String(index + 1).padStart(2, "0")}</span><strong>MODO {moduleName}</strong><p>{description}</p><i>↗</i></div>)}</div></div></section>
+
+        <section className="pricing-section" id="plano"><div className="container"><div className="pricing-heading"><div className="section-kicker">PLANOS MODO</div><h2>Capacidade clara para cada <strong>ritmo de presença.</strong></h2><p>Você sabe exatamente quantos conteúdos, marcas, canais e revisões estão incluídos. Sem promessa ilimitada escondendo custo ou perda de qualidade.</p></div><div className="pricing-grid">{pricingPlans.map((plan) => <article className={plan.featured ? "pricing-card featured" : "pricing-card"} key={plan.slug}>{plan.featured && <div className="pricing-badge">MAIS ESCOLHIDO</div>}<div className="pricing-card-head"><h3>{plan.name}</h3><p>{plan.audience}</p></div><div className="pricing-price">{plan.pricePrefix && <small>{plan.pricePrefix}</small>}<div><span>R$</span><strong>{plan.price}</strong><b>/mês</b></div></div><p className="pricing-description">{plan.description}</p><ul className="pricing-limits">{plan.limits.map((limit) => <li key={limit}>{limit}</li>)}</ul><button className={plan.featured ? "button button-primary button-full" : "button button-outline button-full"} onClick={() => activatePlan(plan.slug)}>{plan.cta} ↗</button></article>)}</div><div className="credit-rules"><div><strong>Como os créditos funcionam</strong><p>Post estático ou story: 1 crédito. Carrossel de até 7 páginas: 2 créditos. Roteiro de vídeo curto: 2 créditos.</p></div><div><strong>Canais e adaptações</strong><p>Instagram, Facebook, LinkedIn e outros canais podem compartilhar uma estratégia. Uma adaptação específica de formato ou texto consome 1 crédito.</p></div><div><strong>Revisões e excedentes</strong><p>Revisões além do limite e capacidade adicional serão contratadas por pacotes, sem transformar o plano em uso ilimitado.</p></div></div></div></section>
+
+        <section className="final-cta"><div className="container"><div><div className="section-kicker light">MODO ON</div><h2>Sua empresa não precisa chegar com criatividade pronta.</h2><p>A MODO ajuda a descobrir, decidir, produzir e aprender.</p></div><a className="button button-green" href="/app/onboarding">Começar com orientação</a></div></section>
       </main>
 
-      <footer className="footer container"><Logo /><p>Agência inteligente de presença digital.</p><div><a href="#top">Início</a><a href="#diagnostico">Diagnóstico</a><a href="#plano">Planos</a></div><small>© {new Date().getFullYear()} MODO. Sua marca em modo presença.</small></footer>
+      <footer className="footer container">
+        <Logo />
+        <p>Agência inteligente de presença digital.</p>
+        <div><a href="#top">Início</a><a href="#diagnostico">Diagnóstico</a><a href="#linkedin">LinkedIn</a><a href="#plano">Planos</a></div>
+        <div className="footer-company"><strong>Uma solução da Alternative Ventures</strong><span>CNPJ 61.920.356/0001-38</span><span>© {new Date().getFullYear()} MODO. Todos os direitos reservados.</span></div>
+      </footer>
     </div>
   );
 }

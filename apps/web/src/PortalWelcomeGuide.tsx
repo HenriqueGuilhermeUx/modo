@@ -12,6 +12,12 @@ export default function PortalWelcomeGuide() {
         const key = `modo.onboardingCompleted:${dashboard.organization.id}`;
         const dismissed = window.localStorage.getItem(`${key}:dismissed`) === "true";
         const completed = window.localStorage.getItem(key) === "true";
+        const shouldStart = window.sessionStorage.getItem("modo.startOnboarding") === "true";
+        if (shouldStart && !completed) {
+          window.sessionStorage.removeItem("modo.startOnboarding");
+          window.location.href = "/app/onboarding";
+          return;
+        }
         setOrganizationId(dashboard.organization.id);
         setVisible(!completed && !dismissed);
       })

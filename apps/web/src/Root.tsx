@@ -5,6 +5,7 @@ import ContentWorkspace from "./ContentWorkspace";
 import DirectorWorkspace from "./DirectorWorkspace";
 import InvitationWorkspace from "./InvitationWorkspace";
 import LinkedInWorkspace from "./LinkedInWorkspace";
+import OnboardingWorkspace from "./OnboardingWorkspace";
 import Portal from "./Portal";
 import SignalWorkspace from "./SignalWorkspace";
 
@@ -12,6 +13,7 @@ export default function Root() {
   const path = window.location.pathname;
   if (path.startsWith("/admin")) return <AdminWorkspace />;
   if (path.startsWith("/convite/")) return <InvitationWorkspace />;
+  if (path.startsWith("/app/onboarding")) return <OnboardingWorkspace />;
   if (path.startsWith("/app/planos")) return <BillingWorkspace />;
   if (path.startsWith("/app/director")) return <DirectorWorkspace />;
   if (path.startsWith("/app/linkedin")) return <LinkedInWorkspace />;
@@ -22,6 +24,7 @@ export default function Root() {
       <>
         <Portal />
         <div className="portal-floating-actions">
+          <a className="portal-plan-entry" href="/app/onboarding">Primeiros passos</a>
           <a className="portal-plan-entry" href="/app/planos">Planos</a>
           <a className="portal-plan-entry" href="/app/director">Diretor</a>
           <a className="portal-plan-entry" href="/app/linkedin">LinkedIn</a>

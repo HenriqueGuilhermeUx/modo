@@ -7,6 +7,7 @@ import InvitationWorkspace from "./InvitationWorkspace";
 import LinkedInWorkspace from "./LinkedInWorkspace";
 import OnboardingWorkspace from "./OnboardingWorkspace";
 import Portal from "./Portal";
+import PortalWelcomeGuide from "./PortalWelcomeGuide";
 import SignalWorkspace from "./SignalWorkspace";
 
 export default function Root() {
@@ -23,6 +24,7 @@ export default function Root() {
     return (
       <>
         <Portal />
+        <PortalWelcomeGuide />
         <div className="portal-floating-actions">
           <a className="portal-plan-entry" href="/app/onboarding">Primeiros passos</a>
           <a className="portal-plan-entry" href="/app/planos">Planos</a>

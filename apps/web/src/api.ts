@@ -81,6 +81,7 @@ export async function registerAccount(input: RegisterRequest): Promise<AuthSessi
     }),
   );
   saveSessionToken(session.token);
+  window.sessionStorage.setItem("modo.startOnboarding", "true");
   return session;
 }
 

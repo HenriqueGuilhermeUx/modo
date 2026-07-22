@@ -20,6 +20,7 @@ import "./marketing-clarity.css";
 import "./quick-start.css";
 import "./studio.css";
 import "./week.css";
+import "./consumer-enhancements.css";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

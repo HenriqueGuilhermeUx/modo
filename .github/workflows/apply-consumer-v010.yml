@@ -1,0 +1,52 @@
+name: Apply Consumer v0.10
+on:
+  pull_request:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  patch:
+    if: github.head_ref == 'ci/apply-consumer-v010'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Integrate Quick Start Studio Week and Signal
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          set -e
+          git clone --quiet --depth 1 "https://x-access-token:${GH_TOKEN}@github.com/${REPOSITORY}.git" repo
+          cd repo
+          python3 - <<'PY'
+          from pathlib import Path
+
+          def replace(path_str, old, new):
+              path = Path(path_str)
+              text = path.read_text()
+              if old not in text:
+                  raise SystemExit(f'Expected text not found in {path_str}: {old[:100]!r}')
+              path.write_text(text.replace(old, new))
+
+          replace('apps/api/src/app.ts', 'import { registerPlatformAdminRoutes } from "./routes/platform-admin-routes.js";\n', 'import { registerPlatformAdminRoutes } from "./routes/platform-admin-routes.js";\nimport { registerSourceRoutes } from "./routes/source-routes.js";\nimport { registerStudioRoutes } from "./routes/studio-routes.js";\n')
+          replace('apps/api/src/app.ts', '  await registerPlatformAdminRoutes(app, {\n    auth,\n    billing,\n    admin,\n    databaseUrl: options.databaseUrl,\n    databaseSsl: options.databaseSsl,\n  });\n', '  await registerPlatformAdminRoutes(app, {\n    auth,\n    billing,\n    admin,\n    databaseUrl: options.databaseUrl,\n    databaseSsl: options.databaseSsl,\n  });\n  await registerSourceRoutes(app, auth);\n  await registerStudioRoutes(app, {\n    auth,\n    content,\n    databaseUrl: options.databaseUrl,\n    databaseSsl: options.databaseSsl,\n  });\n')
+          replace('apps/api/src/app.ts', '    version: "0.9.0",', '    version: "0.10.0",')
+          replace('apps/api/src/app.ts', '    creativeIntelligence: "enabled",\n    platformAdmin:', '    creativeIntelligence: "enabled",\n    quickStart: "enabled",\n    studio: "enabled",\n    weeklyAgenda: "enabled",\n    platformAdmin:')
+
+          replace('apps/web/src/ContentWorkspace.tsx', 'import ProductionProgress from "./ProductionProgress";\n', 'import ProductionProgress from "./ProductionProgress";\nimport QuickStart from "./QuickStart";\n')
+          replace('apps/web/src/ContentWorkspace.tsx', '      setDashboard(currentDashboard);\n      setRequests(currentRequests);\n', '      setDashboard(currentDashboard);\n      setRequests(currentRequests);\n      const openId = new URLSearchParams(window.location.search).get("open");\n      if (openId && currentRequests.some((item) => item.id === openId)) setExpandedId(openId);\n')
+          replace('apps/web/src/ContentWorkspace.tsx', '<nav><a href="/app">Painel</a><a href="/app/director">Diretor</a><a className="active" href="/app/content">Criar</a><a href="/app/linkedin">LinkedIn</a><a href="/app/planos">Planos</a></nav>', '<nav><a href="/app">Painel</a><a href="/app/week">Minha semana</a><a href="/app/director">Diretor</a><a className="active" href="/app/content">Criar</a><a href="/app/linkedin">LinkedIn</a><a href="/app/planos">Planos</a></nav>')
+          replace('apps/web/src/ContentWorkspace.tsx', '        {!productionAllowed && <div className="workspace-blocked"><strong>Produção temporariamente bloqueada.</strong><p>Regularize ou reative sua assinatura para criar novos conteúdos.</p><a className="button button-primary" href="/app/planos">Ver assinatura</a></div>}\n\n        <div className="workspace-grid">', '        {!productionAllowed && <div className="workspace-blocked"><strong>Produção temporariamente bloqueada.</strong><p>Regularize ou reative sua assinatura para criar novos conteúdos.</p><a className="button button-primary" href="/app/planos">Ver assinatura</a></div>}\n\n        {dashboard.brands.length > 0 && <QuickStart dashboard={dashboard} brandId={brandId} onPrepared={(prepared) => { setContentType(prepared.contentType); setObjective(prepared.objective); setChannel(prepared.channel); setBrief(prepared.brief); setPrefilledFromDirector(true); setSourceRecommendationId(""); setSuccess("O Quick Start organizou a matéria-prima. Revise a direção abaixo e envie para produção."); }} />}\n\n        <div className="workspace-grid">')
+          replace('apps/web/src/ContentWorkspace.tsx', '{request.output && <OutputPanel output={request.output} />}', '{request.output && <><OutputPanel output={request.output} /><div className="studio-entry"><div><strong>Quer ajustar e exportar?</strong><p>Abra o Studio para editar, salvar, copiar, baixar texto, PDF ou imagens PNG.</p></div><a className="button button-outline" href={`/app/studio/${request.id}`}>Abrir no Studio</a></div></>}')
+          replace('apps/web/src/ContentWorkspace.tsx', '<label>O que precisa mudar?<textarea value={revisionInstructions}', '<label>O que precisa mudar?<div className="revision-shortcuts">{["Deixe mais direto", "Deixe mais humano", "Reduza o tom de venda", "Crie outra abertura", "Encurte o texto", "Use uma prova mais forte"].map((item) => <button type="button" key={item} onClick={() => setRevisionInstructions((current) => current ? `${current}; ${item}` : item)}>{item}</button>)}</div><textarea value={revisionInstructions}')
+
+          replace('apps/web/src/SignalWorkspace.tsx', '        setDashboard(currentDashboard);\n        setRequests(currentRequests);\n        setBrandId(currentDashboard.brands[0]?.id || "");', '        setDashboard(currentDashboard);\n        setRequests(currentRequests);\n        const rawPrefill = window.sessionStorage.getItem("modo.signalPrefill");\n        if (rawPrefill) {\n          try {\n            const prefill = JSON.parse(rawPrefill) as { brandId?: string; contentRequestId?: string };\n            setBrandId(prefill.brandId || currentDashboard.brands[0]?.id || "");\n            setSelectedId(prefill.contentRequestId || "");\n          } catch { setBrandId(currentDashboard.brands[0]?.id || ""); }\n          window.sessionStorage.removeItem("modo.signalPrefill");\n        } else { setBrandId(currentDashboard.brands[0]?.id || ""); }')
+          replace('apps/web/src/SignalWorkspace.tsx', '<nav><a href="/app">Painel</a><a href="/app/director">Diretor</a><a href="/app/content">Criar</a><a href="/app/linkedin">LinkedIn</a><a className="active" href="/app/signal">Signal</a><a href="/app/planos">Planos</a></nav>', '<nav><a href="/app">Painel</a><a href="/app/week">Minha semana</a><a href="/app/director">Diretor</a><a href="/app/content">Criar</a><a href="/app/linkedin">LinkedIn</a><a className="active" href="/app/signal">Signal</a><a href="/app/planos">Planos</a></nav>')
+
+          replace('apps/web/src/App.tsx', '  ["Director", "Decisões, campanhas e missões"],\n  ["Create", "Conteúdos e adaptações"],', '  ["Quick", "Comece com link, tema, texto ou voz"],\n  ["Director", "Decisões, campanhas e missões"],\n  ["Create", "Conteúdos e adaptações"],\n  ["Studio", "Edição e exportação sem outra ferramenta"],\n  ["Week", "Agenda prática e próximos passos"],')
+          PY
+          git config user.name "MODO CI"
+          git config user.email "actions@github.com"
+          git add apps/api/src/app.ts apps/web/src/ContentWorkspace.tsx apps/web/src/SignalWorkspace.tsx apps/web/src/App.tsx
+          git commit -m "integrate consumer Quick Start Studio and weekly workflow"
+          git push origin HEAD:main

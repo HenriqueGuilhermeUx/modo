@@ -6,7 +6,7 @@ permissions:
   contents: write
 jobs:
   patch:
-    if: github.head_ref == 'ci/apply-impact-first-diagnostic'
+    if: github.head_ref == 'ci/trigger-impact-first-diagnostic'
     runs-on: ubuntu-latest
     steps:
       - name: Replace generic diagnostic result

@@ -1,1 +1,0 @@
-Apply the consumer-first trial, pricing and plan naming migration.

@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   apply_impact_diagnostic:
-    if: github.event_name == 'pull_request' && github.head_ref == 'ci/trigger-impact-first-diagnostic'
+    if: github.event_name == 'pull_request' && github.head_ref == 'ci/trigger-impact-first-diagnostic-v2'
     runs-on: ubuntu-latest
     steps:
       - name: Apply impact-first result to main

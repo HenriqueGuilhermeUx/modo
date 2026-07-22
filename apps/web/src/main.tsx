@@ -22,6 +22,7 @@ import "./studio.css";
 import "./week.css";
 import "./consumer-enhancements.css";
 import "./diagnostic-impact.css";
+import "./diagnostic-impact-bridge.css";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

@@ -1,3 +1,4 @@
+import { lookup } from "node:dns/promises";
 import { isIP } from "node:net";
 
 const forbiddenHostnames = new Set(["localhost", "localhost.localdomain", "0.0.0.0", "::1"]);
@@ -11,6 +12,20 @@ function isPrivateIpv4(hostname: string): boolean {
     (a === 100 && b >= 64 && b <= 127);
 }
 
+function isPrivateIpv6(hostname: string): boolean {
+  const normalized = hostname.toLowerCase();
+  return normalized === "::1" || normalized.startsWith("fc") || normalized.startsWith("fd") ||
+    normalized.startsWith("fe80") || normalized.startsWith("::ffff:127.") ||
+    normalized.startsWith("::ffff:10.") || normalized.startsWith("::ffff:192.168.");
+}
+
+function assertPublicAddress(address: string) {
+  const version = isIP(address);
+  if ((version === 4 && isPrivateIpv4(address)) || (version === 6 && isPrivateIpv6(address))) {
+    throw new Error("Endereços locais ou privados não são permitidos.");
+  }
+}
+
 export function assertPublicHttpUrl(rawUrl: string): URL {
   const url = new URL(rawUrl);
   if (!["http:", "https:"].includes(url.protocol)) throw new Error("A URL deve usar HTTP ou HTTPS.");
@@ -21,10 +36,16 @@ export function assertPublicHttpUrl(rawUrl: string): URL {
     throw new Error("Endereços locais ou internos não são permitidos.");
   }
 
-  const ipVersion = isIP(hostname);
-  if (ipVersion === 4 && isPrivateIpv4(hostname)) throw new Error("Endereços IP privados não são permitidos.");
-  if (ipVersion === 6 && (hostname.startsWith("fc") || hostname.startsWith("fd") || hostname.startsWith("fe80"))) {
-    throw new Error("Endereços IPv6 privados não são permitidos.");
+  if (isIP(hostname)) assertPublicAddress(hostname);
+  return url;
+}
+
+export async function assertResolvedPublicHttpUrl(rawUrl: string): Promise<URL> {
+  const url = assertPublicHttpUrl(rawUrl);
+  if (!isIP(url.hostname)) {
+    const addresses = await lookup(url.hostname, { all: true, verbatim: true });
+    if (!addresses.length) throw new Error("Não foi possível localizar esse endereço.");
+    for (const item of addresses) assertPublicAddress(item.address);
   }
   return url;
 }

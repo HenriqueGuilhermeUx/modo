@@ -80,6 +80,11 @@ function addBillingMonth(date: Date) {
   return next;
 }
 
+function periodEndForPlan(date: Date, plan: PlanSlug) {
+  if (plan === "trial") return new Date(date.getTime() + 7 * 24 * 60 * 60 * 1000);
+  return addBillingMonth(date);
+}
+
 function nextCycleStart(previous?: Date) {
   const now = new Date();
   if (previous && now.getTime() <= previous.getTime()) {
@@ -239,7 +244,7 @@ export class BillingService {
       plan,
       status: "active",
       periodStart: now,
-      periodEnd: addBillingMonth(now),
+      periodEnd: periodEndForPlan(now, plan),
     };
     this.subscriptions.set(accountId, subscription);
     this.memoryLedger.push({
@@ -363,7 +368,7 @@ export class BillingService {
         [accountId],
       );
       const periodStart = nextCycleStart(previous.rows[0]?.period_start);
-      const periodEnd = addBillingMonth(periodStart);
+      const periodEnd = periodEndForPlan(periodStart, plan);
       const result = await client.query<SubscriptionRow>(
         `INSERT INTO modo_subscriptions(account_id, plan_slug, status, period_start, period_end)
          VALUES ($1, $2, 'active', $3, $4)

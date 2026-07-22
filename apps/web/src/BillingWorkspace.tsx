@@ -15,16 +15,16 @@ import {
 } from "./api";
 
 const planNames: Record<PublicPlanSlug, string> = {
-  start: "MODO Start",
+  start: "MODO Começar",
   presenca: "MODO Presença",
-  pro: "MODO Pro",
+  pro: "MODO Crescer",
   business: "MODO Business",
 };
 
 const planDescriptions: Record<PublicPlanSlug, string> = {
-  start: "Para começar uma presença consistente.",
-  presenca: "Para transformar conteúdo em rotina.",
-  pro: "Para marcas em ritmo de crescimento.",
+  start: "Para sair da tela em branco.",
+  presenca: "Para publicar toda semana.",
+  pro: "Para quem já vende e quer avançar.",
   business: "Para equipes e operações mais complexas.",
 };
 

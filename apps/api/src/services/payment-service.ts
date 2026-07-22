@@ -6,9 +6,9 @@ import pg, { type Pool } from "pg";
 const { Pool: PgPool } = pg;
 
 const planNames: Record<PublicPlanSlug, string> = {
-  start: "MODO Start",
+  start: "MODO Começar",
   presenca: "MODO Presença",
-  pro: "MODO Pro",
+  pro: "MODO Crescer",
   business: "MODO Business",
 };
 

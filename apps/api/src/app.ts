@@ -155,7 +155,7 @@ export async function createApp(options: CreateAppOptions) {
   app.get("/health", async () => ({
     status: "ok",
     service: "modo-api",
-    version: "0.10.0",
+    version: "0.11.0",
     billingStorage: billing.storage,
     accountStorage: auth.storage,
     contentStorage: content.storage,

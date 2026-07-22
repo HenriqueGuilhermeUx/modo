@@ -1,0 +1,23 @@
+name: Diagnose Impact TypeScript
+on:
+  pull_request:
+    branches: [main]
+jobs:
+  diagnose:
+    if: github.head_ref == 'ci/diagnose-impact-ts'
+    runs-on: ubuntu-latest
+    steps:
+      - name: TypeScript errors only
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -e
+          git clone --quiet --depth 1 "https://x-access-token:${GH_TOKEN}@github.com/${REPOSITORY}.git" repo
+          cd repo
+          git fetch --quiet --depth 1 origin "${HEAD_SHA}"
+          git checkout --quiet "${HEAD_SHA}"
+          npm install --include=dev --silent
+          npm run typecheck --silent

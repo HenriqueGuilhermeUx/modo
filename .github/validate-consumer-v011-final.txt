@@ -1,0 +1,1 @@
+Validate the final consumer-first landing, seven-day trial, plan limits, tests and builds.

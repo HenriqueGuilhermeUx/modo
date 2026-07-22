@@ -21,6 +21,7 @@ import {
 import CreativeDirector from "./CreativeDirector";
 import { recordCreativeFeedback } from "./director-api";
 import ProductionProgress from "./ProductionProgress";
+import QuickStart from "./QuickStart";
 
 const formatLabels: Record<ContentUnitType, string> = {
   static_post: "Post estático",
@@ -130,6 +131,8 @@ export default function ContentWorkspace() {
       const [currentDashboard, currentRequests] = await Promise.all([getDashboard(), listContentRequests()]);
       setDashboard(currentDashboard);
       setRequests(currentRequests);
+      const openId = new URLSearchParams(window.location.search).get("open");
+      if (openId && currentRequests.some((item) => item.id === openId)) setExpandedId(openId);
 
       const rawPrefill = window.sessionStorage.getItem("modo.directorPrefill");
       if (rawPrefill) {
@@ -271,7 +274,7 @@ export default function ContentWorkspace() {
     <div className="workspace-shell">
       <header className="workspace-header">
         <a href="/app"><img src="/logo.svg" alt="MODO" /></a>
-        <nav><a href="/app">Painel</a><a href="/app/director">Diretor</a><a className="active" href="/app/content">Criar</a><a href="/app/linkedin">LinkedIn</a><a href="/app/planos">Planos</a></nav>
+        <nav><a href="/app">Painel</a><a href="/app/week">Minha semana</a><a href="/app/director">Diretor</a><a className="active" href="/app/content">Criar</a><a href="/app/linkedin">LinkedIn</a><a href="/app/planos">Planos</a></nav>
         <div className="workspace-balance"><small>Saldo</small><strong>{dashboard.usage.creditsRemaining}</strong><span>créditos</span></div>
       </header>
 
@@ -282,6 +285,8 @@ export default function ContentWorkspace() {
         </section>
 
         {!productionAllowed && <div className="workspace-blocked"><strong>Produção temporariamente bloqueada.</strong><p>Regularize ou reative sua assinatura para criar novos conteúdos.</p><a className="button button-primary" href="/app/planos">Ver assinatura</a></div>}
+
+        {dashboard.brands.length > 0 && <QuickStart dashboard={dashboard} brandId={brandId} onPrepared={(prepared) => { setContentType(prepared.contentType); setObjective(prepared.objective); setChannel(prepared.channel); setBrief(prepared.brief); setPrefilledFromDirector(true); setSourceRecommendationId(""); setSuccess("O Quick Start organizou a matéria-prima. Revise a direção abaixo e envie para produção."); }} />}
 
         <div className="workspace-grid">
           <form className="workspace-form" onSubmit={handleSubmit}>
@@ -345,11 +350,11 @@ export default function ContentWorkspace() {
 
                       {expanded && (
                         <div className="workspace-request-detail">
-                          {request.output && <OutputPanel output={request.output} />}
+                          {request.output && <><OutputPanel output={request.output} /><div className="studio-entry"><div><strong>Quer ajustar e exportar?</strong><p>Abra o Studio para editar, salvar, copiar, baixar texto, PDF ou imagens PNG.</p></div><a className="button button-outline" href={`/app/studio/${request.id}`}>Abrir no Studio</a></div></>}
                           {["queued", "processing", "revision_requested"].includes(request.status) && <ProductionProgress request={request} />}
                           {request.status === "failed" && <div className="content-failed"><strong>A produção encontrou um problema.</strong><p>{request.error}</p><button type="button" className="button button-primary" disabled={actionId === request.id} onClick={() => void handleRetry(request.id)}>Reenviar sem cobrar créditos</button></div>}
                           {request.status === "ready" && <div className="content-review-actions"><div><strong>{request.revisionCount}/{request.maxRevisions}</strong><span>revisões utilizadas</span></div><button type="button" className="button button-primary" disabled={actionId === request.id} onClick={() => void handleApprove(request)}>Aprovar conteúdo</button>{canRevise && <button type="button" className="button button-secondary" onClick={() => setRevisionId(revisionId === request.id ? "" : request.id)}>Solicitar revisão</button>}</div>}
-                          {revisionId === request.id && canRevise && <div className="content-revision-form"><label>O que precisa mudar?<textarea value={revisionInstructions} onChange={(event) => setRevisionInstructions(event.target.value)} minLength={5} maxLength={1500} placeholder="Ex.: deixe o tom mais direto, reduza a legenda e destaque o benefício financeiro no segundo slide." /></label><div><button type="button" className="button button-secondary" onClick={() => setRevisionId("")}>Cancelar</button><button type="button" className="button button-primary" disabled={revisionInstructions.trim().length < 5 || actionId === request.id} onClick={() => void handleRevision(request)}>Enviar revisão</button></div></div>}
+                          {revisionId === request.id && canRevise && <div className="content-revision-form"><label>O que precisa mudar?<div className="revision-shortcuts">{["Deixe mais direto", "Deixe mais humano", "Reduza o tom de venda", "Crie outra abertura", "Encurte o texto", "Use uma prova mais forte"].map((item) => <button type="button" key={item} onClick={() => setRevisionInstructions((current) => current ? `${current}; ${item}` : item)}>{item}</button>)}</div><textarea value={revisionInstructions} onChange={(event) => setRevisionInstructions(event.target.value)} minLength={5} maxLength={1500} placeholder="Ex.: deixe o tom mais direto, reduza a legenda e destaque o benefício financeiro no segundo slide." /></label><div><button type="button" className="button button-secondary" onClick={() => setRevisionId("")}>Cancelar</button><button type="button" className="button button-primary" disabled={revisionInstructions.trim().length < 5 || actionId === request.id} onClick={() => void handleRevision(request)}>Enviar revisão</button></div></div>}
                           {request.status === "approved" && <div className="content-approved"><strong>✓ Conteúdo aprovado</strong><p>Esta versão está pronta para a próxima etapa de publicação.</p></div>}
                         </div>
                       )}

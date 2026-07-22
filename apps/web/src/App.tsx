@@ -27,8 +27,11 @@ const stageCopy: Record<DiagnosticJob["stage"], string> = {
 const moduleItems = [
   ["Scan", "Diagnóstico e oportunidades"],
   ["Brand", "Memória e inteligência da marca"],
+  ["Quick", "Comece com link, tema, texto ou voz"],
   ["Director", "Decisões, campanhas e missões"],
   ["Create", "Conteúdos e adaptações"],
+  ["Studio", "Edição e exportação sem outra ferramenta"],
+  ["Week", "Agenda prática e próximos passos"],
   ["Capture", "Direção para vídeos e bastidores"],
   ["Approve", "Revisão simples"],
   ["Publish", "Agendamento e distribuição"],

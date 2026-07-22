@@ -92,7 +92,15 @@ export default function SignalWorkspace() {
       .then(([currentDashboard, currentRequests]) => {
         setDashboard(currentDashboard);
         setRequests(currentRequests);
-        setBrandId(currentDashboard.brands[0]?.id || "");
+        const rawPrefill = window.sessionStorage.getItem("modo.signalPrefill");
+        if (rawPrefill) {
+          try {
+            const prefill = JSON.parse(rawPrefill) as { brandId?: string; contentRequestId?: string };
+            setBrandId(prefill.brandId || currentDashboard.brands[0]?.id || "");
+            setSelectedId(prefill.contentRequestId || "");
+          } catch { setBrandId(currentDashboard.brands[0]?.id || ""); }
+          window.sessionStorage.removeItem("modo.signalPrefill");
+        } else { setBrandId(currentDashboard.brands[0]?.id || ""); }
       })
       .catch((caught) => setError(caught instanceof Error ? caught.message : "Não foi possível abrir o MODO Signal."))
       .finally(() => setLoading(false));
@@ -158,7 +166,7 @@ export default function SignalWorkspace() {
     <div className="signal-shell">
       <header className="workspace-header">
         <a href="/app"><img src="/logo.svg" alt="MODO" /></a>
-        <nav><a href="/app">Painel</a><a href="/app/director">Diretor</a><a href="/app/content">Criar</a><a href="/app/linkedin">LinkedIn</a><a className="active" href="/app/signal">Signal</a><a href="/app/planos">Planos</a></nav>
+        <nav><a href="/app">Painel</a><a href="/app/week">Minha semana</a><a href="/app/director">Diretor</a><a href="/app/content">Criar</a><a href="/app/linkedin">LinkedIn</a><a className="active" href="/app/signal">Signal</a><a href="/app/planos">Planos</a></nav>
         <div className="workspace-balance"><small>Saldo</small><strong>{dashboard.usage.creditsRemaining}</strong><span>créditos</span></div>
       </header>
 

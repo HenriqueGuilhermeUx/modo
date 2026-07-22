@@ -21,6 +21,8 @@ import { randomUUID } from "node:crypto";
 import type { DiagnosticProvider } from "./providers/diagnostic-provider.js";
 import { registerCreativeIntelligenceRoutes } from "./routes/creative-intelligence-routes.js";
 import { registerPlatformAdminRoutes } from "./routes/platform-admin-routes.js";
+import { registerSourceRoutes } from "./routes/source-routes.js";
+import { registerStudioRoutes } from "./routes/studio-routes.js";
 import { assertPublicHttpUrl } from "./security/public-url.js";
 import { AuthError, AuthService } from "./services/auth-service.js";
 import { BillingError, BillingService } from "./services/billing-service.js";
@@ -142,16 +144,26 @@ export async function createApp(options: CreateAppOptions) {
     databaseUrl: options.databaseUrl,
     databaseSsl: options.databaseSsl,
   });
+  await registerSourceRoutes(app, auth);
+  await registerStudioRoutes(app, {
+    auth,
+    content,
+    databaseUrl: options.databaseUrl,
+    databaseSsl: options.databaseSsl,
+  });
 
   app.get("/health", async () => ({
     status: "ok",
     service: "modo-api",
-    version: "0.9.0",
+    version: "0.10.0",
     billingStorage: billing.storage,
     accountStorage: auth.storage,
     contentStorage: content.storage,
     contentProvider: automation.mode,
     creativeIntelligence: "enabled",
+    quickStart: "enabled",
+    studio: "enabled",
+    weeklyAgenda: "enabled",
     platformAdmin: admin.enabled ? "enabled" : "disabled",
     paymentsProvider: payments.enabled ? "woovi" : "disabled",
   }));

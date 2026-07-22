@@ -1,12 +1,12 @@
 name: Apply Impact First Diagnostic
 on:
-  pull_request:
+  push:
     branches: [main]
 permissions:
   contents: write
 jobs:
   patch:
-    if: github.head_ref == 'ci/trigger-impact-first-diagnostic'
+    if: contains(github.event.head_commit.message, 'activate impact diagnostic patch')
     runs-on: ubuntu-latest
     steps:
       - name: Replace generic diagnostic result

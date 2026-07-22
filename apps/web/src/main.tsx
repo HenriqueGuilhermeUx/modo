@@ -17,6 +17,9 @@ import "./signal.css";
 import "./admin.css";
 import "./onboarding.css";
 import "./marketing-clarity.css";
+import "./quick-start.css";
+import "./studio.css";
+import "./week.css";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

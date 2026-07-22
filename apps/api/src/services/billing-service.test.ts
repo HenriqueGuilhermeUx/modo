@@ -8,15 +8,15 @@ describe("BillingService", () => {
 
     const initial = await service.createOrUpdateDemoSubscription("account_test", "start");
     expect(initial.status).toBe("active");
-    expect(initial.creditsGranted).toBe(6);
-    expect(initial.creditsRemaining).toBe(6);
+    expect(initial.creditsGranted).toBe(4);
+    expect(initial.creditsRemaining).toBe(4);
 
     const first = await service.consume("account_test", {
       contentType: "carousel",
       referenceId: "content_carousel_1",
     });
     expect(first.creditsUsed).toBe(2);
-    expect(first.creditsRemaining).toBe(4);
+    expect(first.creditsRemaining).toBe(2);
     expect(first.usageByType.carousel).toBe(1);
 
     const duplicate = await service.consume("account_test", {
@@ -25,6 +25,18 @@ describe("BillingService", () => {
     });
     expect(duplicate.creditsUsed).toBe(2);
     expect(duplicate.usageByType.carousel).toBe(1);
+  });
+
+  it("opens a trial with three credits for exactly seven days", async () => {
+    const service = new BillingService();
+    await service.initialize();
+
+    const trial = await service.createOrUpdateDemoSubscription("account_trial", "trial");
+    const duration = new Date(trial.periodEnd).getTime() - new Date(trial.periodStart).getTime();
+
+    expect(trial.plan).toBe("trial");
+    expect(trial.creditsGranted).toBe(3);
+    expect(duration).toBe(7 * 24 * 60 * 60 * 1000);
   });
 
   it("opens a paid cycle only once for the same Woovi payment", async () => {
@@ -45,8 +57,8 @@ describe("BillingService", () => {
 
     expect(first.plan).toBe("presenca");
     expect(first.status).toBe("active");
-    expect(first.creditsGranted).toBe(15);
-    expect(duplicate.creditsGranted).toBe(15);
+    expect(first.creditsGranted).toBe(10);
+    expect(duplicate.creditsGranted).toBe(10);
   });
 
   it("keeps production available during retries and blocks it after suspension", async () => {
@@ -61,7 +73,7 @@ describe("BillingService", () => {
         contentType: "static_post",
         referenceId: "retry_post",
       }),
-    ).resolves.toMatchObject({ creditsRemaining: 5 });
+    ).resolves.toMatchObject({ creditsRemaining: 3 });
 
     const suspended = await service.setStatus("account_lifecycle", "suspended");
     expect(suspended.status).toBe("suspended");
@@ -82,15 +94,11 @@ describe("BillingService", () => {
       contentType: "carousel",
       referenceId: "carousel_1",
     });
-    await service.consume("account_limits", {
-      contentType: "carousel",
-      referenceId: "carousel_2",
-    });
 
     await expect(
       service.consume("account_limits", {
         contentType: "carousel",
-        referenceId: "carousel_3",
+        referenceId: "carousel_2",
       }),
     ).rejects.toMatchObject({ code: "CAROUSEL_LIMIT_REACHED" });
   });
@@ -100,7 +108,7 @@ describe("BillingService", () => {
     await service.initialize();
     await service.createOrUpdateDemoSubscription("account_balance", "start");
 
-    for (let index = 1; index <= 6; index += 1) {
+    for (let index = 1; index <= 4; index += 1) {
       await service.consume("account_balance", {
         contentType: "static_post",
         referenceId: `post_${index}`,
@@ -110,7 +118,7 @@ describe("BillingService", () => {
     await expect(
       service.consume("account_balance", {
         contentType: "static_post",
-        referenceId: "post_7",
+        referenceId: "post_5",
       }),
     ).rejects.toMatchObject({ code: "INSUFFICIENT_CREDITS" });
   });

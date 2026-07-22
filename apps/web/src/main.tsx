@@ -21,6 +21,7 @@ import "./quick-start.css";
 import "./studio.css";
 import "./week.css";
 import "./consumer-enhancements.css";
+import "./diagnostic-impact.css";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

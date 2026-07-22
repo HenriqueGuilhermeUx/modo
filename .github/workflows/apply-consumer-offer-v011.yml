@@ -1,0 +1,165 @@
+name: Apply Consumer Offer v0.11
+on:
+  pull_request:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  migrate:
+    if: github.head_ref == 'ci/apply-consumer-offer-v011'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Align trial, prices and plan names
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          set -e
+          git clone --quiet --depth 1 "https://x-access-token:${GH_TOKEN}@github.com/${REPOSITORY}.git" repo
+          cd repo
+          python3 - <<'PY'
+          from pathlib import Path
+
+          def replace(path_name, old, new):
+              path = Path(path_name)
+              text = path.read_text()
+              if old not in text:
+                  raise SystemExit(f'Expected block not found in {path_name}')
+              path.write_text(text.replace(old, new))
+
+          replace(
+              'packages/contracts/src/index.ts',
+              '''  start: {
+              priceCents: 9900,
+              monthlyCredits: 6,
+              maxBrands: 1,
+              maxChannels: 1,
+              maxUsers: 1,
+              maxCarouselsPerMonth: 2,
+              maxShortVideoScriptsPerMonth: 0,
+              includedRevisionCycles: 1,
+              scheduling: false,
+              analytics: false,
+              customApprovalFlows: false,
+            },''',
+              '''  start: {
+              priceCents: 4900,
+              monthlyCredits: 4,
+              maxBrands: 1,
+              maxChannels: 2,
+              maxUsers: 1,
+              maxCarouselsPerMonth: 1,
+              maxShortVideoScriptsPerMonth: 1,
+              includedRevisionCycles: 1,
+              scheduling: false,
+              analytics: false,
+              customApprovalFlows: false,
+            },''',
+          )
+          replace(
+              'packages/contracts/src/index.ts',
+              '''  presenca: {
+              priceCents: 19900,
+              monthlyCredits: 15,
+              maxBrands: 1,
+              maxChannels: 2,
+              maxUsers: 1,
+              maxCarouselsPerMonth: 5,
+              maxShortVideoScriptsPerMonth: 2,
+              includedRevisionCycles: 2,
+              scheduling: true,
+              analytics: false,
+              customApprovalFlows: false,
+            },''',
+              '''  presenca: {
+              priceCents: 9900,
+              monthlyCredits: 10,
+              maxBrands: 1,
+              maxChannels: 3,
+              maxUsers: 1,
+              maxCarouselsPerMonth: 4,
+              maxShortVideoScriptsPerMonth: 2,
+              includedRevisionCycles: 2,
+              scheduling: true,
+              analytics: true,
+              customApprovalFlows: false,
+            },''',
+          )
+          replace(
+              'packages/contracts/src/index.ts',
+              '''  pro: {
+              priceCents: 39900,
+              monthlyCredits: 30,
+              maxBrands: 2,
+              maxChannels: 4,
+              maxUsers: 3,
+              maxCarouselsPerMonth: 10,
+              maxShortVideoScriptsPerMonth: 6,
+              includedRevisionCycles: 3,
+              scheduling: true,
+              analytics: true,
+              customApprovalFlows: false,
+            },''',
+              '''  pro: {
+              priceCents: 19900,
+              monthlyCredits: 24,
+              maxBrands: 2,
+              maxChannels: 4,
+              maxUsers: 3,
+              maxCarouselsPerMonth: 8,
+              maxShortVideoScriptsPerMonth: 5,
+              includedRevisionCycles: 3,
+              scheduling: true,
+              analytics: true,
+              customApprovalFlows: false,
+            },''',
+          )
+
+          billing = Path('apps/api/src/services/billing-service.ts')
+          text = billing.read_text()
+          anchor = '''function addBillingMonth(date: Date) {
+            const next = new Date(date.getTime());
+            const originalDay = next.getUTCDate();
+            next.setUTCDate(1);
+            next.setUTCMonth(next.getUTCMonth() + 1);
+            const lastDay = new Date(
+              Date.UTC(next.getUTCFullYear(), next.getUTCMonth() + 1, 0),
+            ).getUTCDate();
+            next.setUTCDate(Math.min(originalDay, lastDay));
+            return next;
+          }
+          '''
+          addition = anchor + '''
+          function periodEndForPlan(date: Date, plan: PlanSlug) {
+            if (plan === "trial") return new Date(date.getTime() + 7 * 24 * 60 * 60 * 1000);
+            return addBillingMonth(date);
+          }
+          '''
+          if 'function periodEndForPlan' not in text:
+              if anchor not in text:
+                  raise SystemExit('Billing month anchor not found')
+              text = text.replace(anchor, addition)
+          text = text.replace('periodEnd: addBillingMonth(now),', 'periodEnd: periodEndForPlan(now, plan),')
+          text = text.replace('const periodEnd = addBillingMonth(periodStart);', 'const periodEnd = periodEndForPlan(periodStart, plan);')
+          billing.write_text(text)
+
+          for path_name in ['apps/web/src/BillingWorkspace.tsx', 'apps/api/src/services/payment-service.ts']:
+              path = Path(path_name)
+              text = path.read_text()
+              text = text.replace('start: "MODO Start"', 'start: "MODO Começar"')
+              text = text.replace('pro: "MODO Pro"', 'pro: "MODO Crescer"')
+              if path_name.endswith('BillingWorkspace.tsx'):
+                  text = text.replace('start: "Para começar uma presença consistente."', 'start: "Para sair da tela em branco."')
+                  text = text.replace('presenca: "Para transformar conteúdo em rotina."', 'presenca: "Para publicar toda semana."')
+                  text = text.replace('pro: "Para marcas em ritmo de crescimento."', 'pro: "Para quem já vende e quer avançar."')
+              path.write_text(text)
+
+          app = Path('apps/api/src/app.ts')
+          app.write_text(app.read_text().replace('version: "0.10.0"', 'version: "0.11.0"'))
+          PY
+          git config user.name "MODO Product"
+          git config user.email "actions@github.com"
+          git add packages/contracts/src/index.ts apps/api/src/services/billing-service.ts apps/api/src/services/payment-service.ts apps/api/src/app.ts apps/web/src/BillingWorkspace.tsx
+          git commit -m "align consumer trial pricing and billing"
+          git push origin HEAD:main

@@ -1,8 +1,8 @@
 import AdminWorkspace from "./AdminWorkspace";
-import App from "./App";
 import BillingWorkspace from "./BillingWorkspace";
 import ContentWorkspace from "./ContentWorkspace";
 import DirectorWorkspace from "./DirectorWorkspace";
+import ImpactLanding from "./ImpactLanding";
 import InvitationWorkspace from "./InvitationWorkspace";
 import LinkedInWorkspace from "./LinkedInWorkspace";
 import OnboardingWorkspace from "./OnboardingWorkspace";
@@ -41,5 +41,5 @@ export default function Root() {
     );
   }
 
-  return <App />;
+  return <ImpactLanding />;
 }

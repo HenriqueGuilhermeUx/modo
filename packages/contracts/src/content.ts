@@ -60,6 +60,8 @@ export const GeneratedContentSchema = z.object({
   adaptationNotes: z.array(z.string().trim().min(1).max(500)).max(10).default([]),
 });
 export type GeneratedContent = z.infer<typeof GeneratedContentSchema>;
+export const ContentOutputUpdateSchema = GeneratedContentSchema;
+export type ContentOutputUpdate = z.infer<typeof ContentOutputUpdateSchema>;
 
 export const ContentGenerationCallbackSchema = z.discriminatedUnion("status", [
   z.object({

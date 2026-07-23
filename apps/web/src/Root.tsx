@@ -9,11 +9,15 @@ import OnboardingWorkspace from "./OnboardingWorkspace";
 import Portal from "./Portal";
 import PortalWelcomeGuide from "./PortalWelcomeGuide";
 import SignalWorkspace from "./SignalWorkspace";
+import SmartBotsOnboarding from "./SmartBotsOnboarding";
+import SmartBotsPage from "./SmartBotsPage";
 import StudioWorkspace from "./StudioWorkspace";
 import WeekWorkspace from "./WeekWorkspace";
 
 export default function Root() {
   const path = window.location.pathname;
+  if (path === "/smartbots.html" || path === "/smartbots") return <SmartBotsPage />;
+  if (path === "/onboarding-smartbots.html" || path === "/app/smartbots") return <SmartBotsOnboarding />;
   if (path.startsWith("/admin")) return <AdminWorkspace />;
   if (path.startsWith("/convite/")) return <InvitationWorkspace />;
   if (path.startsWith("/app/onboarding")) return <OnboardingWorkspace />;
@@ -34,6 +38,7 @@ export default function Root() {
           <a className="portal-plan-entry" href="/app/week">Minha semana</a>
           <a className="portal-plan-entry" href="/app/director">Diretor</a>
           <a className="portal-plan-entry" href="/app/linkedin">LinkedIn</a>
+          <a className="portal-plan-entry" href="/onboarding-smartbots.html">SmartBots</a>
           <a className="portal-plan-entry" href="/app/signal">Signal</a>
           <a className="portal-workspace-entry" href="/app/content">Quick Start e criar ↗</a>
         </div>

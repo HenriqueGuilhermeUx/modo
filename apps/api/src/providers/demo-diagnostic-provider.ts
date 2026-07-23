@@ -1,5 +1,5 @@
 import { nicheLabels, type DiagnosticCreateRequest, type DiagnosticResult } from "@modo/contracts";
-import { extractPublicSource } from "../services/source-extractor.js";
+import { extractPublicSite } from "../services/source-extractor.js";
 import type { DiagnosticProvider } from "./diagnostic-provider.js";
 
 const sleep = (milliseconds: number) => new Promise((resolve) => setTimeout(resolve, milliseconds));
@@ -513,7 +513,7 @@ export class DemoDiagnosticProvider implements DiagnosticProvider {
     let sourceRead = false;
 
     try {
-      const source = await extractPublicSource(input.websiteUrl);
+      const source = await extractPublicSite(input.websiteUrl);
       pageTitle = source.title;
       pageText = source.text;
       sourceRead = true;

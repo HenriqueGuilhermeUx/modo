@@ -1,0 +1,159 @@
+name: Apply SmartBots Presence v0.13
+on:
+  pull_request:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  apply:
+    if: github.head_ref == 'ci/apply-smartbots-presenca-v013'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Integrate SmartBots Assisted with MODO Presence
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          set -e
+          git clone --quiet --depth 1 "https://x-access-token:${GH_TOKEN}@github.com/${REPOSITORY}.git" repo
+          cd repo
+          python3 - <<'PY'
+          from pathlib import Path
+
+          def replace(path_name, old, new):
+              path = Path(path_name)
+              text = path.read_text()
+              if old not in text:
+                  raise SystemExit(f'Expected block not found in {path_name}: {old[:100]!r}')
+              path.write_text(text.replace(old, new))
+
+          replace('apps/api/src/app.ts','import { registerStudioRoutes } from "./routes/studio-routes.js";\n','import { registerStudioRoutes } from "./routes/studio-routes.js";\nimport { registerSmartBotsRoutes } from "./routes/smartbots-routes.js";\n')
+          replace('apps/api/src/app.ts','  contentDemoDelayMs?: number;\n}','  contentDemoDelayMs?: number;\n  smartBotsPartnerEndpoint?: string;\n}')
+          replace('apps/api/src/app.ts','''  await registerStudioRoutes(app, {
+    auth,
+    content,
+    databaseUrl: options.databaseUrl,
+    databaseSsl: options.databaseSsl,
+  });
+''','''  await registerStudioRoutes(app, {
+    auth,
+    content,
+    databaseUrl: options.databaseUrl,
+    databaseSsl: options.databaseSsl,
+  });
+  await registerSmartBotsRoutes(app, {
+    auth,
+    billing,
+    admin,
+    databaseUrl: options.databaseUrl,
+    databaseSsl: options.databaseSsl,
+    partnerEndpoint: options.smartBotsPartnerEndpoint,
+  });
+''')
+          replace('apps/api/src/app.ts','version: "0.12.0"','version: "0.13.0"')
+          replace('apps/api/src/app.ts','    weeklyAgenda: "enabled",\n    platformAdmin:','    weeklyAgenda: "enabled",\n    smartBotsAssisted: "presenca",\n    platformAdmin:')
+          replace('apps/api/src/app.ts','      error instanceof ContentAutomationError ||\n      error instanceof CreativeIntelligenceError','      error instanceof ContentAutomationError ||\n      error instanceof CreativeIntelligenceError ||\n      error instanceof PlatformAdminError')
+
+          replace('apps/web/src/App.tsx','<a href="#linkedin">LinkedIn</a>\n          <a href="#teste">Teste grátis</a>','<a href="#linkedin">LinkedIn</a>\n          <a href="/smartbots.html">SmartBots</a>\n          <a href="#teste">Teste grátis</a>')
+          replace('apps/web/src/App.tsx','"Signal e aprendizado"],\n    cta: "Ativar MODO Presença",','"Signal e aprendizado", "SmartBots Assistido incluído"],\n    cta: "Ativar MODO Presença",')
+          marker = '        <section className="fishing-trial container" id="teste">'
+          bridge = '''        <section className="smartbots-landing-bridge">
+          <div className="container">
+            <div>
+              <span>INCLUÍDO NO MODO PRESENÇA</span>
+              <h2>Crie demanda com a MODO. <strong>Organize os leads com o SmartBots Assistido.</strong></h2>
+              <p>Mini site com bot, captação de contatos, CRM simples, sugestões de ações e mensagens prontas para WhatsApp. O cliente revisa e envia manualmente.</p>
+              <div><small>Mini site + bot</small><small>Captação de leads</small><small>CRM simples</small><small>WhatsApp Assistido</small></div>
+            </div>
+            <aside><strong>Marketing + captação + organização comercial</strong><p>Uma ponte prática para pequenos negócios não perderem as oportunidades geradas pelos conteúdos.</p><a className="button button-green" href="/smartbots.html">Conhecer SmartBots Assistido</a></aside>
+          </div>
+        </section>
+
+'''
+          path = Path('apps/web/src/App.tsx')
+          text = path.read_text()
+          if 'smartbots-landing-bridge' not in text:
+              if marker not in text: raise SystemExit('Trial marker not found')
+              text = text.replace(marker, bridge + marker)
+          path.write_text(text)
+          replace('apps/web/src/App.tsx','''<button className={plan.featured ? "button button-primary button-full" : "button button-outline button-full"} onClick={() => activatePlan(plan.slug)}>{plan.cta} ↗</button></article>)}</div>''','''<button className={plan.featured ? "button button-primary button-full" : "button button-outline button-full"} onClick={() => activatePlan(plan.slug)}>{plan.cta} ↗</button>{plan.slug === "presenca" && <a className="smartbots-plan-cta" href="/smartbots.html">Ativar SmartBots Assistido</a>}</article>)}</div>''')
+          replace('apps/web/src/App.tsx','<details><summary>Posso usar para LinkedIn?</summary><p>Sim. A MODO cria posts, documentos, cases e séries específicas para profissionais e empresas.</p></details>\n            <details><summary>O teste exige cartão?</summary>','<details><summary>Posso usar para LinkedIn?</summary><p>Sim. A MODO cria posts, documentos, cases e séries específicas para profissionais e empresas.</p></details>\n            <details><summary>O que é o SmartBots Assistido?</summary><p>É o benefício do plano Presença que acrescenta mini site com bot, captação de leads, CRM simples, sugestões de ações e mensagens prontas.</p></details>\n            <details><summary>O SmartBots envia mensagens automaticamente?</summary><p>Não. Ele prepara mensagens para WhatsApp, mas o cliente revisa e envia manualmente.</p></details>\n            <details><summary>O teste exige cartão?</summary>')
+
+          replace('apps/web/src/BillingWorkspace.tsx','''              <button className="button button-secondary" onClick={handleCancel} disabled={canceling}>
+                {canceling ? "Cancelando..." : "Cancelar assinatura"}
+              </button>''','''              {["presenca", "pro", "business"].includes(dashboard.usage.plan) && <a className="button button-secondary" href="/onboarding-smartbots.html">Ativar SmartBots Assistido</a>}
+              <button className="button button-secondary" onClick={handleCancel} disabled={canceling}>
+                {canceling ? "Cancelando..." : "Cancelar assinatura"}
+              </button>''')
+          replace('apps/web/src/BillingWorkspace.tsx','''                       <li>Até {item.maxChannels} canal(is)</li>
+                     </ul>''','''                       <li>Até {item.maxChannels} canal(is)</li>
+                       {["presenca", "pro", "business"].includes(slug) && <li><strong>SmartBots Assistido incluído</strong></li>}
+                     </ul>''')
+          replace('apps/web/src/BillingWorkspace.tsx','''                   <li>Pagamento processado pela Woovi</li>
+                 </ul>''','''                   <li>Pagamento processado pela Woovi</li>
+                   {["presenca", "pro", "business"].includes(plan) && <li>SmartBots Assistido incluído</li>}
+                 </ul>''')
+
+          replace('apps/web/src/AdminWorkspace.tsx','import { type FormEvent, useEffect, useMemo, useState } from "react";\n','import type { SmartBotsIntake, SmartBotsIntakeStatus } from "@modo/contracts/smartbots";\nimport { type FormEvent, useEffect, useMemo, useState } from "react";\n')
+          replace('apps/web/src/AdminWorkspace.tsx','} from "./admin-api";\n','} from "./admin-api";\nimport { listAdminSmartBotsIntakes, updateAdminSmartBotsStatus } from "./smartbots-api";\n')
+          replace('apps/web/src/AdminWorkspace.tsx','type Tab = "overview" | "organizations" | "invitations" | "discounts";','type Tab = "overview" | "organizations" | "invitations" | "discounts" | "smartbots";')
+          replace('apps/web/src/AdminWorkspace.tsx','  const [discounts, setDiscounts] = useState<AdminDiscountCampaign[]>([]);\n','  const [discounts, setDiscounts] = useState<AdminDiscountCampaign[]>([]);\n  const [smartBotsIntakes, setSmartBotsIntakes] = useState<SmartBotsIntake[]>([]);\n')
+          replace('apps/web/src/AdminWorkspace.tsx','''    const [me, nextOverview, nextOrganizations, nextInvitations, nextDiscounts] = await Promise.all([
+      getAdminMe(),
+      getAdminOverview(),
+      listAdminOrganizations(),
+      listAdminInvitations(),
+      listAdminDiscounts(),
+    ]);''','''    const [me, nextOverview, nextOrganizations, nextInvitations, nextDiscounts, nextSmartBots] = await Promise.all([
+      getAdminMe(),
+      getAdminOverview(),
+      listAdminOrganizations(),
+      listAdminInvitations(),
+      listAdminDiscounts(),
+      listAdminSmartBotsIntakes(),
+    ]);''')
+          replace('apps/web/src/AdminWorkspace.tsx','    setDiscounts(nextDiscounts);\n','    setDiscounts(nextDiscounts);\n    setSmartBotsIntakes(nextSmartBots);\n')
+          path = Path('apps/web/src/AdminWorkspace.tsx')
+          text = path.read_text()
+          if 'async function handleSmartBotsStatus' not in text:
+              text = text.replace('  if (loading) {','''  async function handleSmartBotsStatus(item: SmartBotsIntake) {
+    const status = window.prompt("Status: submitted, sent, setup_in_progress, ready ou failed", item.status)?.trim() as SmartBotsIntakeStatus | undefined;
+    if (!status || !["submitted", "sent", "setup_in_progress", "ready", "failed"].includes(status)) return;
+    const providerMessage = window.prompt("Observação para o cliente/equipe:", item.providerMessage || "") ?? "";
+    setBusy(true);
+    try {
+      await updateAdminSmartBotsStatus(item.id, status, providerMessage);
+      await refresh(`SmartBots de ${item.businessName} atualizado.`);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Não foi possível atualizar o SmartBots.");
+      setBusy(false);
+    }
+  }
+
+  if (loading) {''')
+          path.write_text(text)
+          replace('apps/web/src/AdminWorkspace.tsx','<button className={tab === "discounts" ? "active" : ""} onClick={() => setTab("discounts")}>Descontos</button>\n','<button className={tab === "discounts" ? "active" : ""} onClick={() => setTab("discounts")}>Descontos</button>\n          <button className={tab === "smartbots" ? "active" : ""} onClick={() => setTab("smartbots")}>SmartBots</button>\n')
+          replace('apps/web/src/AdminWorkspace.tsx','<header><div><span>MODO CONTROL</span><h1>{tab === "overview" ? "Visão geral" : tab === "organizations" ? "Clientes e assinaturas" : tab === "invitations" ? "Convites de onboarding" : "Campanhas de desconto"}</h1></div>','<header><div><span>MODO CONTROL</span><h1>{tab === "overview" ? "Visão geral" : tab === "organizations" ? "Clientes e assinaturas" : tab === "invitations" ? "Convites de onboarding" : tab === "discounts" ? "Campanhas de desconto" : "Implantações SmartBots"}</h1></div>')
+          replace('apps/web/src/AdminWorkspace.tsx','<article><span>03</span><h2>Acompanhar operação</h2><p>Veja saldo, produção e situação de cada organização.</p><button onClick={() => setTab("organizations")}>Ver clientes</button></article>\n','<article><span>03</span><h2>Acompanhar operação</h2><p>Veja saldo, produção e situação de cada organização.</p><button onClick={() => setTab("organizations")}>Ver clientes</button></article>\n              <article><span>04</span><h2>Implantar SmartBots</h2><p>Acompanhe briefings do plano Presença e atualize o andamento.</p><button onClick={() => setTab("smartbots")}>Ver implantações</button></article>\n')
+          path = Path('apps/web/src/AdminWorkspace.tsx')
+          text = path.read_text()
+          if 'tab === "smartbots" &&' not in text:
+              text = text.replace('        {tab === "discounts" && (','''        {tab === "smartbots" && (
+          <section className="admin-section">
+            <div className="admin-toolbar"><strong>Fila de implantação assistida</strong><span>{smartBotsIntakes.length} pedido(s)</span></div>
+            <section className="admin-list">
+              {smartBotsIntakes.map((item) => <article key={item.id}><div><strong>{item.businessName}</strong><span>{item.ownerName} · {item.email} · {item.phone}</span><small>{item.segment} · enviado em {new Date(item.createdAt).toLocaleString("pt-BR")}</small><small>{item.services.slice(0, 180)}</small>{item.providerMessage && <small>{item.providerMessage}</small>}</div><b className={`admin-status ${item.status === "ready" ? "active" : item.status === "failed" ? "canceled" : "retrying"}`}>{item.status}</b><button onClick={() => void handleSmartBotsStatus(item)}>Atualizar</button></article>)}
+              {!smartBotsIntakes.length && <p>Nenhum briefing SmartBots recebido.</p>}
+            </section>
+          </section>
+        )}
+
+        {tab === "discounts" && (''')
+          path.write_text(text)
+          PY
+          git config user.name "MODO Product"
+          git config user.email "actions@github.com"
+          git add apps/api/src/app.ts apps/web/src/App.tsx apps/web/src/BillingWorkspace.tsx apps/web/src/AdminWorkspace.tsx
+          git commit -m "integrate SmartBots Assisted into MODO Presence"
+          git push origin HEAD:main

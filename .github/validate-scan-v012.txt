@@ -1,0 +1,1 @@
+Validate sector-specific diagnoses for SindCopilot, NexJud and Nexa, plus typecheck, tests and builds.

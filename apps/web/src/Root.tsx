@@ -9,6 +9,7 @@ import OnboardingWorkspace from "./OnboardingWorkspace";
 import Portal from "./Portal";
 import PortalWelcomeGuide from "./PortalWelcomeGuide";
 import SignalWorkspace from "./SignalWorkspace";
+import SmartBotsAdminWorkspace from "./SmartBotsAdminWorkspace";
 import SmartBotsOnboarding from "./SmartBotsOnboarding";
 import SmartBotsPage from "./SmartBotsPage";
 import StudioWorkspace from "./StudioWorkspace";
@@ -18,7 +19,15 @@ export default function Root() {
   const path = window.location.pathname;
   if (path === "/smartbots.html" || path === "/smartbots") return <SmartBotsPage />;
   if (path === "/onboarding-smartbots.html" || path === "/app/smartbots") return <SmartBotsOnboarding />;
-  if (path.startsWith("/admin")) return <AdminWorkspace />;
+  if (path === "/admin/smartbots") return <SmartBotsAdminWorkspace />;
+  if (path.startsWith("/admin")) {
+    return (
+      <>
+        <AdminWorkspace />
+        <a href="/admin/smartbots" style={{ position: "fixed", right: 22, bottom: 22, zIndex: 1000, background: "#2ED19A", color: "#0D1B3E", borderRadius: 999, padding: "12px 17px", fontSize: 11, fontWeight: 900, boxShadow: "0 15px 40px rgba(13,27,62,.2)" }}>SmartBots</a>
+      </>
+    );
+  }
   if (path.startsWith("/convite/")) return <InvitationWorkspace />;
   if (path.startsWith("/app/onboarding")) return <OnboardingWorkspace />;
   if (path.startsWith("/app/studio/")) return <StudioWorkspace />;

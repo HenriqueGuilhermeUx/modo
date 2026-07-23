@@ -8,6 +8,7 @@ const emptyToUndefined = (value: unknown) => {
 };
 
 const optionalTrimmedString = z.preprocess(emptyToUndefined, z.string().optional());
+const optionalUrl = z.preprocess(emptyToUndefined, z.string().url().optional());
 const booleanFromEnvironment = z.preprocess((value) => {
   if (typeof value !== "string") return value;
   const normalized = value.trim().toLowerCase();
@@ -50,6 +51,7 @@ const ConfigSchema = z
     ),
     LINKEDIN_TOKEN_ENCRYPTION_SECRET: optionalTrimmedString,
     LINKEDIN_API_VERSION: z.preprocess(emptyToUndefined, z.string().default("202606")),
+    SMARTBOTS_PARTNER_ENDPOINT: optionalUrl,
   })
   .superRefine((values, context) => {
     if (values.DIAGNOSTIC_PROVIDER === "n8n") {

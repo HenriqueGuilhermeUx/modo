@@ -29,6 +29,7 @@ const app = await createApp({
   contentSecret: config.N8N_CONTENT_SECRET,
   publicApiUrl: config.PUBLIC_API_URL,
   contentDemoDelayMs: config.CONTENT_DEMO_DELAY_MS,
+  smartBotsPartnerEndpoint: config.SMARTBOTS_PARTNER_ENDPOINT,
 });
 
 try {

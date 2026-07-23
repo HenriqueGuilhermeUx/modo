@@ -1,0 +1,1 @@
+Validate SmartBots Assisted contracts, plan gating, intake persistence, admin queue, public page, onboarding and builds.

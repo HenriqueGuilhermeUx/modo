@@ -13,7 +13,8 @@
     "./creative-intelligence": {"types": "./src/creative-intelligence.ts", "import": "./dist/creative-intelligence.js"},
     "./signal": {"types": "./src/signal.ts", "import": "./dist/signal.js"},
     "./admin": {"types": "./src/admin.ts", "import": "./dist/admin.js"},
-    "./source": {"types": "./src/source.ts", "import": "./dist/source.js"}
+    "./source": {"types": "./src/source.ts", "import": "./dist/source.js"},
+    "./smartbots": {"types": "./src/smartbots.ts", "import": "./dist/smartbots.js"}
   },
   "files": ["dist"],
   "scripts": {"build": "tsc -p tsconfig.json", "typecheck": "tsc -p tsconfig.json --noEmit"},

@@ -24,6 +24,7 @@ import "./consumer-enhancements.css";
 import "./diagnostic-impact.css";
 import "./diagnostic-impact-bridge.css";
 import "./fishing-landing.css";
+import "./scan-action-plan.css";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

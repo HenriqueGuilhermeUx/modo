@@ -15,6 +15,7 @@ import {
   PlatformAdminError,
   type PlatformAdminService,
 } from "../services/platform-admin-service.js";
+import { registerSmartBotsRoutes } from "./smartbots-routes.js";
 
 interface Options {
   auth: AuthService;
@@ -41,6 +42,15 @@ export async function registerPlatformAdminRoutes(
     databaseSsl: options.databaseSsl,
   });
   app.addHook("onClose", async () => credits.close());
+
+  await registerSmartBotsRoutes(app, {
+    auth: options.auth,
+    billing: options.billing,
+    admin: options.admin,
+    databaseUrl: options.databaseUrl,
+    databaseSsl: options.databaseSsl,
+    partnerEndpoint: process.env.SMARTBOTS_PARTNER_ENDPOINT,
+  });
 
   app.post(
     "/api/v1/admin/login",

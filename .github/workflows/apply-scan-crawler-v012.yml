@@ -1,0 +1,47 @@
+name: Apply Scan Crawler v0.12
+on:
+  pull_request:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  patch:
+    if: github.head_ref == 'ci/apply-scan-crawler-v012'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Connect multi-page crawler to Scan
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          set -e
+          git clone --quiet --depth 1 "https://x-access-token:${GH_TOKEN}@github.com/${REPOSITORY}.git" repo
+          cd repo
+          python3 - <<'PY'
+          from pathlib import Path
+
+          provider = Path('apps/api/src/providers/demo-diagnostic-provider.ts')
+          text = provider.read_text()
+          old_import = 'import { extractPublicSource } from "../services/source-extractor.js";'
+          new_import = 'import { extractPublicSite } from "../services/source-extractor.js";'
+          if old_import not in text and new_import not in text:
+              raise SystemExit('Expected source extractor import not found')
+          text = text.replace(old_import, new_import)
+          text = text.replace('const source = await extractPublicSource(input.websiteUrl);', 'const source = await extractPublicSite(input.websiteUrl);')
+          provider.write_text(text)
+
+          app = Path('apps/api/src/app.ts')
+          app_text = app.read_text()
+          app_text = app_text.replace('version: "0.11.0"', 'version: "0.12.0"')
+          app.write_text(app_text)
+          PY
+          git config user.name "MODO Product"
+          git config user.email "actions@github.com"
+          git add apps/api/src/providers/demo-diagnostic-provider.ts apps/api/src/app.ts
+          if git diff --cached --quiet; then
+            echo "No patch needed."
+            exit 0
+          fi
+          git commit -m "connect multi-page crawler to MODO Scan"
+          git push origin HEAD:main

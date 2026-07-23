@@ -1,12 +1,12 @@
 name: Apply SmartBots Presence v0.13
 on:
-  pull_request:
+  push:
     branches: [main]
 permissions:
   contents: write
 jobs:
   apply:
-    if: github.head_ref == 'ci/apply-smartbots-presenca-v013'
+    if: contains(github.event.head_commit.message, 'run SmartBots Presence migration')
     runs-on: ubuntu-latest
     steps:
       - name: Integrate SmartBots Assisted with MODO Presence

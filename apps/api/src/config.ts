@@ -35,6 +35,12 @@ const ConfigSchema = z
     CONTENT_DEMO_DELAY_MS: z.coerce.number().int().nonnegative().default(1800),
     N8N_CONTENT_WEBHOOK_URL: optionalTrimmedString,
     N8N_CONTENT_SECRET: optionalTrimmedString,
+    SMARTBOTS_DISPATCH_PROVIDER: z.enum(["queue", "direct", "n8n"]).default("queue"),
+    SMARTBOTS_PARTNER_ENDPOINT: optionalUrl,
+    SMARTBOTS_PARTNER_API_KEY: optionalTrimmedString,
+    N8N_SMARTBOTS_WEBHOOK_URL: optionalUrl,
+    N8N_SMARTBOTS_SECRET: optionalTrimmedString,
+    SMARTBOTS_REQUEST_TIMEOUT_MS: z.coerce.number().int().min(1000).max(120000).default(15000),
     DATABASE_URL: optionalTrimmedString,
     DATABASE_SSL: booleanFromEnvironment,
     AUTH_SESSION_DAYS: z.coerce.number().int().min(1).max(365).default(30),
@@ -51,7 +57,6 @@ const ConfigSchema = z
     ),
     LINKEDIN_TOKEN_ENCRYPTION_SECRET: optionalTrimmedString,
     LINKEDIN_API_VERSION: z.preprocess(emptyToUndefined, z.string().default("202606")),
-    SMARTBOTS_PARTNER_ENDPOINT: optionalUrl,
   })
   .superRefine((values, context) => {
     if (values.DIAGNOSTIC_PROVIDER === "n8n") {
@@ -90,6 +95,40 @@ const ConfigSchema = z
       }
     }
 
+    if (values.SMARTBOTS_DISPATCH_PROVIDER === "direct") {
+      if (!values.SMARTBOTS_PARTNER_ENDPOINT) {
+        context.addIssue({
+          code: "custom",
+          path: ["SMARTBOTS_PARTNER_ENDPOINT"],
+          message: "Informe o endpoint da SmartBots quando SMARTBOTS_DISPATCH_PROVIDER=direct.",
+        });
+      }
+      if (!values.SMARTBOTS_PARTNER_API_KEY) {
+        context.addIssue({
+          code: "custom",
+          path: ["SMARTBOTS_PARTNER_API_KEY"],
+          message: "Informe a chave de parceiro quando SMARTBOTS_DISPATCH_PROVIDER=direct.",
+        });
+      }
+    }
+
+    if (values.SMARTBOTS_DISPATCH_PROVIDER === "n8n") {
+      if (!values.N8N_SMARTBOTS_WEBHOOK_URL) {
+        context.addIssue({
+          code: "custom",
+          path: ["N8N_SMARTBOTS_WEBHOOK_URL"],
+          message: "Informe o webhook do n8n quando SMARTBOTS_DISPATCH_PROVIDER=n8n.",
+        });
+      }
+      if (!values.N8N_SMARTBOTS_SECRET) {
+        context.addIssue({
+          code: "custom",
+          path: ["N8N_SMARTBOTS_SECRET"],
+          message: "Informe o segredo do webhook quando SMARTBOTS_DISPATCH_PROVIDER=n8n.",
+        });
+      }
+    }
+
     if (values.PAYMENTS_PROVIDER === "woovi") {
       if (!values.WOOVI_APP_ID) {
         context.addIssue({
@@ -114,6 +153,8 @@ export const config = {
   ...parsed,
   N8N_WEBHOOK_SECRET: parsed.N8N_WEBHOOK_SECRET ?? "",
   N8N_CONTENT_SECRET: parsed.N8N_CONTENT_SECRET ?? "",
+  N8N_SMARTBOTS_SECRET: parsed.N8N_SMARTBOTS_SECRET ?? "",
+  SMARTBOTS_PARTNER_API_KEY: parsed.SMARTBOTS_PARTNER_API_KEY ?? "",
   allowedOrigins: parsed.ALLOWED_ORIGINS.split(",")
     .map((origin) => origin.trim())
     .filter(Boolean),

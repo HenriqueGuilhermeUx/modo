@@ -8,10 +8,17 @@ import pg, { type Pool } from "pg";
 
 const { Pool: PgPool } = pg;
 
+export type SmartBotsDispatchProvider = "queue" | "direct" | "n8n";
+
 interface Options {
   databaseUrl?: string;
   databaseSsl?: boolean;
+  dispatchProvider?: SmartBotsDispatchProvider;
   partnerEndpoint?: string;
+  partnerApiKey?: string;
+  n8nWebhookUrl?: string;
+  n8nSecret?: string;
+  requestTimeoutMs?: number;
 }
 
 type IntakeRow = {
@@ -66,13 +73,58 @@ function mapRow(row: IntakeRow): SmartBotsIntake {
   };
 }
 
+function intakePayload(intake: SmartBotsIntake): SmartBotsIntakePayload {
+  return {
+    partner: "modo",
+    plan: "presenca",
+    businessName: intake.businessName,
+    ownerName: intake.ownerName,
+    email: intake.email,
+    phone: intake.phone,
+    instagram: intake.instagram,
+    segment: intake.segment,
+    services: intake.services,
+    openingHours: intake.openingHours,
+    faq: intake.faq,
+    prices: intake.prices,
+    welcomeMessage: intake.welcomeMessage,
+    googleReviewLink: intake.googleReviewLink,
+    notes: intake.notes,
+  };
+}
+
 export class SmartBotsService {
   private readonly pool?: Pool;
+  public readonly dispatchProvider: SmartBotsDispatchProvider;
   private readonly partnerEndpoint?: string;
+  private readonly partnerApiKey?: string;
+  private readonly n8nWebhookUrl?: string;
+  private readonly n8nSecret?: string;
+  private readonly requestTimeoutMs: number;
   private readonly memory = new Map<string, SmartBotsIntake>();
 
   constructor(options: Options = {}) {
+    this.dispatchProvider = options.dispatchProvider ?? "queue";
     this.partnerEndpoint = options.partnerEndpoint?.trim() || undefined;
+    this.partnerApiKey = options.partnerApiKey?.trim() || undefined;
+    this.n8nWebhookUrl = options.n8nWebhookUrl?.trim() || undefined;
+    this.n8nSecret = options.n8nSecret?.trim() || undefined;
+    const timeout = Number(options.requestTimeoutMs ?? 15_000);
+    this.requestTimeoutMs = Number.isFinite(timeout)
+      ? Math.min(120_000, Math.max(1_000, timeout))
+      : 15_000;
+
+    if (this.dispatchProvider === "direct" && (!this.partnerEndpoint || !this.partnerApiKey)) {
+      throw new Error(
+        "SMARTBOTS_PARTNER_ENDPOINT e SMARTBOTS_PARTNER_API_KEY são obrigatórios no envio direto.",
+      );
+    }
+    if (this.dispatchProvider === "n8n" && (!this.n8nWebhookUrl || !this.n8nSecret)) {
+      throw new Error(
+        "N8N_SMARTBOTS_WEBHOOK_URL e N8N_SMARTBOTS_SECRET são obrigatórios na orquestração n8n.",
+      );
+    }
+
     if (options.databaseUrl) {
       this.pool = new PgPool({
         connectionString: options.databaseUrl,
@@ -128,25 +180,14 @@ export class SmartBotsService {
       ? await this.savePostgres(organizationId, userId, payload)
       : this.saveMemory(organizationId, userId, payload);
 
-    if (!this.partnerEndpoint) return saved;
+    return this.dispatch(saved);
+  }
 
-    try {
-      const response = await fetch(this.partnerEndpoint, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(payload),
-        signal: AbortSignal.timeout(15_000),
-      });
-      const detail = (await response.text().catch(() => "")).slice(0, 1000);
-      return this.updateStatus(
-        saved.id,
-        response.ok ? "sent" : "failed",
-        detail || `SmartBots respondeu ${response.status}.`,
-      );
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Falha ao encaminhar para a SmartBots.";
-      return this.updateStatus(saved.id, "failed", message.slice(0, 1000));
-    }
+  async retry(id: string): Promise<SmartBotsIntake> {
+    const intake = await this.getById(id);
+    if (!intake) throw new Error("Solicitação SmartBots não encontrada.");
+    const queued = await this.updateStatus(id, "submitted", "");
+    return this.dispatch(queued);
   }
 
   async getForOrganization(organizationId: string): Promise<SmartBotsIntake | null> {
@@ -187,6 +228,50 @@ export class SmartBotsService {
     const updated = { ...entry, status, providerMessage, updatedAt: new Date().toISOString() };
     this.memory.set(updated.organizationId, updated);
     return updated;
+  }
+
+  private async dispatch(saved: SmartBotsIntake): Promise<SmartBotsIntake> {
+    if (this.dispatchProvider === "queue") return saved;
+
+    const payload = intakePayload(saved);
+    const isN8n = this.dispatchProvider === "n8n";
+    const endpoint = isN8n ? this.n8nWebhookUrl! : this.partnerEndpoint!;
+    const headers: Record<string, string> = {
+      "content-type": "application/json",
+      "idempotency-key": saved.id,
+      "x-modo-source": "modo-presenca",
+    };
+    if (isN8n) headers["x-modo-secret"] = this.n8nSecret!;
+    else headers["x-partner-key"] = this.partnerApiKey!;
+
+    try {
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers,
+        body: JSON.stringify(isN8n ? { intakeId: saved.id, payload } : payload),
+        signal: AbortSignal.timeout(this.requestTimeoutMs),
+      });
+      const detail = (await response.text().catch(() => "")).slice(0, 1000);
+      return this.updateStatus(
+        saved.id,
+        response.ok ? "sent" : "failed",
+        detail || `${isN8n ? "n8n" : "SmartBots"} respondeu ${response.status}.`,
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Falha ao encaminhar para a SmartBots.";
+      return this.updateStatus(saved.id, "failed", message.slice(0, 1000));
+    }
+  }
+
+  private async getById(id: string): Promise<SmartBotsIntake | null> {
+    if (this.pool) {
+      const result = await this.pool.query<IntakeRow>(
+        `SELECT * FROM modo_smartbots_intakes WHERE id=$1 LIMIT 1`,
+        [id],
+      );
+      return result.rows[0] ? mapRow(result.rows[0]) : null;
+    }
+    return [...this.memory.values()].find((item) => item.id === id) ?? null;
   }
 
   private async savePostgres(

@@ -29,6 +29,7 @@ export async function getSmartBotsIntake() {
   return {
     eligible: Boolean(payload.eligible),
     requiredPlan: String(payload.requiredPlan || "presenca"),
+    dispatchProvider: String(payload.dispatchProvider || "queue"),
     intake: payload.intake ? SmartBotsIntakeSchema.parse(payload.intake) : null,
   };
 }
@@ -57,6 +58,14 @@ export async function updateAdminSmartBotsStatus(
     await request(`/api/v1/admin/smartbots-intakes/${id}/status`, getAdminToken(), {
       method: "PATCH",
       body: JSON.stringify({ status, providerMessage }),
+    }),
+  );
+}
+
+export async function retryAdminSmartBotsIntake(id: string) {
+  return SmartBotsIntakeSchema.parse(
+    await request(`/api/v1/admin/smartbots-intakes/${id}/retry`, getAdminToken(), {
+      method: "POST",
     }),
   );
 }

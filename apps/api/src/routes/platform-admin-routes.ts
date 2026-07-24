@@ -147,7 +147,7 @@ export async function registerPlatformAdminRoutes(
   });
 
   app.get("/api/v1/invitations/:token", async (request) => {
-    const token = z.string().min(20).parse((request.params as { token: string }).id);
+    const token = z.string().min(20).parse((request.params as { token: string }).token);
     return options.admin.previewInvitation(token);
   });
 

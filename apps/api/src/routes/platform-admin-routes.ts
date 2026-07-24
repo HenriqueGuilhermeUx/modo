@@ -33,6 +33,11 @@ function bearer(request: FastifyRequest) {
   return value.slice(7).trim();
 }
 
+function smartBotsDispatchProvider() {
+  const value = String(process.env.SMARTBOTS_DISPATCH_PROVIDER || "queue").trim();
+  return value === "direct" || value === "n8n" ? value : "queue";
+}
+
 export async function registerPlatformAdminRoutes(
   app: FastifyInstance,
   options: Options,
@@ -49,7 +54,12 @@ export async function registerPlatformAdminRoutes(
     admin: options.admin,
     databaseUrl: options.databaseUrl,
     databaseSsl: options.databaseSsl,
+    dispatchProvider: smartBotsDispatchProvider(),
     partnerEndpoint: process.env.SMARTBOTS_PARTNER_ENDPOINT,
+    partnerApiKey: process.env.SMARTBOTS_PARTNER_API_KEY,
+    n8nWebhookUrl: process.env.N8N_SMARTBOTS_WEBHOOK_URL,
+    n8nSecret: process.env.N8N_SMARTBOTS_SECRET,
+    requestTimeoutMs: Number(process.env.SMARTBOTS_REQUEST_TIMEOUT_MS || 15000),
   });
 
   app.post(
@@ -137,7 +147,7 @@ export async function registerPlatformAdminRoutes(
   });
 
   app.get("/api/v1/invitations/:token", async (request) => {
-    const token = z.string().min(20).parse((request.params as { token: string }).token);
+    const token = z.string().min(20).parse((request.params as { token: string }).id);
     return options.admin.previewInvitation(token);
   });
 

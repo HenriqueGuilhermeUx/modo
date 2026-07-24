@@ -7,7 +7,7 @@ import { z } from "zod";
 import { AuthError, type AuthService } from "../services/auth-service.js";
 import { BillingError, type BillingService } from "../services/billing-service.js";
 import type { PlatformAdminService } from "../services/platform-admin-service.js";
-import { SmartBotsService } from "../services/smartbots-service.js";
+import { SmartBotsService, type SmartBotsDispatchProvider } from "../services/smartbots-service.js";
 
 interface Options {
   auth: AuthService;
@@ -15,7 +15,12 @@ interface Options {
   admin: PlatformAdminService;
   databaseUrl?: string;
   databaseSsl?: boolean;
+  dispatchProvider?: SmartBotsDispatchProvider;
   partnerEndpoint?: string;
+  partnerApiKey?: string;
+  n8nWebhookUrl?: string;
+  n8nSecret?: string;
+  requestTimeoutMs?: number;
 }
 
 function customerBearer(request: FastifyRequest) {
@@ -42,7 +47,12 @@ export async function registerSmartBotsRoutes(app: FastifyInstance, options: Opt
   const service = new SmartBotsService({
     databaseUrl: options.databaseUrl,
     databaseSsl: options.databaseSsl,
+    dispatchProvider: options.dispatchProvider,
     partnerEndpoint: options.partnerEndpoint,
+    partnerApiKey: options.partnerApiKey,
+    n8nWebhookUrl: options.n8nWebhookUrl,
+    n8nSecret: options.n8nSecret,
+    requestTimeoutMs: options.requestTimeoutMs,
   });
   await service.initialize();
   app.addHook("onClose", async () => service.close());
@@ -53,6 +63,7 @@ export async function registerSmartBotsRoutes(app: FastifyInstance, options: Opt
     return {
       eligible: isEligible(usage.plan, usage.status),
       requiredPlan: "presenca",
+      dispatchProvider: service.dispatchProvider,
       intake: await service.getForOrganization(context.organization.id),
     };
   });
@@ -98,6 +109,17 @@ export async function registerSmartBotsRoutes(app: FastifyInstance, options: Opt
     }).parse(request.body);
     const updated = await service.updateStatus(id, input.status, input.providerMessage);
     await options.admin.audit("smartbots.status_updated", "smartbots_intake", id, input);
+    return updated;
+  });
+
+  app.post("/api/v1/admin/smartbots-intakes/:id/retry", async (request) => {
+    await options.admin.authenticate(adminBearer(request));
+    const id = z.string().uuid().parse((request.params as { id: string }).id);
+    const updated = await service.retry(id);
+    await options.admin.audit("smartbots.dispatch_retried", "smartbots_intake", id, {
+      dispatchProvider: service.dispatchProvider,
+      status: updated.status,
+    });
     return updated;
   });
 }

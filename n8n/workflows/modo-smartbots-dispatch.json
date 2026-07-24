@@ -1,0 +1,118 @@
+{
+  "name": "MODO — Encaminhamento SmartBots Assistido",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "modo-smartbots-dispatch",
+        "authentication": "headerAuth",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "62b9b5bf-4170-4f2c-aac1-5b51fcf46284",
+      "name": "MODO SmartBots Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [-520, 0],
+      "webhookId": "a41484a8-1475-4993-93e9-a06187a433d6",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_MODO_SMARTBOTS_SECRET_CREDENTIAL",
+          "name": "MODO SmartBots Secret"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const source = $json.body ?? $json;\nif (!source.intakeId || !source.payload) {\n  throw new Error('Payload inválido: intakeId e payload são obrigatórios.');\n}\nconst payload = { ...source.payload, partner: 'modo', plan: 'presenca' };\nreturn [{ json: { intakeId: String(source.intakeId), payload } }];"
+      },
+      "id": "d90eaf95-557a-434b-a8d8-94cfd3d6ba02",
+      "name": "Normalize MODO Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-280, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://smartbots.club/.netlify/functions/partner-smartbots-intake",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "idempotency-key",
+              "value": "={{ $json.intakeId }}"
+            },
+            {
+              "name": "x-modo-source",
+              "value": "modo-presenca-n8n"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify($json.payload) }}",
+        "options": {
+          "timeout": 30000,
+          "response": {
+            "response": {
+              "neverError": false,
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "4e71ea5e-38e4-431c-8797-b132f1356c87",
+      "name": "Send to SmartBots",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-20, 0],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_SMARTBOTS_PARTNER_KEY_CREDENTIAL",
+          "name": "SmartBots Partner Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ success: true, intakeId: $('Normalize MODO Payload').item.json.intakeId, smartBots: $json }) }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "f91803d8-7e80-40bf-a3d7-b5eb006a05a0",
+      "name": "Return to MODO",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [240, 0]
+    }
+  ],
+  "connections": {
+    "MODO SmartBots Webhook": {
+      "main": [[{ "node": "Normalize MODO Payload", "type": "main", "index": 0 }]]
+    },
+    "Normalize MODO Payload": {
+      "main": [[{ "node": "Send to SmartBots", "type": "main", "index": 0 }]]
+    },
+    "Send to SmartBots": {
+      "main": [[{ "node": "Return to MODO", "type": "main", "index": 0 }]]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "none",
+    "saveManualExecutions": true
+  },
+  "versionId": "58a97388-19ac-49ec-9171-34bf8a4cc1a9",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}

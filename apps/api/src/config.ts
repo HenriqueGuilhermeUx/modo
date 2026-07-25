@@ -35,6 +35,19 @@ const ConfigSchema = z
     CONTENT_DEMO_DELAY_MS: z.coerce.number().int().nonnegative().default(1800),
     N8N_CONTENT_WEBHOOK_URL: optionalTrimmedString,
     N8N_CONTENT_SECRET: optionalTrimmedString,
+    INTELLIGENCE_PROVIDER: z.enum(["queue", "apify", "n8n"]).default("queue"),
+    APIFY_API_BASE_URL: z.preprocess(
+      emptyToUndefined,
+      z.string().url().default("https://api.apify.com/v2"),
+    ),
+    APIFY_API_TOKEN: optionalTrimmedString,
+    APIFY_MARKET_RADAR_TASK_ID: optionalTrimmedString,
+    APIFY_B2B_PROSPECTING_TASK_ID: optionalTrimmedString,
+    APIFY_PRICE_MONITORING_TASK_ID: optionalTrimmedString,
+    N8N_INTELLIGENCE_WEBHOOK_URL: optionalUrl,
+    N8N_INTELLIGENCE_SECRET: optionalTrimmedString,
+    INTELLIGENCE_CALLBACK_SECRET: optionalTrimmedString,
+    INTELLIGENCE_REQUEST_TIMEOUT_MS: z.coerce.number().int().min(1000).max(120000).default(30000),
     SMARTBOTS_DISPATCH_PROVIDER: z.enum(["queue", "direct", "n8n"]).default("queue"),
     SMARTBOTS_PARTNER_ENDPOINT: optionalUrl,
     SMARTBOTS_PARTNER_API_KEY: optionalTrimmedString,
@@ -91,6 +104,38 @@ const ConfigSchema = z
           code: "custom",
           path: ["N8N_CONTENT_SECRET"],
           message: "Informe um segredo quando CONTENT_PROVIDER=n8n.",
+        });
+      }
+    }
+
+    if (values.INTELLIGENCE_PROVIDER === "apify" && !values.APIFY_API_TOKEN) {
+      context.addIssue({
+        code: "custom",
+        path: ["APIFY_API_TOKEN"],
+        message: "Informe o token do Apify quando INTELLIGENCE_PROVIDER=apify.",
+      });
+    }
+
+    if (values.INTELLIGENCE_PROVIDER === "n8n") {
+      if (!values.N8N_INTELLIGENCE_WEBHOOK_URL) {
+        context.addIssue({
+          code: "custom",
+          path: ["N8N_INTELLIGENCE_WEBHOOK_URL"],
+          message: "Informe o webhook do n8n quando INTELLIGENCE_PROVIDER=n8n.",
+        });
+      }
+      if (!values.N8N_INTELLIGENCE_SECRET) {
+        context.addIssue({
+          code: "custom",
+          path: ["N8N_INTELLIGENCE_SECRET"],
+          message: "Informe o segredo do n8n quando INTELLIGENCE_PROVIDER=n8n.",
+        });
+      }
+      if (!values.INTELLIGENCE_CALLBACK_SECRET) {
+        context.addIssue({
+          code: "custom",
+          path: ["INTELLIGENCE_CALLBACK_SECRET"],
+          message: "Informe o segredo de callback quando INTELLIGENCE_PROVIDER=n8n.",
         });
       }
     }
@@ -153,6 +198,9 @@ export const config = {
   ...parsed,
   N8N_WEBHOOK_SECRET: parsed.N8N_WEBHOOK_SECRET ?? "",
   N8N_CONTENT_SECRET: parsed.N8N_CONTENT_SECRET ?? "",
+  APIFY_API_TOKEN: parsed.APIFY_API_TOKEN ?? "",
+  N8N_INTELLIGENCE_SECRET: parsed.N8N_INTELLIGENCE_SECRET ?? "",
+  INTELLIGENCE_CALLBACK_SECRET: parsed.INTELLIGENCE_CALLBACK_SECRET ?? "",
   N8N_SMARTBOTS_SECRET: parsed.N8N_SMARTBOTS_SECRET ?? "",
   SMARTBOTS_PARTNER_API_KEY: parsed.SMARTBOTS_PARTNER_API_KEY ?? "",
   allowedOrigins: parsed.ALLOWED_ORIGINS.split(",")

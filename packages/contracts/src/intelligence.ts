@@ -80,7 +80,7 @@ export type IntelligenceBrandContext = z.infer<typeof IntelligenceBrandContextSc
 
 export const IntelligenceResultItemSchema = z.record(z.string(), z.unknown());
 
-export const IntelligenceMissionSchema = IntelligenceMissionCreateSchema.extend({
+export const IntelligenceMissionSchema = IntelligenceMissionCreateSchema.safeExtend({
   id: z.string().uuid(),
   organizationId: z.string(),
   userId: z.string(),

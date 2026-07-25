@@ -4,6 +4,7 @@ import { createPortal } from "react-dom";
 import App from "./App";
 import { captureLead } from "./api";
 import DiagnosticImpactResult from "./DiagnosticImpactResult";
+import IntelligenceLandingAddon from "./IntelligenceLandingAddon";
 import SmartBotsLandingAddon from "./SmartBotsLandingAddon";
 
 const CACHE_KEY = "modo.lastDiagnostic";
@@ -85,6 +86,7 @@ export default function ImpactLanding() {
   return (
     <>
       <App />
+      <IntelligenceLandingAddon />
       <SmartBotsLandingAddon />
       {target && result && createPortal(
         <DiagnosticImpactResult

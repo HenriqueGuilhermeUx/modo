@@ -3,6 +3,7 @@ import BillingWorkspace from "./BillingWorkspace";
 import ContentWorkspace from "./ContentWorkspace";
 import DirectorWorkspace from "./DirectorWorkspace";
 import ImpactLanding from "./ImpactLanding";
+import IntelligenceWorkspace from "./IntelligenceWorkspace";
 import InvitationWorkspace from "./InvitationWorkspace";
 import LinkedInWorkspace from "./LinkedInWorkspace";
 import OnboardingWorkspace from "./OnboardingWorkspace";
@@ -35,6 +36,7 @@ export default function Root() {
   if (path.startsWith("/app/planos")) return <BillingWorkspace />;
   if (path.startsWith("/app/director")) return <DirectorWorkspace />;
   if (path.startsWith("/app/linkedin")) return <LinkedInWorkspace />;
+  if (path.startsWith("/app/inteligencia")) return <IntelligenceWorkspace />;
   if (path.startsWith("/app/signal")) return <SignalWorkspace />;
   if (path.startsWith("/app/content")) return <ContentWorkspace />;
   if (path.startsWith("/app")) {
@@ -47,6 +49,7 @@ export default function Root() {
           <a className="portal-plan-entry" href="/app/week">Minha semana</a>
           <a className="portal-plan-entry" href="/app/director">Diretor</a>
           <a className="portal-plan-entry" href="/app/linkedin">LinkedIn</a>
+          <a className="portal-plan-entry" href="/app/inteligencia">Inteligência</a>
           <a className="portal-plan-entry" href="/onboarding-smartbots.html">SmartBots</a>
           <a className="portal-plan-entry" href="/app/signal">Signal</a>
           <a className="portal-workspace-entry" href="/app/content">Quick Start e criar ↗</a>

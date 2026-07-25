@@ -6,15 +6,18 @@ import {
   AdminSubscriptionUpdateSchema,
   InvitationAcceptRequestSchema,
 } from "@modo/contracts/admin";
+import type { IntelligenceProvider } from "@modo/contracts/intelligence";
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import { z } from "zod";
 import type { AuthService } from "../services/auth-service.js";
 import type { BillingService } from "../services/billing-service.js";
 import { AdminCreditService } from "../services/admin-credit-service.js";
+import { IntelligenceService } from "../services/intelligence-service.js";
 import {
   PlatformAdminError,
   type PlatformAdminService,
 } from "../services/platform-admin-service.js";
+import { registerIntelligenceRoutes } from "./intelligence-routes.js";
 import { registerSmartBotsRoutes } from "./smartbots-routes.js";
 
 interface Options {
@@ -38,6 +41,11 @@ function smartBotsDispatchProvider() {
   return value === "direct" || value === "n8n" ? value : "queue";
 }
 
+function intelligenceProvider(): IntelligenceProvider {
+  const value = String(process.env.INTELLIGENCE_PROVIDER || "queue").trim();
+  return value === "apify" || value === "n8n" ? value : "queue";
+}
+
 export async function registerPlatformAdminRoutes(
   app: FastifyInstance,
   options: Options,
@@ -46,8 +54,29 @@ export async function registerPlatformAdminRoutes(
     databaseUrl: options.databaseUrl,
     databaseSsl: options.databaseSsl,
   });
-  app.addHook("onClose", async () => credits.close());
+  const intelligence = new IntelligenceService({
+    databaseUrl: options.databaseUrl,
+    databaseSsl: options.databaseSsl,
+    provider: intelligenceProvider(),
+    apifyBaseUrl: process.env.APIFY_API_BASE_URL,
+    apifyToken: process.env.APIFY_API_TOKEN,
+    n8nWebhookUrl: process.env.N8N_INTELLIGENCE_WEBHOOK_URL,
+    n8nSecret: process.env.N8N_INTELLIGENCE_SECRET,
+    publicApiUrl: process.env.PUBLIC_API_URL,
+    callbackSecret: process.env.INTELLIGENCE_CALLBACK_SECRET,
+    requestTimeoutMs: Number(process.env.INTELLIGENCE_REQUEST_TIMEOUT_MS || 30000),
+    taskIds: {
+      market_radar: process.env.APIFY_MARKET_RADAR_TASK_ID,
+      b2b_prospecting: process.env.APIFY_B2B_PROSPECTING_TASK_ID,
+      price_monitoring: process.env.APIFY_PRICE_MONITORING_TASK_ID,
+    },
+  });
+  await intelligence.initialize();
+  app.addHook("onClose", async () => {
+    await Promise.all([credits.close(), intelligence.close()]);
+  });
 
+  await registerIntelligenceRoutes(app, options.auth, intelligence);
   await registerSmartBotsRoutes(app, {
     auth: options.auth,
     billing: options.billing,

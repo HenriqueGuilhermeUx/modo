@@ -1,0 +1,131 @@
+{
+  "name": "MODO — Motor de inteligência",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "modo-intelligence-engine",
+        "authentication": "headerAuth",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "b8ae7930-a2e0-4ce1-9e99-d0d746a97023",
+      "name": "MODO Intelligence Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [-520, 0],
+      "webhookId": "af228a3f-7c4a-4abf-a137-8eb3fabf9e72",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_MODO_INTELLIGENCE_CREDENTIAL",
+          "name": "MODO Intelligence Secret"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const source = $json.body ?? $json;\nif (!source.missionId || !source.taskId || !source.actorInput || !source.callbackUrl) {\n  throw new Error('missionId, taskId, actorInput e callbackUrl são obrigatórios.');\n}\nreturn [{ json: {\n  missionId: String(source.missionId),\n  playbook: String(source.playbook || ''),\n  taskId: String(source.taskId),\n  actorInput: source.actorInput,\n  callbackUrl: String(source.callbackUrl)\n} }];"
+      },
+      "id": "4ce225df-a59d-49d8-b6ed-9ae0cf1a8e0d",
+      "name": "Validate Mission",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-280, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ 'https://api.apify.com/v2/actor-tasks/' + encodeURIComponent($json.taskId) + '/run-sync-get-dataset-items?clean=true&format=json&timeout=240' }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify($json.actorInput) }}",
+        "options": {
+          "timeout": 270000,
+          "response": {
+            "response": {
+              "neverError": false,
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "b69b8927-40bf-41ba-97d6-503e497530ed",
+      "name": "Run Apify Task",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-20, 0],
+      "onError": "continueRegularOutput",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_APIFY_TOKEN_CREDENTIAL",
+          "name": "Apify API Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const source = $('Validate Mission').item.json;\nconst response = $json;\nconst error = response.error?.message || response.message || '';\nif (error && !Array.isArray(response)) {\n  return [{ json: { callbackUrl: source.callbackUrl, callbackBody: { status: 'failed', error: String(error).slice(0, 2000) } } }];\n}\nconst items = Array.isArray(response) ? response : Array.isArray(response.data) ? response.data : [];\nreturn [{ json: {\n  callbackUrl: source.callbackUrl,\n  callbackBody: {\n    status: 'completed',\n    resultCount: items.length,\n    resultPreview: items.slice(0, 100)\n  }\n} }];"
+      },
+      "id": "81b31014-9b72-4f9e-a92e-7fc4a9bbf62b",
+      "name": "Normalize Intelligence Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [240, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.callbackUrl }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify($json.callbackBody) }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "59879f90-901f-4bf2-b8ea-67843c76e8ca",
+      "name": "Return Result to MODO",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [500, 0],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_MODO_CALLBACK_CREDENTIAL",
+          "name": "MODO Intelligence Callback Secret"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "MODO Intelligence Webhook": {
+      "main": [[{ "node": "Validate Mission", "type": "main", "index": 0 }]]
+    },
+    "Validate Mission": {
+      "main": [[{ "node": "Run Apify Task", "type": "main", "index": 0 }]]
+    },
+    "Run Apify Task": {
+      "main": [[{ "node": "Normalize Intelligence Result", "type": "main", "index": 0 }]]
+    },
+    "Normalize Intelligence Result": {
+      "main": [[{ "node": "Return Result to MODO", "type": "main", "index": 0 }]]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "none",
+    "saveManualExecutions": true
+  },
+  "versionId": "0c1d4a61-ae2c-44e8-a08e-b0d180d72187",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}

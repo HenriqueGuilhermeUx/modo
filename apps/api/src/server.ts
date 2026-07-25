@@ -29,18 +29,6 @@ const app = await createApp({
   contentSecret: config.N8N_CONTENT_SECRET,
   publicApiUrl: config.PUBLIC_API_URL,
   contentDemoDelayMs: config.CONTENT_DEMO_DELAY_MS,
-  intelligenceProvider: config.INTELLIGENCE_PROVIDER,
-  apifyBaseUrl: config.APIFY_API_BASE_URL,
-  apifyToken: config.APIFY_API_TOKEN,
-  n8nIntelligenceWebhookUrl: config.N8N_INTELLIGENCE_WEBHOOK_URL,
-  n8nIntelligenceSecret: config.N8N_INTELLIGENCE_SECRET,
-  intelligenceCallbackSecret: config.INTELLIGENCE_CALLBACK_SECRET,
-  intelligenceRequestTimeoutMs: config.INTELLIGENCE_REQUEST_TIMEOUT_MS,
-  intelligenceTaskIds: {
-    market_radar: config.APIFY_MARKET_RADAR_TASK_ID,
-    b2b_prospecting: config.APIFY_B2B_PROSPECTING_TASK_ID,
-    price_monitoring: config.APIFY_PRICE_MONITORING_TASK_ID,
-  },
 });
 
 try {

@@ -1,0 +1,302 @@
+{
+  "name": "MODO — Motor de inteligência v2",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "modo-intelligence-engine-v2",
+        "authentication": "headerAuth",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "b8ae7930-a2e0-4ce1-9e99-d0d746a97023",
+      "name": "MODO Intelligence Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -900,
+        0
+      ],
+      "webhookId": "af228a3f-7c4a-4abf-a137-8eb3fabf9e73",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_MODO_INTELLIGENCE_CREDENTIAL",
+          "name": "MODO Intelligence Secret"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const source = $json.body ?? $json;\nif (!source.missionId || !source.taskId || !source.actorInput || !source.callbackUrl) {\n  throw new Error('missionId, taskId, actorInput e callbackUrl são obrigatórios.');\n}\nreturn [{ json: {\n  missionId: String(source.missionId),\n  playbook: String(source.playbook || ''),\n  taskId: String(source.taskId),\n  actorInput: source.actorInput,\n  callbackUrl: String(source.callbackUrl)\n} }];"
+      },
+      "id": "4ce225df-a59d-49d8-b6ed-9ae0cf1a8e0d",
+      "name": "Validate Mission",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -700,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const source = $json;\nconst input = source.actorInput ?? {};\nif (source.playbook !== 'b2b_prospecting') return [{ json: source }];\n\nconst keywords = [...new Set((input.keywords ?? []).map((value) => String(value).trim()).filter(Boolean))].slice(0, 10);\nconst regions = [...new Set((input.regions ?? []).map((value) => String(value).trim()).filter(Boolean))];\nif (!keywords.length) throw new Error('A prospecção B2B precisa de ao menos um setor ou termo de busca.');\nif (regions.length !== 1) throw new Error('A prospecção B2B precisa de exatamente uma região por missão.');\n\nconst requested = Number(input.maxItems ?? 100);\nconst maxItems = Math.min(500, Math.max(1, Number.isFinite(requested) ? Math.trunc(requested) : 100));\nconst perSearch = Math.max(1, Math.ceil(maxItems / keywords.length));\n\nreturn [{ json: {\n  ...source,\n  requestedMaxItems: maxItems,\n  actorInput: {\n    searchStringsArray: keywords,\n    locationQuery: regions[0],\n    maxCrawledPlacesPerSearch: perSearch,\n    language: 'pt-BR',\n    skipClosedPlaces: true,\n    scrapePlaceDetailPage: false,\n    maximumLeadsEnrichmentRecords: 0,\n    enableCompetitorAnalysis: false,\n    maxCompetitorsToAnalyze: 0,\n    scrapeSocialMediaProfiles: {\n      facebooks: false,\n      instagrams: false,\n      youtubes: false,\n      tiktoks: false,\n      twitters: false\n    }\n  }\n} }];"
+      },
+      "id": "f44a0e88-05b6-4d4f-a971-0a4b7b54d5d1",
+      "name": "Adapt Playbook Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -500,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ 'https://api.apify.com/v2/actor-tasks/' + encodeURIComponent($json.taskId) + '/runs' }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify($json.actorInput) }}",
+        "options": {
+          "timeout": 30000,
+          "response": {
+            "response": {
+              "neverError": false,
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "b69b8927-40bf-41ba-97d6-503e497530ed",
+      "name": "Start Apify Task",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -280,
+        0
+      ],
+      "onError": "continueRegularOutput",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_APIFY_TOKEN_CREDENTIAL",
+          "name": "Apify API Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ 'https://api.apify.com/v2/actor-runs/' + encodeURIComponent($json.data.id) + '?waitForFinish=60' }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "timeout": 70000,
+          "response": {
+            "response": {
+              "neverError": false,
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "7e9ef7cf-28ce-4f0b-a8c3-aeb498f1883d",
+      "name": "Wait for Apify Run",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -60,
+        0
+      ],
+      "onError": "continueRegularOutput",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_APIFY_TOKEN_CREDENTIAL",
+          "name": "Apify API Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ 'https://api.apify.com/v2/datasets/' + encodeURIComponent($json.data.defaultDatasetId) + '/items?clean=true&format=json&limit=' + encodeURIComponent($('Adapt Playbook Input').first().json.requestedMaxItems) }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/json"
+            },
+            {
+              "name": "Accept-Encoding",
+              "value": "identity"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000,
+          "response": {
+            "response": {
+              "neverError": false,
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "f7c271fa-feb5-4a47-afd3-468245a6ff9a",
+      "name": "Fetch Apify Dataset",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        160,
+        0
+      ],
+      "onError": "continueRegularOutput",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_APIFY_TOKEN_CREDENTIAL",
+          "name": "Apify API Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const source = $('Adapt Playbook Input').first().json;\nconst incoming = $input.all().map((item) => item.json);\n\nconst failure = incoming.find((item) =>\n  item &&\n  typeof item === 'object' &&\n  (item.error?.message || Number(item.statusCode || 0) >= 400)\n);\n\nif (failure) {\n  const message = failure.error?.message || failure.message || `Apify respondeu ${failure.statusCode}.`;\n  return [{\n    json: {\n      callbackUrl: source.callbackUrl,\n      callbackBody: {\n        status: 'failed',\n        error: String(message).slice(0, 2000)\n      }\n    }\n  }];\n}\n\nconst unwrapItems = (value) => {\n  if (value === null || value === undefined) return [];\n  if (Array.isArray(value)) return value.flatMap(unwrapItems);\n\n  if (typeof value === 'string') {\n    try {\n      return unwrapItems(JSON.parse(value));\n    } catch {\n      return [];\n    }\n  }\n\n  if (typeof value !== 'object') return [];\n  if (value.body !== undefined) return unwrapItems(value.body);\n  if (value.data !== undefined && !value.title && !value.placeId) return unwrapItems(value.data);\n  if (value.items !== undefined) return unwrapItems(value.items);\n\n  const looksLikeGooglePlace =\n    value.title ||\n    value.url ||\n    value.placeId ||\n    value.street ||\n    value.phone ||\n    value.website;\n\n  return looksLikeGooglePlace ? [value] : [];\n};\n\nconst flattened = incoming.flatMap(unwrapItems);\nconst seen = new Set();\n\nconst rawItems = flattened\n  .filter((item) => {\n    if (!item || typeof item !== 'object' || item.error) return false;\n\n    const key = String(\n      item.placeId ||\n      item.url ||\n      `${item.title || ''}|${item.street || ''}`\n    ).trim().toLowerCase();\n\n    if (!key || seen.has(key)) return false;\n    seen.add(key);\n    return true;\n  })\n  .slice(0, Number(source.requestedMaxItems || flattened.length || 100));\n\nlet items = rawItems;\n\nif (source.playbook === 'b2b_prospecting') {\n  items = rawItems.map((item, index) => {\n    const phone = String(item.phone || '').trim();\n    const website = String(item.website || '').trim();\n    const rating = Number(item.totalScore || 0);\n    const reviewsCount = Number(item.reviewsCount || 0);\n\n    const qualityScore =\n      (phone ? 30 : 0) +\n      (website ? 25 : 0) +\n      (item.street ? 15 : 0) +\n      (reviewsCount > 0 ? 10 : 0) +\n      (item.categoryName ? 10 : 0) +\n      (rating > 0 ? 10 : 0);\n\n    return {\n      source: 'google_maps',\n      position: index + 1,\n      businessName: String(item.title || ''),\n      category: String(item.categoryName || ''),\n      categories: Array.isArray(item.categories) ? item.categories : [],\n      rating,\n      reviewsCount,\n      address: String(item.street || item.address || ''),\n      city: String(item.city || ''),\n      state: String(item.state || ''),\n      countryCode: String(item.countryCode || ''),\n      phone,\n      website,\n      mapsUrl: String(item.url || ''),\n      contactAvailable: Boolean(phone || website),\n      qualityScore\n    };\n  });\n}\n\nif (!items.length) {\n  return [{\n    json: {\n      callbackUrl: source.callbackUrl,\n      callbackBody: {\n        status: 'failed',\n        error: 'O Apify concluiu, mas o dataset retornou 0 registros.'\n      }\n    }\n  }];\n}\n\nreturn [{\n  json: {\n    callbackUrl: source.callbackUrl,\n    callbackBody: {\n      status: 'completed',\n      resultCount: items.length,\n      resultPreview: items.slice(0, 100)\n    }\n  }\n}];"
+      },
+      "id": "81b31014-9b72-4f9e-a92e-7fc4a9bbf62b",
+      "name": "Normalize Intelligence Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        380,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.callbackUrl }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify($json.callbackBody) }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "59879f90-901f-4bf2-b8ea-67843c76e8ca",
+      "name": "Return Result to MODO",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        600,
+        0
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_MODO_CALLBACK_CREDENTIAL",
+          "name": "MODO Intelligence Callback Secret"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "MODO Intelligence Webhook": {
+      "main": [
+        [
+          {
+            "node": "Validate Mission",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Mission": {
+      "main": [
+        [
+          {
+            "node": "Adapt Playbook Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Adapt Playbook Input": {
+      "main": [
+        [
+          {
+            "node": "Start Apify Task",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Start Apify Task": {
+      "main": [
+        [
+          {
+            "node": "Wait for Apify Run",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait for Apify Run": {
+      "main": [
+        [
+          {
+            "node": "Fetch Apify Dataset",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Apify Dataset": {
+      "main": [
+        [
+          {
+            "node": "Normalize Intelligence Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Intelligence Result": {
+      "main": [
+        [
+          {
+            "node": "Return Result to MODO",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all",
+    "saveManualExecutions": true
+  },
+  "versionId": "45edba91-b7c9-4bff-9fe2-362b8bc0cba6",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}

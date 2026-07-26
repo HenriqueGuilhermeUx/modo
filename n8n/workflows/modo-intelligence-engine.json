@@ -13,7 +13,7 @@
       "name": "MODO Intelligence Webhook",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
-      "position": [-520, 0],
+      "position": [-700, 0],
       "webhookId": "af228a3f-7c4a-4abf-a137-8eb3fabf9e72",
       "credentials": {
         "httpHeaderAuth": {
@@ -28,6 +28,16 @@
       },
       "id": "4ce225df-a59d-49d8-b6ed-9ae0cf1a8e0d",
       "name": "Validate Mission",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-500, 0]
+    },
+    {
+      "parameters": {
+        "jsCode": "const source = $json;\nconst input = source.actorInput ?? {};\nif (source.playbook !== 'b2b_prospecting') return [{ json: source }];\n\nconst keywords = [...new Set((input.keywords ?? []).map((value) => String(value).trim()).filter(Boolean))].slice(0, 10);\nconst regions = [...new Set((input.regions ?? []).map((value) => String(value).trim()).filter(Boolean))];\nif (!keywords.length) throw new Error('A prospecção B2B precisa de ao menos um setor ou termo de busca.');\nif (regions.length !== 1) throw new Error('A prospecção B2B precisa de exatamente uma região por missão.');\n\nconst requested = Number(input.maxItems ?? 100);\nconst maxItems = Math.min(500, Math.max(1, Number.isFinite(requested) ? Math.trunc(requested) : 100));\nconst perSearch = Math.max(1, Math.ceil(maxItems / keywords.length));\n\nreturn [{ json: {\n  ...source,\n  actorInput: {\n    searchStringsArray: keywords,\n    locationQuery: regions[0],\n    maxCrawledPlacesPerSearch: perSearch,\n    language: 'pt-BR',\n    skipClosedPlaces: true,\n    scrapePlaceDetailPage: false,\n    maximumLeadsEnrichmentRecords: 0,\n    enableCompetitorAnalysis: false,\n    maxCompetitorsToAnalyze: 0,\n    scrapeSocialMediaProfiles: {\n      facebooks: false,\n      instagrams: false,\n      youtubes: false,\n      tiktoks: false,\n      twitters: false\n    }\n  }\n} }];"
+      },
+      "id": "f44a0e88-05b6-4d4f-a971-0a4b7b54d5d1",
+      "name": "Adapt Playbook Input",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [-280, 0]
@@ -56,7 +66,7 @@
       "name": "Run Apify Task",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [-20, 0],
+      "position": [-40, 0],
       "onError": "continueRegularOutput",
       "credentials": {
         "httpHeaderAuth": {
@@ -67,13 +77,13 @@
     },
     {
       "parameters": {
-        "jsCode": "const source = $('Validate Mission').item.json;\nconst response = $json;\nconst error = response.error?.message || response.message || '';\nif (error && !Array.isArray(response)) {\n  return [{ json: { callbackUrl: source.callbackUrl, callbackBody: { status: 'failed', error: String(error).slice(0, 2000) } } }];\n}\nconst items = Array.isArray(response) ? response : Array.isArray(response.data) ? response.data : [];\nreturn [{ json: {\n  callbackUrl: source.callbackUrl,\n  callbackBody: {\n    status: 'completed',\n    resultCount: items.length,\n    resultPreview: items.slice(0, 100)\n  }\n} }];"
+        "jsCode": "const source = $('Adapt Playbook Input').item.json;\nconst response = $json;\nconst error = response.error?.message || response.message || '';\nif (error && !Array.isArray(response)) {\n  return [{ json: { callbackUrl: source.callbackUrl, callbackBody: { status: 'failed', error: String(error).slice(0, 2000) } } }];\n}\n\nconst rawItems = Array.isArray(response) ? response : Array.isArray(response.data) ? response.data : [];\nlet items = rawItems;\n\nif (source.playbook === 'b2b_prospecting') {\n  items = rawItems.map((item, index) => {\n    const phone = String(item.phone || '').trim();\n    const website = String(item.website || '').trim();\n    const rating = Number(item.totalScore || 0);\n    const reviewsCount = Number(item.reviewsCount || 0);\n    const qualityScore =\n      (phone ? 30 : 0) +\n      (website ? 25 : 0) +\n      (item.street ? 15 : 0) +\n      (reviewsCount > 0 ? 10 : 0) +\n      (item.categoryName ? 10 : 0) +\n      (rating > 0 ? 10 : 0);\n\n    return {\n      source: 'google_maps',\n      position: index + 1,\n      businessName: String(item.title || ''),\n      category: String(item.categoryName || ''),\n      categories: Array.isArray(item.categories) ? item.categories : [],\n      rating,\n      reviewsCount,\n      address: String(item.street || ''),\n      city: String(item.city || ''),\n      state: String(item.state || ''),\n      countryCode: String(item.countryCode || ''),\n      phone,\n      website,\n      mapsUrl: String(item.url || ''),\n      contactAvailable: Boolean(phone || website),\n      qualityScore\n    };\n  });\n}\n\nreturn [{ json: {\n  callbackUrl: source.callbackUrl,\n  callbackBody: {\n    status: 'completed',\n    resultCount: items.length,\n    resultPreview: items.slice(0, 100)\n  }\n} }];"
       },
       "id": "81b31014-9b72-4f9e-a92e-7fc4a9bbf62b",
       "name": "Normalize Intelligence Result",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [240, 0]
+      "position": [200, 0]
     },
     {
       "parameters": {
@@ -93,7 +103,7 @@
       "name": "Return Result to MODO",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [500, 0],
+      "position": [440, 0],
       "credentials": {
         "httpHeaderAuth": {
           "id": "REPLACE_MODO_CALLBACK_CREDENTIAL",
@@ -107,6 +117,9 @@
       "main": [[{ "node": "Validate Mission", "type": "main", "index": 0 }]]
     },
     "Validate Mission": {
+      "main": [[{ "node": "Adapt Playbook Input", "type": "main", "index": 0 }]]
+    },
+    "Adapt Playbook Input": {
       "main": [[{ "node": "Run Apify Task", "type": "main", "index": 0 }]]
     },
     "Run Apify Task": {
@@ -123,7 +136,7 @@
     "saveDataSuccessExecution": "none",
     "saveManualExecutions": true
   },
-  "versionId": "0c1d4a61-ae2c-44e8-a08e-b0d180d72187",
+  "versionId": "1b7be5a5-538c-4f68-b116-09a57725fca8",
   "meta": {
     "templateCredsSetupCompleted": false
   },

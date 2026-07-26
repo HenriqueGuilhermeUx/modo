@@ -41,12 +41,28 @@ export const IntelligenceMissionCreateSchema = z
     maxItems: z.number().int().min(1).max(5000).optional().default(100),
   })
   .superRefine((value, context) => {
-    if (value.playbook === "b2b_prospecting" && value.keywords.length === 0) {
-      context.addIssue({
-        code: "custom",
-        path: ["keywords"],
-        message: "Informe ao menos um setor, perfil ou termo de busca para prospecção B2B.",
-      });
+    if (value.playbook === "b2b_prospecting") {
+      if (value.keywords.length === 0) {
+        context.addIssue({
+          code: "custom",
+          path: ["keywords"],
+          message: "Informe ao menos um setor, perfil ou termo de busca para prospecção B2B.",
+        });
+      }
+      if (value.regions.length !== 1) {
+        context.addIssue({
+          code: "custom",
+          path: ["regions"],
+          message: "Informe exatamente uma cidade, estado ou região por missão B2B.",
+        });
+      }
+      if (value.maxItems > 500) {
+        context.addIssue({
+          code: "custom",
+          path: ["maxItems"],
+          message: "O piloto B2B aceita até 500 empresas por missão.",
+        });
+      }
     }
     if (value.playbook === "price_monitoring" && value.products.length === 0) {
       context.addIssue({

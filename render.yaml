@@ -36,7 +36,7 @@ services:
       - key: OPENAI_TEXT_MODEL
         value: gpt-5-mini
       - key: OPENAI_IMAGE_MODEL
-        value: gpt-image-1
+        value: gpt-image-2-2026-04-21
       - key: DATABASE_URL
         sync: false
       - key: DATABASE_SSL
@@ -71,3 +71,13 @@ services:
         sync: false
       - key: LINKEDIN_API_VERSION
         value: 202606
+      - key: CANVA_CLIENT_ID
+        sync: false
+      - key: CANVA_CLIENT_SECRET
+        sync: false
+      - key: CANVA_REDIRECT_URI
+        value: https://modo-api-3m10.onrender.com/api/v1/canva/callback
+      - key: CANVA_TOKEN_ENCRYPTION_SECRET
+        sync: false
+      - key: CANVA_SCOPES
+        value: asset:read asset:write design:content:write design:meta:read

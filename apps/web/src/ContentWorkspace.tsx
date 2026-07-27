@@ -18,6 +18,7 @@ import {
   requestContentRevision,
   retryContentRequest,
 } from "./api";
+import CanvaApprovalAction from "./CanvaApprovalAction";
 import CreativeDirector from "./CreativeDirector";
 import { recordCreativeFeedback } from "./director-api";
 import ProductionProgress from "./ProductionProgress";
@@ -374,7 +375,7 @@ export default function ContentWorkspace() {
                           {request.status === "failed" && <div className="content-failed"><strong>A produção encontrou um problema.</strong><p>{request.error}</p><button type="button" className="button button-primary" disabled={actionId === request.id} onClick={() => void handleRetry(request.id)}>Reenviar sem cobrar créditos</button></div>}
                           {request.status === "ready" && <div className="content-review-actions"><div><strong>{request.revisionCount}/{request.maxRevisions}</strong><span>revisões utilizadas</span></div><button type="button" className="button button-primary" disabled={actionId === request.id} onClick={() => void handleApprove(request)}>Aprovar conteúdo</button>{canRevise && <button type="button" className="button button-secondary" onClick={() => setRevisionId(revisionId === request.id ? "" : request.id)}>Solicitar revisão</button>}</div>}
                           {revisionId === request.id && canRevise && <div className="content-revision-form"><label>O que precisa mudar?<div className="revision-shortcuts">{["Deixe mais direto", "Deixe mais humano", "Reduza o tom de venda", "Crie outra abertura", "Encurte o texto", "Use uma prova mais forte"].map((item) => <button type="button" key={item} onClick={() => setRevisionInstructions((current) => current ? `${current}; ${item}` : item)}>{item}</button>)}</div><textarea value={revisionInstructions} onChange={(event) => setRevisionInstructions(event.target.value)} minLength={5} maxLength={1500} placeholder="Ex.: deixe o tom mais direto, reduza a legenda e destaque o benefício financeiro no segundo slide." /></label><div><button type="button" className="button button-secondary" onClick={() => setRevisionId("")}>Cancelar</button><button type="button" className="button button-primary" disabled={revisionInstructions.trim().length < 5 || actionId === request.id} onClick={() => void handleRevision(request)}>Enviar revisão</button></div></div>}
-                          {request.status === "approved" && <div className="content-approved"><strong>✓ Conteúdo aprovado</strong><p>Esta versão está pronta para a próxima etapa de publicação.</p></div>}
+                          {request.status === "approved" && <><div className="content-approved"><strong>✓ Conteúdo aprovado</strong><p>Esta versão está pronta para a etapa de acabamento e publicação.</p></div><CanvaApprovalAction contentRequestId={request.id} /></>}
                         </div>
                       )}
                     </article>

@@ -30,6 +30,7 @@ import {
   ContentAutomationError,
   ContentAutomationService,
 } from "./services/content-automation-service.js";
+import { ContentAssetService } from "./services/content-asset-service.js";
 import { ContentError, ContentService } from "./services/content-service.js";
 import { CreativeIntelligenceError } from "./services/creative-intelligence-service.js";
 import { DiagnosticService } from "./services/diagnostic-service.js";
@@ -48,11 +49,14 @@ export interface CreateAppOptions {
   paymentsProvider?: "disabled" | "woovi";
   wooviAppId?: string;
   wooviWebhookAuthorization?: string;
-  contentProvider?: "demo" | "n8n";
+  contentProvider?: "native" | "openai" | "demo" | "n8n";
   contentWebhookUrl?: string;
   contentSecret?: string;
   publicApiUrl?: string;
   contentDemoDelayMs?: number;
+  openAiApiKey?: string;
+  openAiTextModel?: string;
+  openAiImageModel?: string;
 }
 
 function bearerToken(request: FastifyRequest) {
@@ -86,6 +90,11 @@ export async function createApp(options: CreateAppOptions) {
     databaseUrl: options.databaseUrl,
     databaseSsl: options.databaseSsl,
   });
+  const assets = new ContentAssetService({
+    databaseUrl: options.databaseUrl,
+    databaseSsl: options.databaseSsl,
+    publicApiUrl: options.publicApiUrl,
+  });
   const admin = new PlatformAdminService({
     databaseUrl: options.databaseUrl,
     databaseSsl: options.databaseSsl,
@@ -96,12 +105,13 @@ export async function createApp(options: CreateAppOptions) {
     publicWebUrl: process.env.PUBLIC_WEB_URL,
   });
   const automation = new ContentAutomationService({
-    provider: options.contentProvider,
-    webhookUrl: options.contentWebhookUrl,
+    provider: options.contentProvider === "openai" ? "openai" : "native",
     secret: options.contentSecret,
-    publicApiUrl: options.publicApiUrl,
-    demoDelayMs: options.contentDemoDelayMs,
     content,
+    assets,
+    openAiApiKey: options.openAiApiKey,
+    openAiTextModel: options.openAiTextModel,
+    openAiImageModel: options.openAiImageModel,
   });
   const payments = new PaymentService({
     appId: options.paymentsProvider === "woovi" ? options.wooviAppId : undefined,
@@ -115,10 +125,11 @@ export async function createApp(options: CreateAppOptions) {
   await billing.initialize();
   await auth.initialize();
   await content.initialize();
+  await assets.initialize();
   await payments.initialize();
   await admin.initialize();
   app.addHook("onClose", async () => {
-    await Promise.all([billing.close(), auth.close(), content.close(), payments.close(), admin.close()]);
+    await Promise.all([billing.close(), auth.close(), content.close(), assets.close(), payments.close(), admin.close()]);
   });
 
   const allowed = options.allowedOrigins ?? ["http://localhost:5173"];
@@ -132,6 +143,15 @@ export async function createApp(options: CreateAppOptions) {
     },
   });
   await app.register(rateLimit, { max: 80, timeWindow: "1 minute" });
+  app.get("/api/v1/public/content-assets/:token", async (request, reply) => {
+    const token = (request.params as { token: string }).token;
+    const asset = await assets.getPublic(token);
+    if (!asset) return reply.code(404).send({ message: "Imagem não encontrada." });
+    return reply
+      .header("content-type", asset.mimeType)
+      .header("cache-control", "public, max-age=31536000, immutable")
+      .send(asset.data);
+  });
   await registerCreativeIntelligenceRoutes(app, {
     auth,
     databaseUrl: options.databaseUrl,
@@ -155,11 +175,15 @@ export async function createApp(options: CreateAppOptions) {
   app.get("/health", async () => ({
     status: "ok",
     service: "modo-api",
-    version: "0.12.0",
+    version: "0.13.0",
+    buildCommit: (process.env.RENDER_GIT_COMMIT || "local").slice(0, 12),
+    gitBranch: process.env.RENDER_GIT_BRANCH || "local",
     billingStorage: billing.storage,
     accountStorage: auth.storage,
     contentStorage: content.storage,
+    assetStorage: assets.storage,
     contentProvider: automation.mode,
+    imageGeneration: automation.imageMode,
     creativeIntelligence: "enabled",
     quickStart: "enabled",
     studio: "enabled",

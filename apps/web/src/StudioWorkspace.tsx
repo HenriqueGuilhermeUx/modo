@@ -76,6 +76,7 @@ function renderCard(
   index: number,
   total: number,
   themeName: StudioTheme,
+  backgroundImage?: CanvasImageSource,
 ) {
   const theme = themes[themeName];
   const canvas = document.createElement("canvas");
@@ -84,12 +85,28 @@ function renderCard(
   const context = canvas.getContext("2d");
   if (!context) return canvas;
 
-  context.fillStyle = theme.background;
-  context.fillRect(0, 0, canvas.width, canvas.height);
+  if (backgroundImage) {
+    const sourceWidth = "naturalWidth" in backgroundImage ? backgroundImage.naturalWidth : backgroundImage.width;
+    const sourceHeight = "naturalHeight" in backgroundImage ? backgroundImage.naturalHeight : backgroundImage.height;
+    const scale = Math.max(canvas.width / sourceWidth, canvas.height / sourceHeight);
+    const width = sourceWidth * scale;
+    const height = sourceHeight * scale;
+    context.drawImage(backgroundImage, (canvas.width - width) / 2, (canvas.height - height) / 2, width, height);
+    const gradient = context.createLinearGradient(0, 0, 0, canvas.height);
+    gradient.addColorStop(0, "rgba(5,12,30,.18)");
+    gradient.addColorStop(.52, "rgba(5,12,30,.32)");
+    gradient.addColorStop(1, "rgba(5,12,30,.86)");
+    context.fillStyle = gradient;
+    context.fillRect(0, 0, canvas.width, canvas.height);
+  } else {
+    context.fillStyle = theme.background;
+    context.fillRect(0, 0, canvas.width, canvas.height);
+  }
+  const textColor = backgroundImage ? "#ffffff" : theme.text;
   context.fillStyle = theme.accent;
   context.fillRect(72, 76, 88, 12);
   context.font = "700 30px Arial";
-  context.fillStyle = theme.text;
+  context.fillStyle = textColor;
   context.fillText(brandName.toUpperCase().slice(0, 34), 72, 145);
   context.textAlign = "right";
   context.fillStyle = theme.accent;
@@ -97,21 +114,21 @@ function renderCard(
   context.textAlign = "left";
 
   context.font = "800 76px Arial";
-  context.fillStyle = theme.text;
+  context.fillStyle = textColor;
   const titleLines = wrapText(context, title, 920);
   drawLines(context, titleLines, 72, 350, 88, 6);
   const bodyStart = 350 + Math.min(6, titleLines.length) * 88 + 65;
   context.font = "400 38px Arial";
-  context.fillStyle = theme.text;
-  context.globalAlpha = 0.86;
+  context.fillStyle = textColor;
+  context.globalAlpha = 0.9;
   drawLines(context, wrapText(context, body, 900), 72, bodyStart, 54, 9);
   context.globalAlpha = 1;
 
   context.fillStyle = theme.soft;
   context.fillRect(72, 1225, 936, 2);
   context.font = "700 25px Arial";
-  context.fillStyle = theme.text;
-  context.globalAlpha = 0.72;
+  context.fillStyle = textColor;
+  context.globalAlpha = 0.78;
   context.fillText("MODO · presença com direção", 72, 1280);
   context.globalAlpha = 1;
   return canvas;
@@ -180,9 +197,32 @@ export default function StudioWorkspace() {
     const slides = output.slides.length
       ? output.slides
       : [{ title: output.hook || output.title, body: output.caption.slice(0, 700) }];
+    let generatedImage: HTMLImageElement | undefined;
+    if (output.imageUrl) {
+      const blob = await fetch(output.imageUrl).then((response) => {
+        if (!response.ok) throw new Error("Não foi possível carregar a imagem gerada.");
+        return response.blob();
+      });
+      const objectUrl = URL.createObjectURL(blob);
+      generatedImage = await new Promise<HTMLImageElement>((resolve, reject) => {
+        const image = new Image();
+        image.onload = () => resolve(image);
+        image.onerror = () => reject(new Error("Não foi possível abrir a imagem gerada."));
+        image.src = objectUrl;
+      });
+      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 5000);
+    }
     for (let index = 0; index < slides.length; index += 1) {
       const slide = slides[index];
-      const canvas = renderCard(brand?.name || "Marca", slide.title, slide.body, index + 1, slides.length, theme);
+      const canvas = renderCard(
+        brand?.name || "Marca",
+        slide.title,
+        slide.body,
+        index + 1,
+        slides.length,
+        theme,
+        index === 0 ? generatedImage : undefined,
+      );
       await downloadCanvas(canvas, `modo-${id.slice(0, 8)}-${String(index + 1).padStart(2, "0")}.png`);
       await new Promise((resolve) => window.setTimeout(resolve, 180));
     }
@@ -224,7 +264,14 @@ export default function StudioWorkspace() {
           <aside className="studio-preview">
             <div className="studio-section-title"><small>PREVIEW E EXPORTAÇÃO</small><h2>Saída prática</h2></div>
             <div className="studio-theme-picker"><button className={theme === "light" ? "selected" : ""} onClick={() => setTheme("light")}>Claro</button><button className={theme === "dark" ? "selected" : ""} onClick={() => setTheme("dark")}>Escuro</button><button className={theme === "blue" ? "selected" : ""} onClick={() => setTheme("blue")}>Azul</button></div>
-            <div className={`studio-card-preview ${theme}`}><small>{brand?.name}</small><strong>{output.slides[0]?.title || output.hook}</strong><p>{output.slides[0]?.body || output.caption.slice(0, 240)}</p><span>01/{String(Math.max(1, output.slides.length)).padStart(2, "0")}</span></div>
+            <div
+              className={`studio-card-preview ${theme} ${output.imageUrl ? "generated" : ""}`}
+              style={output.imageUrl ? { backgroundImage: `linear-gradient(180deg,rgba(5,12,30,.12),rgba(5,12,30,.82)),url(${output.imageUrl})` } : undefined}
+            ><small>{brand?.name}</small><strong>{output.slides[0]?.title || output.hook}</strong><p>{output.slides[0]?.body || output.caption.slice(0, 240)}</p><span>01/{String(Math.max(1, output.slides.length)).padStart(2, "0")}</span></div>
+            <div className={`studio-image-status ${output.imageStatus}`}>
+              <strong>{output.imageUrl ? "Imagem contextual gerada" : "Imagem aguardando configuração"}</strong>
+              <p>{output.imageUrl ? output.imageAlt : "A copy e a direção visual estão prontas. A imagem será criada automaticamente quando o motor visual estiver ativo."}</p>
+            </div>
             <button className="button button-primary button-full" onClick={() => void exportImages()}>{output.slides.length ? "Baixar páginas em PNG" : "Baixar imagem em PNG"}</button>
             <button className="button button-outline button-full" onClick={() => void copy()}>Copiar conteúdo completo</button>
             <button className="button button-outline button-full" onClick={() => download(`modo-${id.slice(0, 8)}.txt`, plainText(output), "text/plain;charset=utf-8")}>Baixar texto</button>

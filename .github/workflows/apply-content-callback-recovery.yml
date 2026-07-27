@@ -1,0 +1,140 @@
+name: Apply content callback recovery
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.head_ref == 'fix/recover-content-callback-errors'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Recover technical content callback failures
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          git clone --quiet --depth 1 "https://x-access-token:${GH_TOKEN}@github.com/${REPOSITORY}.git" repo
+          cd repo
+          python3 - <<'PY'
+          from pathlib import Path
+
+          content = Path('apps/api/src/services/content-service.ts')
+          text = content.read_text()
+          old = """         WHERE id=$1 AND status IN ('queued','processing','revision_requested')
+         RETURNING *`,
+          [id, JSON.stringify(output), providerRunId ?? null],
+"""
+          new = """         WHERE id=$1 AND status IN ('queued','processing','revision_requested','failed')
+         RETURNING *`,
+          [id, JSON.stringify(output), providerRunId ?? null],
+"""
+          if old not in text:
+              raise SystemExit('Content completion transition block not found')
+          content.write_text(text.replace(old, new, 1))
+
+          automation = Path('apps/api/src/services/content-automation-service.ts')
+          text = automation.read_text()
+          service_marker = """export class ContentAutomationService {
+"""
+          helper = """function isRecoverableAutomationError(value: string | null) {
+  const normalized = (value || "").toLowerCase();
+  return [
+    "err_invalid_http_token",
+    "invalid_http_token",
+    "econnreset",
+    "etimedout",
+    "fetch failed",
+    "network",
+    "socket",
+    "n8n respondeu",
+  ].some((marker) => normalized.includes(marker));
+}
+
+export class ContentAutomationService {
+"""
+          if service_marker not in text:
+              raise SystemExit('Automation service marker not found')
+          text = text.replace(service_marker, helper, 1)
+
+          old_schedule = """  private scheduleFallback(processing: ContentRequest, brand: Brand) {
+    const timer = setTimeout(() => {
+      void this.content
+        .getInternal(processing.id)
+        .then((current) => {
+          if (!current || current.status !== "processing") return undefined;
+          return this.content.complete(
+            processing.id,
+            this.buildDemoOutput(processing, brand),
+            `fallback:callback-timeout:${processing.id}`,
+          );
+        })
+        .catch(() => undefined);
+    }, 120_000);
+    timer.unref?.();
+  }
+"""
+          new_schedule = """  private scheduleFallback(processing: ContentRequest, brand: Brand) {
+    const recoverTechnicalFailure = () => {
+      void this.content
+        .getInternal(processing.id)
+        .then((current) => {
+          if (
+            !current ||
+            current.status !== "failed" ||
+            !isRecoverableAutomationError(current.error)
+          ) {
+            return undefined;
+          }
+          return this.content.complete(
+            processing.id,
+            this.buildDemoOutput(processing, brand),
+            `fallback:technical-callback:${processing.id}`,
+          );
+        })
+        .catch(() => undefined);
+    };
+
+    const recoveryTimer = setTimeout(recoverTechnicalFailure, 15_000);
+    recoveryTimer.unref?.();
+
+    const timeoutTimer = setTimeout(() => {
+      void this.content
+        .getInternal(processing.id)
+        .then((current) => {
+          if (!current) return undefined;
+          const shouldRecover =
+            current.status === "processing" ||
+            (current.status === "failed" && isRecoverableAutomationError(current.error));
+          if (!shouldRecover) return undefined;
+          return this.content.complete(
+            processing.id,
+            this.buildDemoOutput(processing, brand),
+            `fallback:callback-timeout:${processing.id}`,
+          );
+        })
+        .catch(() => undefined);
+    }, 120_000);
+    timeoutTimer.unref?.();
+  }
+"""
+          if old_schedule not in text:
+              raise SystemExit('Existing fallback schedule not found')
+          automation.write_text(text.replace(old_schedule, new_schedule, 1))
+
+          Path('.github/trigger-recover-content-callback.txt').unlink(missing_ok=True)
+          PY
+          git config user.name "MODO Product"
+          git config user.email "actions@github.com"
+          git add -A apps/api/src/services/content-service.ts apps/api/src/services/content-automation-service.ts .github/trigger-recover-content-callback.txt
+          if git diff --cached --quiet; then
+            echo "No patch needed."
+            exit 0
+          fi
+          git commit -m "fix: recover technical content callback failures"
+          git push origin HEAD:main

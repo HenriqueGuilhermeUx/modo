@@ -196,41 +196,54 @@ export class OpenAiContentProvider {
       imageStatus: "not_requested",
     });
 
-    const imageResponse = await fetch("https://api.openai.com/v1/images/generations", {
-      method: "POST",
-      headers: {
-        authorization: `Bearer ${this.apiKey}`,
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({
-        model: this.imageModel,
-        prompt: `${generated.imagePrompt}\n\nContexto obrigatório: marca ${brand.name}; canal ${request.channel}; objetivo ${request.objective}. Não inserir texto, letras, números, logotipos ou marcas-d'água. Reservar espaço visual limpo para título e CTA adicionados depois pela MODO.`,
-        size: sizeFor(request),
-        quality: "medium",
-        output_format: "webp",
-        n: 1,
-      }),
-      signal: AbortSignal.timeout(150_000),
-    });
-    const imagePayload = await imageResponse.json() as OpenAiImagePayload;
-    if (!imageResponse.ok) {
-      throw new Error(imagePayload.error?.message || `Falha de imagem (${imageResponse.status}).`);
+    try {
+      const imageResponse = await fetch("https://api.openai.com/v1/images/generations", {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${this.apiKey}`,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          model: this.imageModel,
+          prompt: `${generated.imagePrompt}\n\nContexto obrigatório: marca ${brand.name}; canal ${request.channel}; objetivo ${request.objective}. Não inserir texto, letras, números, logotipos ou marcas-d'água. Reservar espaço visual limpo para título e CTA adicionados depois pela MODO.`,
+          size: sizeFor(request),
+          quality: "medium",
+          output_format: "webp",
+          n: 1,
+        }),
+        signal: AbortSignal.timeout(150_000),
+      });
+      const imagePayload = await imageResponse.json() as OpenAiImagePayload;
+      if (!imageResponse.ok) {
+        throw new Error(imagePayload.error?.message || `Falha de imagem (${imageResponse.status}).`);
+      }
+      const base64 = imagePayload.data?.[0]?.b64_json;
+      if (!base64) throw new Error("O modelo não devolveu a imagem final.");
+
+      const asset = await this.assets.save({
+        organizationId: request.organizationId,
+        contentRequestId: request.id,
+        mimeType: "image/webp",
+        data: Buffer.from(base64, "base64"),
+      });
+
+      const output: GeneratedContent = GeneratedContentSchema.parse({
+        ...generated,
+        imageUrl: asset.url,
+        imageStatus: "generated",
+      });
+      return { output, providerRunId: textPayload.id || `openai:${request.id}` };
+    } catch {
+      const output: GeneratedContent = GeneratedContentSchema.parse({
+        ...generated,
+        imageUrl: null,
+        imageStatus: "failed",
+        adaptationNotes: [
+          ...generated.adaptationNotes,
+          "A estratégia e a copy foram geradas com IA. A imagem não respondeu e pode ser criada novamente no Studio sem perder o conteúdo.",
+        ].slice(0, 10),
+      });
+      return { output, providerRunId: textPayload.id || `openai:text-only:${request.id}` };
     }
-    const base64 = imagePayload.data?.[0]?.b64_json;
-    if (!base64) throw new Error("O modelo não devolveu a imagem final.");
-
-    const asset = await this.assets.save({
-      organizationId: request.organizationId,
-      contentRequestId: request.id,
-      mimeType: "image/webp",
-      data: Buffer.from(base64, "base64"),
-    });
-
-    const output: GeneratedContent = GeneratedContentSchema.parse({
-      ...generated,
-      imageUrl: asset.url,
-      imageStatus: "generated",
-    });
-    return { output, providerRunId: textPayload.id || `openai:${request.id}` };
   }
 }

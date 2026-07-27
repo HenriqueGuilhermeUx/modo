@@ -161,6 +161,11 @@ export async function registerIntelligenceRoutes(
       (request.query as { limit?: string }).limit,
     );
     const result = await execute(() => intelligence.results(id, context.organization.id, limit));
+
+    if (result.mission.playbook !== "b2b_prospecting") {
+      return result;
+    }
+
     const items = await execute(() => leads.syncMissionResults(
       context.organization.id,
       id,
@@ -241,7 +246,11 @@ export async function registerIntelligenceRoutes(
       await execute(async () => {
         intelligence.validateCallbackSecret(callbackSecret(request));
         const mission = await intelligence.applyCallback(id, callback);
-        if (callback.status === "completed" && callback.resultPreview.length) {
+        if (
+          mission.playbook === "b2b_prospecting" &&
+          callback.status === "completed" &&
+          callback.resultPreview.length
+        ) {
           await leads.syncMissionResults(
             mission.organizationId,
             mission.id,

@@ -8,6 +8,10 @@ import {
 import { type FormEvent, useEffect, useMemo, useState } from "react";
 import { getDashboard, getSessionToken } from "./api";
 import IntelligenceCommercialResults from "./IntelligenceCommercialResults";
+import IntelligenceMissionAdvisor, {
+  type IntelligenceNiche,
+  type MissionAdvisorDraft,
+} from "./IntelligenceMissionAdvisor";
 import {
   createIntelligenceMission,
   getIntelligenceMission,
@@ -99,6 +103,10 @@ export default function IntelligenceWorkspace() {
   }, []);
 
   const selectedPlaybook = useMemo(() => intelligencePlaybookCatalog[playbook], [playbook]);
+  const selectedBrand = useMemo(
+    () => dashboard?.brands.find((brand) => brand.id === brandId) || dashboard?.brands[0],
+    [brandId, dashboard],
+  );
   const quotaExhausted = Boolean(quota && (quota.runsRemaining < 1 || quota.itemsRemaining < 1));
   const missionLimit = quota
     ? Math.max(1, Math.min(quota.maxItemsPerRun, quota.itemsRemaining || quota.maxItemsPerRun))
@@ -110,6 +118,16 @@ export default function IntelligenceWorkspace() {
     setConfigured(engine.configured);
     setQuota(engine.quota);
     setMaxItems((current) => Math.max(1, Math.min(current, engine.quota.maxItemsPerRun, engine.quota.itemsRemaining || 1)));
+  }
+
+  function applyAdvisor(patch: Partial<MissionAdvisorDraft>) {
+    if (patch.name !== undefined) setName(patch.name);
+    if (patch.objective !== undefined) setObjective(patch.objective);
+    if (patch.regions !== undefined) setRegions(patch.regions);
+    if (patch.keywords !== undefined) setKeywords(patch.keywords);
+    if (patch.competitors !== undefined) setCompetitors(patch.competitors);
+    if (patch.products !== undefined) setProducts(patch.products);
+    setSuccess("Sugestões aplicadas. Revise a área, os concorrentes e os termos antes de consumir a pesquisa.");
   }
 
   async function submit(event: FormEvent) {
@@ -203,7 +221,7 @@ export default function IntelligenceWorkspace() {
       <header><a href="/app"><img src="/logo.svg" alt="MODO" /></a><div><small>MODO INTELLIGENCE</small><strong>Missões de mercado</strong></div><a href="/app">Voltar ao painel</a></header>
       <main>
         <section className="intelligence-hero">
-          <div><span>PUBLICIDADE 3.0</span><h1>Transforme perguntas de negócio em <strong>missões de inteligência.</strong></h1><p>O mesmo motor atende diferentes nichos. O que muda é o objetivo, a região, os termos, os concorrentes e os produtos observados.</p></div>
+          <div><span>PUBLICIDADE 3.0</span><h1>Transforme perguntas de negócio em <strong>missões de inteligência.</strong></h1><p>A Modo recomenda públicos, atividades, interesses, áreas e referências para o cliente não gastar uma pesquisa com uma pergunta vaga.</p></div>
           <aside><small>PROVEDOR ATUAL</small><strong>{providerLabels[provider]}</strong><p>{provider === "queue" ? "Modo seguro: registra as missões sem consumir coleta externa." : "Execução externa habilitada com franquia e bloqueios de custo."}</p></aside>
         </section>
 
@@ -223,15 +241,31 @@ export default function IntelligenceWorkspace() {
             <div className="intelligence-fields two">
               <label>Marca<select value={brandId} onChange={(event) => setBrandId(event.target.value)} required>{dashboard.brands.map((brand) => <option key={brand.id} value={brand.id}>{brand.name}</option>)}</select></label>
               <label>Playbook<select value={playbook} onChange={(event) => setPlaybook(event.target.value as IntelligencePlaybook)}><option value="market_radar">Radar de mercado</option><option value="b2b_prospecting">Prospecção B2B</option><option value="price_monitoring">Monitoramento de preços</option></select></label>
+            </div>
+
+            <IntelligenceMissionAdvisor
+              playbook={playbook}
+              niche={(selectedBrand?.niche || "outro") as IntelligenceNiche}
+              brandName={selectedBrand?.name || "Sua marca"}
+              name={name}
+              objective={objective}
+              regions={regions}
+              keywords={keywords}
+              competitors={competitors}
+              products={products}
+              onApply={applyAdvisor}
+            />
+
+            <div className="intelligence-fields two">
               <label>Nome da missão<input value={name} onChange={(event) => setName(event.target.value)} required /></label>
               <label>Limite desta missão <span>máximo do plano: {missionLimit}</span><input type="number" min={1} max={missionLimit} value={maxItems} onChange={(event) => setMaxItems(Math.max(1, Math.min(missionLimit, Number(event.target.value))))} /></label>
             </div>
             <div className="intelligence-fields">
               <label>Objetivo<textarea value={objective} onChange={(event) => setObjective(event.target.value)} required /></label>
-              <label>Regiões <span>uma por linha</span><textarea value={regions} onChange={(event) => setRegions(event.target.value)} placeholder={'Campinas, SP\nRegião Metropolitana de Campinas'} /></label>
-              <label>Termos, setores ou palavras-chave <span>um por linha</span><textarea value={keywords} onChange={(event) => setKeywords(event.target.value)} placeholder={'restaurantes\nlojas de cosméticos\nperfume importado'} /></label>
-              <label>Concorrentes ou páginas de referência <span>um por linha</span><textarea value={competitors} onChange={(event) => setCompetitors(event.target.value)} placeholder={'Nome do concorrente\nhttps://site-do-concorrente.com.br'} /></label>
-              <label>Produtos <span>nome | SKU | URL, um por linha</span><textarea value={products} onChange={(event) => setProducts(event.target.value)} placeholder={'Produto X | SKU-123 | https://...\nProduto Y | SKU-456 | https://...'} /></label>
+              <label>Regiões <span>uma por linha; na prospecção use somente uma</span><textarea value={regions} onChange={(event) => setRegions(event.target.value)} placeholder={'Campinas, SP\nRegião Metropolitana de Campinas'} /></label>
+              <label>Públicos, atividades, interesses ou palavras-chave <span>um por linha</span><textarea value={keywords} onChange={(event) => setKeywords(event.target.value)} placeholder={'restaurantes\nagenda ociosa\nreputação no Google'} /></label>
+              <label>Concorrentes ou páginas de referência <span>nome, perfil ou URL real; um por linha</span><textarea value={competitors} onChange={(event) => setCompetitors(event.target.value)} placeholder={'Nome do concorrente\nhttps://site-do-concorrente.com.br'} /></label>
+              <label>Produtos <span>nome | SKU | URL direta, um por linha</span><textarea value={products} onChange={(event) => setProducts(event.target.value)} placeholder={'Produto X | SKU-123 | https://loja.com/produto-x\nProduto Y | SKU-456 | https://concorrente.com/produto-y'} /></label>
             </div>
             <div className="intelligence-form-footer"><div><small>STATUS DO PLAYBOOK</small><strong>{quotaExhausted ? "Franquia esgotada neste ciclo" : configured[playbook] ? "Task configurada" : provider === "queue" ? "Pronto para validação interna" : "Task ainda não configurada"}</strong></div><button className="button button-primary" disabled={saving || !brandId || quotaExhausted}>{saving ? "Criando missão..." : quotaExhausted ? "Limite atingido" : "Criar missão ↗"}</button></div>
           </form>

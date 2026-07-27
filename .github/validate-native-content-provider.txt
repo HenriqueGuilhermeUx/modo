@@ -1,0 +1,1 @@
+Validate native content production fallback after disabling the broken n8n content path.

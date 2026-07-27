@@ -27,6 +27,10 @@ Tokens de acesso, refresh tokens e verificadores PKCE são criptografados com AE
 
 Existe no máximo um design Canva por organização e pedido de conteúdo. Repetir a ação devolve o design já criado, evitando duplicações e novos uploads.
 
+## Ativo enviado
+
+A imagem é lida diretamente do armazenamento PostgreSQL da organização e do pedido aprovado. A API não aceita uma URL arbitrária fornecida pelo navegador, reduzindo o risco de importar conteúdo externo indevido.
+
 ## Limite conhecido da v1
 
 O endpoint estável de criação de design insere a imagem aprovada como um elemento editável. Ele não cria, de forma estável e pública, caixas de texto independentes para título e CTA. A copy aprovada continua disponível no Studio e no Histórico da MODO para copiar e adaptar.

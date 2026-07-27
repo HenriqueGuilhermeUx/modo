@@ -24,13 +24,12 @@ const app = await createApp({
   paymentsProvider: config.PAYMENTS_PROVIDER,
   wooviAppId: config.WOOVI_APP_ID,
   wooviWebhookAuthorization: config.WOOVI_WEBHOOK_AUTHORIZATION,
-  // Keep the customer journey available while the external content workflow is repaired.
-  // The native provider produces a complete draft for review without calling n8n.
-  contentProvider: "demo",
-  contentWebhookUrl: config.N8N_CONTENT_WEBHOOK_URL,
+  contentProvider: config.OPENAI_API_KEY ? "openai" : "native",
   contentSecret: config.N8N_CONTENT_SECRET,
   publicApiUrl: config.PUBLIC_API_URL,
-  contentDemoDelayMs: config.CONTENT_DEMO_DELAY_MS,
+  openAiApiKey: config.OPENAI_API_KEY,
+  openAiTextModel: config.OPENAI_TEXT_MODEL,
+  openAiImageModel: config.OPENAI_IMAGE_MODEL,
 });
 
 try {

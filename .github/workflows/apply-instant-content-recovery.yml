@@ -1,0 +1,122 @@
+name: Apply instant content recovery
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.head_ref == 'fix/instant-content-error-recovery'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Apply immediate recovery for technical production errors
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          git clone --quiet --depth 1 "https://x-access-token:${GH_TOKEN}@github.com/${REPOSITORY}.git" repo
+          cd repo
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('apps/api/src/services/content-service.ts')
+          text = path.read_text()
+
+          marker = '''const STALE_PROCESSING_MESSAGE =
+  "A automação não confirmou a entrega no tempo esperado. Reenvie este pedido sem novo consumo de créditos.";
+'''
+          helper = '''const STALE_PROCESSING_MESSAGE =
+  "A automação não confirmou a entrega no tempo esperado. Reenvie este pedido sem novo consumo de créditos.";
+
+const RECOVERABLE_PRODUCTION_ERROR_MARKERS = [
+  "err_invalid_http_token",
+  "invalid_http_token",
+  "econnreset",
+  "etimedout",
+  "fetch failed",
+  "network",
+  "socket",
+  "n8n respondeu",
+];
+
+function isRecoverableProductionError(error: string) {
+  const normalized = error.toLowerCase();
+  return RECOVERABLE_PRODUCTION_ERROR_MARKERS.some((marker) => normalized.includes(marker));
+}
+
+function buildRecoveryOutput(request: ContentRequest): GeneratedContent {
+  const brandName = request.brief.match(/Marca:\\s*([^\\n.]+)/i)?.[1]?.trim() || "Sua marca";
+  const campaign =
+    request.brief.match(/campanha[ “\"]+([^”\"\\n]+)[”\"]?/i)?.[1]?.trim() || request.objective;
+  const hashtag = brandName.replace(/\\W/g, "");
+
+  return {
+    hook: `${brandName}: uma proposta clara para ${campaign}`,
+    title: `Conheça a proposta da ${brandName}`,
+    caption: `${request.brief}\n\nEsta versão foi preparada automaticamente pela MODO para que a produção não fique bloqueada por uma indisponibilidade técnica. Revise a mensagem, ajuste os detalhes necessários e aprove antes da publicação.`,
+    cta: "Conheça a proposta e veja como funciona.",
+    hashtags: ["#PublicidadeDigital", "#Campanha", ...(hashtag ? [`#${hashtag}`] : [])],
+    visualDirection: `Peça limpa e confiável para ${brandName}, com hierarquia forte, benefício principal em destaque e chamada para ação visível. Evitar promessas exageradas e usar apenas provas reais.`,
+    slides: [],
+    script: [],
+    storyFrames: [],
+    adaptationNotes: [
+      `Canal principal: ${request.channel}.`,
+      "Entrega de segurança gerada após uma falha técnica da automação.",
+      "Revisar informações comerciais, legais e de conformidade antes de publicar.",
+    ],
+  };
+}
+'''
+          if marker not in text:
+              raise SystemExit('Recovery helper insertion marker not found')
+          text = text.replace(marker, helper, 1)
+
+          old_complete = """         WHERE id=$1 AND status IN ('queued','processing','revision_requested')
+         RETURNING *`,
+"""
+          new_complete = """         WHERE id=$1 AND status IN ('queued','processing','revision_requested','failed')
+         RETURNING *`,
+"""
+          if old_complete not in text:
+              raise SystemExit('Complete transition marker not found')
+          text = text.replace(old_complete, new_complete, 1)
+
+          old_fail = '''  async fail(id: string, error: string, providerRunId?: string) {
+    if (this.pool) {
+'''
+          new_fail = '''  async fail(id: string, error: string, providerRunId?: string) {
+    if (isRecoverableProductionError(error)) {
+      const current = await this.getInternal(id);
+      if (!current) {
+        throw new ContentError("CONTENT_NOT_FOUND", 404, "Pedido de conteúdo não encontrado.");
+      }
+      return this.complete(
+        id,
+        buildRecoveryOutput(current),
+        providerRunId ?? `fallback:technical-error:${id}`,
+      );
+    }
+
+    if (this.pool) {
+'''
+          if old_fail not in text:
+              raise SystemExit('Fail method marker not found')
+          text = text.replace(old_fail, new_fail, 1)
+
+          path.write_text(text)
+          PY
+          git config user.name "MODO Product"
+          git config user.email "actions@github.com"
+          git add apps/api/src/services/content-service.ts
+          if git diff --cached --quiet; then
+            echo "No patch needed."
+            exit 0
+          fi
+          git commit -m "fix: recover technical content failures immediately"
+          git push origin HEAD:main

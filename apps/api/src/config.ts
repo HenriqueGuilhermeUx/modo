@@ -31,10 +31,13 @@ const ConfigSchema = z
     DEMO_DIAGNOSTIC_DELAY_MS: z.coerce.number().int().nonnegative().default(2600),
     N8N_DIAGNOSTIC_WEBHOOK_URL: optionalTrimmedString,
     N8N_WEBHOOK_SECRET: optionalTrimmedString,
-    CONTENT_PROVIDER: z.enum(["demo", "n8n"]).default("demo"),
+    CONTENT_PROVIDER: z.enum(["native", "openai", "demo", "n8n"]).default("native"),
     CONTENT_DEMO_DELAY_MS: z.coerce.number().int().nonnegative().default(1800),
     N8N_CONTENT_WEBHOOK_URL: optionalTrimmedString,
     N8N_CONTENT_SECRET: optionalTrimmedString,
+    OPENAI_API_KEY: optionalTrimmedString,
+    OPENAI_TEXT_MODEL: z.preprocess(emptyToUndefined, z.string().default("gpt-5-mini")),
+    OPENAI_IMAGE_MODEL: z.preprocess(emptyToUndefined, z.string().default("gpt-image-1")),
     INTELLIGENCE_PROVIDER: z.enum(["queue", "apify", "n8n"]).default("queue"),
     APIFY_API_BASE_URL: z.preprocess(
       emptyToUndefined,
@@ -86,24 +89,6 @@ const ConfigSchema = z
           code: "custom",
           path: ["N8N_WEBHOOK_SECRET"],
           message: "Informe um segredo quando DIAGNOSTIC_PROVIDER=n8n.",
-        });
-      }
-    }
-
-    if (values.CONTENT_PROVIDER === "n8n") {
-      const webhookUrl = z.string().url().safeParse(values.N8N_CONTENT_WEBHOOK_URL);
-      if (!webhookUrl.success) {
-        context.addIssue({
-          code: "custom",
-          path: ["N8N_CONTENT_WEBHOOK_URL"],
-          message: "Informe uma URL válida quando CONTENT_PROVIDER=n8n.",
-        });
-      }
-      if (!values.N8N_CONTENT_SECRET) {
-        context.addIssue({
-          code: "custom",
-          path: ["N8N_CONTENT_SECRET"],
-          message: "Informe um segredo quando CONTENT_PROVIDER=n8n.",
         });
       }
     }
@@ -198,6 +183,7 @@ export const config = {
   ...parsed,
   N8N_WEBHOOK_SECRET: parsed.N8N_WEBHOOK_SECRET ?? "",
   N8N_CONTENT_SECRET: parsed.N8N_CONTENT_SECRET ?? "",
+  OPENAI_API_KEY: parsed.OPENAI_API_KEY ?? "",
   APIFY_API_TOKEN: parsed.APIFY_API_TOKEN ?? "",
   N8N_INTELLIGENCE_SECRET: parsed.N8N_INTELLIGENCE_SECRET ?? "",
   INTELLIGENCE_CALLBACK_SECRET: parsed.INTELLIGENCE_CALLBACK_SECRET ?? "",

@@ -1,0 +1,41 @@
+name: Debug content engine typecheck
+
+on:
+  push:
+    branches:
+      - agent/content-engine-production-v1
+    paths:
+      - .github/workflows/debug-content-engine-typecheck.yml
+      - .github/debug-content-engine-trigger.txt
+
+permissions:
+  contents: write
+
+jobs:
+  debug:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/content-engine-production-v1
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm install --include=dev
+      - name: Capture typecheck
+        shell: bash
+        run: |
+          set +e
+          npm run typecheck > .github/content-engine-typecheck.log 2>&1
+          code=$?
+          echo "EXIT_CODE=$code" >> .github/content-engine-typecheck.log
+          exit 0
+      - name: Commit log
+        run: |
+          git config user.name "MODO Product"
+          git config user.email "actions@github.com"
+          git add .github/content-engine-typecheck.log
+          git commit -m "chore: capture content engine typecheck errors" || exit 0
+          git push origin HEAD:agent/content-engine-production-v1

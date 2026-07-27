@@ -342,6 +342,9 @@ export class CanvaService {
     height: number;
   }): Promise<CanvaDesign> {
     this.requireConfigured();
+    if (!["image/png", "image/jpeg", "image/webp"].includes(input.mimeType)) {
+      throw new CanvaError("CANVA_UNSUPPORTED_ASSET", 409, "O formato da imagem aprovada não é compatível com o Canva.");
+    }
     const existing = await this.getDesign(input.accountId, input.contentRequestId);
     if (existing) return existing;
     const connection = await this.getConnection(input.accountId);

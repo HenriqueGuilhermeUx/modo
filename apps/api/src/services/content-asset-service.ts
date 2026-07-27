@@ -92,6 +92,24 @@ export class ContentAssetService {
     };
   }
 
+  async getLatestForRequest(organizationId: string, contentRequestId: string): Promise<{ mimeType: string; data: Buffer } | null> {
+    if (this.pool) {
+      const result = await this.pool.query<AssetRow>(
+        `SELECT id, public_token, organization_id, content_request_id, mime_type, data
+         FROM modo_content_assets
+         WHERE organization_id=$1 AND content_request_id=$2
+         ORDER BY created_at DESC LIMIT 1`,
+        [organizationId, contentRequestId],
+      );
+      if (!result.rowCount) return null;
+      return { mimeType: result.rows[0].mime_type, data: result.rows[0].data };
+    }
+    const matches = [...this.memory.values()]
+      .filter((asset) => asset.organizationId === organizationId && asset.contentRequestId === contentRequestId);
+    const asset = matches[matches.length - 1];
+    return asset ? { mimeType: asset.mimeType, data: asset.data } : null;
+  }
+
   async getPublic(publicToken: string): Promise<{ mimeType: string; data: Buffer } | null> {
     if (this.pool) {
       const result = await this.pool.query<AssetRow>(

@@ -30,6 +30,12 @@ const app = await createApp({
   openAiApiKey: config.OPENAI_API_KEY,
   openAiTextModel: config.OPENAI_TEXT_MODEL,
   openAiImageModel: config.OPENAI_IMAGE_MODEL,
+  canvaClientId: config.CANVA_CLIENT_ID,
+  canvaClientSecret: config.CANVA_CLIENT_SECRET,
+  canvaRedirectUri: config.CANVA_REDIRECT_URI,
+  canvaEncryptionSecret: config.CANVA_TOKEN_ENCRYPTION_SECRET,
+  canvaScopes: config.CANVA_SCOPES,
+  publicWebUrl: config.PUBLIC_WEB_URL,
 });
 
 try {

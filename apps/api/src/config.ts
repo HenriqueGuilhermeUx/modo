@@ -73,6 +73,14 @@ const ConfigSchema = z
     ),
     LINKEDIN_TOKEN_ENCRYPTION_SECRET: optionalTrimmedString,
     LINKEDIN_API_VERSION: z.preprocess(emptyToUndefined, z.string().default("202606")),
+    CANVA_CLIENT_ID: optionalTrimmedString,
+    CANVA_CLIENT_SECRET: optionalTrimmedString,
+    CANVA_REDIRECT_URI: optionalUrl,
+    CANVA_TOKEN_ENCRYPTION_SECRET: optionalTrimmedString,
+    CANVA_SCOPES: z.preprocess(
+      emptyToUndefined,
+      z.string().default("asset:read asset:write design:content:write design:meta:read"),
+    ),
   })
   .superRefine((values, context) => {
     if (values.DIAGNOSTIC_PROVIDER === "n8n") {

@@ -1,0 +1,33 @@
+name: Fix Canva upload body
+
+on:
+  push:
+    branches:
+      - agent/canva-approved-export-v1
+    paths:
+      - scripts/fix-canva-upload-body.mjs
+      - .github/workflows/fix-canva-upload-body.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/canva-approved-export-v1
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node scripts/fix-canva-upload-body.mjs
+      - run: rm scripts/fix-canva-upload-body.mjs .github/workflows/fix-canva-upload-body.yml .github/workflows/debug-canva-typecheck.yml
+      - name: Commit fix
+        run: |
+          git config user.name "MODO Product"
+          git config user.email "actions@github.com"
+          git add -A
+          git commit -m "fix: use ArrayBuffer for Canva asset upload"
+          git push origin HEAD:agent/canva-approved-export-v1

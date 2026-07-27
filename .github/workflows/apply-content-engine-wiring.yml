@@ -1,0 +1,34 @@
+name: Apply content engine wiring
+
+on:
+  push:
+    branches:
+      - agent/content-engine-production-v1
+    paths:
+      - scripts/apply-content-engine-wiring.py
+      - .github/content-engine-wiring-trigger.txt
+      - .github/workflows/apply-content-engine-wiring.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/content-engine-production-v1
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Apply wiring
+        run: python scripts/apply-content-engine-wiring.py
+      - name: Commit generated changes
+        run: |
+          git config user.name "MODO Product"
+          git config user.email "actions@github.com"
+          git add -A
+          git commit -m "feat: wire production content and image engine"
+          git push origin HEAD:agent/content-engine-production-v1

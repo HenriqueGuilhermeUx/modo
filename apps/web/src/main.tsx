@@ -25,6 +25,7 @@ import "./diagnostic-impact.css";
 import "./diagnostic-impact-bridge.css";
 import "./fishing-landing.css";
 import "./smartbots.css";
+import "./campaign.css";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

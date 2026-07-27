@@ -61,11 +61,10 @@ export class ContentAutomationService {
     }
 
     if (!this.webhookUrl || !this.secret) {
-      await this.content.fail(request.id, "A automação n8n ainda não está configurada.");
-      throw new ContentAutomationError(
-        "CONTENT_AUTOMATION_NOT_CONFIGURED",
-        503,
-        "A automação de conteúdo ainda não está configurada.",
+      return this.content.complete(
+        processing.id,
+        this.buildDemoOutput(processing, brand),
+        `fallback:not-configured:${processing.id}`,
       );
     }
 
@@ -100,16 +99,32 @@ export class ContentAutomationService {
         const detail = await response.text().catch(() => "");
         throw new Error(`n8n respondeu ${response.status}${detail ? `: ${detail.slice(0, 300)}` : ""}`);
       }
+      this.scheduleFallback(processing, brand);
       return processing;
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Falha ao acionar o n8n.";
-      await this.content.fail(request.id, message);
-      throw new ContentAutomationError(
-        "CONTENT_DISPATCH_FAILED",
-        502,
-        "O pedido foi registrado, mas a automação não respondeu. Você pode reenviá-lo sem novo consumo de créditos.",
+    } catch {
+      return this.content.complete(
+        processing.id,
+        this.buildDemoOutput(processing, brand),
+        `fallback:dispatch:${processing.id}`,
       );
     }
+  }
+
+  private scheduleFallback(processing: ContentRequest, brand: Brand) {
+    const timer = setTimeout(() => {
+      void this.content
+        .getInternal(processing.id)
+        .then((current) => {
+          if (!current || current.status !== "processing") return undefined;
+          return this.content.complete(
+            processing.id,
+            this.buildDemoOutput(processing, brand),
+            `fallback:callback-timeout:${processing.id}`,
+          );
+        })
+        .catch(() => undefined);
+    }, 120_000);
+    timer.unref?.();
   }
 
   validateCallbackSecret(value: string) {

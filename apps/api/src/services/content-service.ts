@@ -7,6 +7,10 @@ import pg, { type Pool } from "pg";
 
 const { Pool: PgPool } = pg;
 
+const STALE_PROCESSING_MINUTES = 10;
+const STALE_PROCESSING_MESSAGE =
+  "A automação não confirmou a entrega no tempo esperado. Reenvie este pedido sem novo consumo de créditos.";
+
 interface ContentServiceOptions {
   databaseUrl?: string;
   databaseSsl?: boolean;
@@ -180,6 +184,14 @@ export class ContentService {
 
   async list(organizationId: string): Promise<ContentRequest[]> {
     if (this.pool) {
+      await this.pool.query(
+        `UPDATE modo_content_requests
+         SET status='failed', error=$2, updated_at=NOW()
+         WHERE organization_id=$1
+           AND status='processing'
+           AND updated_at < NOW() - INTERVAL '10 minutes'`,
+        [organizationId, STALE_PROCESSING_MESSAGE],
+      );
       const result = await this.pool.query<Row>(
         `SELECT * FROM modo_content_requests
          WHERE organization_id=$1
@@ -188,6 +200,23 @@ export class ContentService {
         [organizationId],
       );
       return result.rows.map(mapRow);
+    }
+
+    const cutoff = Date.now() - STALE_PROCESSING_MINUTES * 60 * 1000;
+    for (let index = 0; index < this.items.length; index += 1) {
+      const item = this.items[index];
+      if (
+        item.organizationId === organizationId &&
+        item.status === "processing" &&
+        new Date(item.updatedAt).getTime() < cutoff
+      ) {
+        this.items[index] = {
+          ...item,
+          status: "failed",
+          error: STALE_PROCESSING_MESSAGE,
+          updatedAt: new Date().toISOString(),
+        };
+      }
     }
     return this.items.filter((item) => item.organizationId === organizationId);
   }

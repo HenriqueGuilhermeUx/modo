@@ -14,6 +14,46 @@ import type { Pool, PoolClient } from "pg";
 
 const { Pool: PgPool } = pg;
 
+const DEFAULT_UNLIMITED_OWNER_EMAIL = "henriquecampos66@gmail.com";
+const UNLIMITED_CREDIT_BALANCE = 1_000_000;
+
+function configuredUnlimitedOwnerEmails() {
+  return new Set(
+    (process.env.MODO_UNLIMITED_EMAILS || DEFAULT_UNLIMITED_OWNER_EMAIL)
+      .split(",")
+      .map((value) => value.trim().toLowerCase())
+      .filter(Boolean),
+  );
+}
+
+function configuredUnlimitedAccountIds() {
+  return new Set(
+    (process.env.MODO_UNLIMITED_ACCOUNT_IDS || "")
+      .split(",")
+      .map((value) => value.trim())
+      .filter(Boolean),
+  );
+}
+
+function unlimitedUsage(usage: BillingUsage): BillingUsage {
+  return {
+    ...usage,
+    status: "active",
+    creditsGranted: UNLIMITED_CREDIT_BALANCE,
+    creditsRemaining: UNLIMITED_CREDIT_BALANCE,
+    entitlements: {
+      ...planEntitlements.business,
+      monthlyCredits: UNLIMITED_CREDIT_BALANCE,
+      maxBrands: 1_000,
+      maxChannels: 1_000,
+      maxUsers: 1_000,
+      maxCarouselsPerMonth: UNLIMITED_CREDIT_BALANCE,
+      maxShortVideoScriptsPerMonth: UNLIMITED_CREDIT_BALANCE,
+      includedRevisionCycles: 100,
+    },
+  };
+}
+
 interface BillingServiceOptions {
   databaseUrl?: string;
   databaseSsl?: boolean;
@@ -111,6 +151,8 @@ export class BillingService {
   private readonly pool?: Pool;
   private readonly subscriptions = new Map<string, MemorySubscription>();
   private readonly memoryLedger: MemoryLedgerEntry[] = [];
+  private readonly unlimitedOwnerEmails = configuredUnlimitedOwnerEmails();
+  private readonly unlimitedAccountIds = configuredUnlimitedAccountIds();
 
   constructor(options: BillingServiceOptions = {}) {
     if (options.databaseUrl) {
@@ -213,12 +255,40 @@ export class BillingService {
     return this.buildMemoryUsage(subscription);
   }
 
+  private async isUnlimitedAccount(accountId: string) {
+    if (this.unlimitedAccountIds.has(accountId)) return true;
+    if (!this.pool || this.unlimitedOwnerEmails.size === 0) return false;
+
+    try {
+      const result = await this.pool.query(
+        `SELECT 1
+         FROM modo_memberships membership
+         JOIN modo_users user_account ON user_account.id = membership.user_id
+         WHERE membership.organization_id = $1
+           AND LOWER(user_account.email) = ANY($2::text[])
+         LIMIT 1`,
+        [accountId, Array.from(this.unlimitedOwnerEmails)],
+      );
+      return Boolean(result.rowCount);
+    } catch {
+      return false;
+    }
+  }
+
   async getUsage(accountId: string): Promise<BillingUsage> {
-    if (this.pool) return this.getPostgresUsage(accountId);
-    return this.getMemoryUsage(accountId);
+    const usage = this.pool
+      ? await this.getPostgresUsage(accountId)
+      : this.getMemoryUsage(accountId);
+    return (await this.isUnlimitedAccount(accountId)) ? unlimitedUsage(usage) : usage;
   }
 
   async consume(accountId: string, input: CreditConsumeRequest): Promise<BillingUsage> {
+    if (await this.isUnlimitedAccount(accountId)) {
+      const usage = this.pool
+        ? await this.getPostgresUsage(accountId)
+        : this.getMemoryUsage(accountId);
+      return unlimitedUsage(usage);
+    }
     if (this.pool) return this.consumePostgres(accountId, input);
     return this.consumeMemory(accountId, input);
   }

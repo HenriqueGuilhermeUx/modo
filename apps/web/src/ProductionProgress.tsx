@@ -23,6 +23,11 @@ export default function ProductionProgress({ request }: { request: ContentReques
     if (elapsed < 45) return 2;
     return 3;
   }, [elapsed]);
+  const elapsedLabel = elapsed < 120
+    ? `${elapsed}s`
+    : elapsed < 3600
+      ? `${Math.floor(elapsed / 60)}min`
+      : "mais de 1h";
 
   return (
     <div className="production-progress">
@@ -32,7 +37,7 @@ export default function ProductionProgress({ request }: { request: ContentReques
           <strong>Diretor de Criação em ação</strong>
           <p>{steps[activeIndex]}</p>
         </div>
-        <span>{elapsed}s</span>
+        <span>{elapsedLabel}</span>
       </div>
       <div className="production-progress-bar"><span style={{ width: `${Math.min(94, 18 + activeIndex * 24 + elapsed / 4)}%` }} /></div>
       <div className="production-step-list">
@@ -42,7 +47,7 @@ export default function ProductionProgress({ request }: { request: ContentReques
           </div>
         ))}
       </div>
-      <small>{elapsed > 75 ? "A produção está levando um pouco mais de tempo, mas continua ativa. Você pode sair da página e voltar depois." : "Você pode acompanhar em tempo real ou continuar usando a plataforma."}</small>
+      <small>{elapsed > 300 ? "A entrega está demorando além do esperado. A MODO fará uma entrega de segurança ou liberará o reenvio automaticamente." : elapsed > 75 ? "A produção está levando um pouco mais de tempo, mas continua ativa. Você pode sair da página e voltar depois." : "Você pode acompanhar em tempo real ou continuar usando a plataforma."}</small>
     </div>
   );
 }

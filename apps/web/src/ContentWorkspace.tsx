@@ -61,6 +61,25 @@ type DirectorPrefill = {
 function OutputPanel({ output }: { output: GeneratedContent }) {
   return (
     <div className="content-output">
+      {output.imageUrl ? (
+        <section className="content-generated-asset">
+          <div className="content-generated-asset-heading">
+            <div><small>CRIATIVO GERADO</small><strong>Imagem contextual pronta</strong></div>
+            <span>IA + contexto da marca</span>
+          </div>
+          <img src={output.imageUrl} alt={output.imageAlt || output.title} loading="lazy" />
+          <div className="content-generated-asset-footer">
+            <p>{output.imageAlt || "Imagem produzida a partir do briefing e da direção visual."}</p>
+            <a className="button button-outline" href={output.imageUrl} target="_blank" rel="noreferrer">Abrir imagem original</a>
+          </div>
+        </section>
+      ) : (
+        <section className={`content-image-state ${output.imageStatus}`}>
+          <small>CRIATIVO VISUAL</small>
+          <strong>{output.imageStatus === "failed" ? "A copy está pronta, mas a imagem não foi concluída" : output.imageStatus === "fallback" ? "Peça pronta com composição segura da MODO" : "Imagem ainda não gerada"}</strong>
+          <p>{output.imageStatus === "failed" ? "Abra o Studio para manter a copy e solicitar uma nova imagem sem perder o trabalho." : "A direção visual abaixo orienta a composição final no Studio."}</p>
+        </section>
+      )}
       <section className="content-output-lead"><small>GANCHO</small><h3>{output.hook}</h3></section>
       <section><small>TÍTULO</small><p>{output.title}</p></section>
       <section><small>LEGENDA</small><p className="content-caption">{output.caption}</p></section>

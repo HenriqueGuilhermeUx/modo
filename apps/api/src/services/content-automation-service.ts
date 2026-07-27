@@ -27,6 +27,20 @@ export class ContentAutomationError extends Error {
   }
 }
 
+function isRecoverableAutomationError(value: string | null) {
+  const normalized = (value || "").toLowerCase();
+  return [
+    "err_invalid_http_token",
+    "invalid_http_token",
+    "econnreset",
+    "etimedout",
+    "fetch failed",
+    "network",
+    "socket",
+    "n8n respondeu",
+  ].some((marker) => normalized.includes(marker));
+}
+
 export class ContentAutomationService {
   private readonly provider: "demo" | "n8n";
   private readonly webhookUrl?: string;
@@ -111,20 +125,37 @@ export class ContentAutomationService {
   }
 
   private scheduleFallback(processing: ContentRequest, brand: Brand) {
-    const timer = setTimeout(() => {
-      void this.content
-        .getInternal(processing.id)
-        .then((current) => {
-          if (!current || current.status !== "processing") return undefined;
-          return this.content.complete(
-            processing.id,
-            this.buildDemoOutput(processing, brand),
-            `fallback:callback-timeout:${processing.id}`,
-          );
-        })
-        .catch(() => undefined);
+    const recoveryTimer = setTimeout(() => {
+      void this.completeSafetyOutput(processing, brand, false).catch(() => undefined);
+    }, 15_000);
+    recoveryTimer.unref?.();
+
+    const timeoutTimer = setTimeout(() => {
+      void this.completeSafetyOutput(processing, brand, true).catch(() => undefined);
     }, 120_000);
-    timer.unref?.();
+    timeoutTimer.unref?.();
+  }
+
+  private async completeSafetyOutput(
+    processing: ContentRequest,
+    brand: Brand,
+    includeProcessing: boolean,
+  ) {
+    const current = await this.content.getInternal(processing.id);
+    if (!current) return undefined;
+
+    if (current.status === "failed") {
+      if (!isRecoverableAutomationError(current.error)) return undefined;
+      await this.content.retry(current.id, current.organizationId);
+    } else if (current.status !== "processing" || !includeProcessing) {
+      return undefined;
+    }
+
+    return this.content.complete(
+      processing.id,
+      this.buildDemoOutput(processing, brand),
+      `fallback:${current.status === "failed" ? "technical-callback" : "callback-timeout"}:${processing.id}`,
+    );
   }
 
   validateCallbackSecret(value: string) {

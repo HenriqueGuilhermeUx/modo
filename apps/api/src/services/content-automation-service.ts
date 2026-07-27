@@ -1,19 +1,24 @@
 import type { Brand } from "@modo/contracts";
 import type { ContentRequest, GeneratedContent } from "@modo/contracts/content";
 import { timingSafeEqual } from "node:crypto";
+import { ContentAssetService } from "./content-asset-service.js";
 import { ContentService } from "./content-service.js";
 import {
   formatCreativeContext,
   loadCreativeGenerationContext,
 } from "./creative-context.js";
+import { OpenAiContentProvider } from "./openai-content-provider.js";
+
+export type ContentProviderMode = "native" | "openai";
 
 interface ContentAutomationOptions {
-  provider?: "demo" | "n8n";
-  webhookUrl?: string;
+  provider?: ContentProviderMode;
   secret?: string;
-  publicApiUrl?: string;
-  demoDelayMs?: number;
   content: ContentService;
+  assets: ContentAssetService;
+  openAiApiKey?: string;
+  openAiTextModel?: string;
+  openAiImageModel?: string;
 }
 
 export class ContentAutomationError extends Error {
@@ -27,143 +32,68 @@ export class ContentAutomationError extends Error {
   }
 }
 
-function isRecoverableAutomationError(value: string | null) {
-  const normalized = (value || "").toLowerCase();
-  return [
-    "err_invalid_http_token",
-    "invalid_http_token",
-    "econnreset",
-    "etimedout",
-    "fetch failed",
-    "network",
-    "socket",
-    "n8n respondeu",
-  ].some((marker) => normalized.includes(marker));
+function cleanBrandHashtag(brandName: string) {
+  return brandName.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\W/g, "");
 }
 
 export class ContentAutomationService {
-  private readonly provider: "demo" | "n8n";
-  private readonly webhookUrl?: string;
+  private readonly provider: ContentProviderMode;
   private readonly secret: string;
-  private readonly publicApiUrl: string;
-  private readonly demoDelayMs: number;
   private readonly content: ContentService;
+  private readonly openAi?: OpenAiContentProvider;
 
   constructor(options: ContentAutomationOptions) {
-    this.provider = options.provider ?? "demo";
-    this.webhookUrl = options.webhookUrl;
+    this.provider = options.provider === "openai" && options.openAiApiKey ? "openai" : "native";
     this.secret = options.secret ?? "";
-    this.publicApiUrl = (options.publicApiUrl ?? "http://localhost:4000").replace(/\/$/, "");
-    this.demoDelayMs = options.demoDelayMs ?? 1800;
     this.content = options.content;
+    if (this.provider === "openai" && options.openAiApiKey) {
+      this.openAi = new OpenAiContentProvider({
+        apiKey: options.openAiApiKey,
+        textModel: options.openAiTextModel,
+        imageModel: options.openAiImageModel,
+        assets: options.assets,
+      });
+    }
   }
 
   get mode() {
     return this.provider;
   }
 
+  get imageMode() {
+    return this.openAi ? "generated" : "waiting_for_openai_key";
+  }
+
   async dispatch(request: ContentRequest, brand: Brand) {
     const processing = await this.content.markProcessing(request.id);
-    if (this.provider === "demo") {
-      const timer = setTimeout(() => {
-        void this.content
-          .complete(processing.id, this.buildDemoOutput(processing, brand), `demo:${processing.id}`)
-          .catch(() => undefined);
-      }, this.demoDelayMs);
-      timer.unref?.();
-      return processing;
-    }
 
-    if (!this.webhookUrl || !this.secret) {
-      return this.content.complete(
-        processing.id,
-        this.buildDemoOutput(processing, brand),
-        `fallback:not-configured:${processing.id}`,
-      );
-    }
-
-    try {
-      const creativeContext = await loadCreativeGenerationContext(
-        processing.organizationId,
-        processing.brandId,
-      );
-      const formattedContext = formatCreativeContext(creativeContext);
-      const requestForAutomation: ContentRequest = {
-        ...processing,
-        brief: formattedContext
-          ? `${processing.brief}\n\nCONTEXTO APRENDIDO PELA MODO:\n${formattedContext}\n\nUse esse contexto apenas quando for relevante. Priorize evidências reais, respeite restrições e não invente dados.`
-          : processing.brief,
-      };
-
-      const response = await fetch(this.webhookUrl, {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          "x-modo-content-secret": this.secret,
-        },
-        body: JSON.stringify({
-          request: requestForAutomation,
-          brand,
-          creativeContext,
-          callbackUrl: `${this.publicApiUrl}/api/v1/internal/content-requests/${processing.id}/result`,
-        }),
-        signal: AbortSignal.timeout(12_000),
-      });
-      if (!response.ok) {
-        const detail = await response.text().catch(() => "");
-        throw new Error(`n8n respondeu ${response.status}${detail ? `: ${detail.slice(0, 300)}` : ""}`);
+    if (this.openAi) {
+      try {
+        const generated = await this.openAi.generate(processing, brand);
+        return this.content.complete(processing.id, generated.output, generated.providerRunId);
+      } catch {
+        const fallback = await this.buildNativeOutput(processing, brand, true);
+        return this.content.complete(
+          processing.id,
+          fallback,
+          `fallback:openai:${processing.id}`,
+        );
       }
-      this.scheduleFallback(processing, brand);
-      return processing;
-    } catch {
-      return this.content.complete(
-        processing.id,
-        this.buildDemoOutput(processing, brand),
-        `fallback:dispatch:${processing.id}`,
-      );
-    }
-  }
-
-  private scheduleFallback(processing: ContentRequest, brand: Brand) {
-    const recoveryTimer = setTimeout(() => {
-      void this.completeSafetyOutput(processing, brand, false).catch(() => undefined);
-    }, 15_000);
-    recoveryTimer.unref?.();
-
-    const timeoutTimer = setTimeout(() => {
-      void this.completeSafetyOutput(processing, brand, true).catch(() => undefined);
-    }, 120_000);
-    timeoutTimer.unref?.();
-  }
-
-  private async completeSafetyOutput(
-    processing: ContentRequest,
-    brand: Brand,
-    includeProcessing: boolean,
-  ) {
-    const current = await this.content.getInternal(processing.id);
-    if (!current) return undefined;
-
-    if (current.status === "failed") {
-      if (!isRecoverableAutomationError(current.error)) return undefined;
-      await this.content.retry(current.id, current.organizationId);
-    } else if (current.status !== "processing" || !includeProcessing) {
-      return undefined;
     }
 
     return this.content.complete(
       processing.id,
-      this.buildDemoOutput(processing, brand),
-      `fallback:${current.status === "failed" ? "technical-callback" : "callback-timeout"}:${processing.id}`,
+      await this.buildNativeOutput(processing, brand, false),
+      `native:${processing.id}`,
     );
   }
 
   validateCallbackSecret(value: string) {
     if (!this.secret) {
       throw new ContentAutomationError(
-        "CONTENT_CALLBACK_NOT_CONFIGURED",
-        503,
-        "Callback de conteúdo não configurado.",
+        "CONTENT_CALLBACK_DISABLED",
+        410,
+        "O callback legado de conteúdo está desativado.",
       );
     }
     const received = Buffer.from(value || "", "utf8");
@@ -177,41 +107,78 @@ export class ContentAutomationService {
     }
   }
 
-  private buildDemoOutput(request: ContentRequest, brand: Brand): GeneratedContent {
+  private async buildNativeOutput(
+    request: ContentRequest,
+    brand: Brand,
+    imageFailed: boolean,
+  ): Promise<GeneratedContent> {
+    const context = await loadCreativeGenerationContext(request.organizationId, request.brandId);
+    const formattedContext = formatCreativeContext(context);
     const brandName = brand.name;
-    const base = {
-      hook: `O que muda quando ${brandName} transforma estratégia em presença?`,
-      title: `${brandName}: uma presença que trabalha por um objetivo`,
-      caption: `${request.brief}\n\nA proposta deste conteúdo é conectar o objetivo de ${request.objective} a uma mensagem clara, útil e coerente com a marca. O próximo passo é transformar atenção em ação, sem perder autenticidade.`,
-      cta: "Converse com a nossa equipe e descubra o próximo passo.",
-      hashtags: ["#PresencaDigital", "#EstrategiaDeConteudo", `#${brandName.replace(/\W/g, "")}`],
-      visualDirection: `Composição limpa, hierarquia forte e linguagem visual alinhada à marca ${brandName}. Priorizar contraste, respiro e um elemento central que represente ${request.objective}.`,
-      slides: [] as GeneratedContent["slides"],
-      script: [] as GeneratedContent["script"],
-      storyFrames: [] as GeneratedContent["storyFrames"],
-      adaptationNotes: [`Canal principal: ${request.channel}.`, "Manter a mensagem central ao adaptar o formato."],
+    const tag = cleanBrandHashtag(brandName);
+    const objectiveLabels: Record<ContentRequest["objective"], string> = {
+      autoridade: "demonstrar conhecimento e construir confiança",
+      demanda: "gerar interesse e novas oportunidades",
+      relacionamento: "aproximar a marca das pessoas",
+      conversao: "apresentar a oferta com clareza e incentivar o próximo passo",
+      educacao: "explicar o tema de forma simples e útil",
+    };
+    const objective = objectiveLabels[request.objective];
+    const hook = `${brandName}: uma forma mais simples de avançar com ${request.brief.split("\n")[0].slice(0, 110)}`;
+    const title = request.objective === "conversao"
+      ? `Conheça a proposta da ${brandName}`
+      : `${brandName}: clareza antes da próxima decisão`;
+    const contextNote = formattedContext
+      ? `\n\nA direção considera o contexto já aprendido pela MODO sobre prioridades, provas disponíveis, dúvidas recorrentes e restrições da marca.`
+      : "";
+    const caption = `${request.brief}\n\nEsta peça foi estruturada para ${objective}, com linguagem adequada a ${request.channel}. O foco é tornar a proposta compreensível, reduzir dúvidas e conduzir a uma ação segura, sem promessas exageradas.${contextNote}`;
+    const cta = request.objective === "conversao"
+      ? "Conheça a proposta e veja como funciona."
+      : "Converse com a marca e descubra o próximo passo.";
+    const visualDirection = `Criar uma composição publicitária específica para ${brandName}, no segmento ${brand.niche}, representando a oferta descrita no briefing. Usar contraste, hierarquia clara, espaço para título e CTA e apenas provas reais disponíveis. Evitar imagens genéricas de banco, promessas visuais exageradas e elementos que não pertençam ao contexto do cliente.`;
+    const base: GeneratedContent = {
+      hook,
+      title,
+      caption,
+      cta,
+      hashtags: ["#EstrategiaDigital", "#ConteudoComDirecao", ...(tag ? [`#${tag}`] : [])],
+      visualDirection,
+      slides: [],
+      script: [],
+      storyFrames: [],
+      adaptationNotes: [
+        `Canal principal: ${request.channel}.`,
+        "Revisar fatos, condições comerciais e conformidade antes de publicar.",
+        imageFailed
+          ? "A copy ficou pronta, mas a geração visual externa não respondeu. Gere novamente a imagem no Studio após revisar o briefing."
+          : "A geração de imagem será ativada quando a chave do provedor visual estiver configurada.",
+      ],
+      imagePrompt: `${visualDirection} Cena central coerente com ${brandName} e com o briefing: ${request.brief}. Sem texto, logotipo, números ou marca-d'água; reservar área limpa para sobreposição da mensagem.`,
+      imageAlt: `Imagem publicitária para ${brandName} relacionada a ${request.brief.slice(0, 180)}.`,
+      imageUrl: null,
+      imageStatus: imageFailed ? "failed" : "not_requested",
     };
 
     if (request.contentType === "carousel") {
       base.slides = [
-        { title: base.hook, body: "Uma pergunta direta para interromper o padrão e gerar interesse." },
-        { title: "O desafio", body: request.brief },
-        { title: "A mudança", body: "Organizar mensagem, formato e chamada para ação em uma narrativa única." },
-        { title: "O resultado", body: "Mais clareza para o público e mais consistência para a marca." },
-        { title: "Próximo passo", body: base.cta },
+        { title: hook, body: "Abrir com uma ideia concreta que interrompa o padrão e seja reconhecível pelo público." },
+        { title: "O que está em jogo", body: request.brief },
+        { title: "Como olhar para isso", body: "Organizar a decisão em critérios claros, sem jargão e sem promessas que a marca não possa comprovar." },
+        { title: "A proposta da marca", body: `${brandName} apresenta a solução com foco em clareza, confiança e utilidade prática.` },
+        { title: "Próximo passo", body: cta },
       ];
     } else if (request.contentType === "short_video_script") {
       base.script = [
-        { scene: "Abertura", visual: "Plano próximo, texto grande na tela.", voiceover: base.hook },
-        { scene: "Problema", visual: "Cortes rápidos mostrando o contexto do público.", voiceover: request.brief },
-        { scene: "Virada", visual: "Mudança de ritmo e entrada da marca.", voiceover: `É aqui que ${brandName} organiza a solução.` },
-        { scene: "Fechamento", visual: "Marca e chamada para ação.", voiceover: base.cta },
+        { scene: "Abertura", visual: "Plano próximo e situação real do público.", voiceover: hook },
+        { scene: "Problema", visual: "Mostrar o contexto descrito no briefing sem dramatização artificial.", voiceover: request.brief },
+        { scene: "Solução", visual: `Demonstrar como ${brandName} organiza a proposta.`, voiceover: `${brandName} torna o próximo passo mais claro e prático.` },
+        { scene: "Fechamento", visual: "Oferta e chamada para ação na tela.", voiceover: cta },
       ];
     } else if (request.contentType === "story") {
       base.storyFrames = [
-        { headline: base.hook, body: "Abra a sequência com uma pergunta.", interaction: "Enquete: sim / ainda não" },
-        { headline: "O ponto central", body: request.brief, interaction: "" },
-        { headline: "Vamos avançar?", body: base.cta, interaction: "Caixa de perguntas" },
+        { headline: hook, body: "Apresente o problema em linguagem cotidiana.", interaction: "Enquete: quero entender / já conheço" },
+        { headline: "O ponto principal", body: request.brief, interaction: "" },
+        { headline: "Próximo passo", body: cta, interaction: "Caixa de perguntas" },
       ];
     }
 

@@ -24,13 +24,19 @@ services:
       - key: DEMO_DIAGNOSTIC_DELAY_MS
         value: 2600
       - key: CONTENT_PROVIDER
-        sync: false
+        value: openai
       - key: CONTENT_DEMO_DELAY_MS
         value: 1800
       - key: N8N_CONTENT_WEBHOOK_URL
         sync: false
       - key: N8N_CONTENT_SECRET
         sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: OPENAI_TEXT_MODEL
+        value: gpt-5-mini
+      - key: OPENAI_IMAGE_MODEL
+        value: gpt-image-1
       - key: DATABASE_URL
         sync: false
       - key: DATABASE_SSL

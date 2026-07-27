@@ -58,6 +58,10 @@ export const GeneratedContentSchema = z.object({
   script: z.array(ContentScriptSceneSchema).max(12).default([]),
   storyFrames: z.array(ContentStoryFrameSchema).max(10).default([]),
   adaptationNotes: z.array(z.string().trim().min(1).max(500)).max(10).default([]),
+  imagePrompt: z.string().trim().max(2500).default(""),
+  imageAlt: z.string().trim().max(500).default(""),
+  imageUrl: z.string().url().max(2000).nullable().default(null),
+  imageStatus: z.enum(["not_requested", "generated", "fallback", "failed"]).default("not_requested"),
 });
 export type GeneratedContent = z.infer<typeof GeneratedContentSchema>;
 export const ContentOutputUpdateSchema = GeneratedContentSchema;

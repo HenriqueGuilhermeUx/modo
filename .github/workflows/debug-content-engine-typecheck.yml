@@ -1,18 +1,15 @@
 name: Debug content engine typecheck
 
 on:
-  push:
-    branches:
-      - agent/content-engine-production-v1
-    paths:
-      - .github/workflows/debug-content-engine-typecheck.yml
-      - .github/debug-content-engine-trigger.txt
+  pull_request:
+    branches: [main]
 
 permissions:
   contents: write
 
 jobs:
   debug:
+    if: github.head_ref == 'agent/content-engine-production-v1'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

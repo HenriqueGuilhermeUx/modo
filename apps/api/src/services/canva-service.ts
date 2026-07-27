@@ -402,7 +402,7 @@ export class CanvaService {
           name_base64: Buffer.from(name || "Criativo MODO", "utf8").toString("base64"),
         }),
       },
-      body: data,
+      body: Uint8Array.from(data).buffer,
       signal: AbortSignal.timeout(30_000),
     });
     const payload = (await response.json().catch(() => ({}))) as UploadJobPayload;

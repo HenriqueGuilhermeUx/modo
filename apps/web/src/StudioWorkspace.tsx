@@ -76,7 +76,7 @@ function renderCard(
   index: number,
   total: number,
   themeName: StudioTheme,
-  backgroundImage?: CanvasImageSource,
+  backgroundImage?: HTMLImageElement,
 ) {
   const theme = themes[themeName];
   const canvas = document.createElement("canvas");
@@ -86,8 +86,8 @@ function renderCard(
   if (!context) return canvas;
 
   if (backgroundImage) {
-    const sourceWidth = "naturalWidth" in backgroundImage ? backgroundImage.naturalWidth : backgroundImage.width;
-    const sourceHeight = "naturalHeight" in backgroundImage ? backgroundImage.naturalHeight : backgroundImage.height;
+    const sourceWidth = backgroundImage.naturalWidth;
+    const sourceHeight = backgroundImage.naturalHeight;
     const scale = Math.max(canvas.width / sourceWidth, canvas.height / sourceHeight);
     const width = sourceWidth * scale;
     const height = sourceHeight * scale;

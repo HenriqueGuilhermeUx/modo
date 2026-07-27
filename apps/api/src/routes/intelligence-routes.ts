@@ -3,9 +3,14 @@ import {
   IntelligenceMissionCreateSchema,
   intelligencePlaybookCatalog,
 } from "@modo/contracts/intelligence";
+import { randomUUID } from "node:crypto";
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import { z } from "zod";
 import { AuthError, type AuthService } from "../services/auth-service.js";
+import {
+  IntelligenceQuotaError,
+  IntelligenceQuotaService,
+} from "../services/intelligence-quota-service.js";
 import { IntelligenceError, type IntelligenceService } from "../services/intelligence-service.js";
 
 function bearerToken(request: FastifyRequest) {
@@ -26,11 +31,17 @@ async function execute<T>(operation: () => Promise<T>): Promise<T> {
   try {
     return await operation();
   } catch (error) {
-    if (error instanceof IntelligenceError) {
+    if (error instanceof IntelligenceError || error instanceof IntelligenceQuotaError) {
       throw new AuthError(error.code, error.statusCode, error.message);
     }
     throw error;
   }
+}
+
+function databaseSsl() {
+  return ["1", "true", "yes", "on"].includes(
+    String(process.env.DATABASE_SSL || "").trim().toLowerCase(),
+  );
 }
 
 export async function registerIntelligenceRoutes(
@@ -38,12 +49,20 @@ export async function registerIntelligenceRoutes(
   auth: AuthService,
   intelligence: IntelligenceService,
 ) {
+  const quota = new IntelligenceQuotaService({
+    databaseUrl: process.env.DATABASE_URL,
+    databaseSsl: databaseSsl(),
+  });
+  await quota.initialize();
+  app.addHook("onClose", async () => quota.close());
+
   app.get("/api/v1/intelligence/playbooks", async (request) => {
-    await auth.authenticate(bearerToken(request));
+    const context = await auth.authenticate(bearerToken(request));
     return {
       provider: intelligence.mode,
       configured: intelligence.configuredPlaybooks(),
       playbooks: intelligencePlaybookCatalog,
+      quota: await execute(() => quota.usage(context.organization.id)),
     };
   });
 
@@ -54,7 +73,7 @@ export async function registerIntelligenceRoutes(
 
   app.post(
     "/api/v1/intelligence/missions",
-    { config: { rateLimit: { max: 12, timeWindow: "30 minutes" } } },
+    { config: { rateLimit: { max: 6, timeWindow: "30 minutes" } } },
     async (request, reply) => {
       const context = await auth.authenticate(bearerToken(request));
       const input = IntelligenceMissionCreateSchema.parse(request.body);
@@ -67,19 +86,32 @@ export async function registerIntelligenceRoutes(
           "Marca não encontrada nesta organização.",
         );
       }
-      const mission = await execute(() => intelligence.create(
+
+      const reservationId = `create:${randomUUID()}`;
+      await execute(() => quota.reserve(
         context.organization.id,
-        context.user.id,
-        input,
-        {
-          id: brand.id,
-          name: brand.name,
-          niche: brand.niche,
-          websiteUrl: brand.websiteUrl || "",
-          instagramHandle: brand.instagramHandle || "",
-        },
+        input.maxItems,
+        reservationId,
       ));
-      return reply.code(201).send(mission);
+
+      try {
+        const mission = await execute(() => intelligence.create(
+          context.organization.id,
+          context.user.id,
+          input,
+          {
+            id: brand.id,
+            name: brand.name,
+            niche: brand.niche,
+            websiteUrl: brand.websiteUrl || "",
+            instagramHandle: brand.instagramHandle || "",
+          },
+        ));
+        return reply.code(201).send(mission);
+      } catch (error) {
+        await quota.release(reservationId).catch(() => undefined);
+        throw error;
+      }
     },
   );
 
@@ -98,27 +130,44 @@ export async function registerIntelligenceRoutes(
     return execute(() => intelligence.results(id, context.organization.id, limit));
   });
 
-  app.post("/api/v1/intelligence/missions/:id/retry", async (request) => {
-    const context = await auth.authenticate(bearerToken(request));
-    const id = z.string().uuid().parse((request.params as { id: string }).id);
-    const mission = await execute(() => intelligence.get(id, context.organization.id, false));
-    const brands = await auth.listBrands(context.organization.id);
-    const brand = brands.find((item) => item.id === mission.brandId);
-    if (!brand) {
-      throw new AuthError(
-        "INTELLIGENCE_BRAND_NOT_FOUND",
-        404,
-        "Marca vinculada à missão não foi encontrada.",
-      );
-    }
-    return execute(() => intelligence.retry(id, context.organization.id, {
-      id: brand.id,
-      name: brand.name,
-      niche: brand.niche,
-      websiteUrl: brand.websiteUrl || "",
-      instagramHandle: brand.instagramHandle || "",
-    }));
-  });
+  app.post(
+    "/api/v1/intelligence/missions/:id/retry",
+    { config: { rateLimit: { max: 4, timeWindow: "30 minutes" } } },
+    async (request) => {
+      const context = await auth.authenticate(bearerToken(request));
+      const id = z.string().uuid().parse((request.params as { id: string }).id);
+      const mission = await execute(() => intelligence.get(id, context.organization.id, false));
+      const brands = await auth.listBrands(context.organization.id);
+      const brand = brands.find((item) => item.id === mission.brandId);
+      if (!brand) {
+        throw new AuthError(
+          "INTELLIGENCE_BRAND_NOT_FOUND",
+          404,
+          "Marca vinculada à missão não foi encontrada.",
+        );
+      }
+
+      const reservationId = `retry:${id}:${randomUUID()}`;
+      await execute(() => quota.reserve(
+        context.organization.id,
+        mission.maxItems,
+        reservationId,
+      ));
+
+      try {
+        return await execute(() => intelligence.retry(id, context.organization.id, {
+          id: brand.id,
+          name: brand.name,
+          niche: brand.niche,
+          websiteUrl: brand.websiteUrl || "",
+          instagramHandle: brand.instagramHandle || "",
+        }));
+      } catch (error) {
+        await quota.release(reservationId).catch(() => undefined);
+        throw error;
+      }
+    },
+  );
 
   app.post(
     "/api/v1/internal/intelligence/missions/:id/result",

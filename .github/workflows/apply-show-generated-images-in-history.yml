@@ -1,0 +1,33 @@
+name: Apply generated image history patch
+
+on:
+  push:
+    branches:
+      - agent/show-generated-images-in-history
+    paths:
+      - scripts/apply-show-generated-images-in-history.mjs
+      - .github/workflows/apply-show-generated-images-in-history.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/show-generated-images-in-history
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Apply patch
+        run: node scripts/apply-show-generated-images-in-history.mjs
+      - name: Commit patch
+        run: |
+          git config user.name "MODO Product"
+          git config user.email "actions@github.com"
+          git add -A
+          git commit -m "feat: show generated images in content history"
+          git push origin HEAD:agent/show-generated-images-in-history

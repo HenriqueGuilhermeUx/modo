@@ -11,6 +11,21 @@ import { getSessionToken } from "./api";
 
 const API_URL = (import.meta.env.VITE_API_URL || "http://localhost:4000").replace(/\/$/, "");
 
+export interface IntelligenceQuota {
+  plan: "trial" | "start" | "presenca" | "pro" | "business";
+  periodStart: string;
+  periodEnd: string;
+  monthlyRuns: number;
+  monthlyItems: number;
+  maxItemsPerRun: number;
+  maxConcurrentRuns: number;
+  runsUsed: number;
+  itemsUsed: number;
+  runsRemaining: number;
+  itemsRemaining: number;
+  runningNow: number;
+}
+
 async function request(path: string, init?: RequestInit) {
   const response = await fetch(`${API_URL}${path}`, {
     ...init,
@@ -25,12 +40,33 @@ async function request(path: string, init?: RequestInit) {
   return payload;
 }
 
+function quotaFromPayload(value: unknown): IntelligenceQuota {
+  const source = value && typeof value === "object" ? value as Record<string, unknown> : {};
+  return {
+    plan: (["trial", "start", "presenca", "pro", "business"].includes(String(source.plan))
+      ? String(source.plan)
+      : "trial") as IntelligenceQuota["plan"],
+    periodStart: String(source.periodStart || new Date().toISOString()),
+    periodEnd: String(source.periodEnd || new Date().toISOString()),
+    monthlyRuns: Number(source.monthlyRuns || 0),
+    monthlyItems: Number(source.monthlyItems || 0),
+    maxItemsPerRun: Number(source.maxItemsPerRun || 10),
+    maxConcurrentRuns: Number(source.maxConcurrentRuns || 1),
+    runsUsed: Number(source.runsUsed || 0),
+    itemsUsed: Number(source.itemsUsed || 0),
+    runsRemaining: Number(source.runsRemaining || 0),
+    itemsRemaining: Number(source.itemsRemaining || 0),
+    runningNow: Number(source.runningNow || 0),
+  };
+}
+
 export async function getIntelligencePlaybooks() {
   const payload = await request("/api/v1/intelligence/playbooks");
   return {
     provider: IntelligenceProviderSchema.parse(payload.provider),
     configured: payload.configured as Record<IntelligencePlaybook, boolean>,
     playbooks: payload.playbooks || intelligencePlaybookCatalog,
+    quota: quotaFromPayload(payload.quota),
   };
 }
 

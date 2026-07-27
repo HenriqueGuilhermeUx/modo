@@ -24,7 +24,9 @@ const app = await createApp({
   paymentsProvider: config.PAYMENTS_PROVIDER,
   wooviAppId: config.WOOVI_APP_ID,
   wooviWebhookAuthorization: config.WOOVI_WEBHOOK_AUTHORIZATION,
-  contentProvider: config.CONTENT_PROVIDER,
+  // Keep the customer journey available while the external content workflow is repaired.
+  // The native provider produces a complete draft for review without calling n8n.
+  contentProvider: "demo",
   contentWebhookUrl: config.N8N_CONTENT_WEBHOOK_URL,
   contentSecret: config.N8N_CONTENT_SECRET,
   publicApiUrl: config.PUBLIC_API_URL,

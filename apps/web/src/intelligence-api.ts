@@ -166,9 +166,15 @@ export async function retryIntelligenceMission(id: string) {
 
 export async function getIntelligenceResults(id: string, limit = 100) {
   const payload = await request(`/api/v1/intelligence/missions/${id}/results?limit=${limit}`);
+  const mission = IntelligenceMissionSchema.parse(payload.mission);
+  const rawItems = Array.isArray(payload.items)
+    ? payload.items.filter((item: unknown): item is Record<string, unknown> => Boolean(item) && typeof item === "object")
+    : [];
   return {
-    mission: IntelligenceMissionSchema.parse(payload.mission),
-    items: Array.isArray(payload.items) ? payload.items.map(leadFromPayload) : [],
+    mission,
+    items: mission.playbook === "b2b_prospecting"
+      ? rawItems.map(leadFromPayload)
+      : rawItems,
   };
 }
 

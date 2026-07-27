@@ -1,0 +1,219 @@
+{
+  "name": "MODO — Motor de inteligência v3",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "modo-intelligence-engine-v3",
+        "authentication": "headerAuth",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "c3885081-c8a3-48a8-b92d-6cb4c0ff3001",
+      "name": "MODO Intelligence Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [-1100, 0],
+      "webhookId": "b0c61651-f3ec-487d-9816-1c87a0a8f301",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_MODO_INTELLIGENCE_CREDENTIAL",
+          "name": "MODO Intelligence Secret"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const source = $json.body ?? $json;\nif (!source.missionId || !source.taskId || !source.actorInput || !source.callbackUrl) {\n  throw new Error('missionId, taskId, actorInput e callbackUrl são obrigatórios.');\n}\nconst supported = ['b2b_prospecting', 'market_radar', 'price_monitoring'];\nif (!supported.includes(String(source.playbook || ''))) {\n  throw new Error('Playbook de inteligência inválido.');\n}\nreturn [{ json: {\n  missionId: String(source.missionId),\n  playbook: String(source.playbook),\n  taskId: String(source.taskId),\n  actorInput: source.actorInput,\n  callbackUrl: String(source.callbackUrl)\n} }];"
+      },
+      "id": "c3885081-c8a3-48a8-b92d-6cb4c0ff3002",
+      "name": "Validate Mission",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-900, 0]
+    },
+    {
+      "parameters": {
+        "jsCode": "const source = $json;\nconst input = source.actorInput ?? {};\nconst requested = Number(input.maxItems ?? 10);\nconst maxItems = Math.min(500, Math.max(1, Number.isFinite(requested) ? Math.trunc(requested) : 10));\n\nconst unique = (values, limit) => [...new Set((values ?? []).map((value) => String(value).trim()).filter(Boolean))].slice(0, limit);\n\nif (source.playbook === 'b2b_prospecting') {\n  const keywords = unique(input.keywords, 10);\n  const regions = unique(input.regions, 2);\n  if (!keywords.length) throw new Error('A prospecção B2B precisa de ao menos um setor ou termo de busca.');\n  if (regions.length !== 1) throw new Error('A prospecção B2B precisa de exatamente uma região por missão.');\n  const perSearch = Math.max(1, Math.ceil(maxItems / keywords.length));\n  return [{ json: {\n    ...source,\n    requestedMaxItems: maxItems,\n    generatedQueries: keywords,\n    actorInput: {\n      searchStringsArray: keywords,\n      locationQuery: regions[0],\n      maxCrawledPlacesPerSearch: perSearch,\n      language: 'pt-BR',\n      skipClosedPlaces: true,\n      scrapePlaceDetailPage: false,\n      maximumLeadsEnrichmentRecords: 0,\n      enableCompetitorAnalysis: false,\n      maxCompetitorsToAnalyze: 0,\n      scrapeSocialMediaProfiles: {\n        facebooks: false,\n        instagrams: false,\n        youtubes: false,\n        tiktoks: false,\n        twitters: false\n      }\n    }\n  } }];\n}\n\nif (source.playbook === 'market_radar') {\n  const keywords = unique(input.keywords, 12);\n  const competitors = unique(input.competitors, 10);\n  const regions = unique(input.regions, 3);\n  const objective = String(input.objective || '').trim();\n  const niche = String(input.brand?.niche || '').trim();\n  if (!keywords.length && !competitors.length) {\n    throw new Error('O Radar precisa de termos de mercado ou concorrentes.');\n  }\n  const maxQueries = Math.min(5, Math.max(1, Math.ceil(maxItems / 10)));\n  const region = regions[0] || 'Brasil';\n  const theme = keywords[0] || objective || niche || 'mercado';\n  const candidates = [];\n  for (const competitor of competitors) {\n    try {\n      const url = new URL(competitor);\n      candidates.push(`site:${url.hostname.replace(/^www\\./, '')} ${theme}`);\n    } catch {\n      candidates.push(`\\\"${competitor}\\\" ${theme} ${region}`);\n    }\n  }\n  for (const keyword of keywords) {\n    candidates.push(`${keyword} ${niche} ${region}`.replace(/\\s+/g, ' ').trim());\n  }\n  if (!candidates.length && objective) candidates.push(`${objective} ${region}`);\n  const queries = [...new Set(candidates.map((value) => value.trim()).filter(Boolean))].slice(0, maxQueries);\n  return [{ json: {\n    ...source,\n    requestedMaxItems: maxItems,\n    generatedQueries: queries,\n    actorInput: {\n      queries: queries.join('\\n'),\n      maxPagesPerQuery: 1,\n      countryCode: 'br',\n      searchLanguage: 'pt',\n      languageCode: 'pt-BR',\n      mobileResults: false,\n      includeUnfilteredResults: false,\n      saveHtml: false,\n      saveHtmlToKeyValueStore: false,\n      includeIcons: false,\n      maximumLeadsEnrichmentRecords: 0,\n      focusOnPaidAds: false,\n      aiOverview: { scrapeFullAiOverview: false },\n      aiModeSearch: { enableAiMode: false },\n      geminiSearch: { enableGemini: false },\n      perplexitySearch: { enablePerplexity: false, returnImages: false, returnRelatedQuestions: false },\n      chatGptSearch: { enableChatGpt: false },\n      copilotSearch: { enableCopilot: false },\n      websiteContentScraper: { enable: false }\n    }\n  } }];\n}\n\nreturn [{ json: { ...source, requestedMaxItems: maxItems } }];"
+      },
+      "id": "c3885081-c8a3-48a8-b92d-6cb4c0ff3003",
+      "name": "Adapt Playbook Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-700, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ 'https://api.apify.com/v2/actor-tasks/' + encodeURIComponent($json.taskId) + '/runs' }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify($json.actorInput) }}",
+        "options": {
+          "timeout": 30000,
+          "response": { "response": { "neverError": false, "responseFormat": "json" } }
+        }
+      },
+      "id": "c3885081-c8a3-48a8-b92d-6cb4c0ff3004",
+      "name": "Start Apify Task",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-500, 0],
+      "onError": "continueRegularOutput",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_APIFY_TOKEN_CREDENTIAL",
+          "name": "Apify API Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const root = $input.first().json;\nif (root?.data?.id) return [{ json: root }];\nconst chunks = [];\nconst visited = new Set();\nfunction collect(value) {\n  if (!value || typeof value !== 'object' || visited.has(value)) return;\n  visited.add(value);\n  if (value.type === 'Buffer' && Array.isArray(value.data)) { chunks.push(Buffer.from(value.data)); return; }\n  if (Array.isArray(value)) { for (const item of value) collect(item); return; }\n  for (const item of Object.values(value)) collect(item);\n}\ncollect(root);\nif (!chunks.length) throw new Error('Nenhum buffer foi encontrado na resposta inicial do Apify.');\nconst raw = Buffer.concat(chunks).toString('utf8');\nconst runId = raw.match(/\\\"id\\\"\\s*:\\s*\\\"([^\\\"]+)\\\"/)?.[1];\nif (!runId) throw new Error('Não foi possível localizar o ID da execução do Apify.');\nreturn [{ json: { data: { id: runId } } }];"
+      },
+      "id": "c3885081-c8a3-48a8-b92d-6cb4c0ff3005",
+      "name": "Parse Apify Run Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-300, 0]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ 'https://api.apify.com/v2/actor-runs/' + encodeURIComponent($json.data.id) + '?waitForFinish=60' }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "timeout": 70000,
+          "response": { "response": { "neverError": false, "responseFormat": "json" } }
+        }
+      },
+      "id": "c3885081-c8a3-48a8-b92d-6cb4c0ff3006",
+      "name": "Wait for Apify Run",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-100, 0],
+      "onError": "continueRegularOutput",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_APIFY_TOKEN_CREDENTIAL",
+          "name": "Apify API Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const root = $input.first().json;\nif (root?.data?.defaultDatasetId) return [{ json: root }];\nconst chunks = [];\nconst visited = new Set();\nfunction collect(value) {\n  if (!value || typeof value !== 'object' || visited.has(value)) return;\n  visited.add(value);\n  if (value.type === 'Buffer' && Array.isArray(value.data)) { chunks.push(Buffer.from(value.data)); return; }\n  if (Array.isArray(value)) { for (const item of value) collect(item); return; }\n  for (const item of Object.values(value)) collect(item);\n}\ncollect(root);\nif (!chunks.length) throw new Error('Nenhum buffer foi encontrado na espera do Apify.');\nconst raw = Buffer.concat(chunks).toString('utf8');\nconst id = raw.match(/\\\"id\\\"\\s*:\\s*\\\"([^\\\"]+)\\\"/)?.[1] || $('Parse Apify Run Response').first().json.data.id;\nconst datasetId = raw.match(/\\\"defaultDatasetId\\\"\\s*:\\s*\\\"([^\\\"]+)\\\"/)?.[1];\nconst status = raw.match(/\\\"status\\\"\\s*:\\s*\\\"([^\\\"]+)\\\"/)?.[1] || '';\nif (!datasetId) throw new Error('A execução do Apify não retornou defaultDatasetId.');\nreturn [{ json: { data: { id, defaultDatasetId: datasetId, status } } }];"
+      },
+      "id": "c3885081-c8a3-48a8-b92d-6cb4c0ff3007",
+      "name": "Parse Apify Wait Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [100, 0]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ 'https://api.apify.com/v2/datasets/' + encodeURIComponent($json.data.defaultDatasetId) + '/items?clean=true&format=json&limit=' + encodeURIComponent(Math.max(10, $('Adapt Playbook Input').first().json.requestedMaxItems)) }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Accept", "value": "application/json" },
+            { "name": "Accept-Encoding", "value": "identity" }
+          ]
+        },
+        "options": {
+          "timeout": 30000,
+          "response": { "response": { "neverError": false, "responseFormat": "json" } }
+        }
+      },
+      "id": "c3885081-c8a3-48a8-b92d-6cb4c0ff3008",
+      "name": "Fetch Apify Dataset",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [300, 0],
+      "onError": "continueRegularOutput",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_APIFY_TOKEN_CREDENTIAL",
+          "name": "Apify API Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const all = $input.all();\nif (all.length > 1) return all;\nconst root = all[0]?.json;\nif (Array.isArray(root)) return root.map((item) => ({ json: item }));\nif (root && typeof root === 'object' && (root.organicResults || root.title || root.placeId)) return all;\nconst chunks = [];\nconst visited = new Set();\nfunction collect(value) {\n  if (!value || typeof value !== 'object' || visited.has(value)) return;\n  visited.add(value);\n  if (value.type === 'Buffer' && Array.isArray(value.data)) { chunks.push(Buffer.from(value.data)); return; }\n  if (Array.isArray(value)) { for (const item of value) collect(item); return; }\n  for (const item of Object.values(value)) collect(item);\n}\ncollect(root);\nif (!chunks.length) return all;\nconst text = Buffer.concat(chunks).toString('utf8');\nlet start = -1;\nlet depth = 0;\nlet inside = false;\nlet escaped = false;\nfor (let index = 0; index < text.length; index++) {\n  const character = text[index];\n  if (inside) {\n    if (escaped) escaped = false;\n    else if (character === '\\\\') escaped = true;\n    else if (character === '\"') inside = false;\n    continue;\n  }\n  if (character === '\"') { inside = true; continue; }\n  if (character === '[') { if (depth === 0) start = index; depth++; continue; }\n  if (character === ']') {\n    depth--;\n    if (depth === 0 && start !== -1) {\n      const candidate = text.slice(start, index + 1);\n      try {\n        const parsed = JSON.parse(candidate);\n        if (Array.isArray(parsed)) return parsed.map((item) => ({ json: item }));\n      } catch {}\n      start = -1;\n    }\n  }\n}\nthrow new Error('O dataset do Apify não contém um array JSON válido.');"
+      },
+      "id": "c3885081-c8a3-48a8-b92d-6cb4c0ff3009",
+      "name": "Parse Apify Dataset Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [500, 0]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const source = $('Adapt Playbook Input').first().json;\nconst incoming = $input.all().map((item) => item.json);\nconst run = $('Parse Apify Wait Response').first().json.data || {};\nconst failure = incoming.find((item) => item && typeof item === 'object' && (item.error?.message || Number(item.statusCode || 0) >= 400));\nif (failure) {\n  const message = failure.error?.message || failure.message || `Apify respondeu ${failure.statusCode}.`;\n  return [{ json: { callbackUrl: source.callbackUrl, callbackBody: { status: 'failed', providerRunId: String(run.id || ''), providerDatasetId: String(run.defaultDatasetId || ''), error: String(message).slice(0, 2000) } } }];\n}\n\nlet items = [];\nif (source.playbook === 'b2b_prospecting') {\n  const seen = new Set();\n  items = incoming.filter((item) => {\n    if (!item || typeof item !== 'object' || item.error) return false;\n    const key = String(item.placeId || item.url || `${item.title || ''}|${item.street || ''}`).trim().toLowerCase();\n    if (!key || seen.has(key)) return false;\n    seen.add(key);\n    return true;\n  }).slice(0, Number(source.requestedMaxItems || 100)).map((item, index) => {\n    const phone = String(item.phone || '').trim();\n    const website = String(item.website || '').trim();\n    const rating = Number(item.totalScore || 0);\n    const reviewsCount = Number(item.reviewsCount || 0);\n    const qualityScore = (phone ? 30 : 0) + (website ? 25 : 0) + (item.street ? 15 : 0) + (reviewsCount > 0 ? 10 : 0) + (item.categoryName ? 10 : 0) + (rating > 0 ? 10 : 0);\n    return { source: 'google_maps', position: index + 1, businessName: String(item.title || ''), category: String(item.categoryName || ''), categories: Array.isArray(item.categories) ? item.categories : [], rating, reviewsCount, address: String(item.street || item.address || ''), city: String(item.city || ''), state: String(item.state || ''), countryCode: String(item.countryCode || ''), phone, website, mapsUrl: String(item.url || ''), contactAvailable: Boolean(phone || website), qualityScore };\n  });\n}\n\nif (source.playbook === 'market_radar') {\n  const generated = Array.isArray(source.generatedQueries) ? source.generatedQueries : [];\n  const organic = incoming.flatMap((page, pageIndex) => {\n    const query = String(page?.searchQuery?.term || page?.searchQuery || generated[pageIndex] || '');\n    const results = Array.isArray(page?.organicResults) ? page.organicResults : [];\n    return results.map((result) => ({ ...result, searchQuery: query }));\n  });\n  const seen = new Set();\n  const competitors = (source.actorInput?.competitors || source.generatedQueries || []).map((value) => String(value).toLowerCase());\n  items = organic.filter((item) => {\n    const key = String(item.url || item.title || '').trim().toLowerCase();\n    if (!key || seen.has(key)) return false;\n    seen.add(key);\n    return true;\n  }).slice(0, Number(source.requestedMaxItems || 10)).map((item, index) => {\n    const title = String(item.title || '').trim();\n    const description = String(item.description || item.snippet || '').trim();\n    const url = String(item.url || '').trim();\n    let domain = String(item.domain || '').trim();\n    if (!domain && url) { try { domain = new URL(url).hostname.replace(/^www\\./, ''); } catch {} }\n    const haystack = `${title} ${description}`.toLowerCase();\n    let signalType = 'mercado';\n    if (competitors.some((value) => value && haystack.includes(value.replace(/^https?:\\/\\//, '').split('/')[0]))) signalType = 'concorrencia';\n    else if (/promo[cç][aã]o|desconto|oferta|pre[cç]o|cupom/.test(haystack)) signalType = 'oferta';\n    else if (/reclama[cç][aã]o|avalia[cç][aã]o|review|reputa[cç][aã]o/.test(haystack)) signalType = 'reputacao';\n    else if (/tend[eê]ncia|crescimento|mercado|dados|pesquisa|futuro/.test(haystack)) signalType = 'tendencia';\n    const query = String(item.searchQuery || '');\n    const queryWords = query.toLowerCase().split(/\\s+/).filter((word) => word.length > 3);\n    const matches = queryWords.filter((word) => haystack.includes(word)).length;\n    const relevanceScore = Math.min(100, 55 + Math.min(30, matches * 10) + (description ? 10 : 0) + (domain ? 5 : 0));\n    return { source: 'google_search', position: index + 1, title, description, url, domain, searchQuery: query, signalType, relevanceScore };\n  });\n}\n\nif (source.playbook === 'price_monitoring') {\n  items = incoming.slice(0, Number(source.requestedMaxItems || 10));\n}\n\nif (!items.length) {\n  return [{ json: { callbackUrl: source.callbackUrl, callbackBody: { status: 'failed', providerRunId: String(run.id || ''), providerDatasetId: String(run.defaultDatasetId || ''), error: 'O Apify concluiu, mas não retornou registros úteis para este playbook.' } } }];\n}\nreturn [{ json: { callbackUrl: source.callbackUrl, callbackBody: { status: 'completed', providerRunId: String(run.id || ''), providerDatasetId: String(run.defaultDatasetId || ''), resultCount: items.length, resultPreview: items.slice(0, 100) } } }];"
+      },
+      "id": "c3885081-c8a3-48a8-b92d-6cb4c0ff3010",
+      "name": "Normalize Intelligence Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [700, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.callbackUrl }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify($json.callbackBody) }}",
+        "options": { "timeout": 30000 }
+      },
+      "id": "c3885081-c8a3-48a8-b92d-6cb4c0ff3011",
+      "name": "Return Result to MODO",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [900, 0],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_MODO_CALLBACK_CREDENTIAL",
+          "name": "MODO Intelligence Callback Secret"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "MODO Intelligence Webhook": { "main": [[{ "node": "Validate Mission", "type": "main", "index": 0 }]] },
+    "Validate Mission": { "main": [[{ "node": "Adapt Playbook Input", "type": "main", "index": 0 }]] },
+    "Adapt Playbook Input": { "main": [[{ "node": "Start Apify Task", "type": "main", "index": 0 }]] },
+    "Start Apify Task": { "main": [[{ "node": "Parse Apify Run Response", "type": "main", "index": 0 }]] },
+    "Parse Apify Run Response": { "main": [[{ "node": "Wait for Apify Run", "type": "main", "index": 0 }]] },
+    "Wait for Apify Run": { "main": [[{ "node": "Parse Apify Wait Response", "type": "main", "index": 0 }]] },
+    "Parse Apify Wait Response": { "main": [[{ "node": "Fetch Apify Dataset", "type": "main", "index": 0 }]] },
+    "Fetch Apify Dataset": { "main": [[{ "node": "Parse Apify Dataset Response", "type": "main", "index": 0 }]] },
+    "Parse Apify Dataset Response": { "main": [[{ "node": "Normalize Intelligence Result", "type": "main", "index": 0 }]] },
+    "Normalize Intelligence Result": { "main": [[{ "node": "Return Result to MODO", "type": "main", "index": 0 }]] }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all",
+    "saveManualExecutions": true
+  },
+  "versionId": "d5be3dca-9602-4bb5-8b82-4c6a5c169301",
+  "meta": { "templateCredsSetupCompleted": false },
+  "tags": []
+}

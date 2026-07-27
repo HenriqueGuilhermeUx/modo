@@ -1,5 +1,6 @@
 import AdminWorkspace from "./AdminWorkspace";
 import BillingWorkspace from "./BillingWorkspace";
+import CampaignWorkspace from "./CampaignWorkspace";
 import ContentWorkspace from "./ContentWorkspace";
 import DirectorWorkspace from "./DirectorWorkspace";
 import ImpactLanding from "./ImpactLanding";
@@ -35,6 +36,7 @@ export default function Root() {
   if (path.startsWith("/app/week")) return <WeekWorkspace />;
   if (path.startsWith("/app/planos")) return <BillingWorkspace />;
   if (path.startsWith("/app/director")) return <DirectorWorkspace />;
+  if (path.startsWith("/app/campanhas")) return <CampaignWorkspace />;
   if (path.startsWith("/app/linkedin")) return <LinkedInWorkspace />;
   if (path.startsWith("/app/inteligencia")) return <IntelligenceWorkspace />;
   if (path.startsWith("/app/signal")) return <SignalWorkspace />;
@@ -48,6 +50,7 @@ export default function Root() {
           <a className="portal-plan-entry" href="/app/onboarding">Primeiros passos</a>
           <a className="portal-plan-entry" href="/app/week">Minha semana</a>
           <a className="portal-plan-entry" href="/app/director">Diretor</a>
+          <a className="portal-plan-entry" href="/app/campanhas">Campanhas</a>
           <a className="portal-plan-entry" href="/app/linkedin">LinkedIn</a>
           <a className="portal-plan-entry" href="/app/inteligencia">Inteligência</a>
           <a className="portal-plan-entry" href="/onboarding-smartbots.html">SmartBots</a>

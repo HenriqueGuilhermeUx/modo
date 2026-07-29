@@ -68,7 +68,7 @@ function OutputPanel({ output }: { output: GeneratedContent }) {
             <div><small>CRIATIVO GERADO</small><strong>Imagem contextual pronta</strong></div>
             <span>IA + contexto da marca</span>
           </div>
-          <img src={output.imageUrl} alt={output.imageAlt || output.title} loading="lazy" />
+          <img src={output.imageUrl} alt={output.imageAlt || output.title} loading="lazy" crossOrigin="anonymous" />
           <div className="content-generated-asset-footer">
             <p>{output.imageAlt || "Imagem produzida a partir do briefing e da direção visual."}</p>
             <a className="button button-outline" href={output.imageUrl} target="_blank" rel="noreferrer">Abrir imagem original</a>
@@ -244,7 +244,7 @@ export default function ContentWorkspace() {
         contentRequestId: request.id,
         signal: "approved",
       }).catch(() => undefined);
-      setSuccess("Conteúdo aprovado. A MODO usará esta decisão nas próximas sugestões.");
+      setSuccess("Conteúdo aprovado. A etapa Canva foi liberada abaixo e será preparada automaticamente quando a conta estiver conectada.");
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Não foi possível aprovar.");
     } finally {

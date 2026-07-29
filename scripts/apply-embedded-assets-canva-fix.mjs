@@ -105,7 +105,7 @@ export default function CanvaApprovalAction({ contentRequestId }: { contentReque
         query.delete("canva");
         query.delete("canvaMessage");
         const next = query.toString();
-        window.history.replaceState({}, "", \`${window.location.pathname}\${next ? \`?\${next}\` : ""}\`);
+        window.history.replaceState({}, "", window.location.pathname + (next ? "?" + next : ""));
       }
     }
 

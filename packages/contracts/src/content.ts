@@ -47,6 +47,17 @@ export const ContentStoryFrameSchema = z.object({
   interaction: z.string().trim().max(180).default(""),
 });
 
+export const ContentVisualAssetSchema = z.object({
+  kind: z.enum(["carousel_slide", "story_frame"]),
+  index: z.number().int().min(1).max(12),
+  label: z.string().trim().min(1).max(180),
+  imagePrompt: z.string().trim().max(2500).default(""),
+  imageAlt: z.string().trim().max(500).default(""),
+  imageUrl: z.string().url().max(2000).nullable().default(null),
+  imageStatus: z.enum(["generated", "failed"]).default("generated"),
+});
+export type ContentVisualAsset = z.infer<typeof ContentVisualAssetSchema>;
+
 export const GeneratedContentSchema = z.object({
   hook: z.string().trim().min(1).max(300),
   title: z.string().trim().min(1).max(220),
@@ -62,6 +73,7 @@ export const GeneratedContentSchema = z.object({
   imageAlt: z.string().trim().max(500).default(""),
   imageUrl: z.string().url().max(2000).nullable().default(null),
   imageStatus: z.enum(["not_requested", "generated", "fallback", "failed"]).default("not_requested"),
+  visualAssets: z.array(ContentVisualAssetSchema).max(12).default([]),
 });
 export type GeneratedContent = z.infer<typeof GeneratedContentSchema>;
 export const ContentOutputUpdateSchema = GeneratedContentSchema;

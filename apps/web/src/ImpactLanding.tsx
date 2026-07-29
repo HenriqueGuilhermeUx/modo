@@ -6,6 +6,7 @@ import { captureLead } from "./api";
 import DiagnosticImpactResult from "./DiagnosticImpactResult";
 import IntelligenceLandingAddon from "./IntelligenceLandingAddon";
 import SmartBotsLandingAddon from "./SmartBotsLandingAddon";
+import SpecialistNetworkLandingAddon from "./SpecialistNetworkLandingAddon";
 
 const CACHE_KEY = "modo.lastDiagnostic";
 
@@ -88,6 +89,7 @@ export default function ImpactLanding() {
       <App />
       <IntelligenceLandingAddon />
       <SmartBotsLandingAddon />
+      <SpecialistNetworkLandingAddon />
       {target && result && createPortal(
         <DiagnosticImpactResult
           result={result}

@@ -1,4 +1,5 @@
 import type { ContentRequest } from "@modo/contracts/content";
+import "./content-delivery.css";
 
 const deliverableLabels: Record<ContentRequest["contentType"], string> = {
   static_post: "Post principal",
@@ -43,7 +44,7 @@ function VisualSet({ request }: { request: ContentRequest }) {
       </div>
       <div className="delivery-asset-grid">
         {output.visualAssets.map((asset) => (
-          <article key={`${asset.kind}-${asset.index}`} className={`delivery-asset-card ${asset.imageStatus}`}>
+          <article key={`${asset.kind}-${asset.index}`} className={`delivery-asset-card ${asset.kind} ${asset.imageStatus}`}>
             {asset.imageUrl ? (
               <a href={asset.imageUrl} target="_blank" rel="noreferrer">
                 <img src={asset.imageUrl} alt={asset.imageAlt || asset.label} loading="lazy" crossOrigin="anonymous" />

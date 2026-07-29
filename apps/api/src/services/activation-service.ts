@@ -158,6 +158,8 @@ export class ActivationService {
       [...events].reverse().find((event) => event.name === name)?.createdAt || null;
     const latestReady = requests.find((request) => ["ready", "approved"].includes(request.status));
     const latestApproved = requests.find((request) => request.status === "approved");
+    const onboardingCompletedAt = firstEvent("onboarding_completed")
+      || (requests.length ? requests[requests.length - 1].createdAt : null);
 
     const steps: ActivationStep[] = [
       {
@@ -178,8 +180,8 @@ export class ActivationService {
         id: "onboarding",
         label: "Contexto concluído",
         description: "Objetivos, canais, oferta, provas e rotina foram organizados.",
-        completed: Boolean(firstEvent("onboarding_completed")),
-        completedAt: firstEvent("onboarding_completed"),
+        completed: Boolean(onboardingCompletedAt),
+        completedAt: onboardingCompletedAt,
       },
       {
         id: "content",

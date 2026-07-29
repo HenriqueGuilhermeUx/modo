@@ -169,6 +169,7 @@ export async function createApp(options: CreateAppOptions) {
     return reply
       .header("content-type", asset.mimeType)
       .header("cache-control", "public, max-age=31536000, immutable")
+      .header("cross-origin-resource-policy", "cross-origin")
       .send(asset.data);
   });
   await registerCreativeIntelligenceRoutes(app, {
@@ -195,7 +196,7 @@ export async function createApp(options: CreateAppOptions) {
   app.get("/health", async () => ({
     status: "ok",
     service: "modo-api",
-    version: "0.14.0",
+    version: "0.14.1",
     buildCommit: (process.env.RENDER_GIT_COMMIT || "local").slice(0, 12),
     gitBranch: process.env.RENDER_GIT_BRANCH || "local",
     billingStorage: billing.storage,

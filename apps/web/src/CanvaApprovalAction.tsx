@@ -15,23 +15,65 @@ export default function CanvaApprovalAction({ contentRequestId }: { contentReque
   const [working, setWorking] = useState(false);
   const [error, setError] = useState("");
 
+  async function createDesign() {
+    setWorking(true);
+    setError("");
+    try {
+      const result = await createCanvaDesign(contentRequestId);
+      setDesign(result.design);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Não foi possível criar a versão no Canva.");
+    } finally {
+      setWorking(false);
+    }
+  }
+
   useEffect(() => {
     let active = true;
-    const query = new URLSearchParams(window.location.search);
-    const callbackMessage = query.get("canvaMessage");
-    if (query.get("canva") === "error" && callbackMessage) setError(callbackMessage);
-    Promise.all([getCanvaStatus(), getCanvaDesign(contentRequestId)])
-      .then(([nextStatus, nextDesign]) => {
+
+    async function prepare() {
+      const query = new URLSearchParams(window.location.search);
+      const callbackMessage = query.get("canvaMessage");
+      if (query.get("canva") === "error" && callbackMessage) setError(callbackMessage);
+
+      try {
+        const [nextStatus, nextDesign] = await Promise.all([
+          getCanvaStatus(),
+          getCanvaDesign(contentRequestId),
+        ]);
         if (!active) return;
         setStatus(nextStatus);
         setDesign(nextDesign.design);
-      })
-      .catch((caught) => {
+
+        if (nextStatus.connected && !nextDesign.design) {
+          setWorking(true);
+          setError("");
+          try {
+            const result = await createCanvaDesign(contentRequestId);
+            if (active) setDesign(result.design);
+          } catch (caught) {
+            if (active) {
+              setError(caught instanceof Error ? caught.message : "Não foi possível criar a versão no Canva.");
+            }
+          } finally {
+            if (active) setWorking(false);
+          }
+        }
+      } catch (caught) {
         if (active) setError(caught instanceof Error ? caught.message : "Não foi possível carregar o Canva.");
-      })
-      .finally(() => {
+      } finally {
         if (active) setLoading(false);
-      });
+      }
+
+      if (query.has("canva") || query.has("canvaMessage")) {
+        query.delete("canva");
+        query.delete("canvaMessage");
+        const next = query.toString();
+        window.history.replaceState({}, "", window.location.pathname + (next ? "?" + next : ""));
+      }
+    }
+
+    void prepare();
     return () => { active = false; };
   }, [contentRequestId]);
 
@@ -43,19 +85,6 @@ export default function CanvaApprovalAction({ contentRequestId }: { contentReque
       window.location.assign(result.authorizationUrl);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Não foi possível conectar o Canva.");
-      setWorking(false);
-    }
-  }
-
-  async function handleCreate() {
-    setWorking(true);
-    setError("");
-    try {
-      const result = await createCanvaDesign(contentRequestId);
-      setDesign(result.design);
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Não foi possível criar a versão no Canva.");
-    } finally {
       setWorking(false);
     }
   }
@@ -76,20 +105,20 @@ export default function CanvaApprovalAction({ contentRequestId }: { contentReque
     <section className="canva-approval-action">
       <div className="canva-approval-copy">
         <small>ETAPA PÓS-APROVAÇÃO</small>
-        <strong>{design ? "Versão criada no Canva" : status.connected ? "Criar versão editável no Canva" : "Conectar o Canva"}</strong>
-        <p>{design ? "Este pedido já possui um design Canva vinculado. O mesmo link será reutilizado para evitar duplicações." : status.message}</p>
+        <strong>{design ? "Versão criada no Canva" : status.connected ? working ? "Criando a versão no Canva..." : "Preparar versão editável" : "Conectar o Canva"}</strong>
+        <p>{design ? "O design aprovado está vinculado a este pedido e pode ser aberto para acabamento." : status.connected ? working ? "A aprovação foi concluída. A MODO está enviando a imagem aprovada e criando o design automaticamente." : "A conta está conectada. A criação pode ser repetida sem duplicar o design." : status.message}</p>
         {error && <div className="portal-error">{error}</div>}
       </div>
       <div className="canva-approval-actions">
         {design ? (
           <a className="button button-primary" href={design.editUrl} target="_blank" rel="noreferrer">Abrir no Canva ↗</a>
         ) : status.connected ? (
-          <button className="button button-primary" type="button" disabled={working} onClick={() => void handleCreate()}>{working ? "Enviando imagem aprovada..." : "Criar versão no Canva"}</button>
+          <button className="button button-primary" type="button" disabled={working} onClick={() => void createDesign()}>{working ? "Criando no Canva..." : error ? "Tentar novamente" : "Criar agora"}</button>
         ) : (
           <button className="button button-primary" type="button" disabled={working} onClick={() => void handleConnect()}>{working ? "Abrindo autorização..." : "Conectar Canva"}</button>
         )}
       </div>
-      <p className="canva-governance-note">A MODO envia apenas a imagem e o conteúdo que já passaram pela sua aprovação. Nenhuma publicação é realizada automaticamente.</p>
+      <p className="canva-governance-note">Somente a versão aprovada é enviada. O Canva é usado para acabamento e edição; nenhuma publicação ou campanha é ativada automaticamente.</p>
     </section>
   );
 }

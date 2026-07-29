@@ -7,6 +7,12 @@ on:
     paths:
       - scripts/apply-embedded-assets-canva-fix.mjs
       - .github/workflows/apply-embedded-assets-canva-fix.yml
+  pull_request:
+    branches:
+      - main
+    paths:
+      - scripts/apply-embedded-assets-canva-fix.mjs
+      - .github/workflows/apply-embedded-assets-canva-fix.yml
   workflow_dispatch:
 
 permissions:
@@ -14,6 +20,7 @@ permissions:
 
 jobs:
   apply:
+    if: github.event_name != 'push' || github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

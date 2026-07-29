@@ -29,6 +29,7 @@ import "./campaign.css";
 import "./activation.css";
 import "./strategy-network.css";
 import "./visual-composer.css";
+import "./human-operations-admin.css";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

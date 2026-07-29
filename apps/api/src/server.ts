@@ -2,6 +2,7 @@ import { createApp } from "./app.js";
 import { config } from "./config.js";
 import { DemoDiagnosticProvider } from "./providers/demo-diagnostic-provider.js";
 import { N8nDiagnosticProvider } from "./providers/n8n-diagnostic-provider.js";
+import { registerHumanOperationsRoutes } from "./routes/human-operations-routes.js";
 import { registerStrategyNetworkRoutes } from "./routes/strategy-network-routes.js";
 
 function createProvider() {
@@ -40,6 +41,11 @@ const app = await createApp({
 });
 
 await registerStrategyNetworkRoutes(app, {
+  databaseUrl: config.DATABASE_URL,
+  databaseSsl: config.DATABASE_SSL,
+});
+
+await registerHumanOperationsRoutes(app, {
   databaseUrl: config.DATABASE_URL,
   databaseSsl: config.DATABASE_SSL,
 });

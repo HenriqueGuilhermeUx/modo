@@ -29,6 +29,15 @@ function dimensions(contentType: string) {
   return { width: 1080, height: 1350 };
 }
 
+function publicTokenFromUrl(value: string | null | undefined) {
+  if (!value) return "";
+  try {
+    return new URL(value).pathname.split("/").filter(Boolean).at(-1) || "";
+  } catch {
+    return "";
+  }
+}
+
 export async function registerCanvaRoutes(app: FastifyInstance, options: Options) {
   await app.register(async (scope) => {
     scope.setErrorHandler((error, _request, reply) => {
@@ -116,7 +125,12 @@ export async function registerCanvaRoutes(app: FastifyInstance, options: Options
             "A imagem precisa estar concluída antes de criar a versão no Canva.",
           );
         }
-        const asset = await options.assets.getLatestForRequest(context.organization.id, id);
+        const primaryToken = publicTokenFromUrl(content.output.imageUrl);
+        const asset = (
+          primaryToken
+            ? await options.assets.getForRequestByToken(context.organization.id, id, primaryToken)
+            : null
+        ) || await options.assets.getLatestForRequest(context.organization.id, id);
         if (!asset) {
           throw new CanvaError(
             "CONTENT_ASSET_NOT_FOUND",

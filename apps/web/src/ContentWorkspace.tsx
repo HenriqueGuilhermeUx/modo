@@ -6,7 +6,6 @@ import {
 import {
   type ContentObjective,
   type ContentRequest,
-  type GeneratedContent,
 } from "@modo/contracts/content";
 import { type FormEvent, useEffect, useMemo, useState } from "react";
 import {
@@ -18,9 +17,10 @@ import {
   requestContentRevision,
   retryContentRequest,
 } from "./api";
-import CanvaApprovalAction from "./CanvaApprovalAction";
+import ContentDeliveryPanel from "./ContentDeliveryPanel";
 import CreativeDirector from "./CreativeDirector";
 import { recordCreativeFeedback } from "./director-api";
+import PostApprovalActions from "./PostApprovalActions";
 import ProductionProgress from "./ProductionProgress";
 import QuickStart from "./QuickStart";
 
@@ -59,71 +59,26 @@ type DirectorPrefill = {
   recommendationId?: string;
 };
 
-function OutputPanel({ output }: { output: GeneratedContent }) {
-  return (
-    <div className="content-output">
-      {output.imageUrl ? (
-        <section className="content-generated-asset">
-          <div className="content-generated-asset-heading">
-            <div><small>CRIATIVO GERADO</small><strong>Imagem contextual pronta</strong></div>
-            <span>IA + contexto da marca</span>
-          </div>
-          <img src={output.imageUrl} alt={output.imageAlt || output.title} loading="lazy" crossOrigin="anonymous" />
-          <div className="content-generated-asset-footer">
-            <p>{output.imageAlt || "Imagem produzida a partir do briefing e da direção visual."}</p>
-            <a className="button button-outline" href={output.imageUrl} target="_blank" rel="noreferrer">Abrir imagem original</a>
-          </div>
-        </section>
-      ) : (
-        <section className={`content-image-state ${output.imageStatus}`}>
-          <small>CRIATIVO VISUAL</small>
-          <strong>{output.imageStatus === "failed" ? "A copy está pronta, mas a imagem não foi concluída" : output.imageStatus === "fallback" ? "Peça pronta com composição segura da MODO" : "Imagem ainda não gerada"}</strong>
-          <p>{output.imageStatus === "failed" ? "Abra o Studio para manter a copy e solicitar uma nova imagem sem perder o trabalho." : "A direção visual abaixo orienta a composição final no Studio."}</p>
-        </section>
-      )}
-      <section className="content-output-lead"><small>GANCHO</small><h3>{output.hook}</h3></section>
-      <section><small>TÍTULO</small><p>{output.title}</p></section>
-      <section><small>LEGENDA</small><p className="content-caption">{output.caption}</p></section>
-      <section><small>CHAMADA PARA AÇÃO</small><p>{output.cta}</p></section>
-      <section><small>DIREÇÃO VISUAL</small><p>{output.visualDirection}</p></section>
+type HistoryFilter = "recent" | "approved" | "failed" | "all";
 
-      {output.slides.length > 0 && (
-        <section className="content-structured-block">
-          <small>CARROSSEL</small>
-          <div className="content-slide-list">
-            {output.slides.map((slide, index) => (
-              <article key={`${slide.title}-${index}`}><span>{String(index + 1).padStart(2, "0")}</span><div><strong>{slide.title}</strong><p>{slide.body}</p></div></article>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {output.script.length > 0 && (
-        <section className="content-structured-block">
-          <small>ROTEIRO</small>
-          <div className="content-slide-list">
-            {output.script.map((scene, index) => (
-              <article key={`${scene.scene}-${index}`}><span>{String(index + 1).padStart(2, "0")}</span><div><strong>{scene.scene}</strong><p><b>Visual:</b> {scene.visual}</p><p><b>Locução:</b> {scene.voiceover}</p></div></article>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {output.storyFrames.length > 0 && (
-        <section className="content-structured-block">
-          <small>SEQUÊNCIA DE STORIES</small>
-          <div className="content-slide-list">
-            {output.storyFrames.map((frame, index) => (
-              <article key={`${frame.headline}-${index}`}><span>{String(index + 1).padStart(2, "0")}</span><div><strong>{frame.headline}</strong><p>{frame.body}</p>{frame.interaction && <p><b>Interação:</b> {frame.interaction}</p>}</div></article>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {output.adaptationNotes.length > 0 && <section><small>NOTAS DE ADAPTAÇÃO</small><ul>{output.adaptationNotes.map((note) => <li key={note}>{note}</li>)}</ul></section>}
-      <div className="content-hashtags">{output.hashtags.map((tag) => <span key={tag}>{tag}</span>)}</div>
-    </div>
-  );
+function derivativeBrief(source: ContentRequest, target: ContentUnitType) {
+  const output = source.output;
+  if (!output) return source.brief;
+  const instruction = target === "carousel"
+    ? "Crie um carrossel completo de 5 a 7 slides, com uma arte visual individual e consistente para cada slide."
+    : target === "story"
+      ? "Crie uma sequência de exatamente 3 Stories, com uma arte visual vertical individual e consistente para cada frame."
+      : "Adapte a peça para um novo contexto de canal, preservando fatos, oferta, público e posicionamento.";
+  return [
+    "DESDOBRAMENTO DE CONTEÚDO JÁ APROVADO PELO CLIENTE.",
+    instruction,
+    `Marca e oferta: ${source.brief}`,
+    `Gancho aprovado: ${output.hook}`,
+    `Título aprovado: ${output.title}`,
+    `Mensagem aprovada: ${output.caption}`,
+    `CTA aprovado: ${output.cta}`,
+    "Não invente novas provas, números, condições ou promessas. Preserve o contexto e crie uma nova entrega pronta para revisão.",
+  ].join("\n\n").slice(0, 2000);
 }
 
 export default function ContentWorkspace() {
@@ -132,6 +87,7 @@ export default function ContentWorkspace() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [actionId, setActionId] = useState("");
+  const [derivativeAction, setDerivativeAction] = useState<{ requestId: string; target: ContentUnitType } | null>(null);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [brandId, setBrandId] = useState("");
@@ -144,6 +100,7 @@ export default function ContentWorkspace() {
   const [revisionInstructions, setRevisionInstructions] = useState("");
   const [prefilledFromDirector, setPrefilledFromDirector] = useState(false);
   const [sourceRecommendationId, setSourceRecommendationId] = useState("");
+  const [historyFilter, setHistoryFilter] = useState<HistoryFilter>("recent");
 
   async function load(showSpinner = true) {
     if (showSpinner) setLoading(true);
@@ -194,7 +151,7 @@ export default function ContentWorkspace() {
   useEffect(() => {
     const hasActiveWork = requests.some((request) => ["queued", "processing", "revision_requested"].includes(request.status));
     if (!hasActiveWork) return;
-    const timer = window.setInterval(() => void load(false), 2000);
+    const timer = window.setInterval(() => void load(false), 2500);
     return () => window.clearInterval(timer);
   }, [requests]);
 
@@ -202,6 +159,12 @@ export default function ContentWorkspace() {
   const productionAllowed = Boolean(dashboard && ["active", "retrying"].includes(dashboard.usage.status));
   const canSubmit = Boolean(dashboard && productionAllowed && brandId && brief.trim().length >= 10 && dashboard.usage.creditsRemaining >= cost);
   const selectedBrand = useMemo(() => dashboard?.brands.find((brand) => brand.id === brandId), [dashboard, brandId]);
+  const visibleRequests = useMemo(() => requests.filter((request) => {
+    if (historyFilter === "all") return true;
+    if (historyFilter === "approved") return request.status === "approved";
+    if (historyFilter === "failed") return ["failed", "cancelled"].includes(request.status);
+    return !["failed", "cancelled"].includes(request.status);
+  }), [requests, historyFilter]);
 
   function replaceRequest(next: ContentRequest) {
     setRequests((current) => current.map((item) => item.id === next.id ? next : item));
@@ -218,6 +181,7 @@ export default function ContentWorkspace() {
       setRequests((current) => [result.request, ...current]);
       setDashboard((current) => current ? { ...current, usage: result.usage } : current);
       setExpandedId(result.request.id);
+      setHistoryFilter("recent");
       if (sourceRecommendationId) {
         await recordCreativeFeedback(brandId, {
           recommendationId: sourceRecommendationId,
@@ -239,16 +203,51 @@ export default function ContentWorkspace() {
     setActionId(request.id);
     setError("");
     try {
-      replaceRequest(await approveContentRequest(request.id));
+      const approved = await approveContentRequest(request.id);
+      replaceRequest(approved);
+      setExpandedId(request.id);
       await recordCreativeFeedback(request.brandId, {
         contentRequestId: request.id,
         signal: "approved",
       }).catch(() => undefined);
-      setSuccess("Conteúdo aprovado. A etapa Canva foi liberada abaixo e será preparada automaticamente quando a conta estiver conectada.");
+      setSuccess("Conteúdo aprovado. Escolha abaixo entre Studio, Canva ou novos desdobramentos visuais.");
+      window.setTimeout(() => {
+        document.getElementById(`post-approval-${request.id}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 120);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Não foi possível aprovar.");
     } finally {
       setActionId("");
+    }
+  }
+
+  async function handleGenerateDerivative(source: ContentRequest, target: ContentUnitType) {
+    if (!dashboard || !source.output || source.status !== "approved") return;
+    const derivativeCost = contentCreditCost[target];
+    if (dashboard.usage.creditsRemaining < derivativeCost) {
+      setError("Saldo insuficiente para gerar este desdobramento.");
+      return;
+    }
+    setDerivativeAction({ requestId: source.id, target });
+    setError("");
+    setSuccess("");
+    try {
+      const result = await createContentRequest({
+        brandId: source.brandId,
+        contentType: target,
+        objective: source.objective,
+        channel: source.channel,
+        brief: derivativeBrief(source, target),
+      });
+      setRequests((current) => [result.request, ...current]);
+      setDashboard((current) => current ? { ...current, usage: result.usage } : current);
+      setExpandedId(result.request.id);
+      setHistoryFilter("recent");
+      setSuccess(`${formatLabels[target]} solicitado. A MODO está produzindo a estrutura e os visuais individuais.`);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Não foi possível gerar o desdobramento.");
+    } finally {
+      setDerivativeAction(null);
     }
   }
 
@@ -279,6 +278,7 @@ export default function ContentWorkspace() {
     try {
       replaceRequest(await retryContentRequest(id));
       setExpandedId(id);
+      setHistoryFilter("recent");
       setSuccess("Pedido reenviado sem novo consumo de créditos.");
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Não foi possível reenviar.");
@@ -300,7 +300,7 @@ export default function ContentWorkspace() {
 
       <main className="workspace-main">
         <section className="workspace-intro">
-          <div><div className="section-kicker">MODO CREATE</div><h1>Seu Diretor de Criação, dentro da plataforma.</h1><p>Escolha o que o conteúdo precisa fazer. A MODO define o ângulo, estrutura a mensagem, produz e entrega para sua aprovação.</p></div>
+          <div><div className="section-kicker">MODO CREATE</div><h1>Seu Diretor de Criação, dentro da plataforma.</h1><p>Escolha o que o conteúdo precisa fazer. A MODO define o ângulo, produz o formato escolhido e entrega para sua aprovação.</p></div>
           <a className="button button-outline" href="/app/director">← Ver plano criativo</a>
         </section>
 
@@ -349,15 +349,27 @@ export default function ContentWorkspace() {
           </form>
 
           <section className="workspace-history">
-            <div className="workspace-history-heading"><div><small>HISTÓRICO</small><h2>Produção solicitada</h2></div><span>{requests.length} pedido(s)</span></div>
-            {requests.length === 0 ? (
-              <div className="workspace-empty-history"><strong>A fila ainda está vazia.</strong><p>Escolha uma intenção no Diretor de Criação para iniciar.</p></div>
+            <div className="workspace-history-heading"><div><small>PRODUÇÃO</small><h2>Seus pedidos</h2></div><span>{requests.length} no histórico</span></div>
+            <div className="history-filters" role="tablist" aria-label="Filtrar histórico">
+              {([
+                ["recent", "Recentes"],
+                ["approved", "Aprovados"],
+                ["failed", "Falhas anteriores"],
+                ["all", "Todos"],
+              ] as Array<[HistoryFilter, string]>).map(([value, label]) => (
+                <button key={value} type="button" className={historyFilter === value ? "active" : ""} onClick={() => setHistoryFilter(value)}>{label}</button>
+              ))}
+            </div>
+
+            {visibleRequests.length === 0 ? (
+              <div className="workspace-empty-history"><strong>Nenhum pedido neste filtro.</strong><p>Altere o filtro ou crie uma nova peça.</p></div>
             ) : (
               <div className="workspace-request-list">
-                {requests.map((request) => {
+                {visibleRequests.map((request) => {
                   const brand = dashboard.brands.find((item) => item.id === request.brandId);
                   const expanded = expandedId === request.id;
                   const canRevise = request.status === "ready" && request.revisionCount < request.maxRevisions;
+                  const workingTarget = derivativeAction?.requestId === request.id ? derivativeAction.target : "";
                   return (
                     <article className={`workspace-request-card ${expanded ? "expanded" : ""}`} key={request.id}>
                       <button className="workspace-request-summary" type="button" onClick={() => setExpandedId(expanded ? "" : request.id)}>
@@ -365,17 +377,17 @@ export default function ContentWorkspace() {
                         <h3>{formatLabels[request.contentType]} · {objectiveLabels[request.objective]}</h3>
                         <p>{request.brief.split("\n")[0]}</p>
                         <div><span>{brand?.name || "Marca"}</span><span>{request.channel}</span><span>-{request.creditsCharged} crédito{request.creditsCharged > 1 ? "s" : ""}</span></div>
-                        <small>{expanded ? "Fechar detalhes ↑" : "Ver detalhes ↓"}</small>
+                        <small>{expanded ? "Fechar detalhes ↑" : "Ver entrega ↓"}</small>
                       </button>
 
                       {expanded && (
                         <div className="workspace-request-detail">
-                          {request.output && <><OutputPanel output={request.output} /><div className="studio-entry"><div><strong>Quer ajustar e exportar?</strong><p>Abra o Studio para editar, salvar, copiar, baixar texto, PDF ou imagens PNG.</p></div><a className="button button-outline" href={`/app/studio/${request.id}`}>Abrir no Studio</a></div></>}
+                          {request.output && <ContentDeliveryPanel request={request} />}
                           {["queued", "processing", "revision_requested"].includes(request.status) && <ProductionProgress request={request} />}
                           {request.status === "failed" && <div className="content-failed"><strong>A produção encontrou um problema.</strong><p>{request.error}</p><button type="button" className="button button-primary" disabled={actionId === request.id} onClick={() => void handleRetry(request.id)}>Reenviar sem cobrar créditos</button></div>}
-                          {request.status === "ready" && <div className="content-review-actions"><div><strong>{request.revisionCount}/{request.maxRevisions}</strong><span>revisões utilizadas</span></div><button type="button" className="button button-primary" disabled={actionId === request.id} onClick={() => void handleApprove(request)}>Aprovar conteúdo</button>{canRevise && <button type="button" className="button button-secondary" onClick={() => setRevisionId(revisionId === request.id ? "" : request.id)}>Solicitar revisão</button>}</div>}
-                          {revisionId === request.id && canRevise && <div className="content-revision-form"><label>O que precisa mudar?<div className="revision-shortcuts">{["Deixe mais direto", "Deixe mais humano", "Reduza o tom de venda", "Crie outra abertura", "Encurte o texto", "Use uma prova mais forte"].map((item) => <button type="button" key={item} onClick={() => setRevisionInstructions((current) => current ? `${current}; ${item}` : item)}>{item}</button>)}</div><textarea value={revisionInstructions} onChange={(event) => setRevisionInstructions(event.target.value)} minLength={5} maxLength={1500} placeholder="Ex.: deixe o tom mais direto, reduza a legenda e destaque o benefício financeiro no segundo slide." /></label><div><button type="button" className="button button-secondary" onClick={() => setRevisionId("")}>Cancelar</button><button type="button" className="button button-primary" disabled={revisionInstructions.trim().length < 5 || actionId === request.id} onClick={() => void handleRevision(request)}>Enviar revisão</button></div></div>}
-                          {request.status === "approved" && <><div className="content-approved"><strong>✓ Conteúdo aprovado</strong><p>Esta versão está pronta para a etapa de acabamento e publicação.</p></div><CanvaApprovalAction contentRequestId={request.id} /></>}
+                          {request.status === "ready" && <div className="content-review-actions"><div><strong>{request.revisionCount}/{request.maxRevisions}</strong><span>revisões utilizadas</span></div><button type="button" className="button button-primary" disabled={actionId === request.id} onClick={() => void handleApprove(request)}>{actionId === request.id ? "Aprovando..." : "Aprovar e continuar"}</button>{canRevise && <button type="button" className="button button-secondary" onClick={() => setRevisionId(revisionId === request.id ? "" : request.id)}>Solicitar revisão</button>}</div>}
+                          {revisionId === request.id && canRevise && <div className="content-revision-form"><label>O que precisa mudar?<div className="revision-shortcuts">{["Deixe mais direto", "Deixe mais humano", "Reduza o tom de venda", "Crie outra abertura", "Encurte o texto", "Use uma prova mais forte"].map((item) => <button type="button" key={item} onClick={() => setRevisionInstructions((current) => current ? `${current}; ${item}` : item)}>{item}</button>)}</div><textarea value={revisionInstructions} onChange={(event) => setRevisionInstructions(event.target.value)} minLength={5} maxLength={1500} placeholder="Ex.: deixe o tom mais direto, reduza a legenda e destaque o benefício principal." /></label><div><button type="button" className="button button-secondary" onClick={() => setRevisionId("")}>Cancelar</button><button type="button" className="button button-primary" disabled={revisionInstructions.trim().length < 5 || actionId === request.id} onClick={() => void handleRevision(request)}>Enviar revisão</button></div></div>}
+                          {request.status === "approved" && <PostApprovalActions request={request} creditsRemaining={dashboard.usage.creditsRemaining} workingTarget={workingTarget} onGenerate={(target) => void handleGenerateDerivative(request, target)} />}
                         </div>
                       )}
                     </article>

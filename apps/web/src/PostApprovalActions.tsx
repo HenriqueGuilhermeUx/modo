@@ -56,6 +56,14 @@ export default function PostApprovalActions({
         <article className="post-approval-card canva-card">
           <CanvaApprovalAction contentRequestId={request.id} />
         </article>
+
+        <article className="post-approval-card expert-card">
+          <small>SEGUNDA CAMADA</small>
+          <strong>Revisar com um especialista</strong>
+          <p>Peça avaliação humana de estratégia, criação, design, vídeo ou mídia paga antes de publicar ou investir.</p>
+          <a className="button button-outline" href={`/app/especialista?content=${request.id}`}>Solicitar avaliação humana</a>
+          <em>Sem cobrança ou contratação automática.</em>
+        </article>
       </div>
 
       {available.length > 0 && (

@@ -2,6 +2,7 @@ import { createApp } from "./app.js";
 import { config } from "./config.js";
 import { DemoDiagnosticProvider } from "./providers/demo-diagnostic-provider.js";
 import { N8nDiagnosticProvider } from "./providers/n8n-diagnostic-provider.js";
+import { registerStrategyNetworkRoutes } from "./routes/strategy-network-routes.js";
 
 function createProvider() {
   if (config.DIAGNOSTIC_PROVIDER === "n8n") {
@@ -36,6 +37,11 @@ const app = await createApp({
   canvaEncryptionSecret: config.CANVA_TOKEN_ENCRYPTION_SECRET,
   canvaScopes: config.CANVA_SCOPES,
   publicWebUrl: config.PUBLIC_WEB_URL,
+});
+
+await registerStrategyNetworkRoutes(app, {
+  databaseUrl: config.DATABASE_URL,
+  databaseSsl: config.DATABASE_SSL,
 });
 
 try {

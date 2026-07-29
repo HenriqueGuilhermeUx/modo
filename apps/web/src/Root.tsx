@@ -14,6 +14,9 @@ import SignalWorkspace from "./SignalWorkspace";
 import SmartBotsAdminWorkspace from "./SmartBotsAdminWorkspace";
 import SmartBotsOnboarding from "./SmartBotsOnboarding";
 import SmartBotsPage from "./SmartBotsPage";
+import SpecialistApplicationPage from "./SpecialistApplicationPage";
+import SpecialistSupportWorkspace from "./SpecialistSupportWorkspace";
+import StrategyWorkspace from "./StrategyWorkspace";
 import StudioWorkspace from "./StudioWorkspace";
 import WeekWorkspace from "./WeekWorkspace";
 
@@ -21,6 +24,7 @@ export default function Root() {
   const path = window.location.pathname;
   if (path === "/smartbots.html" || path === "/smartbots") return <SmartBotsPage />;
   if (path === "/onboarding-smartbots.html" || path === "/app/smartbots") return <SmartBotsOnboarding />;
+  if (path === "/especialistas" || path === "/rede-modo") return <SpecialistApplicationPage />;
   if (path === "/admin/smartbots") return <SmartBotsAdminWorkspace />;
   if (path.startsWith("/admin")) {
     return (
@@ -33,6 +37,8 @@ export default function Root() {
   if (path.startsWith("/convite/")) return <InvitationWorkspace />;
   if (path.startsWith("/app/onboarding")) return <OnboardingWorkspace />;
   if (path.startsWith("/app/studio/")) return <StudioWorkspace />;
+  if (path.startsWith("/app/base")) return <StrategyWorkspace />;
+  if (path.startsWith("/app/especialista")) return <SpecialistSupportWorkspace />;
   if (path.startsWith("/app/week")) return <WeekWorkspace />;
   if (path.startsWith("/app/planos")) return <BillingWorkspace />;
   if (path.startsWith("/app/director")) return <DirectorWorkspace />;
@@ -48,6 +54,7 @@ export default function Root() {
         <PortalWelcomeGuide />
         <div className="portal-floating-actions">
           <a className="portal-plan-entry" href="/app/onboarding">Primeiros passos</a>
+          <a className="portal-plan-entry" href="/app/base">Base estratégica</a>
           <a className="portal-plan-entry" href="/app/week">Minha semana</a>
           <a className="portal-plan-entry" href="/app/director">Diretor</a>
           <a className="portal-plan-entry" href="/app/campanhas">Campanhas</a>
@@ -55,6 +62,7 @@ export default function Root() {
           <a className="portal-plan-entry" href="/app/inteligencia">Inteligência</a>
           <a className="portal-plan-entry" href="/onboarding-smartbots.html">SmartBots</a>
           <a className="portal-plan-entry" href="/app/signal">Signal</a>
+          <a className="portal-plan-entry" href="/app/especialista">Apoio humano</a>
           <a className="portal-workspace-entry" href="/app/content">Quick Start e criar ↗</a>
         </div>
       </>

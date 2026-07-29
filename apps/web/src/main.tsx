@@ -27,6 +27,7 @@ import "./fishing-landing.css";
 import "./smartbots.css";
 import "./campaign.css";
 import "./activation.css";
+import "./strategy-network.css";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

@@ -1,3 +1,8 @@
+import type {
+  BrandFoundation,
+  ChannelPlanItem,
+  RevenueMapUpsert,
+} from "@modo/contracts/strategy-network";
 import pg, { type Pool } from "pg";
 
 const { Pool: PgPool } = pg;
@@ -33,6 +38,9 @@ export interface CreativeGenerationContext {
     preferredChannels: string[];
     notes: string;
   } | null;
+  foundation: BrandFoundation | null;
+  channelMap: ChannelPlanItem[];
+  revenueMap: RevenueMapUpsert | null;
   performance: {
     channel: string;
     averageScore: number;
@@ -48,12 +56,21 @@ export interface CreativeGenerationContext {
   }[];
 }
 
+const emptyContext = (): CreativeGenerationContext => ({
+  memory: null,
+  foundation: null,
+  channelMap: [],
+  revenueMap: null,
+  performance: [],
+  recentLearning: [],
+});
+
 export async function loadCreativeGenerationContext(
   accountId: string,
   brandId: string,
 ): Promise<CreativeGenerationContext> {
   const database = getPool();
-  if (!database) return { memory: null, performance: [], recentLearning: [] };
+  if (!database) return emptyContext();
 
   try {
     const [profileResult, performanceResult, learningResult] = await Promise.all([
@@ -113,6 +130,34 @@ export async function loadCreativeGenerationContext(
       ),
     ]);
 
+    let foundation: BrandFoundation | null = null;
+    let channelMap: ChannelPlanItem[] = [];
+    let revenueMap: RevenueMapUpsert | null = null;
+    try {
+      const [foundationResult, channelResult, revenueResult] = await Promise.all([
+        database.query<{ foundation: BrandFoundation }>(
+          `SELECT foundation FROM modo_brand_foundations
+           WHERE organization_id=$1 AND brand_id=$2 LIMIT 1`,
+          [accountId, brandId],
+        ),
+        database.query<{ channels: ChannelPlanItem[] }>(
+          `SELECT channels FROM modo_channel_maps
+           WHERE organization_id=$1 AND brand_id=$2 LIMIT 1`,
+          [accountId, brandId],
+        ),
+        database.query<{ payload: RevenueMapUpsert }>(
+          `SELECT payload FROM modo_revenue_maps
+           WHERE organization_id=$1 AND brand_id=$2 LIMIT 1`,
+          [accountId, brandId],
+        ),
+      ]);
+      foundation = foundationResult.rows[0]?.foundation || null;
+      channelMap = channelResult.rows[0]?.channels || [];
+      revenueMap = revenueResult.rows[0]?.payload || null;
+    } catch {
+      // Contas e ambientes anteriores continuam gerando mesmo antes das novas tabelas existirem.
+    }
+
     const row = profileResult.rows[0];
     return {
       memory: row
@@ -130,6 +175,9 @@ export async function loadCreativeGenerationContext(
             notes: row.notes,
           }
         : null,
+      foundation,
+      channelMap,
+      revenueMap,
       performance: performanceResult.rows.map((item) => ({
         channel: item.channel,
         averageScore: Number(item.average_score),
@@ -145,12 +193,54 @@ export async function loadCreativeGenerationContext(
       })),
     };
   } catch {
-    return { memory: null, performance: [], recentLearning: [] };
+    return emptyContext();
   }
 }
 
-export function formatCreativeContext(context: CreativeGenerationContext) {
+export function formatCreativeContext(context: CreativeGenerationContext, requestedChannel?: string) {
   const lines: string[] = [];
+  if (context.foundation) {
+    const base = context.foundation;
+    if (base.audience.priority) lines.push(`PÚBLICO PRIORITÁRIO: ${base.audience.priority}`);
+    if (base.audience.pains.length) lines.push(`DORES: ${base.audience.pains.join("; ")}`);
+    if (base.audience.desires.length) lines.push(`DESEJOS: ${base.audience.desires.join("; ")}`);
+    if (base.audience.objections.length) lines.push(`OBJEÇÕES: ${base.audience.objections.join("; ")}`);
+    if (base.worldview.belief) lines.push(`CRENÇA DA MARCA: ${base.worldview.belief}`);
+    if (base.worldview.marketProblem) lines.push(`PROBLEMA PERCEBIDO NO MERCADO: ${base.worldview.marketProblem}`);
+    if (base.positioning.differentiator) lines.push(`DIFERENCIAL: ${base.positioning.differentiator}`);
+    if (base.positioning.forWhom) lines.push(`PARA QUEM É: ${base.positioning.forWhom}`);
+    if (base.positioning.notForWhom) lines.push(`PARA QUEM NÃO É: ${base.positioning.notForWhom}`);
+    if (base.promise.transformation) lines.push(`TRANSFORMAÇÃO: ${base.promise.transformation}`);
+    if (base.promise.mainBenefit) lines.push(`BENEFÍCIO PRINCIPAL: ${base.promise.mainBenefit}`);
+    if (base.promise.boundaries) lines.push(`LIMITES DA PROMESSA: ${base.promise.boundaries}`);
+    if (base.personality.tone) lines.push(`TOM DE VOZ: ${base.personality.tone}`);
+    if (base.personality.attributes.length) lines.push(`PERSONALIDADE: ${base.personality.attributes.join("; ")}`);
+    if (base.personality.visualStyle) lines.push(`ESTILO VISUAL: ${base.personality.visualStyle}`);
+    if (base.proof.cases.length) lines.push(`CASOS E PROVAS DISPONÍVEIS: ${base.proof.cases.join("; ")}`);
+    if (base.proof.numbers.length) lines.push(`NÚMEROS AUTORIZADOS: ${base.proof.numbers.join("; ")}`);
+    if (base.humanPresence.spokespersons.length) lines.push(`PORTA-VOZES: ${base.humanPresence.spokespersons.join("; ")}`);
+    lines.push(`DISPONIBILIDADE PARA APARECER: ${base.humanPresence.cameraAvailability}`);
+  }
+  const channel = context.channelMap.find((item) =>
+    requestedChannel ? item.channel.toLowerCase() === requestedChannel.toLowerCase() : false,
+  );
+  if (channel) {
+    if (channel.role) lines.push(`FUNÇÃO DE ${channel.channel.toUpperCase()}: ${channel.role}`);
+    if (channel.primaryObjective) lines.push(`OBJETIVO DO CANAL: ${channel.primaryObjective}`);
+    if (channel.contentPillars.length) lines.push(`PILARES DO CANAL: ${channel.contentPillars.join("; ")}`);
+    if (channel.ctaTypes.length) lines.push(`CTAS ADEQUADOS AO CANAL: ${channel.ctaTypes.join("; ")}`);
+    if (channel.primaryKpi) lines.push(`INDICADOR PRINCIPAL DO CANAL: ${channel.primaryKpi}`);
+  }
+  if (context.revenueMap) {
+    const revenue = context.revenueMap;
+    if (revenue.primaryOffer) lines.push(`OFERTA PRIORITÁRIA: ${revenue.primaryOffer}`);
+    if (revenue.priceContext) lines.push(`CONTEXTO DE PREÇO: ${revenue.priceContext}`);
+    if (revenue.revenueObjective) lines.push(`OBJETIVO COMERCIAL: ${revenue.revenueObjective}`);
+    if (revenue.targetAudience) lines.push(`PÚBLICO DA OFERTA: ${revenue.targetAudience}`);
+    if (revenue.primaryConversion) lines.push(`CONVERSÃO PRINCIPAL: ${revenue.primaryConversion}`);
+    if (revenue.conversionDestination) lines.push(`DESTINO DA CONVERSÃO: ${revenue.conversionDestination}`);
+    if (revenue.notes) lines.push(`RESTRIÇÕES COMERCIAIS: ${revenue.notes}`);
+  }
   if (context.memory) {
     const memory = context.memory;
     if (memory.currentPriorities.length) lines.push(`PRIORIDADES ATUAIS: ${memory.currentPriorities.join("; ")}`);

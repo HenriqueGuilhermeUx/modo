@@ -106,7 +106,7 @@ export default function CanvaApprovalAction({ contentRequestId }: { contentReque
       <div className="canva-approval-copy">
         <small>ETAPA PÓS-APROVAÇÃO</small>
         <strong>{design ? "Versão criada no Canva" : status.connected ? working ? "Criando a versão no Canva..." : "Preparar versão editável" : "Conectar o Canva"}</strong>
-        <p>{design ? "O design aprovado está vinculado a este pedido e pode ser aberto para acabamento." : status.connected ? working ? "A aprovação foi concluída. A MODO está enviando a imagem aprovada e criando o design automaticamente." : "A conta está conectada. A criação automática pode ser repetida sem duplicar o design." : status.message}</p>
+        <p>{design ? "O design aprovado está vinculado a este pedido e pode ser aberto para acabamento." : status.connected ? working ? "A aprovação foi concluída. A MODO está enviando a imagem aprovada e criando o design automaticamente." : "A conta está conectada. A criação pode ser repetida sem duplicar o design." : status.message}</p>
         {error && <div className="portal-error">{error}</div>}
       </div>
       <div className="canva-approval-actions">

@@ -1,5 +1,6 @@
 import { nicheLabels, type Dashboard, type Niche } from "@modo/contracts";
 import { type FormEvent, useEffect, useState } from "react";
+import ActivationChecklist from "./ActivationChecklist";
 import {
   createBrand,
   getDashboard,
@@ -194,6 +195,8 @@ export default function Portal() {
         </header>
 
         {error && <div className="portal-error portal-error-wide">{error}</div>}
+
+        <ActivationChecklist />
 
         <section className="portal-overview" id="overview">
           <article className="portal-stat portal-stat-primary">

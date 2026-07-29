@@ -2,6 +2,7 @@ import { nicheLabels, type Dashboard, type Niche } from "@modo/contracts";
 import type { CreativeChannel } from "@modo/contracts/creative-intelligence";
 import { type FormEvent, useEffect, useMemo, useState } from "react";
 import { createBrand, getDashboard, getSessionToken } from "./api";
+import { trackActivationEvent } from "./activation-api";
 import { generateCreativePlan, saveCreativeProfile } from "./director-api";
 
 const channelOptions: Array<{ id: CreativeChannel; name: string; copy: string; featured?: boolean }> = [
@@ -61,6 +62,7 @@ export default function OnboardingWorkspace() {
       window.location.href = "/app";
       return;
     }
+    void trackActivationEvent("onboarding_started").catch(() => undefined);
     getDashboard()
       .then((current) => {
         setDashboard(current);
@@ -146,6 +148,12 @@ export default function OnboardingWorkspace() {
         notes,
       });
       await generateCreativePlan(brandId);
+      await trackActivationEvent("onboarding_completed", {
+        brandId,
+        objectives: objectives.length,
+        channels: channels.length,
+        weeklyMinutes,
+      }).catch(() => undefined);
       if (dashboard) {
         window.localStorage.setItem(`modo.onboardingCompleted:${dashboard.organization.id}`, "true");
       }

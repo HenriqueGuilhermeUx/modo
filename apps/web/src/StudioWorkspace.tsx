@@ -1,6 +1,7 @@
 import type { Dashboard } from "@modo/contracts";
 import type { ContentRequest, GeneratedContent } from "@modo/contracts/content";
 import { useEffect, useMemo, useState } from "react";
+import { trackActivationEvent } from "./activation-api";
 import { getContentRequest, getDashboard, getSessionToken } from "./api";
 import { saveStudioOutput } from "./studio-api";
 
@@ -155,6 +156,7 @@ export default function StudioWorkspace() {
         setDashboard(currentDashboard);
         setRequest(currentRequest);
         setOutput(currentRequest.output);
+        void trackActivationEvent("studio_opened", { contentRequestId: id }).catch(() => undefined);
       })
       .catch((caught) => setError(caught instanceof Error ? caught.message : "Não foi possível abrir o Studio."))
       .finally(() => setLoading(false));
@@ -179,6 +181,7 @@ export default function StudioWorkspace() {
       setRequest(updated);
       setOutput(updated.output);
       setSuccess("Versão salva. A edição já faz parte do conteúdo da MODO.");
+      void trackActivationEvent("studio_saved", { contentRequestId: id }).catch(() => undefined);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Não foi possível salvar.");
     } finally {
@@ -227,6 +230,11 @@ export default function StudioWorkspace() {
       await new Promise((resolve) => window.setTimeout(resolve, 180));
     }
     setSuccess(`${slides.length} imagem(ns) preparada(s) para download.`);
+    void trackActivationEvent("asset_exported", {
+      contentRequestId: id,
+      assets: slides.length,
+      format: "png",
+    }).catch(() => undefined);
   }
 
   if (loading) return <main className="portal-loading"><img src="/logo.svg" alt="MODO" /><div className="portal-spinner" /><p>Abrindo o Studio...</p></main>;

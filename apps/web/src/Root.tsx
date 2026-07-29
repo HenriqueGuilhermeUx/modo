@@ -3,6 +3,7 @@ import BillingWorkspace from "./BillingWorkspace";
 import CampaignWorkspace from "./CampaignWorkspace";
 import ContentWorkspace from "./ContentWorkspace";
 import DirectorWorkspace from "./DirectorWorkspace";
+import HumanOperationsAdminWorkspace from "./HumanOperationsAdminWorkspace";
 import ImpactLanding from "./ImpactLanding";
 import IntelligenceWorkspace from "./IntelligenceWorkspace";
 import InvitationWorkspace from "./InvitationWorkspace";
@@ -26,11 +27,15 @@ export default function Root() {
   if (path === "/onboarding-smartbots.html" || path === "/app/smartbots") return <SmartBotsOnboarding />;
   if (path === "/especialistas" || path === "/rede-modo") return <SpecialistApplicationPage />;
   if (path === "/admin/smartbots") return <SmartBotsAdminWorkspace />;
+  if (path === "/admin/rede") return <HumanOperationsAdminWorkspace />;
   if (path.startsWith("/admin")) {
     return (
       <>
         <AdminWorkspace />
-        <a href="/admin/smartbots" style={{ position: "fixed", right: 22, bottom: 22, zIndex: 1000, background: "#2ED19A", color: "#0D1B3E", borderRadius: 999, padding: "12px 17px", fontSize: 11, fontWeight: 900, boxShadow: "0 15px 40px rgba(13,27,62,.2)" }}>SmartBots</a>
+        <div style={{ position: "fixed", right: 22, bottom: 22, zIndex: 1000, display: "flex", gap: 8 }}>
+          <a href="/admin/rede" style={{ background: "#1F5EFF", color: "#fff", borderRadius: 999, padding: "12px 17px", fontSize: 11, fontWeight: 900, boxShadow: "0 15px 40px rgba(13,27,62,.2)", textDecoration: "none" }}>Rede Modo</a>
+          <a href="/admin/smartbots" style={{ background: "#2ED19A", color: "#0D1B3E", borderRadius: 999, padding: "12px 17px", fontSize: 11, fontWeight: 900, boxShadow: "0 15px 40px rgba(13,27,62,.2)", textDecoration: "none" }}>SmartBots</a>
+        </div>
       </>
     );
   }

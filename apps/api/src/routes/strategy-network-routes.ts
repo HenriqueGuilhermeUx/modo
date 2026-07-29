@@ -6,6 +6,13 @@ import {
   SpecialistApplicationCreateSchema,
 } from "@modo/contracts/strategy-network";
 import type { FastifyInstance, FastifyRequest } from "fastify";
+import { AuthError } from "../services/auth-service.js";
+import { BillingError } from "../services/billing-service.js";
+import { ContentAutomationError } from "../services/content-automation-service.js";
+import { ContentError } from "../services/content-service.js";
+import { CreativeIntelligenceError } from "../services/creative-intelligence-service.js";
+import { PaymentError } from "../services/payment-service.js";
+import { PlatformAdminError } from "../services/platform-admin-service.js";
 import {
   StrategyNetworkError,
   StrategyNetworkService,
@@ -112,14 +119,24 @@ export async function registerStrategyNetworkRoutes(app: FastifyInstance, option
   );
 
   app.setErrorHandler((error, _request, reply) => {
-    if (error instanceof StrategyNetworkError) {
+    if (
+      error instanceof StrategyNetworkError ||
+      error instanceof BillingError ||
+      error instanceof AuthError ||
+      error instanceof PaymentError ||
+      error instanceof ContentError ||
+      error instanceof ContentAutomationError ||
+      error instanceof CreativeIntelligenceError ||
+      error instanceof PlatformAdminError
+    ) {
       return reply.code(error.statusCode).send({ code: error.code, message: error.message });
     }
     const message = error instanceof Error ? error.message : "Ocorreu um erro inesperado.";
     const name = error instanceof Error ? error.name : "UnknownError";
-    if (name === "ZodError") {
-      return reply.code(400).send({ code: "INVALID_REQUEST", message });
-    }
-    return reply.code(500).send({ code: "INTERNAL_ERROR", message: "Ocorreu um erro inesperado." });
+    const validation = name === "ZodError" || message.includes("URL") || message.includes("Endereços");
+    return reply.code(validation ? 400 : 500).send({
+      code: validation ? "INVALID_REQUEST" : "INTERNAL_ERROR",
+      message: validation ? message : "Ocorreu um erro inesperado.",
+    });
   });
 }

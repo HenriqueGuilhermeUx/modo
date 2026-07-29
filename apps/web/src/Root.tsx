@@ -25,7 +25,11 @@ export default function Root() {
   const path = window.location.pathname;
   if (path === "/smartbots.html" || path === "/smartbots") return <SmartBotsPage />;
   if (path === "/onboarding-smartbots.html" || path === "/app/smartbots") return <SmartBotsOnboarding />;
-  if (path === "/especialistas" || path === "/rede-modo") return <SpecialistApplicationPage />;
+  if (path === "/rede-modo/convite") return <SpecialistApplicationPage />;
+  if (path === "/especialistas" || path === "/rede-modo") {
+    window.location.replace("/");
+    return null;
+  }
   if (path === "/admin/smartbots") return <SmartBotsAdminWorkspace />;
   if (path === "/admin/rede") return <HumanOperationsAdminWorkspace />;
   if (path.startsWith("/admin")) {
@@ -33,7 +37,7 @@ export default function Root() {
       <>
         <AdminWorkspace />
         <div style={{ position: "fixed", right: 22, bottom: 22, zIndex: 1000, display: "flex", gap: 8 }}>
-          <a href="/admin/rede" style={{ background: "#1F5EFF", color: "#fff", borderRadius: 999, padding: "12px 17px", fontSize: 11, fontWeight: 900, boxShadow: "0 15px 40px rgba(13,27,62,.2)", textDecoration: "none" }}>Rede Modo</a>
+          <a href="/admin/rede" style={{ background: "#1F5EFF", color: "#fff", borderRadius: 999, padding: "12px 17px", fontSize: 11, fontWeight: 900, boxShadow: "0 15px 40px rgba(13,27,62,.2)", textDecoration: "none" }}>Curadoria</a>
           <a href="/admin/smartbots" style={{ background: "#2ED19A", color: "#0D1B3E", borderRadius: 999, padding: "12px 17px", fontSize: 11, fontWeight: 900, boxShadow: "0 15px 40px rgba(13,27,62,.2)", textDecoration: "none" }}>SmartBots</a>
         </div>
       </>
@@ -67,7 +71,6 @@ export default function Root() {
           <a className="portal-plan-entry" href="/app/inteligencia">Inteligência</a>
           <a className="portal-plan-entry" href="/onboarding-smartbots.html">SmartBots</a>
           <a className="portal-plan-entry" href="/app/signal">Signal</a>
-          <a className="portal-plan-entry" href="/app/especialista">Apoio humano</a>
           <a className="portal-workspace-entry" href="/app/content">Quick Start e criar ↗</a>
         </div>
       </>

@@ -24,11 +24,6 @@ const derivativeOptions: Array<{
     title: "Gerar Stories visuais",
     description: "Cria três Stories consistentes com a peça aprovada.",
   },
-  {
-    type: "channel_adaptation",
-    title: "Adaptar para outro canal",
-    description: "Cria uma nova versão para outro contexto de publicação.",
-  },
 ];
 
 export default function PostApprovalActions({
@@ -63,38 +58,40 @@ export default function PostApprovalActions({
         </article>
       </div>
 
-      <section className="derivative-workspace">
-        <div className="delivery-section-heading">
-          <div>
-            <small>DESDOBRAR A CAMPANHA</small>
-            <h4>Gerar novas peças a partir desta aprovação</h4>
-            <p>Cada opção cria um novo pedido, com revisão própria e consumo de créditos informado antes da geração.</p>
+      {available.length > 0 && (
+        <section className="derivative-workspace">
+          <div className="delivery-section-heading">
+            <div>
+              <small>DESDOBRAR A CAMPANHA</small>
+              <h4>Gerar novas peças a partir desta aprovação</h4>
+              <p>Cada opção cria um novo pedido, com revisão própria e consumo de créditos informado antes da geração.</p>
+            </div>
           </div>
-        </div>
-        <div className="derivative-grid">
-          {available.map((option) => {
-            const cost = contentCreditCost[option.type];
-            const insufficient = creditsRemaining < cost;
-            const working = workingTarget === option.type;
-            return (
-              <article key={option.type}>
-                <div>
-                  <strong>{option.title}</strong>
-                  <p>{option.description}</p>
-                </div>
-                <button
-                  type="button"
-                  className="button button-secondary"
-                  disabled={Boolean(workingTarget) || insufficient}
-                  onClick={() => onGenerate(option.type)}
-                >
-                  {working ? "Criando novo pedido..." : insufficient ? "Saldo insuficiente" : `Gerar · ${cost} crédito${cost > 1 ? "s" : ""}`}
-                </button>
-              </article>
-            );
-          })}
-        </div>
-      </section>
+          <div className="derivative-grid">
+            {available.map((option) => {
+              const cost = contentCreditCost[option.type];
+              const insufficient = creditsRemaining < cost;
+              const working = workingTarget === option.type;
+              return (
+                <article key={option.type}>
+                  <div>
+                    <strong>{option.title}</strong>
+                    <p>{option.description}</p>
+                  </div>
+                  <button
+                    type="button"
+                    className="button button-secondary"
+                    disabled={Boolean(workingTarget) || insufficient}
+                    onClick={() => onGenerate(option.type)}
+                  >
+                    {working ? "Criando novo pedido..." : insufficient ? "Saldo insuficiente" : `Gerar · ${cost} crédito${cost > 1 ? "s" : ""}`}
+                  </button>
+                </article>
+              );
+            })}
+          </div>
+        </section>
+      )}
     </section>
   );
 }

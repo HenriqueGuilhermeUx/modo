@@ -157,6 +157,7 @@ export class ContentAutomationService {
       imageAlt: `Imagem publicitária para ${brandName} relacionada a ${request.brief.slice(0, 180)}.`,
       imageUrl: null,
       imageStatus: imageFailed ? "failed" : "not_requested",
+      visualAssets: [],
     };
 
     if (request.contentType === "carousel") {

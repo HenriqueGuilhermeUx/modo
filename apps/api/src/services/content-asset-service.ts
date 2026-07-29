@@ -110,6 +110,30 @@ export class ContentAssetService {
     return asset ? { mimeType: asset.mimeType, data: asset.data } : null;
   }
 
+  async getForRequestByToken(
+    organizationId: string,
+    contentRequestId: string,
+    publicToken: string,
+  ): Promise<{ mimeType: string; data: Buffer } | null> {
+    if (!publicToken) return null;
+    if (this.pool) {
+      const result = await this.pool.query<AssetRow>(
+        `SELECT id, public_token, organization_id, content_request_id, mime_type, data
+         FROM modo_content_assets
+         WHERE organization_id=$1 AND content_request_id=$2 AND public_token=$3
+         LIMIT 1`,
+        [organizationId, contentRequestId, publicToken],
+      );
+      if (!result.rowCount) return null;
+      return { mimeType: result.rows[0].mime_type, data: result.rows[0].data };
+    }
+    const asset = this.memory.get(publicToken);
+    if (!asset || asset.organizationId !== organizationId || asset.contentRequestId !== contentRequestId) {
+      return null;
+    }
+    return { mimeType: asset.mimeType, data: asset.data };
+  }
+
   async getPublic(publicToken: string): Promise<{ mimeType: string; data: Buffer } | null> {
     if (this.pool) {
       const result = await this.pool.query<AssetRow>(

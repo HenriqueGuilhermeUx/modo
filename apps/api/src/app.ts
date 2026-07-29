@@ -19,12 +19,14 @@ import { WooviCheckoutRequestSchema } from "@modo/contracts/payment";
 import Fastify, { type FastifyRequest } from "fastify";
 import { randomUUID } from "node:crypto";
 import type { DiagnosticProvider } from "./providers/diagnostic-provider.js";
+import { registerActivationRoutes } from "./routes/activation-routes.js";
 import { registerCanvaRoutes } from "./routes/canva-routes.js";
 import { registerCreativeIntelligenceRoutes } from "./routes/creative-intelligence-routes.js";
 import { registerPlatformAdminRoutes } from "./routes/platform-admin-routes.js";
 import { registerSourceRoutes } from "./routes/source-routes.js";
 import { registerStudioRoutes } from "./routes/studio-routes.js";
 import { assertPublicHttpUrl } from "./security/public-url.js";
+import { ActivationService } from "./services/activation-service.js";
 import { AuthError, AuthService } from "./services/auth-service.js";
 import { BillingError, BillingService } from "./services/billing-service.js";
 import { CanvaService } from "./services/canva-service.js";
@@ -103,6 +105,12 @@ export async function createApp(options: CreateAppOptions) {
     databaseSsl: options.databaseSsl,
     publicApiUrl: options.publicApiUrl,
   });
+  const activation = new ActivationService({
+    auth,
+    content,
+    databaseUrl: options.databaseUrl,
+    databaseSsl: options.databaseSsl,
+  });
   const canva = new CanvaService({
     clientId: options.canvaClientId,
     clientSecret: options.canvaClientSecret,
@@ -144,11 +152,12 @@ export async function createApp(options: CreateAppOptions) {
   await auth.initialize();
   await content.initialize();
   await assets.initialize();
+  await activation.initialize();
   await canva.initialize();
   await payments.initialize();
   await admin.initialize();
   app.addHook("onClose", async () => {
-    await Promise.all([billing.close(), auth.close(), content.close(), assets.close(), canva.close(), payments.close(), admin.close()]);
+    await Promise.all([billing.close(), auth.close(), content.close(), assets.close(), activation.close(), canva.close(), payments.close(), admin.close()]);
   });
 
   const allowed = options.allowedOrigins ?? ["http://localhost:5173"];
@@ -172,6 +181,7 @@ export async function createApp(options: CreateAppOptions) {
       .header("cross-origin-resource-policy", "cross-origin")
       .send(asset.data);
   });
+  await registerActivationRoutes(app, { auth, activation });
   await registerCreativeIntelligenceRoutes(app, {
     auth,
     databaseUrl: options.databaseUrl,
@@ -196,13 +206,15 @@ export async function createApp(options: CreateAppOptions) {
   app.get("/health", async () => ({
     status: "ok",
     service: "modo-api",
-    version: "0.14.1",
+    version: "0.15.0",
     buildCommit: (process.env.RENDER_GIT_COMMIT || "local").slice(0, 12),
     gitBranch: process.env.RENDER_GIT_BRANCH || "local",
     billingStorage: billing.storage,
     accountStorage: auth.storage,
     contentStorage: content.storage,
     assetStorage: assets.storage,
+    activationTracking: "enabled",
+    activationStorage: activation.storage,
     contentProvider: automation.mode,
     imageGeneration: automation.imageMode,
     canvaIntegration: canva.configured ? "configured" : "not_configured",

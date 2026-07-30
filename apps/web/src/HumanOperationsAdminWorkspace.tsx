@@ -70,7 +70,7 @@ export default function HumanOperationsAdminWorkspace() {
       return;
     }
     load()
-      .catch((caught) => setError(caught instanceof Error ? caught.message : "Não foi possível abrir a operação humana."))
+      .catch((caught) => setError(caught instanceof Error ? caught.message : "Não foi possível abrir a operação do Time Modo."))
       .finally(() => setLoading(false));
   }, []);
 
@@ -121,17 +121,17 @@ export default function HumanOperationsAdminWorkspace() {
     }
   }
 
-  if (loading) return <main className="admin-login"><img src="/logo.svg" alt="MODO" /><div className="portal-spinner" /><p>Abrindo a operação humana...</p></main>;
+  if (loading) return <main className="admin-login"><img src="/logo.svg" alt="MODO" /><div className="portal-spinner" /><p>Abrindo a operação do Time Modo...</p></main>;
 
   const approvedTalent = talent.filter((item) => ["approved", "talent_pool"].includes(item.status));
 
   return (
     <div className="human-admin-shell">
-      <header className="human-admin-header"><a href="/admin"><img src="/logo.svg" alt="MODO" /></a><nav><a href="/admin">Central</a><a className="active" href="/admin/rede">Rede Modo</a><a href="/admin/smartbots">SmartBots</a></nav><span>OPERAÇÃO INTERNA</span></header>
+      <header className="human-admin-header"><a href="/admin"><img src="/logo.svg" alt="MODO" /></a><nav><a href="/admin">Central</a><a className="active" href="/admin/rede">Time Modo</a><a href="/admin/smartbots">SmartBots</a></nav><span>OPERAÇÃO INTERNA</span></header>
       <main className="human-admin-main">
-        <section className="human-admin-hero"><div><small>REDE MODO</small><h1>Curadoria, triagem e acompanhamento.</h1><p>Prepare a camada humana sem transformar a Modo em marketplace aberto. Nenhuma atribuição cria contrato, cobrança ou acesso automático ao cliente.</p></div><div className="human-admin-stats"><article><strong>{overview.support.requested || 0}</strong><span>pedidos aguardando</span></article><article><strong>{overview.talent.received || 0}</strong><span>candidaturas novas</span></article><article><strong>{approvedTalent.length}</strong><span>talentos elegíveis</span></article></div></section>
+        <section className="human-admin-hero"><div><small>TIME MODO</small><h1>Curadoria, triagem e acompanhamento.</h1><p>Central interna para pedidos pontuais de clientes e formação do banco futuro de talentos. Nenhuma atribuição cria contrato, cobrança ou acesso automático.</p></div><div className="human-admin-stats"><article><strong>{overview.support.requested || 0}</strong><span>pedidos aguardando</span></article><article><strong>{overview.talent.received || 0}</strong><span>candidaturas novas</span></article><article><strong>{approvedTalent.length}</strong><span>talentos elegíveis</span></article></div></section>
 
-        <div className="human-admin-toolbar"><div><button className={tab === "support" ? "active" : ""} onClick={() => setTab("support")}>Pedidos de clientes</button><button className={tab === "talent" ? "active" : ""} onClick={() => setTab("talent")}>Banco de profissionais</button></div><input placeholder="Buscar nome, marca, e-mail ou especialidade" value={search} onChange={(event) => setSearch(event.target.value)} /></div>
+        <div className="human-admin-toolbar"><div><button className={tab === "support" ? "active" : ""} onClick={() => setTab("support")}>Pedidos de clientes</button><button className={tab === "talent" ? "active" : ""} onClick={() => setTab("talent")}>Banco futuro de talentos</button></div><input placeholder="Buscar nome, marca, e-mail ou especialidade" value={search} onChange={(event) => setSearch(event.target.value)} /></div>
         {error && <div className="portal-error">{error}</div>}
         {success && <div className="workspace-success">{success}</div>}
 
@@ -143,7 +143,7 @@ export default function HumanOperationsAdminWorkspace() {
             <label className="human-admin-note">Nota interna<textarea defaultValue={item.internalNotes} placeholder="Análise, riscos, próximo contato e premissas" onBlur={(event) => { if (event.target.value !== item.internalNotes) void changeSupport(item, { internalNotes: event.target.value }); }} /></label>
             <footer><span>{item.urgency === "priority" ? "⚑ Prioridade solicitada" : "Fluxo normal"}</span><small>{new Intl.DateTimeFormat("pt-BR", { dateStyle: "medium", timeStyle: "short" }).format(new Date(item.createdAt))}</small>{item.contentRequestId && <a href={`/app/content?open=${item.contentRequestId}`}>Ver conteúdo relacionado</a>}</footer>
           </article>)}
-          {!filteredSupport.length && <div className="strategy-empty"><strong>Nenhum pedido nesta visão.</strong><p>A fila ficará disponível quando clientes solicitarem apoio.</p></div>}
+          {!filteredSupport.length && <div className="strategy-empty"><strong>Nenhum pedido nesta visão.</strong><p>A fila ficará disponível quando clientes solicitarem curadoria.</p></div>}
         </section>}
 
         {tab === "talent" && <section className="human-admin-list talent-list">
@@ -154,7 +154,7 @@ export default function HumanOperationsAdminWorkspace() {
             <label className="human-admin-note">Nota de curadoria<textarea defaultValue={item.internalNotes} placeholder="Pontos fortes, aderência, segmentos e cuidados" onBlur={(event) => { if (event.target.value !== item.internalNotes) void changeTalent(item, { internalNotes: event.target.value }); }} /></label>
             <footer><a href={item.portfolioUrl} target="_blank" rel="noreferrer">Abrir portfólio ↗</a>{item.linkedinUrl && <a href={item.linkedinUrl} target="_blank" rel="noreferrer">LinkedIn ↗</a>}<small>{new Intl.DateTimeFormat("pt-BR", { dateStyle: "medium" }).format(new Date(item.createdAt))}</small></footer>
           </article>)}
-          {!filteredTalent.length && <div className="strategy-empty"><strong>Nenhuma candidatura nesta visão.</strong><p>Os profissionais aparecerão aqui após enviarem o formulário público.</p></div>}
+          {!filteredTalent.length && <div className="strategy-empty"><strong>Nenhuma candidatura nesta visão.</strong><p>Os perfis aparecerão aqui após o envio do formulário por convite.</p></div>}
         </section>}
       </main>
     </div>

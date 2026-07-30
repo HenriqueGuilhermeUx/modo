@@ -24,19 +24,39 @@ function getPool() {
   return pool;
 }
 
+type QueryFailureContext = {
+  queryName: string;
+  accountId: string;
+  brandId: string;
+  failedQueries: Set<string>;
+};
+
 async function safeRows<T extends QueryResultRow>(
   database: Pool,
   sql: string,
   params: unknown[],
+  context: QueryFailureContext,
 ): Promise<T[]> {
   try {
     return (await database.query<T>(sql, params)).rows;
-  } catch {
+  } catch (error) {
+    context.failedQueries.add(context.queryName);
+    console.error("[MODO_CONTEXT_QUERY_FAILED]", {
+      queryName: context.queryName,
+      query: sql.replace(/\s+/g, " ").trim().slice(0, 500),
+      accountId: context.accountId,
+      brandId: context.brandId,
+      error: error instanceof Error ? error.message : String(error),
+    });
     return [];
   }
 }
 
+export type CreativeContextStatus = "ok" | "degraded" | "unavailable";
+
 export interface CreativeGenerationContext {
+  contextStatus: CreativeContextStatus;
+  failedQueries: string[];
   memory: {
     peopleAvailable: string[];
     comfortableOnCamera: boolean;
@@ -68,7 +88,9 @@ export interface CreativeGenerationContext {
   }>;
 }
 
-const emptyContext = (): CreativeGenerationContext => ({
+const emptyContext = (contextStatus: CreativeContextStatus): CreativeGenerationContext => ({
+  contextStatus,
+  failedQueries: [],
   memory: null,
   foundation: null,
   channelMap: [],
@@ -82,7 +104,15 @@ export async function loadCreativeGenerationContext(
   brandId: string,
 ): Promise<CreativeGenerationContext> {
   const database = getPool();
-  if (!database) return emptyContext();
+  if (!database) return emptyContext("unavailable");
+
+  const failedQueries = new Set<string>();
+  const queryContext = (queryName: string): QueryFailureContext => ({
+    queryName,
+    accountId,
+    brandId,
+    failedQueries,
+  });
 
   const [profiles, foundations, channelMaps, revenueMaps, performance, learning] = await Promise.all([
     safeRows<{
@@ -100,16 +130,16 @@ export async function loadCreativeGenerationContext(
     }>(database, `SELECT people_available,comfortable_on_camera,weekly_minutes_available,
       locations,products_or_services_to_show,proof_available,recurring_questions,
       current_priorities,prohibited_topics,preferred_channels,notes
-      FROM modo_creative_profiles WHERE account_id=$1 AND brand_id=$2 LIMIT 1`, [accountId, brandId]),
+      FROM modo_creative_profiles WHERE account_id=$1 AND brand_id=$2 LIMIT 1`, [accountId, brandId], queryContext("creative_profile")),
     safeRows<{ foundation: BrandFoundation }>(database,
       "SELECT foundation FROM modo_brand_foundations WHERE organization_id=$1 AND brand_id=$2 LIMIT 1",
-      [accountId, brandId]),
+      [accountId, brandId], queryContext("brand_foundation")),
     safeRows<{ channels: ChannelPlanItem[] }>(database,
       "SELECT channels FROM modo_channel_maps WHERE organization_id=$1 AND brand_id=$2 LIMIT 1",
-      [accountId, brandId]),
+      [accountId, brandId], queryContext("channel_map")),
     safeRows<{ payload: RevenueMapUpsert }>(database,
       "SELECT payload FROM modo_revenue_maps WHERE organization_id=$1 AND brand_id=$2 LIMIT 1",
-      [accountId, brandId]),
+      [accountId, brandId], queryContext("revenue_map")),
     safeRows<{
       channel: string;
       average_score: number;
@@ -122,15 +152,17 @@ export async function loadCreativeGenerationContext(
       COALESCE(SUM(conversions),0)::int AS conversions,
       COALESCE(SUM(revenue_cents),0)::int AS revenue_cents
       FROM modo_performance_signals WHERE account_id=$1 AND brand_id=$2
-      GROUP BY channel ORDER BY average_score DESC LIMIT 8`, [accountId, brandId]),
+      GROUP BY channel ORDER BY average_score DESC LIMIT 8`, [accountId, brandId], queryContext("performance_signals")),
     safeRows<{ signal: string; score: number | null; notes: string | null }>(database,
       `SELECT signal,score,notes FROM modo_creative_feedback
        WHERE account_id=$1 AND brand_id=$2 AND (notes IS NOT NULL OR score IS NOT NULL)
-       ORDER BY created_at DESC LIMIT 12`, [accountId, brandId]),
+       ORDER BY created_at DESC LIMIT 12`, [accountId, brandId], queryContext("creative_feedback")),
   ]);
 
   const profile = profiles[0];
   return {
+    contextStatus: failedQueries.size > 0 ? "degraded" : "ok",
+    failedQueries: [...failedQueries],
     memory: profile ? {
       peopleAvailable: profile.people_available,
       comfortableOnCamera: profile.comfortable_on_camera,

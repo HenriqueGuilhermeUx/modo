@@ -37,7 +37,7 @@ export default function Root() {
       <>
         <AdminWorkspace />
         <div style={{ position: "fixed", right: 22, bottom: 22, zIndex: 1000, display: "flex", gap: 8 }}>
-          <a href="/admin/rede" style={{ background: "#1F5EFF", color: "#fff", borderRadius: 999, padding: "12px 17px", fontSize: 11, fontWeight: 900, boxShadow: "0 15px 40px rgba(13,27,62,.2)", textDecoration: "none" }}>Curadoria</a>
+          <a href="/admin/rede" style={{ background: "#1F5EFF", color: "#fff", borderRadius: 999, padding: "12px 17px", fontSize: 11, fontWeight: 900, boxShadow: "0 15px 40px rgba(13,27,62,.2)", textDecoration: "none" }}>Time Modo</a>
           <a href="/admin/smartbots" style={{ background: "#2ED19A", color: "#0D1B3E", borderRadius: 999, padding: "12px 17px", fontSize: 11, fontWeight: 900, boxShadow: "0 15px 40px rgba(13,27,62,.2)", textDecoration: "none" }}>SmartBots</a>
         </div>
       </>

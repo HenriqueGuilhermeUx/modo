@@ -81,20 +81,20 @@ export default function SpecialistApplicationPage() {
           <section className="talent-success">
             <span>✓</span>
             <small>PERFIL RECEBIDO</small>
-            <h1>Seu portfólio entrou na curadoria interna da Modo.</h1>
-            <p>O cadastro não cria perfil público nem distribui projetos automaticamente. O contato acontecerá apenas quando houver aderência real com uma necessidade de cliente.</p>
-            <div><strong>Próximas etapas</strong><span>1. Revisão do perfil e do portfólio.</span><span>2. Contato somente quando houver compatibilidade.</span><span>3. Alinhamento de escopo e confidencialidade.</span><span>4. Convite pontual para um projeto ou banco curado.</span></div>
+            <h1>Seu portfólio entrou no banco futuro de talentos da Modo.</h1>
+            <p>Esta é uma curadoria em formação. O cadastro não cria perfil público, não distribui projetos automaticamente e não representa promessa de contratação imediata.</p>
+            <div><strong>Próximas etapas</strong><span>1. Revisão do perfil e do portfólio.</span><span>2. Permanência no banco futuro quando houver aderência.</span><span>3. Contato somente diante de uma necessidade real.</span><span>4. Alinhamento de escopo e confidencialidade antes de qualquer projeto.</span></div>
             <a className="button button-primary" href="/">Voltar para a Modo</a>
           </section>
         ) : (
           <>
             <section className="talent-hero discreet-talent-hero">
-              <div><div className="section-kicker">CADASTRO POR CONVITE</div><h1>Curadoria interna de profissionais.</h1><p>Esta página é destinada a profissionais convidados pela Modo. Buscamos pessoas que combinem julgamento, qualidade técnica e uso responsável de tecnologia.</p><div className="talent-pills"><span>Projetos pontuais</span><span>Briefing organizado</span><span>Curadoria de qualidade</span><span>Sem perfil público</span></div></div>
-              <aside><small>REDE EM FASE PILOTO</small><strong>Cadastro não significa contratação.</strong><p>A Modo avalia portfólio, disponibilidade e compatibilidade antes de qualquer contato ou compartilhamento de contexto de cliente.</p></aside>
+              <div><div className="section-kicker">CADASTRO POR CONVITE</div><h1>Banco futuro de talentos do Time Modo.</h1><p>Esta página é destinada a profissionais convidados. Estamos formando uma base curada para necessidades futuras, sem promessa de projeto ou contratação imediata.</p><div className="talent-pills"><span>Projetos pontuais</span><span>Briefing organizado</span><span>Curadoria de qualidade</span><span>Sem perfil público</span></div></div>
+              <aside><small>CURADORIA EM FASE PILOTO</small><strong>Cadastro não significa contratação.</strong><p>A Modo avalia portfólio, disponibilidade e compatibilidade. O contato acontece somente quando existir demanda real e autorização para avançar.</p></aside>
             </section>
 
             <section className="talent-principles">
-              <article><span>01</span><strong>Convites pontuais</strong><p>A rede não funciona como mural aberto de vagas ou leilão de preço.</p></article>
+              <article><span>01</span><strong>Banco para demandas futuras</strong><p>O cadastro organiza referências profissionais; não funciona como vaga aberta ou distribuição automática de projetos.</p></article>
               <article><span>02</span><strong>Cliente protegido</strong><p>Dados, escopo e acessos só são compartilhados depois de autorização e alinhamento.</p></article>
               <article><span>03</span><strong>Tecnologia como apoio</strong><p>A ferramenta organiza a operação; o profissional entra quando seu julgamento agrega valor.</p></article>
             </section>
@@ -116,7 +116,7 @@ export default function SpecialistApplicationPage() {
               </div>
               <fieldset><legend>Outras competências</legend><div className="talent-role-grid">{(Object.keys(roleLabels) as SpecialistRole[]).filter((role) => role !== primaryRole).map((role) => <button type="button" className={secondaryRoles.includes(role) ? "selected" : ""} onClick={() => toggleRole(role)} key={role}>{roleLabels[role]}</button>)}</div></fieldset>
               <label>Sobre seu trabalho<textarea required minLength={40} value={about} onChange={(event) => setAbout(event.target.value)} placeholder="Tipos de projeto, segmentos, forma de pensar, ferramentas e trabalhos que melhor representam você." /></label>
-              <label className="talent-consent"><input type="checkbox" checked={consent} onChange={(event) => setConsent(event.target.checked)} required /><span>Autorizo a Modo a armazenar estes dados para avaliar meu perfil e entrar em contato sobre oportunidades profissionais. O cadastro não garante contratação ou projeto.</span></label>
+              <label className="talent-consent"><input type="checkbox" checked={consent} onChange={(event) => setConsent(event.target.checked)} required /><span>Autorizo a Modo a armazenar estes dados para avaliar meu perfil e entrar em contato sobre oportunidades futuras. O cadastro não garante contratação, vaga ou projeto.</span></label>
               <button className="button button-primary button-full" disabled={submitting || !consent}>{submitting ? "Enviando perfil..." : "Enviar perfil para curadoria"}</button>
             </form>
           </>

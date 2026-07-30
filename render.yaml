@@ -37,6 +37,12 @@ services:
         value: gpt-5-mini
       - key: OPENAI_IMAGE_MODEL
         value: gpt-image-2-2026-04-21
+      - key: INTELLIGENCE_PROVIDER
+        value: queue
+      - key: APIFY_API_TOKEN
+        sync: false
+      - key: APIFY_MARKET_RADAR_TASK_ID
+        sync: false
       - key: DATABASE_URL
         sync: false
       - key: DATABASE_SSL
@@ -59,6 +65,16 @@ services:
         value: Administrador MODO
       - key: PLATFORM_ADMIN_SESSION_HOURS
         value: 12
+      - key: RESEND_API_KEY
+        sync: false
+      - key: HUMAN_SUPPORT_EMAIL_FROM
+        sync: false
+      - key: HUMAN_SUPPORT_EMAIL_TO
+        value: henriquecampos@gmail.com
+      - key: HUMAN_SUPPORT_NOTIFICATION_WEBHOOK_URL
+        sync: false
+      - key: HUMAN_SUPPORT_RESPONSE_SLA_BUSINESS_DAYS
+        value: 2
       - key: LINKEDIN_CLIENT_ID
         sync: false
       - key: LINKEDIN_CLIENT_SECRET

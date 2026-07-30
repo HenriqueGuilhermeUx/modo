@@ -19,8 +19,7 @@ describe("registro das rotas da API", () => {
     });
 
     await app.ready();
-    const routes = app.printRoutes();
-    expect(routes).toContain("intelligence/playbooks");
-    expect(routes).toContain("health");
+    expect(app.hasRoute({ method: "GET", url: "/api/v1/intelligence/playbooks" })).toBe(true);
+    expect(app.hasRoute({ method: "GET", url: "/health" })).toBe(true);
   });
 });

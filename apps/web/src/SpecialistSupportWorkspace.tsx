@@ -14,7 +14,7 @@ const supportOptions: Array<{ id: HumanSupportType; title: string; copy: string 
   { id: "paid_media", title: "Mídia paga", copy: "Estruturar, acompanhar ou revisar campanhas de anúncios." },
   { id: "campaign_review", title: "Revisão de campanha", copy: "Receber uma segunda opinião antes de publicar ou investir." },
   { id: "full_management", title: "Gestão acompanhada", copy: "Avaliar uma operação com apoio humano recorrente da Modo." },
-  { id: "other", title: "Outro desafio", copy: "Explique o que precisa e a Modo avalia o melhor perfil." },
+  { id: "other", title: "Outro desafio", copy: "Explique o que precisa e a Modo avalia o melhor caminho." },
 ];
 
 const statusCopy: Record<HumanSupportRequest["status"], string> = {
@@ -79,7 +79,7 @@ export default function SpecialistSupportWorkspace() {
       setRequests((current) => [created, ...current]);
       setContext("");
       setDesiredOutcome("");
-      setSuccess("Pedido recebido. A Modo fará uma triagem discreta e retornará apenas quando houver uma indicação útil para este desafio.");
+      setSuccess("Pedido recebido pelo Time Modo. Nossa equipe fará a triagem e responderá em até 2 dias úteis com disponibilidade e próximo passo.");
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Não foi possível enviar o pedido.");
     } finally {
@@ -113,8 +113,8 @@ export default function SpecialistSupportWorkspace() {
 
       <main className="specialist-main discreet-curation-main">
         <section className="specialist-hero discreet-curation-hero">
-          <div><div className="section-kicker">CURADORIA MODO</div><h1>Uma segunda opinião, somente quando fizer diferença.</h1><p>O motor da Modo continua sendo o centro da operação. Para uma entrega já aprovada que exija julgamento adicional, você pode solicitar uma análise humana pontual.</p></div>
-          <aside><strong>Processo controlado</strong><span>1. Você descreve o ponto de dúvida.</span><span>2. A Modo avalia a necessidade.</span><span>3. Retornamos com disponibilidade e escopo.</span><span>4. Nada é contratado ou cobrado automaticamente.</span></aside>
+          <div><div className="section-kicker">CURADORIA MODO</div><h1>Uma segunda opinião, somente quando fizer diferença.</h1><p>O motor da Modo continua sendo o centro da operação. Para uma entrega já aprovada que exija julgamento adicional, você pode solicitar uma análise pontual do Time Modo.</p></div>
+          <aside><strong>Processo controlado</strong><span>1. Você descreve o ponto de dúvida.</span><span>2. O Time Modo faz a triagem interna.</span><span>3. Respondemos em até 2 dias úteis.</span><span>4. Nada é contratado ou cobrado automaticamente.</span></aside>
         </section>
 
         {error && <div className="portal-error">{error}</div>}
@@ -131,7 +131,7 @@ export default function SpecialistSupportWorkspace() {
             <label>Prioridade<select value={urgency} onChange={(event) => setUrgency(event.target.value as "normal" | "priority")}><option value="normal">Fluxo normal</option><option value="priority">Avaliação prioritária</option></select></label>
             {initialContentId && <div className="support-linked-content">✓ Pedido relacionado à entrega aprovada que você estava revisando.</div>}
             <button className="button button-primary button-full" disabled={submitting || !brandId}>{submitting ? "Enviando para triagem..." : "Solicitar curadoria"}</button>
-            <small className="support-trust">A solicitação inicia apenas uma triagem. Serviço, prazo e preço serão apresentados antes de qualquer contratação.</small>
+            <small className="support-trust">O Time Modo responde em até 2 dias úteis. A solicitação inicia apenas uma triagem; serviço, prazo de execução e preço serão apresentados antes de qualquer contratação.</small>
           </form>
 
           <section className="specialist-history">
@@ -140,7 +140,7 @@ export default function SpecialistSupportWorkspace() {
               <article key={request.id}>
                 <header><strong>{supportOptions.find((item) => item.id === request.type)?.title || "Curadoria"}</strong><span>{statusCopy[request.status]}</span></header>
                 <p>{request.context}</p>
-                <footer><small>{new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short", year: "numeric" }).format(new Date(request.createdAt))}</small><em>{request.pricingStatus === "under_review" ? "Escopo em análise" : "Atualização disponível"}</em></footer>
+                <footer><small>{new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short", year: "numeric" }).format(new Date(request.createdAt))}</small><em>{request.pricingStatus === "under_review" ? "Triagem em até 2 dias úteis" : "Atualização disponível"}</em></footer>
               </article>
             ))}
             {!requests.length && <div className="strategy-empty"><strong>Nenhum pedido.</strong><p>A criação e as funcionalidades da Modo devem resolver a maior parte da operação sem intervenção humana.</p></div>}

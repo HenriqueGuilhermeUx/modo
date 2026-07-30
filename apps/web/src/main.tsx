@@ -30,6 +30,7 @@ import "./activation.css";
 import "./strategy-network.css";
 import "./visual-composer.css";
 import "./human-operations-admin.css";
+import "./curation-discreet.css";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

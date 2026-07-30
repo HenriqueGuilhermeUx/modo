@@ -4,8 +4,10 @@ import {
   HumanSupportRequestCreateSchema,
   RevenueMapUpsertSchema,
   SpecialistApplicationCreateSchema,
+  type HumanSupportRequestCreate,
 } from "@modo/contracts/strategy-network";
 import type { FastifyInstance, FastifyRequest } from "fastify";
+import pg, { type Pool } from "pg";
 import { AuthError } from "../services/auth-service.js";
 import { BillingError } from "../services/billing-service.js";
 import { ContentAutomationError } from "../services/content-automation-service.js";
@@ -17,6 +19,8 @@ import {
   StrategyNetworkError,
   StrategyNetworkService,
 } from "../services/strategy-network-service.js";
+
+const { Pool: PgPool } = pg;
 
 function bearerToken(request: FastifyRequest) {
   const value = request.headers.authorization;
@@ -33,8 +37,69 @@ interface Options {
 
 export async function registerStrategyNetworkRoutes(app: FastifyInstance, options: Options) {
   const service = new StrategyNetworkService(options);
+  const eligibilityPool: Pool | undefined = options.databaseUrl
+    ? new PgPool({
+        connectionString: options.databaseUrl,
+        ssl: options.databaseSsl ? { rejectUnauthorized: false } : undefined,
+        max: 2,
+      })
+    : undefined;
+
   await service.initialize();
-  app.addHook("onClose", async () => service.close());
+  app.addHook("onClose", async () => {
+    await Promise.all([service.close(), eligibilityPool?.end()]);
+  });
+
+  async function assertCurationEligibility(
+    organizationId: string,
+    input: HumanSupportRequestCreate,
+  ) {
+    if (!eligibilityPool) return;
+
+    if (input.contentRequestId) {
+      const result = await eligibilityPool.query<{
+        brand_id: string;
+        status: string;
+      }>(
+        `SELECT brand_id,status
+         FROM modo_content_requests
+         WHERE id=$1 AND organization_id=$2
+         LIMIT 1`,
+        [input.contentRequestId, organizationId],
+      );
+      const content = result.rows[0];
+      if (!content || content.brand_id !== input.brandId) {
+        throw new StrategyNetworkError(
+          "CONTENT_NOT_FOUND",
+          404,
+          "Entrega não encontrada nesta marca.",
+        );
+      }
+      if (content.status !== "approved") {
+        throw new StrategyNetworkError(
+          "CURATION_NOT_AVAILABLE",
+          409,
+          "A curadoria fica disponível depois que a entrega for aprovada.",
+        );
+      }
+      return;
+    }
+
+    const result = await eligibilityPool.query(
+      `SELECT 1
+       FROM modo_content_requests
+       WHERE organization_id=$1 AND brand_id=$2 AND status='approved'
+       LIMIT 1`,
+      [organizationId, input.brandId],
+    );
+    if (!result.rowCount) {
+      throw new StrategyNetworkError(
+        "CURATION_NOT_AVAILABLE",
+        409,
+        "A curadoria fica disponível depois da primeira entrega aprovada desta marca.",
+      );
+    }
+  }
 
   app.get("/api/v1/strategy-network/status", async (request) => {
     const context = await service.authenticate(bearerToken(request));
@@ -105,6 +170,7 @@ export async function registerStrategyNetworkRoutes(app: FastifyInstance, option
     async (request, reply) => {
       const context = await service.authenticate(bearerToken(request));
       const input = HumanSupportRequestCreateSchema.parse(request.body);
+      await assertCurationEligibility(context.organizationId, input);
       return reply.code(201).send(await service.createSupportRequest(context, input));
     },
   );

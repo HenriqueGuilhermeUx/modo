@@ -35,7 +35,9 @@ export default function SpecialistApplicationPage() {
 
   function toggleRole(role: SpecialistRole) {
     if (role === primaryRole) return;
-    setSecondaryRoles((current) => current.includes(role) ? current.filter((item) => item !== role) : current.length < 6 ? [...current, role] : current);
+    setSecondaryRoles((current) => current.includes(role)
+      ? current.filter((item) => item !== role)
+      : current.length < 6 ? [...current, role] : current);
   }
 
   async function submit(event: FormEvent) {
@@ -61,41 +63,44 @@ export default function SpecialistApplicationPage() {
       setCompleted(true);
       window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Não foi possível enviar sua candidatura.");
+      setError(caught instanceof Error ? caught.message : "Não foi possível enviar seu perfil.");
     } finally {
       setSubmitting(false);
     }
   }
 
   return (
-    <div className="talent-page">
-      <header className="talent-header"><a href="/"><img src="/logo.svg" alt="MODO" /></a><nav><a href="/">Para empresas</a><a className="active" href="/especialistas">Rede Modo</a><a href="/app">Entrar</a></nav></header>
+    <div className="talent-page discreet-talent-page">
+      <header className="talent-header">
+        <a href="/"><img src="/logo.svg" alt="MODO" /></a>
+        <nav><a href="/">Modo</a><a className="active" href="/rede-modo/convite">Cadastro por convite</a><a href="/app">Entrar</a></nav>
+      </header>
 
       <main>
         {completed ? (
           <section className="talent-success">
             <span>✓</span>
-            <small>CANDIDATURA RECEBIDA</small>
-            <h1>Seu trabalho agora faz parte da nossa curadoria inicial.</h1>
-            <p>A Rede Modo não distribui projetos automaticamente. Vamos avaliar especialidade, portfólio, disponibilidade e compatibilidade com os desafios dos clientes.</p>
-            <div><strong>O que acontece depois?</strong><span>1. Revisão do perfil e do portfólio.</span><span>2. Contato quando houver aderência.</span><span>3. Alinhamento de escopo, confidencialidade e forma de trabalho.</span><span>4. Convite para um projeto ou para o banco curado.</span></div>
+            <small>PERFIL RECEBIDO</small>
+            <h1>Seu portfólio entrou na curadoria interna da Modo.</h1>
+            <p>O cadastro não cria perfil público nem distribui projetos automaticamente. O contato acontecerá apenas quando houver aderência real com uma necessidade de cliente.</p>
+            <div><strong>Próximas etapas</strong><span>1. Revisão do perfil e do portfólio.</span><span>2. Contato somente quando houver compatibilidade.</span><span>3. Alinhamento de escopo e confidencialidade.</span><span>4. Convite pontual para um projeto ou banco curado.</span></div>
             <a className="button button-primary" href="/">Voltar para a Modo</a>
           </section>
         ) : (
           <>
-            <section className="talent-hero">
-              <div><div className="section-kicker">REDE MODO</div><h1>Tecnologia para produzir melhor. Pessoas para elevar o resultado.</h1><p>Estamos formando uma rede curada de estrategistas, diretores de arte, designers, copywriters, criativos, editores, motion designers, especialistas em tráfego e atendimento.</p><div className="talent-pills"><span>Projetos com briefing organizado</span><span>IA como ferramenta de trabalho</span><span>Curadoria e padrão de qualidade</span><span>Clientes dentro da plataforma</span></div></div>
-              <aside><small>NÃO É UM MARKETPLACE ABERTO</small><strong>A Modo organiza o projeto antes de conectar as pessoas.</strong><p>Sem leilão por menor preço, contato desestruturado ou acesso automático aos dados do cliente.</p></aside>
+            <section className="talent-hero discreet-talent-hero">
+              <div><div className="section-kicker">CADASTRO POR CONVITE</div><h1>Curadoria interna de profissionais.</h1><p>Esta página é destinada a profissionais convidados pela Modo. Buscamos pessoas que combinem julgamento, qualidade técnica e uso responsável de tecnologia.</p><div className="talent-pills"><span>Projetos pontuais</span><span>Briefing organizado</span><span>Curadoria de qualidade</span><span>Sem perfil público</span></div></div>
+              <aside><small>REDE EM FASE PILOTO</small><strong>Cadastro não significa contratação.</strong><p>A Modo avalia portfólio, disponibilidade e compatibilidade antes de qualquer contato ou compartilhamento de contexto de cliente.</p></aside>
             </section>
 
             <section className="talent-principles">
-              <article><span>01</span><strong>O profissional não começa da tela em branco</strong><p>Recebe contexto, estratégia, conteúdo inicial e objetivo organizados pela Modo.</p></article>
-              <article><span>02</span><strong>O cliente continua no controle</strong><p>Escopo, aprovação, acesso e investimento são definidos antes do trabalho.</p></article>
-              <article><span>03</span><strong>A IA amplia, não apaga autoria</strong><p>Buscamos profissionais que saibam pensar, julgar, criar e usar tecnologia com responsabilidade.</p></article>
+              <article><span>01</span><strong>Convites pontuais</strong><p>A rede não funciona como mural aberto de vagas ou leilão de preço.</p></article>
+              <article><span>02</span><strong>Cliente protegido</strong><p>Dados, escopo e acessos só são compartilhados depois de autorização e alinhamento.</p></article>
+              <article><span>03</span><strong>Tecnologia como apoio</strong><p>A ferramenta organiza a operação; o profissional entra quando seu julgamento agrega valor.</p></article>
             </section>
 
             <form className="talent-form" onSubmit={submit}>
-              <div className="talent-form-heading"><div><small>ENTRAR NA CURADORIA</small><h2>Conte o que você faz bem.</h2></div><p>Preencha com informações reais. O portfólio é a principal referência da análise.</p></div>
+              <div className="talent-form-heading"><div><small>PERFIL PROFISSIONAL</small><h2>Conte o que você faz bem.</h2></div><p>Preencha com informações reais. O portfólio é a principal referência da análise.</p></div>
               {error && <div className="portal-error">{error}</div>}
               <div className="talent-form-grid">
                 <label>Nome completo<input required value={name} onChange={(event) => setName(event.target.value)} /></label>
@@ -112,7 +117,7 @@ export default function SpecialistApplicationPage() {
               <fieldset><legend>Outras competências</legend><div className="talent-role-grid">{(Object.keys(roleLabels) as SpecialistRole[]).filter((role) => role !== primaryRole).map((role) => <button type="button" className={secondaryRoles.includes(role) ? "selected" : ""} onClick={() => toggleRole(role)} key={role}>{roleLabels[role]}</button>)}</div></fieldset>
               <label>Sobre seu trabalho<textarea required minLength={40} value={about} onChange={(event) => setAbout(event.target.value)} placeholder="Tipos de projeto, segmentos, forma de pensar, ferramentas e trabalhos que melhor representam você." /></label>
               <label className="talent-consent"><input type="checkbox" checked={consent} onChange={(event) => setConsent(event.target.checked)} required /><span>Autorizo a Modo a armazenar estes dados para avaliar meu perfil e entrar em contato sobre oportunidades profissionais. O cadastro não garante contratação ou projeto.</span></label>
-              <button className="button button-primary button-full" disabled={submitting || !consent}>{submitting ? "Enviando candidatura..." : "Enviar para a Rede Modo"}</button>
+              <button className="button button-primary button-full" disabled={submitting || !consent}>{submitting ? "Enviando perfil..." : "Enviar perfil para curadoria"}</button>
             </form>
           </>
         )}

@@ -3,14 +3,11 @@ import {
   CreativeProfileUpsertSchema,
   CreativeRecommendationStatusSchema,
 } from "@modo/contracts/creative-intelligence";
-import { IntelligenceProviderSchema } from "@modo/contracts/intelligence";
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import { z } from "zod";
 import { AuthError, type AuthService } from "../services/auth-service.js";
 import { ContentService } from "../services/content-service.js";
 import { CreativeIntelligenceService } from "../services/creative-intelligence-service.js";
-import { IntelligenceService } from "../services/intelligence-service.js";
-import { registerIntelligenceRoutes } from "./intelligence-routes.js";
 import { registerLinkedInRoutes } from "./linkedin-routes.js";
 import { registerSignalRoutes } from "./signal-routes.js";
 
@@ -48,29 +45,11 @@ export async function registerCreativeIntelligenceRoutes(
     databaseUrl: options.databaseUrl,
     databaseSsl: options.databaseSsl,
   });
-  const intelligence = new IntelligenceService({
-    databaseUrl: options.databaseUrl,
-    databaseSsl: options.databaseSsl,
-    provider: IntelligenceProviderSchema.catch("queue").parse(process.env.INTELLIGENCE_PROVIDER),
-    apifyBaseUrl: process.env.APIFY_API_BASE_URL,
-    apifyToken: process.env.APIFY_API_TOKEN,
-    n8nWebhookUrl: process.env.N8N_INTELLIGENCE_WEBHOOK_URL,
-    n8nSecret: process.env.N8N_INTELLIGENCE_SECRET,
-    publicApiUrl: process.env.PUBLIC_API_URL,
-    callbackSecret: process.env.INTELLIGENCE_CALLBACK_SECRET,
-    requestTimeoutMs: Number(process.env.INTELLIGENCE_REQUEST_TIMEOUT_MS || 30_000),
-    taskIds: {
-      market_radar: process.env.APIFY_MARKET_RADAR_TASK_ID,
-      b2b_prospecting: process.env.APIFY_B2B_PROSPECTING_TASK_ID,
-      price_monitoring: process.env.APIFY_PRICE_MONITORING_TASK_ID,
-    },
-  });
-  await Promise.all([service.initialize(), auxiliaryContent.initialize(), intelligence.initialize()]);
+  await Promise.all([service.initialize(), auxiliaryContent.initialize()]);
   app.addHook("onClose", async () => {
-    await Promise.all([service.close(), auxiliaryContent.close(), intelligence.close()]);
+    await Promise.all([service.close(), auxiliaryContent.close()]);
   });
 
-  await registerIntelligenceRoutes(app, options.auth, intelligence);
   await registerLinkedInRoutes(app, {
     auth: options.auth,
     content: auxiliaryContent,

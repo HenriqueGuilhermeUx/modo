@@ -64,6 +64,14 @@ const ConfigSchema = z
     PAYMENTS_PROVIDER: z.enum(["disabled", "woovi"]).default("disabled"),
     WOOVI_APP_ID: optionalTrimmedString,
     WOOVI_WEBHOOK_AUTHORIZATION: optionalTrimmedString,
+    RESEND_API_KEY: optionalTrimmedString,
+    HUMAN_SUPPORT_EMAIL_FROM: optionalTrimmedString,
+    HUMAN_SUPPORT_EMAIL_TO: z.preprocess(
+      emptyToUndefined,
+      z.string().email().default("henriquecampos@gmail.com"),
+    ),
+    HUMAN_SUPPORT_NOTIFICATION_WEBHOOK_URL: optionalUrl,
+    HUMAN_SUPPORT_RESPONSE_SLA_BUSINESS_DAYS: z.coerce.number().int().min(1).max(10).default(2),
     LINKEDIN_CLIENT_ID: optionalTrimmedString,
     LINKEDIN_CLIENT_SECRET: optionalTrimmedString,
     LINKEDIN_REDIRECT_URI: optionalTrimmedString,
@@ -197,6 +205,8 @@ export const config = {
   INTELLIGENCE_CALLBACK_SECRET: parsed.INTELLIGENCE_CALLBACK_SECRET ?? "",
   N8N_SMARTBOTS_SECRET: parsed.N8N_SMARTBOTS_SECRET ?? "",
   SMARTBOTS_PARTNER_API_KEY: parsed.SMARTBOTS_PARTNER_API_KEY ?? "",
+  RESEND_API_KEY: parsed.RESEND_API_KEY ?? "",
+  HUMAN_SUPPORT_EMAIL_FROM: parsed.HUMAN_SUPPORT_EMAIL_FROM ?? "",
   allowedOrigins: parsed.ALLOWED_ORIGINS.split(",")
     .map((origin) => origin.trim())
     .filter(Boolean),

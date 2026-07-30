@@ -18,7 +18,7 @@ describe("registro das rotas da API", () => {
       allowedOrigins: ["http://localhost:5173"],
     });
 
-    await expect(app.ready()).resolves.toBeUndefined();
+    await app.ready();
     const routes = app.printRoutes();
     expect(routes).toContain("intelligence/playbooks");
     expect(routes).toContain("health");

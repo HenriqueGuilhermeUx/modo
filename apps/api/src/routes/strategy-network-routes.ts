@@ -13,6 +13,7 @@ import { BillingError } from "../services/billing-service.js";
 import { ContentAutomationError } from "../services/content-automation-service.js";
 import { ContentError } from "../services/content-service.js";
 import { CreativeIntelligenceError } from "../services/creative-intelligence-service.js";
+import { HumanSupportNotifier } from "../services/human-support-notifier.js";
 import { PaymentError } from "../services/payment-service.js";
 import { PlatformAdminError } from "../services/platform-admin-service.js";
 import {
@@ -33,10 +34,22 @@ function bearerToken(request: FastifyRequest) {
 interface Options {
   databaseUrl?: string;
   databaseSsl?: boolean;
+  resendApiKey?: string;
+  humanSupportEmailFrom?: string;
+  humanSupportEmailTo?: string;
+  humanSupportNotificationWebhookUrl?: string;
+  publicWebUrl?: string;
 }
 
 export async function registerStrategyNetworkRoutes(app: FastifyInstance, options: Options) {
   const service = new StrategyNetworkService(options);
+  const notifier = new HumanSupportNotifier({
+    resendApiKey: options.resendApiKey,
+    emailFrom: options.humanSupportEmailFrom,
+    emailTo: options.humanSupportEmailTo,
+    webhookUrl: options.humanSupportNotificationWebhookUrl,
+    publicWebUrl: options.publicWebUrl,
+  });
   const eligibilityPool: Pool | undefined = options.databaseUrl
     ? new PgPool({
         connectionString: options.databaseUrl,
@@ -108,6 +121,7 @@ export async function registerStrategyNetworkRoutes(app: FastifyInstance, option
       storage: service.storage,
       organizationId: context.organizationId,
       modules: ["brand_foundation", "channel_map", "revenue_map", "human_support", "specialist_network"],
+      humanSupportNotification: notifier.configured ? "configured" : "not_configured",
     };
   });
 
@@ -171,7 +185,22 @@ export async function registerStrategyNetworkRoutes(app: FastifyInstance, option
       const context = await service.authenticate(bearerToken(request));
       const input = HumanSupportRequestCreateSchema.parse(request.body);
       await assertCurationEligibility(context.organizationId, input);
-      return reply.code(201).send(await service.createSupportRequest(context, input));
+      const created = await service.createSupportRequest(context, input);
+      await notifier.notifyNewRequest({
+        requestId: created.id,
+        requesterEmail: context.email,
+        brandId: created.brandId,
+        contentRequestId: created.contentRequestId,
+        supportType: created.type,
+        urgency: created.urgency,
+        createdAt: created.createdAt,
+      }).catch((error) => {
+        console.error("[MODO_HUMAN_SUPPORT_NOTIFICATION_FAILED]", {
+          requestId: created.id,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      });
+      return reply.code(201).send(created);
     },
   );
 

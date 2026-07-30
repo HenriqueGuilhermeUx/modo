@@ -5,6 +5,7 @@ import {
   type ContentVisualAsset,
   type GeneratedContent,
 } from "@modo/contracts/content";
+import { nicheTemplates, type NicheTemplate } from "@modo/contracts/niche-templates";
 import { ContentAssetService } from "./content-asset-service.js";
 import {
   formatCreativeContext,
@@ -118,6 +119,7 @@ Regras obrigatórias:
 - respeite temas proibidos e restrições informadas;
 - adapte linguagem, formato e CTA ao canal e ao objetivo;
 - para serviços financeiros, cripto, saúde, jurídico ou outros setores sensíveis, use linguagem informativa e responsável;
+- trate o modelo do segmento apenas como repertório de direção; briefing, fatos, restrições, Base Estratégica, memória e aprendizados reais da marca têm prioridade;
 - o prompt visual deve descrever uma imagem publicitária forte, coerente com a marca e sem texto, logotipo ou marca-d'água; deixe área limpa para sobreposição do título no Studio;
 - preencha somente a estrutura correspondente ao formato solicitado;
 - entregue exatamente o JSON solicitado.`;
@@ -150,6 +152,17 @@ function formatInstruction(request: ContentRequest) {
     default:
       return "FORMATO OBRIGATÓRIO: entregue uma única peça principal. Deixe slides, script e storyFrames vazios.";
   }
+}
+
+function formatNicheTemplate(template: NicheTemplate) {
+  return [
+    "Use apenas como repertório de direção, nunca como obrigação ou fonte de fatos.",
+    `Pilares recorrentes: ${template.contentPillars.join("; ")}`,
+    `Ângulos possíveis: ${template.commonAngles.join("; ")}`,
+    `Calibração de tom: ${template.toneGuidance}`,
+    `Termos a evitar: ${template.wordsToAvoid.join("; ")}`,
+    `Ganchos de referência — adapte, não copie mecanicamente: ${template.provenHooks.join(" | ")}`,
+  ].join("\n");
 }
 
 function normalizeForFormat(request: ContentRequest, raw: GeneratedContent): GeneratedContent {
@@ -281,7 +294,24 @@ export class OpenAiContentProvider {
       request.organizationId,
       request.brandId,
     );
-    const formattedContext = formatCreativeContext(creativeContext);
+    const formattedContext = formatCreativeContext(creativeContext, request.channel);
+    const nicheTemplate = nicheTemplates[brand.niche];
+    const contextNotes = creativeContext.contextStatus === "degraded"
+      ? ["Conteúdo gerado com contexto de marca incompleto — revise com atenção."]
+      : creativeContext.contextStatus === "unavailable"
+        ? ["A memória estratégica da marca não pôde ser carregada nesta geração — revise com atenção."]
+        : [];
+
+    if (creativeContext.contextStatus !== "ok") {
+      console.warn("[MODO_CREATIVE_CONTEXT_WARNING]", {
+        requestId: request.id,
+        organizationId: request.organizationId,
+        brandId: request.brandId,
+        contextStatus: creativeContext.contextStatus,
+        failedQueries: creativeContext.failedQueries,
+      });
+    }
+
     const userPrompt = [
       `MARCA: ${brand.name}`,
       `SEGMENTO: ${brand.niche}`,
@@ -292,7 +322,9 @@ export class OpenAiContentProvider {
       `OBJETIVO: ${request.objective}`,
       `BRIEFING: ${request.brief}`,
       formatInstruction(request),
-      formattedContext ? `CONTEXTO APRENDIDO PELA MODO:\n${formattedContext}` : "",
+      formattedContext ? `CONTEXTO REAL APRENDIDO PELA MODO — PRIORIDADE SOBRE O MODELO DO SEGMENTO:\n${formattedContext}` : "",
+      `MODELO DO SEGMENTO — SUGESTÕES DE DIREÇÃO:\n${formatNicheTemplate(nicheTemplate)}`,
+      "HIERARQUIA OBRIGATÓRIA: fatos e restrições do briefing > Base Estratégica e memória real > mapa do canal e objetivo comercial > modelo genérico do segmento.",
       "Crie uma entrega que possa ser aprovada por um cliente real e usada em campanha. O visual deve representar a oferta, o público e o contexto, não apenas produzir uma imagem genérica bonita.",
     ].filter(Boolean).join("\n\n");
 
@@ -327,11 +359,15 @@ export class OpenAiContentProvider {
     const rawText = extractOutputText(textPayload);
     if (!rawText) throw new Error("O modelo não devolveu o conteúdo estruturado.");
 
-    const parsed = GeneratedContentSchema.parse({
+    const parsedBase = GeneratedContentSchema.parse({
       ...JSON.parse(rawText),
       imageUrl: null,
       imageStatus: "not_requested",
       visualAssets: [],
+    });
+    const parsed = GeneratedContentSchema.parse({
+      ...parsedBase,
+      adaptationNotes: [...parsedBase.adaptationNotes, ...contextNotes].slice(0, 10),
     });
     const generated = normalizeForFormat(request, parsed);
     const specs = visualSpecsFor(request, generated, brand);

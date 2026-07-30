@@ -2,7 +2,7 @@ type HumanSupportNotification = {
   requestId: string;
   requesterEmail: string;
   brandId: string;
-  contentRequestId: string | null;
+  contentRequestId?: string | null;
   supportType: string;
   urgency: string;
   createdAt: string;

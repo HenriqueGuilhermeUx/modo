@@ -15,6 +15,14 @@ function createProvider() {
   return new DemoDiagnosticProvider(config.DEMO_DIAGNOSTIC_DELAY_MS);
 }
 
+if (config.NODE_ENV === "production" && !config.DATABASE_URL) {
+  console.error("\n============================================================");
+  console.error("[MODO_CRITICAL] PRODUÇÃO INICIADA SEM DATABASE_URL");
+  console.error("Memória de marca, contas, campanhas e histórico ficarão indisponíveis.");
+  console.error("Configure DATABASE_URL antes de aceitar tráfego de clientes.");
+  console.error("============================================================\n");
+}
+
 const app = await createApp({
   provider: createProvider(),
   allowedOrigins: config.allowedOrigins,
@@ -43,6 +51,11 @@ const app = await createApp({
 await registerStrategyNetworkRoutes(app, {
   databaseUrl: config.DATABASE_URL,
   databaseSsl: config.DATABASE_SSL,
+  resendApiKey: config.RESEND_API_KEY,
+  humanSupportEmailFrom: config.HUMAN_SUPPORT_EMAIL_FROM,
+  humanSupportEmailTo: config.HUMAN_SUPPORT_EMAIL_TO,
+  humanSupportNotificationWebhookUrl: config.HUMAN_SUPPORT_NOTIFICATION_WEBHOOK_URL,
+  publicWebUrl: config.PUBLIC_WEB_URL,
 });
 
 await registerHumanOperationsRoutes(app, {

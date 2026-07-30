@@ -115,6 +115,79 @@ function mapApifyStatus(value = ""): IntelligenceMissionStatus {
   return "running";
 }
 
+function textValue(value: unknown, maxLength: number) {
+  if (typeof value !== "string") return "";
+  return value.trim().replace(/\s+/g, " ").slice(0, maxLength);
+}
+
+function publicUrl(value: unknown) {
+  const text = textValue(value, 1000);
+  if (!text) return "";
+  try {
+    const url = new URL(text);
+    return ["http:", "https:"].includes(url.protocol) ? url.toString() : "";
+  } catch {
+    return "";
+  }
+}
+
+function dateValue(value: unknown) {
+  if (typeof value === "string" || value instanceof Date) {
+    const date = new Date(value);
+    if (!Number.isNaN(date.getTime())) return date.toISOString();
+  }
+  return new Date().toISOString();
+}
+
+function recordValue(value: unknown): Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : {};
+}
+
+export function normalizeMarketRadarItems(
+  items: Record<string, unknown>[],
+  limit = 100,
+) {
+  const seen = new Set<string>();
+  const normalized: Record<string, unknown>[] = [];
+
+  for (const item of items) {
+    const source = textValue(item.source ?? item.platform ?? item.provider, 120) || "public_web";
+    const name = textValue(
+      item.name ?? item.title ?? item.companyName ?? item.businessName ?? item.advertiserName,
+      240,
+    ) || "Resultado coletado";
+    const url = publicUrl(
+      item.url ?? item.website ?? item.websiteUrl ?? item.profileUrl ?? item.sourceUrl,
+    );
+    const summary = textValue(
+      item.summary ?? item.description ?? item.text ?? item.about ?? item.snippet,
+      2000,
+    );
+    const signals = recordValue(item.signals ?? item.metrics ?? item.metadata);
+    const collectedAt = dateValue(item.collectedAt ?? item.scrapedAt ?? item.createdAt);
+    const key = `${source.toLowerCase()}|${url || name.toLowerCase()}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    normalized.push({ source, name, url, summary, signals, collectedAt });
+    if (normalized.length >= limit) break;
+  }
+
+  return normalized;
+}
+
+function normalizeItems(
+  playbook: IntelligencePlaybook,
+  items: Record<string, unknown>[],
+  limit: number,
+) {
+  if (playbook === "market_radar") return normalizeMarketRadarItems(items, limit);
+  return items
+    .filter((item) => Boolean(item) && typeof item === "object" && !Array.isArray(item))
+    .slice(0, limit);
+}
+
 export class IntelligenceError extends Error {
   constructor(
     public readonly code: string,
@@ -212,6 +285,11 @@ export class IntelligenceService {
     };
   }
 
+  private providerFor(playbook: IntelligencePlaybook): IntelligenceProvider {
+    if (this.mode === "apify" && !this.taskIds[playbook]?.trim()) return "queue";
+    return this.mode;
+  }
+
   async create(
     organizationId: string,
     userId: string,
@@ -221,20 +299,20 @@ export class IntelligenceService {
     const id = randomUUID();
     const now = new Date().toISOString();
     const taskId = this.taskIds[input.playbook]?.trim() || "";
+    const provider = this.providerFor(input.playbook);
     const mission: IntelligenceMission = {
       ...input,
       id,
       organizationId,
       userId,
-      provider: this.mode,
+      provider,
       status: "queued",
       taskId,
       providerRunId: "",
       providerDatasetId: "",
-      providerMessage:
-        this.mode === "queue"
-          ? "Missão salva na fila interna. A coleta externa ainda não foi ativada."
-          : "Missão pronta para execução.",
+      providerMessage: provider === "queue"
+        ? "Missão salva na fila interna. A coleta externa deste playbook ainda não foi ativada."
+        : "Missão pronta para execução.",
       resultCount: 0,
       resultPreview: [],
       createdAt: now,
@@ -253,7 +331,10 @@ export class IntelligenceService {
          WHERE organization_id=$1 ORDER BY updated_at DESC LIMIT 200`,
         [organizationId],
       );
-      return result.rows.map(mapRow);
+      return result.rows.map(mapRow).map((mission) => ({
+        ...mission,
+        resultPreview: normalizeItems(mission.playbook, mission.resultPreview, 100),
+      }));
     }
     return [...this.memory.values()]
       .filter((item) => item.organizationId === organizationId)
@@ -265,21 +346,28 @@ export class IntelligenceService {
     if (!mission || mission.organizationId !== organizationId) {
       throw new IntelligenceError("INTELLIGENCE_MISSION_NOT_FOUND", 404, "Missão de inteligência não encontrada.");
     }
-    if (refresh && this.mode === "apify" && mission.status === "running" && mission.providerRunId) {
+    if (refresh && mission.provider === "apify" && mission.status === "running" && mission.providerRunId) {
       return this.refreshApifyRun(mission);
     }
-    return mission;
+    return {
+      ...mission,
+      resultPreview: normalizeItems(mission.playbook, mission.resultPreview, 100),
+    };
   }
 
   async retry(id: string, organizationId: string, brand: IntelligenceBrandContext) {
     const mission = await this.get(id, organizationId, false);
+    const provider = this.providerFor(mission.playbook);
+    const taskId = this.taskIds[mission.playbook]?.trim() || "";
     const queued = await this.update(id, {
-      provider: this.mode,
+      provider,
       status: "queued",
-      taskId: this.taskIds[mission.playbook]?.trim() || mission.taskId,
+      taskId,
       providerRunId: "",
       providerDatasetId: "",
-      providerMessage: "Missão preparada para nova execução.",
+      providerMessage: provider === "queue"
+        ? "Missão mantida na fila interna; a automação deste playbook ainda não foi ativada."
+        : "Missão preparada para nova execução.",
       resultCount: 0,
       resultPreview: [],
     });
@@ -290,13 +378,16 @@ export class IntelligenceService {
   async results(id: string, organizationId: string, limit = 100) {
     const mission = await this.get(id, organizationId);
     const safeLimit = Math.min(500, Math.max(1, limit));
-    if (this.mode === "apify" && mission.providerDatasetId && mission.status === "succeeded") {
+    if (mission.provider === "apify" && mission.providerDatasetId && mission.status === "succeeded") {
       return {
         mission,
-        items: await this.fetchDatasetItems(mission.providerDatasetId, safeLimit),
+        items: await this.fetchDatasetItems(mission.providerDatasetId, safeLimit, mission.playbook),
       };
     }
-    return { mission, items: mission.resultPreview.slice(0, safeLimit) };
+    return {
+      mission,
+      items: normalizeItems(mission.playbook, mission.resultPreview, safeLimit),
+    };
   }
 
   validateCallbackSecret(value: string) {
@@ -310,28 +401,33 @@ export class IntelligenceService {
     if (!mission) {
       throw new IntelligenceError("INTELLIGENCE_MISSION_NOT_FOUND", 404, "Missão de inteligência não encontrada.");
     }
+    const normalizedPreview = normalizeItems(
+      mission.playbook,
+      callback.resultPreview,
+      Math.min(100, Math.max(1, callback.resultPreview.length || 1)),
+    );
     return this.update(id, {
       status: callback.status === "completed" ? "succeeded" : "failed",
       providerRunId: callback.providerRunId || mission.providerRunId,
       providerDatasetId: callback.providerDatasetId || mission.providerDatasetId,
-      providerMessage:
-        callback.status === "completed"
-          ? `Coleta concluída com ${callback.resultCount} registro(s).`
-          : callback.error || "A coleta não pôde ser concluída.",
+      providerMessage: callback.status === "completed"
+        ? `Coleta concluída com ${callback.resultCount} registro(s).`
+        : callback.error || "A coleta não pôde ser concluída.",
       resultCount: callback.resultCount,
-      resultPreview: callback.resultPreview,
+      resultPreview: normalizedPreview,
     });
   }
 
   private async dispatch(mission: IntelligenceMission, brand: IntelligenceBrandContext) {
-    if (this.mode === "queue") return mission;
+    if (mission.provider === "queue") return mission;
+    if (mission.provider === "n8n") return this.dispatchN8n(mission, brand);
     if (!mission.taskId) {
       return this.update(mission.id, {
-        status: "failed",
-        providerMessage: `Nenhuma Task do Apify foi configurada para o playbook ${mission.playbook}.`,
+        provider: "queue",
+        status: "queued",
+        providerMessage: `Playbook ${mission.playbook} mantido na fila interna porque nenhuma Task do Apify foi configurada.`,
       });
     }
-    if (this.mode === "n8n") return this.dispatchN8n(mission, brand);
     return this.dispatchApify(mission, brand);
   }
 
@@ -418,7 +514,9 @@ export class IntelligenceService {
           providerMessage: status === "failed" ? `A execução terminou com status ${payload.data.status}.` : "Coleta em andamento.",
         });
       }
-      const preview = datasetId ? await this.fetchDatasetItems(datasetId, 100) : [];
+      const preview = datasetId
+        ? await this.fetchDatasetItems(datasetId, 100, mission.playbook)
+        : [];
       return this.update(mission.id, {
         status: "succeeded",
         providerDatasetId: datasetId,
@@ -433,7 +531,11 @@ export class IntelligenceService {
     }
   }
 
-  private async fetchDatasetItems(datasetId: string, limit: number) {
+  private async fetchDatasetItems(
+    datasetId: string,
+    limit: number,
+    playbook: IntelligencePlaybook,
+  ) {
     const response = await fetch(
       `${this.apifyBaseUrl}/datasets/${encodeURIComponent(datasetId)}/items?clean=true&format=json&limit=${limit}`,
       {
@@ -444,7 +546,10 @@ export class IntelligenceService {
     const payload = await response.json().catch(() => []);
     if (!response.ok) throw new Error(`Não foi possível carregar o dataset do Apify (${response.status}).`);
     if (!Array.isArray(payload)) return [];
-    return payload.filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === "object").slice(0, limit);
+    const records = payload.filter(
+      (item): item is Record<string, unknown> => Boolean(item) && typeof item === "object" && !Array.isArray(item),
+    );
+    return normalizeItems(playbook, records, limit);
   }
 
   private async save(mission: IntelligenceMission) {

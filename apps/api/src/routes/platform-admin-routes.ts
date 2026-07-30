@@ -54,29 +54,42 @@ export async function registerPlatformAdminRoutes(
     databaseUrl: options.databaseUrl,
     databaseSsl: options.databaseSsl,
   });
-  const intelligence = new IntelligenceService({
-    databaseUrl: options.databaseUrl,
-    databaseSsl: options.databaseSsl,
-    provider: intelligenceProvider(),
-    apifyBaseUrl: process.env.APIFY_API_BASE_URL,
-    apifyToken: process.env.APIFY_API_TOKEN,
-    n8nWebhookUrl: process.env.N8N_INTELLIGENCE_WEBHOOK_URL,
-    n8nSecret: process.env.N8N_INTELLIGENCE_SECRET,
-    publicApiUrl: process.env.PUBLIC_API_URL,
-    callbackSecret: process.env.INTELLIGENCE_CALLBACK_SECRET,
-    requestTimeoutMs: Number(process.env.INTELLIGENCE_REQUEST_TIMEOUT_MS || 30000),
-    taskIds: {
-      market_radar: process.env.APIFY_MARKET_RADAR_TASK_ID,
-      b2b_prospecting: process.env.APIFY_B2B_PROSPECTING_TASK_ID,
-      price_monitoring: process.env.APIFY_PRICE_MONITORING_TASK_ID,
-    },
+
+  const intelligenceAlreadyRegistered = app.hasRoute({
+    method: "GET",
+    url: "/api/v1/intelligence/playbooks",
   });
-  await intelligence.initialize();
+  const intelligence = intelligenceAlreadyRegistered
+    ? undefined
+    : new IntelligenceService({
+        databaseUrl: options.databaseUrl,
+        databaseSsl: options.databaseSsl,
+        provider: intelligenceProvider(),
+        apifyBaseUrl: process.env.APIFY_API_BASE_URL,
+        apifyToken: process.env.APIFY_API_TOKEN,
+        n8nWebhookUrl: process.env.N8N_INTELLIGENCE_WEBHOOK_URL,
+        n8nSecret: process.env.N8N_INTELLIGENCE_SECRET,
+        publicApiUrl: process.env.PUBLIC_API_URL,
+        callbackSecret: process.env.INTELLIGENCE_CALLBACK_SECRET,
+        requestTimeoutMs: Number(process.env.INTELLIGENCE_REQUEST_TIMEOUT_MS || 30000),
+        taskIds: {
+          market_radar: process.env.APIFY_MARKET_RADAR_TASK_ID,
+          b2b_prospecting: process.env.APIFY_B2B_PROSPECTING_TASK_ID,
+          price_monitoring: process.env.APIFY_PRICE_MONITORING_TASK_ID,
+        },
+      });
+
+  if (intelligence) {
+    await intelligence.initialize();
+    await registerIntelligenceRoutes(app, options.auth, intelligence);
+  } else {
+    app.log.warn("Rotas de inteligência já estavam registradas; registro duplicado ignorado.");
+  }
+
   app.addHook("onClose", async () => {
-    await Promise.all([credits.close(), intelligence.close()]);
+    await Promise.all([credits.close(), intelligence?.close()]);
   });
 
-  await registerIntelligenceRoutes(app, options.auth, intelligence);
   await registerSmartBotsRoutes(app, {
     auth: options.auth,
     billing: options.billing,

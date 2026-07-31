@@ -1,0 +1,34 @@
+.integrations-shell { min-height: 100vh; background: #f6f8fc; color: #0d1b3e; }
+.integrations-main { width: min(1180px, calc(100% - 36px)); margin: 0 auto; padding: 54px 0 90px; }
+.integrations-hero { display: flex; align-items: flex-end; justify-content: space-between; gap: 28px; margin-bottom: 34px; }
+.integrations-hero h1 { max-width: 760px; margin: 8px 0 12px; font-size: clamp(34px, 5vw, 62px); line-height: .98; letter-spacing: -.045em; }
+.integrations-hero p { max-width: 720px; margin: 0; color: #52617f; font-size: 17px; line-height: 1.65; }
+.integrations-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; }
+.integration-card { display: flex; flex-direction: column; min-height: 410px; padding: 26px; border: 1px solid #dde4f1; border-radius: 24px; background: #fff; box-shadow: 0 18px 60px rgba(13, 27, 62, .07); }
+.integration-card.instagram { background: linear-gradient(145deg, #fff 0%, #fff7fb 100%); }
+.integration-card.connected { border-color: rgba(46, 209, 154, .55); box-shadow: 0 18px 60px rgba(46, 209, 154, .12); }
+.integration-card-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 26px; }
+.integration-card-head span { font-weight: 900; font-size: 14px; text-transform: uppercase; letter-spacing: .08em; }
+.integration-card-head b { padding: 7px 10px; border-radius: 999px; background: #eef2f9; color: #52617f; font-size: 10px; text-transform: uppercase; letter-spacing: .06em; }
+.integration-card.connected .integration-card-head b { background: rgba(46, 209, 154, .13); color: #087c55; }
+.integration-card h2 { margin: 0 0 12px; font-size: 25px; letter-spacing: -.03em; }
+.integration-card p { margin: 0 0 22px; color: #65728c; line-height: 1.58; }
+.integration-card label { display: grid; gap: 8px; margin-bottom: 18px; font-size: 12px; font-weight: 800; }
+.integration-card select { width: 100%; padding: 12px 13px; border: 1px solid #d9e0ed; border-radius: 12px; background: #fff; color: #0d1b3e; }
+.integration-scopes { display: flex; flex-wrap: wrap; gap: 7px; margin: 0 0 22px; }
+.integration-scopes span { padding: 6px 9px; border-radius: 999px; background: #f0f4fa; color: #5b6983; font-size: 10px; }
+.integration-card .button { margin-top: auto; width: 100%; justify-content: center; }
+.integrations-governance { margin-top: 22px; padding: 22px 24px; border-radius: 18px; background: #0d1b3e; color: #fff; }
+.integrations-governance p { margin: 6px 0 0; color: #c8d2e9; line-height: 1.55; }
+.instagram-approval-action { display: grid; gap: 18px; height: 100%; }
+.instagram-approval-action.loading { place-items: center; min-height: 180px; text-align: center; }
+.instagram-approval-action.unavailable { align-content: start; }
+.instagram-approval-action small { color: #d12f7a; font-weight: 900; letter-spacing: .1em; }
+.instagram-approval-action strong { display: block; margin-top: 8px; font-size: 20px; }
+.instagram-approval-action p { color: #65728c; line-height: 1.55; }
+.instagram-approval-actions { align-self: end; }
+.instagram-approval-actions .button { width: 100%; justify-content: center; }
+.instagram-governance-note { margin: 0; padding-top: 14px; border-top: 1px solid #e8edf5; font-size: 11px; }
+.instagram-published-id { display: block; padding: 12px; border-radius: 12px; background: rgba(46, 209, 154, .12); color: #087c55; font-size: 12px; font-weight: 800; text-align: center; }
+@media (max-width: 920px) { .integrations-grid { grid-template-columns: 1fr; } .integration-card { min-height: 0; } }
+@media (max-width: 680px) { .integrations-main { width: min(100% - 22px, 1180px); padding-top: 30px; } .integrations-hero { align-items: flex-start; flex-direction: column; } }

@@ -7,6 +7,7 @@ import HumanOperationsAdminWorkspace from "./HumanOperationsAdminWorkspace";
 import ImpactLanding from "./ImpactLanding";
 import IntelligenceWorkspace from "./IntelligenceWorkspace";
 import InvitationWorkspace from "./InvitationWorkspace";
+import { DataDeletionPage, PrivacyPolicyPage } from "./LegalPages";
 import LinkedInWorkspace from "./LinkedInWorkspace";
 import OnboardingWorkspace from "./OnboardingWorkspace";
 import Portal from "./Portal";
@@ -23,7 +24,14 @@ import StudioWorkspace from "./StudioWorkspace";
 import WeekWorkspace from "./WeekWorkspace";
 
 export default function Root() {
-  const path = window.location.pathname;
+  const path = window.location.pathname.replace(/\/$/, "") || "/";
+
+  if (["/politica-de-privacidade", "/privacy", "/privacy-policy"].includes(path)) {
+    return <PrivacyPolicyPage />;
+  }
+  if (["/exclusao-de-dados", "/data-deletion"].includes(path)) {
+    return <DataDeletionPage />;
+  }
   if (path === "/smartbots.html" || path === "/smartbots") return <SmartBotsPage />;
   if (path === "/onboarding-smartbots.html" || path === "/app/smartbots") return <SmartBotsOnboarding />;
   if (path === "/rede-modo/convite") return <SpecialistApplicationPage />;

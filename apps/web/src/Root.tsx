@@ -6,6 +6,7 @@ import DirectorWorkspace from "./DirectorWorkspace";
 import HumanOperationsAdminWorkspace from "./HumanOperationsAdminWorkspace";
 import ImpactLanding from "./ImpactLanding";
 import IntelligenceWorkspace from "./IntelligenceWorkspace";
+import IntegrationsWorkspace from "./IntegrationsWorkspace";
 import InvitationWorkspace from "./InvitationWorkspace";
 import { DataDeletionPage, PrivacyPolicyPage } from "./LegalPages";
 import LinkedInWorkspace from "./LinkedInWorkspace";
@@ -64,6 +65,7 @@ export default function Root() {
   if (path.startsWith("/app/linkedin")) return <LinkedInWorkspace />;
   if (path.startsWith("/app/inteligencia")) return <IntelligenceWorkspace />;
   if (path.startsWith("/app/signal")) return <SignalWorkspace />;
+  if (path.startsWith("/app/settings/integrations")) return <IntegrationsWorkspace />;
   if (path.startsWith("/app/content")) return <ContentWorkspace />;
   if (path.startsWith("/app")) {
     return (
@@ -81,6 +83,7 @@ export default function Root() {
           <a className="portal-plan-entry" href="/app/inteligencia">Inteligência</a>
           <a className="portal-plan-entry" href="/onboarding-smartbots.html">SmartBots</a>
           <a className="portal-plan-entry" href="/app/signal">Signal</a>
+          <a className="portal-plan-entry" href="/app/settings/integrations">Integrações</a>
           <a className="portal-workspace-entry" href="/app/content">Quick Start e criar ↗</a>
         </div>
       </>

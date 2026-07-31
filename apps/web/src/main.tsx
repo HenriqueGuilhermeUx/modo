@@ -33,6 +33,7 @@ import "./human-operations-admin.css";
 import "./curation-discreet.css";
 import "./product-path-guide.css";
 import "./legal.css";
+import "./integrations.css";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

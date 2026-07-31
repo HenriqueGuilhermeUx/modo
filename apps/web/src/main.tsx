@@ -31,9 +31,6 @@ import "./strategy-network.css";
 import "./visual-composer.css";
 import "./human-operations-admin.css";
 import "./curation-discreet.css";
+import "./integrations.css";
 
-createRoot(document.getElementById("root")!).render(
-  <StrictMode>
-    <Root />
-  </StrictMode>,
-);
+createRoot(document.getElementById("root")!).render(<StrictMode><Root /></StrictMode>);

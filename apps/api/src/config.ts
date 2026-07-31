@@ -23,10 +23,7 @@ const ConfigSchema = z
     PORT: z.coerce.number().int().positive().default(4000),
     PUBLIC_API_URL: z.preprocess(emptyToUndefined, z.string().url().default("http://localhost:4000")),
     PUBLIC_WEB_URL: z.preprocess(emptyToUndefined, z.string().url().default("http://localhost:5173")),
-    ALLOWED_ORIGINS: z.preprocess(
-      emptyToUndefined,
-      z.string().default("http://localhost:5173"),
-    ),
+    ALLOWED_ORIGINS: z.preprocess(emptyToUndefined, z.string().default("http://localhost:5173")),
     DIAGNOSTIC_PROVIDER: z.enum(["demo", "n8n"]).default("demo"),
     DEMO_DIAGNOSTIC_DELAY_MS: z.coerce.number().int().nonnegative().default(2600),
     N8N_DIAGNOSTIC_WEBHOOK_URL: optionalTrimmedString,
@@ -39,10 +36,7 @@ const ConfigSchema = z
     OPENAI_TEXT_MODEL: z.preprocess(emptyToUndefined, z.string().default("gpt-5-mini")),
     OPENAI_IMAGE_MODEL: z.preprocess(emptyToUndefined, z.string().default("gpt-image-1")),
     INTELLIGENCE_PROVIDER: z.enum(["queue", "apify", "n8n"]).default("queue"),
-    APIFY_API_BASE_URL: z.preprocess(
-      emptyToUndefined,
-      z.string().url().default("https://api.apify.com/v2"),
-    ),
+    APIFY_API_BASE_URL: z.preprocess(emptyToUndefined, z.string().url().default("https://api.apify.com/v2")),
     APIFY_API_TOKEN: optionalTrimmedString,
     APIFY_MARKET_RADAR_TASK_ID: optionalTrimmedString,
     APIFY_B2B_PROSPECTING_TASK_ID: optionalTrimmedString,
@@ -66,130 +60,60 @@ const ConfigSchema = z
     WOOVI_WEBHOOK_AUTHORIZATION: optionalTrimmedString,
     RESEND_API_KEY: optionalTrimmedString,
     HUMAN_SUPPORT_EMAIL_FROM: optionalTrimmedString,
-    HUMAN_SUPPORT_EMAIL_TO: z.preprocess(
-      emptyToUndefined,
-      z.string().email().default("henriquecampos@gmail.com"),
-    ),
+    HUMAN_SUPPORT_EMAIL_TO: z.preprocess(emptyToUndefined, z.string().email().default("henriquecampos@gmail.com")),
     HUMAN_SUPPORT_NOTIFICATION_WEBHOOK_URL: optionalUrl,
     HUMAN_SUPPORT_RESPONSE_SLA_BUSINESS_DAYS: z.coerce.number().int().min(1).max(10).default(2),
     LINKEDIN_CLIENT_ID: optionalTrimmedString,
     LINKEDIN_CLIENT_SECRET: optionalTrimmedString,
     LINKEDIN_REDIRECT_URI: optionalTrimmedString,
-    LINKEDIN_SCOPES: z.preprocess(
-      emptyToUndefined,
-      z.string().default("r_liteprofile w_member_social"),
-    ),
+    LINKEDIN_SCOPES: z.preprocess(emptyToUndefined, z.string().default("r_liteprofile w_member_social")),
     LINKEDIN_TOKEN_ENCRYPTION_SECRET: optionalTrimmedString,
     LINKEDIN_API_VERSION: z.preprocess(emptyToUndefined, z.string().default("202606")),
     CANVA_CLIENT_ID: optionalTrimmedString,
     CANVA_CLIENT_SECRET: optionalTrimmedString,
     CANVA_REDIRECT_URI: optionalUrl,
     CANVA_TOKEN_ENCRYPTION_SECRET: optionalTrimmedString,
-    CANVA_SCOPES: z.preprocess(
+    CANVA_SCOPES: z.preprocess(emptyToUndefined, z.string().default("asset:read asset:write design:content:write design:meta:read")),
+    INSTAGRAM_CLIENT_ID: optionalTrimmedString,
+    INSTAGRAM_CLIENT_SECRET: optionalTrimmedString,
+    INSTAGRAM_REDIRECT_URI: z.preprocess(emptyToUndefined, z.string().url().default("https://modo-api-3m10.onrender.com/api/v1/instagram/callback")),
+    INSTAGRAM_TOKEN_ENCRYPTION_SECRET: optionalTrimmedString,
+    INSTAGRAM_SCOPES: z.preprocess(
       emptyToUndefined,
-      z.string().default("asset:read asset:write design:content:write design:meta:read"),
+      z.string().default("instagram_business_basic,instagram_business_content_publish,instagram_business_manage_insights,instagram_business_manage_comments"),
     ),
+    INSTAGRAM_API_VERSION: z.preprocess(emptyToUndefined, z.string().default("v21.0")),
+    INSTAGRAM_GRAPH_BASE_URL: z.preprocess(emptyToUndefined, z.string().url().default("https://graph.instagram.com")),
   })
   .superRefine((values, context) => {
     if (values.DIAGNOSTIC_PROVIDER === "n8n") {
       const webhookUrl = z.string().url().safeParse(values.N8N_DIAGNOSTIC_WEBHOOK_URL);
       if (!webhookUrl.success) {
-        context.addIssue({
-          code: "custom",
-          path: ["N8N_DIAGNOSTIC_WEBHOOK_URL"],
-          message: "Informe uma URL válida quando DIAGNOSTIC_PROVIDER=n8n.",
-        });
+        context.addIssue({ code: "custom", path: ["N8N_DIAGNOSTIC_WEBHOOK_URL"], message: "Informe uma URL válida quando DIAGNOSTIC_PROVIDER=n8n." });
       }
       if (!values.N8N_WEBHOOK_SECRET) {
-        context.addIssue({
-          code: "custom",
-          path: ["N8N_WEBHOOK_SECRET"],
-          message: "Informe um segredo quando DIAGNOSTIC_PROVIDER=n8n.",
-        });
+        context.addIssue({ code: "custom", path: ["N8N_WEBHOOK_SECRET"], message: "Informe um segredo quando DIAGNOSTIC_PROVIDER=n8n." });
       }
     }
-
     if (values.INTELLIGENCE_PROVIDER === "apify" && !values.APIFY_API_TOKEN) {
-      context.addIssue({
-        code: "custom",
-        path: ["APIFY_API_TOKEN"],
-        message: "Informe o token do Apify quando INTELLIGENCE_PROVIDER=apify.",
-      });
+      context.addIssue({ code: "custom", path: ["APIFY_API_TOKEN"], message: "Informe o token do Apify quando INTELLIGENCE_PROVIDER=apify." });
     }
-
     if (values.INTELLIGENCE_PROVIDER === "n8n") {
-      if (!values.N8N_INTELLIGENCE_WEBHOOK_URL) {
-        context.addIssue({
-          code: "custom",
-          path: ["N8N_INTELLIGENCE_WEBHOOK_URL"],
-          message: "Informe o webhook do n8n quando INTELLIGENCE_PROVIDER=n8n.",
-        });
-      }
-      if (!values.N8N_INTELLIGENCE_SECRET) {
-        context.addIssue({
-          code: "custom",
-          path: ["N8N_INTELLIGENCE_SECRET"],
-          message: "Informe o segredo do n8n quando INTELLIGENCE_PROVIDER=n8n.",
-        });
-      }
-      if (!values.INTELLIGENCE_CALLBACK_SECRET) {
-        context.addIssue({
-          code: "custom",
-          path: ["INTELLIGENCE_CALLBACK_SECRET"],
-          message: "Informe o segredo de callback quando INTELLIGENCE_PROVIDER=n8n.",
-        });
-      }
+      if (!values.N8N_INTELLIGENCE_WEBHOOK_URL) context.addIssue({ code: "custom", path: ["N8N_INTELLIGENCE_WEBHOOK_URL"], message: "Informe o webhook do n8n quando INTELLIGENCE_PROVIDER=n8n." });
+      if (!values.N8N_INTELLIGENCE_SECRET) context.addIssue({ code: "custom", path: ["N8N_INTELLIGENCE_SECRET"], message: "Informe o segredo do n8n quando INTELLIGENCE_PROVIDER=n8n." });
+      if (!values.INTELLIGENCE_CALLBACK_SECRET) context.addIssue({ code: "custom", path: ["INTELLIGENCE_CALLBACK_SECRET"], message: "Informe o segredo de callback quando INTELLIGENCE_PROVIDER=n8n." });
     }
-
     if (values.SMARTBOTS_DISPATCH_PROVIDER === "direct") {
-      if (!values.SMARTBOTS_PARTNER_ENDPOINT) {
-        context.addIssue({
-          code: "custom",
-          path: ["SMARTBOTS_PARTNER_ENDPOINT"],
-          message: "Informe o endpoint da SmartBots quando SMARTBOTS_DISPATCH_PROVIDER=direct.",
-        });
-      }
-      if (!values.SMARTBOTS_PARTNER_API_KEY) {
-        context.addIssue({
-          code: "custom",
-          path: ["SMARTBOTS_PARTNER_API_KEY"],
-          message: "Informe a chave de parceiro quando SMARTBOTS_DISPATCH_PROVIDER=direct.",
-        });
-      }
+      if (!values.SMARTBOTS_PARTNER_ENDPOINT) context.addIssue({ code: "custom", path: ["SMARTBOTS_PARTNER_ENDPOINT"], message: "Informe o endpoint da SmartBots quando SMARTBOTS_DISPATCH_PROVIDER=direct." });
+      if (!values.SMARTBOTS_PARTNER_API_KEY) context.addIssue({ code: "custom", path: ["SMARTBOTS_PARTNER_API_KEY"], message: "Informe a chave de parceiro quando SMARTBOTS_DISPATCH_PROVIDER=direct." });
     }
-
     if (values.SMARTBOTS_DISPATCH_PROVIDER === "n8n") {
-      if (!values.N8N_SMARTBOTS_WEBHOOK_URL) {
-        context.addIssue({
-          code: "custom",
-          path: ["N8N_SMARTBOTS_WEBHOOK_URL"],
-          message: "Informe o webhook do n8n quando SMARTBOTS_DISPATCH_PROVIDER=n8n.",
-        });
-      }
-      if (!values.N8N_SMARTBOTS_SECRET) {
-        context.addIssue({
-          code: "custom",
-          path: ["N8N_SMARTBOTS_SECRET"],
-          message: "Informe o segredo do webhook quando SMARTBOTS_DISPATCH_PROVIDER=n8n.",
-        });
-      }
+      if (!values.N8N_SMARTBOTS_WEBHOOK_URL) context.addIssue({ code: "custom", path: ["N8N_SMARTBOTS_WEBHOOK_URL"], message: "Informe o webhook do n8n quando SMARTBOTS_DISPATCH_PROVIDER=n8n." });
+      if (!values.N8N_SMARTBOTS_SECRET) context.addIssue({ code: "custom", path: ["N8N_SMARTBOTS_SECRET"], message: "Informe o segredo do webhook quando SMARTBOTS_DISPATCH_PROVIDER=n8n." });
     }
-
     if (values.PAYMENTS_PROVIDER === "woovi") {
-      if (!values.WOOVI_APP_ID) {
-        context.addIssue({
-          code: "custom",
-          path: ["WOOVI_APP_ID"],
-          message: "Informe o AppID da Woovi.",
-        });
-      }
-      if (!values.WOOVI_WEBHOOK_AUTHORIZATION) {
-        context.addIssue({
-          code: "custom",
-          path: ["WOOVI_WEBHOOK_AUTHORIZATION"],
-          message: "Informe a autorização secreta do webhook Woovi.",
-        });
-      }
+      if (!values.WOOVI_APP_ID) context.addIssue({ code: "custom", path: ["WOOVI_APP_ID"], message: "Informe o AppID da Woovi." });
+      if (!values.WOOVI_WEBHOOK_AUTHORIZATION) context.addIssue({ code: "custom", path: ["WOOVI_WEBHOOK_AUTHORIZATION"], message: "Informe a autorização secreta do webhook Woovi." });
     }
   });
 
@@ -207,7 +131,5 @@ export const config = {
   SMARTBOTS_PARTNER_API_KEY: parsed.SMARTBOTS_PARTNER_API_KEY ?? "",
   RESEND_API_KEY: parsed.RESEND_API_KEY ?? "",
   HUMAN_SUPPORT_EMAIL_FROM: parsed.HUMAN_SUPPORT_EMAIL_FROM ?? "",
-  allowedOrigins: parsed.ALLOWED_ORIGINS.split(",")
-    .map((origin) => origin.trim())
-    .filter(Boolean),
+  allowedOrigins: parsed.ALLOWED_ORIGINS.split(",").map((origin) => origin.trim()).filter(Boolean),
 };

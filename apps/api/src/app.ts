@@ -10,11 +10,7 @@ import {
   contentCreditCost,
   planEntitlements,
 } from "@modo/contracts";
-import {
-  ContentGenerationCallbackSchema,
-  ContentRequestCreateSchema,
-  ContentRevisionRequestSchema,
-} from "@modo/contracts/content";
+import { ContentGenerationCallbackSchema, ContentRequestCreateSchema, ContentRevisionRequestSchema } from "@modo/contracts/content";
 import { WooviCheckoutRequestSchema } from "@modo/contracts/payment";
 import Fastify, { type FastifyRequest } from "fastify";
 import { randomUUID } from "node:crypto";
@@ -22,6 +18,7 @@ import type { DiagnosticProvider } from "./providers/diagnostic-provider.js";
 import { registerActivationRoutes } from "./routes/activation-routes.js";
 import { registerCanvaRoutes } from "./routes/canva-routes.js";
 import { registerCreativeIntelligenceRoutes } from "./routes/creative-intelligence-routes.js";
+import { registerInstagramRoutes } from "./routes/instagram-routes.js";
 import { registerPlatformAdminRoutes } from "./routes/platform-admin-routes.js";
 import { registerSourceRoutes } from "./routes/source-routes.js";
 import { registerStudioRoutes } from "./routes/studio-routes.js";
@@ -30,17 +27,15 @@ import { ActivationService } from "./services/activation-service.js";
 import { AuthError, AuthService } from "./services/auth-service.js";
 import { BillingError, BillingService } from "./services/billing-service.js";
 import { CanvaService } from "./services/canva-service.js";
-import {
-  ContentAutomationError,
-  ContentAutomationService,
-} from "./services/content-automation-service.js";
+import { ContentAutomationError, ContentAutomationService } from "./services/content-automation-service.js";
 import { ContentAssetService } from "./services/content-asset-service.js";
 import { ContentError, ContentService } from "./services/content-service.js";
 import { CreativeIntelligenceError } from "./services/creative-intelligence-service.js";
 import { DiagnosticService } from "./services/diagnostic-service.js";
+import { InstagramService } from "./services/instagram-service.js";
 import { LeadService } from "./services/lead-service.js";
 import { PaymentError, PaymentService } from "./services/payment-service.js";
-import { PlatformAdminError, PlatformAdminService } from "./services/platform-admin-service.js";
+import { PlatformAdminService } from "./services/platform-admin-service.js";
 
 export interface CreateAppOptions {
   provider: DiagnosticProvider;
@@ -66,87 +61,39 @@ export interface CreateAppOptions {
   canvaRedirectUri?: string;
   canvaEncryptionSecret?: string;
   canvaScopes?: string;
+  instagramClientId?: string;
+  instagramClientSecret?: string;
+  instagramRedirectUri?: string;
+  instagramEncryptionSecret?: string;
+  instagramScopes?: string;
+  instagramApiVersion?: string;
+  instagramGraphBaseUrl?: string;
   publicWebUrl?: string;
 }
 
 function bearerToken(request: FastifyRequest) {
   const value = request.headers.authorization;
-  if (!value?.startsWith("Bearer ")) {
-    throw new AuthError("UNAUTHORIZED", 401, "Faça login para continuar.");
-  }
+  if (!value?.startsWith("Bearer ")) throw new AuthError("UNAUTHORIZED", 401, "Faça login para continuar.");
   return value.slice(7).trim();
 }
-
 function callbackSecret(request: FastifyRequest) {
-  return String(
-    request.headers["x-modo-content-secret"] || request.headers.authorization || "",
-  ).replace(/^Bearer\s+/i, "");
+  return String(request.headers["x-modo-content-secret"] || request.headers.authorization || "").replace(/^Bearer\s+/i, "");
 }
 
 export async function createApp(options: CreateAppOptions) {
   const app = Fastify({ logger: options.logger ?? false });
   const diagnostics = new DiagnosticService(options.provider);
   const leads = new LeadService();
-  const billing = new BillingService({
-    databaseUrl: options.databaseUrl,
-    databaseSsl: options.databaseSsl,
-  });
-  const auth = new AuthService({
-    databaseUrl: options.databaseUrl,
-    databaseSsl: options.databaseSsl,
-    sessionDays: options.sessionDays,
-  });
-  const content = new ContentService({
-    databaseUrl: options.databaseUrl,
-    databaseSsl: options.databaseSsl,
-  });
-  const assets = new ContentAssetService({
-    databaseUrl: options.databaseUrl,
-    databaseSsl: options.databaseSsl,
-    publicApiUrl: options.publicApiUrl,
-  });
-  const activation = new ActivationService({
-    auth,
-    content,
-    databaseUrl: options.databaseUrl,
-    databaseSsl: options.databaseSsl,
-  });
-  const canva = new CanvaService({
-    clientId: options.canvaClientId,
-    clientSecret: options.canvaClientSecret,
-    redirectUri: options.canvaRedirectUri,
-    encryptionSecret: options.canvaEncryptionSecret,
-    scopes: options.canvaScopes,
-    webUrl: options.publicWebUrl,
-    databaseUrl: options.databaseUrl,
-    databaseSsl: options.databaseSsl,
-  });
-  const admin = new PlatformAdminService({
-    databaseUrl: options.databaseUrl,
-    databaseSsl: options.databaseSsl,
-    email: process.env.PLATFORM_ADMIN_EMAIL,
-    password: process.env.PLATFORM_ADMIN_PASSWORD,
-    name: process.env.PLATFORM_ADMIN_NAME,
-    sessionHours: Number(process.env.PLATFORM_ADMIN_SESSION_HOURS || 12),
-    publicWebUrl: process.env.PUBLIC_WEB_URL,
-  });
-  const automation = new ContentAutomationService({
-    provider: options.contentProvider === "openai" ? "openai" : "native",
-    secret: options.contentSecret,
-    content,
-    assets,
-    openAiApiKey: options.openAiApiKey,
-    openAiTextModel: options.openAiTextModel,
-    openAiImageModel: options.openAiImageModel,
-  });
-  const payments = new PaymentService({
-    appId: options.paymentsProvider === "woovi" ? options.wooviAppId : undefined,
-    webhookAuthorization:
-      options.paymentsProvider === "woovi" ? options.wooviWebhookAuthorization : undefined,
-    databaseUrl: options.databaseUrl,
-    databaseSsl: options.databaseSsl,
-    discounts: admin,
-  });
+  const billing = new BillingService({ databaseUrl: options.databaseUrl, databaseSsl: options.databaseSsl });
+  const auth = new AuthService({ databaseUrl: options.databaseUrl, databaseSsl: options.databaseSsl, sessionDays: options.sessionDays });
+  const content = new ContentService({ databaseUrl: options.databaseUrl, databaseSsl: options.databaseSsl });
+  const assets = new ContentAssetService({ databaseUrl: options.databaseUrl, databaseSsl: options.databaseSsl, publicApiUrl: options.publicApiUrl });
+  const activation = new ActivationService({ auth, content, databaseUrl: options.databaseUrl, databaseSsl: options.databaseSsl });
+  const canva = new CanvaService({ clientId: options.canvaClientId, clientSecret: options.canvaClientSecret, redirectUri: options.canvaRedirectUri, encryptionSecret: options.canvaEncryptionSecret, scopes: options.canvaScopes, webUrl: options.publicWebUrl, databaseUrl: options.databaseUrl, databaseSsl: options.databaseSsl });
+  const instagram = new InstagramService({ clientId: options.instagramClientId, clientSecret: options.instagramClientSecret, redirectUri: options.instagramRedirectUri, encryptionSecret: options.instagramEncryptionSecret, scopes: options.instagramScopes, apiVersion: options.instagramApiVersion, graphBaseUrl: options.instagramGraphBaseUrl, webUrl: options.publicWebUrl, databaseUrl: options.databaseUrl, databaseSsl: options.databaseSsl });
+  const admin = new PlatformAdminService({ databaseUrl: options.databaseUrl, databaseSsl: options.databaseSsl, email: process.env.PLATFORM_ADMIN_EMAIL, password: process.env.PLATFORM_ADMIN_PASSWORD, name: process.env.PLATFORM_ADMIN_NAME, sessionHours: Number(process.env.PLATFORM_ADMIN_SESSION_HOURS || 12), publicWebUrl: process.env.PUBLIC_WEB_URL });
+  const automation = new ContentAutomationService({ provider: options.contentProvider === "openai" ? "openai" : "native", secret: options.contentSecret, content, assets, openAiApiKey: options.openAiApiKey, openAiTextModel: options.openAiTextModel, openAiImageModel: options.openAiImageModel });
+  const payments = new PaymentService({ appId: options.paymentsProvider === "woovi" ? options.wooviAppId : undefined, webhookAuthorization: options.paymentsProvider === "woovi" ? options.wooviWebhookAuthorization : undefined, databaseUrl: options.databaseUrl, databaseSsl: options.databaseSsl, discounts: admin });
 
   await billing.initialize();
   await auth.initialize();
@@ -154,59 +101,39 @@ export async function createApp(options: CreateAppOptions) {
   await assets.initialize();
   await activation.initialize();
   await canva.initialize();
+  await instagram.initialize();
   await payments.initialize();
   await admin.initialize();
   app.addHook("onClose", async () => {
-    await Promise.all([billing.close(), auth.close(), content.close(), assets.close(), activation.close(), canva.close(), payments.close(), admin.close()]);
+    await Promise.all([billing.close(), auth.close(), content.close(), assets.close(), activation.close(), canva.close(), instagram.close(), payments.close(), admin.close()]);
   });
 
   const allowed = options.allowedOrigins ?? ["http://localhost:5173"];
   await app.register(helmet, { contentSecurityPolicy: false });
   await app.register(cors, {
     origin(origin, callback) {
-      if (!origin || allowed.includes("*") || allowed.includes(origin)) {
-        return callback(null, true);
-      }
+      if (!origin || allowed.includes("*") || allowed.includes(origin)) return callback(null, true);
       callback(new Error("Origem não permitida."), false);
     },
   });
   await app.register(rateLimit, { max: 80, timeWindow: "1 minute" });
   app.get("/api/v1/public/content-assets/:token", async (request, reply) => {
-    const token = (request.params as { token: string }).token;
-    const asset = await assets.getPublic(token);
+    const asset = await assets.getPublic((request.params as { token: string }).token);
     if (!asset) return reply.code(404).send({ message: "Imagem não encontrada." });
-    return reply
-      .header("content-type", asset.mimeType)
-      .header("cache-control", "public, max-age=31536000, immutable")
-      .header("cross-origin-resource-policy", "cross-origin")
-      .send(asset.data);
+    return reply.header("content-type", asset.mimeType).header("cache-control", "public, max-age=31536000, immutable").header("cross-origin-resource-policy", "cross-origin").send(asset.data);
   });
   await registerActivationRoutes(app, { auth, activation });
-  await registerCreativeIntelligenceRoutes(app, {
-    auth,
-    databaseUrl: options.databaseUrl,
-    databaseSsl: options.databaseSsl,
-  });
-  await registerPlatformAdminRoutes(app, {
-    auth,
-    billing,
-    admin,
-    databaseUrl: options.databaseUrl,
-    databaseSsl: options.databaseSsl,
-  });
+  await registerCreativeIntelligenceRoutes(app, { auth, databaseUrl: options.databaseUrl, databaseSsl: options.databaseSsl });
+  await registerPlatformAdminRoutes(app, { auth, billing, admin, databaseUrl: options.databaseUrl, databaseSsl: options.databaseSsl });
   await registerSourceRoutes(app, auth);
-  await registerStudioRoutes(app, {
-    auth,
-    content,
-    databaseUrl: options.databaseUrl,
-    databaseSsl: options.databaseSsl,
-  });
+  await registerStudioRoutes(app, { auth, content, databaseUrl: options.databaseUrl, databaseSsl: options.databaseSsl });
   await registerCanvaRoutes(app, { auth, content, assets, canva });
+  await registerInstagramRoutes(app, { auth, content, assets, instagram });
 
   app.get("/health", async () => ({
     status: "ok",
     service: "modo-api",
-    version: "0.15.0",
+    version: "0.16.0",
     buildCommit: (process.env.RENDER_GIT_COMMIT || "local").slice(0, 12),
     gitBranch: process.env.RENDER_GIT_BRANCH || "local",
     billingStorage: billing.storage,
@@ -219,6 +146,8 @@ export async function createApp(options: CreateAppOptions) {
     imageGeneration: automation.imageMode,
     canvaIntegration: canva.configured ? "configured" : "not_configured",
     canvaStorage: canva.storage,
+    instagramIntegration: instagram.configured ? "configured" : "not_configured",
+    instagramStorage: instagram.storage,
     creativeIntelligence: "enabled",
     quickStart: "enabled",
     studio: "enabled",
@@ -227,44 +156,21 @@ export async function createApp(options: CreateAppOptions) {
     paymentsProvider: payments.enabled ? "woovi" : "disabled",
   }));
 
-  app.get("/api/v1/plans", async () => ({
-    plans: {
-      start: planEntitlements.start,
-      presenca: planEntitlements.presenca,
-      pro: planEntitlements.pro,
-      business: planEntitlements.business,
-    },
-  }));
-
-  app.post(
-    "/api/v1/auth/register",
-    { config: { rateLimit: { max: 8, timeWindow: "15 minutes" } } },
-    async (request, reply) => {
-      const session = await auth.register(RegisterRequestSchema.parse(request.body));
-      await billing.createOrUpdateDemoSubscription(session.organization.id, "trial");
-      return reply.code(201).send(session);
-    },
-  );
-  app.post(
-    "/api/v1/auth/login",
-    { config: { rateLimit: { max: 12, timeWindow: "15 minutes" } } },
-    async (request) => auth.login(LoginRequestSchema.parse(request.body)),
-  );
-  app.get("/api/v1/auth/me", async (request) => auth.authenticate(bearerToken(request)));
-  app.post("/api/v1/auth/logout", async (request, reply) => {
-    await auth.logout(bearerToken(request));
-    return reply.code(204).send();
+  app.get("/api/v1/plans", async () => ({ plans: { start: planEntitlements.start, presenca: planEntitlements.presenca, pro: planEntitlements.pro, business: planEntitlements.business } }));
+  app.post("/api/v1/auth/register", { config: { rateLimit: { max: 8, timeWindow: "15 minutes" } } }, async (request, reply) => {
+    const session = await auth.register(RegisterRequestSchema.parse(request.body));
+    await billing.createOrUpdateDemoSubscription(session.organization.id, "trial");
+    return reply.code(201).send(session);
   });
+  app.post("/api/v1/auth/login", { config: { rateLimit: { max: 12, timeWindow: "15 minutes" } } }, async (request) => auth.login(LoginRequestSchema.parse(request.body)));
+  app.get("/api/v1/auth/me", async (request) => auth.authenticate(bearerToken(request)));
+  app.post("/api/v1/auth/logout", async (request, reply) => { await auth.logout(bearerToken(request)); return reply.code(204).send() });
 
   app.get("/api/v1/dashboard", async (request) => {
     const context = await auth.authenticate(bearerToken(request));
-    const [usage, brands] = await Promise.all([
-      billing.getUsage(context.organization.id),
-      auth.listBrands(context.organization.id),
-    ]);
+    const [usage, brands] = await Promise.all([billing.getUsage(context.organization.id), auth.listBrands(context.organization.id)]);
     return { ...context, usage, brands };
   });
-
   app.get("/api/v1/brands", async (request) => {
     const context = await auth.authenticate(bearerToken(request));
     return { brands: await auth.listBrands(context.organization.id) };
@@ -273,17 +179,8 @@ export async function createApp(options: CreateAppOptions) {
     const context = await auth.authenticate(bearerToken(request));
     const input = BrandCreateRequestSchema.parse(request.body);
     if (input.websiteUrl) assertPublicHttpUrl(input.websiteUrl);
-    const [brands, usage] = await Promise.all([
-      auth.listBrands(context.organization.id),
-      billing.getUsage(context.organization.id),
-    ]);
-    if (brands.length >= usage.entitlements.maxBrands) {
-      throw new BillingError(
-        "BRAND_LIMIT_REACHED",
-        409,
-        "O limite de marcas do seu plano foi atingido.",
-      );
-    }
+    const [brands, usage] = await Promise.all([auth.listBrands(context.organization.id), billing.getUsage(context.organization.id)]);
+    if (brands.length >= usage.entitlements.maxBrands) throw new BillingError("BRAND_LIMIT_REACHED", 409, "O limite de marcas do seu plano foi atingido.");
     return reply.code(201).send(await auth.createBrand(context.organization.id, input));
   });
 
@@ -291,232 +188,108 @@ export async function createApp(options: CreateAppOptions) {
     const context = await auth.authenticate(bearerToken(request));
     return { requests: await content.list(context.organization.id) };
   });
-
   app.get("/api/v1/content-requests/:id", async (request) => {
     const context = await auth.authenticate(bearerToken(request));
-    return content.getForOrganization(
-      (request.params as { id: string }).id,
-      context.organization.id,
-    );
+    return content.getForOrganization((request.params as { id: string }).id, context.organization.id);
   });
-
-  app.post(
-    "/api/v1/content-requests",
-    { config: { rateLimit: { max: 30, timeWindow: "1 minute" } } },
-    async (request, reply) => {
-      const context = await auth.authenticate(bearerToken(request));
-      const input = ContentRequestCreateSchema.parse(request.body);
-      const brands = await auth.listBrands(context.organization.id);
-      const brand = brands.find((item) => item.id === input.brandId);
-      if (!brand) {
-        throw new AuthError("BRAND_NOT_FOUND", 404, "Marca não encontrada nesta organização.");
-      }
-
-      const id = randomUUID();
-      const credits = contentCreditCost[input.contentType];
-      const usage = await billing.consume(context.organization.id, {
-        contentType: input.contentType,
-        referenceId: `content_request:${id}`,
-        metadata: {
-          brandId: input.brandId,
-          objective: input.objective,
-          channel: input.channel,
-        },
-      });
-      const created = await content.create(
-        id,
-        context.organization.id,
-        input,
-        credits,
-        usage.entitlements.includedRevisionCycles,
-      );
-      void automation.dispatch(created, brand).catch((error) => {
-        request.log.error({ error, contentRequestId: id }, "Falha no disparo de conteúdo");
-      });
-      return reply.code(201).send({ request: created, usage });
-    },
-  );
-
+  app.post("/api/v1/content-requests", { config: { rateLimit: { max: 30, timeWindow: "1 minute" } } }, async (request, reply) => {
+    const context = await auth.authenticate(bearerToken(request));
+    const input = ContentRequestCreateSchema.parse(request.body);
+    const brands = await auth.listBrands(context.organization.id);
+    const brand = brands.find((item) => item.id === input.brandId);
+    if (!brand) throw new AuthError("BRAND_NOT_FOUND", 404, "Marca não encontrada nesta organização.");
+    const id = randomUUID();
+    const credits = contentCreditCost[input.contentType];
+    const usage = await billing.consume(context.organization.id, { contentType: input.contentType, referenceId: `content_request:${id}`, metadata: { brandId: input.brandId, objective: input.objective, channel: input.channel } });
+    const created = await content.create(id, context.organization.id, input, credits, usage.entitlements.includedRevisionCycles);
+    void automation.dispatch(created, brand).catch((error) => request.log.error({ error, contentRequestId: id }, "Falha no disparo de conteúdo"));
+    return reply.code(201).send({ request: created, usage });
+  });
   app.post("/api/v1/content-requests/:id/approve", async (request) => {
     const context = await auth.authenticate(bearerToken(request));
     return content.approve((request.params as { id: string }).id, context.organization.id);
   });
-
   app.post("/api/v1/content-requests/:id/revisions", async (request, reply) => {
     const context = await auth.authenticate(bearerToken(request));
     const id = (request.params as { id: string }).id;
     const input = ContentRevisionRequestSchema.parse(request.body);
     const revised = await content.requestRevision(id, context.organization.id, input.instructions);
-    const brands = await auth.listBrands(context.organization.id);
-    const brand = brands.find((item) => item.id === revised.brandId);
+    const brand = (await auth.listBrands(context.organization.id)).find((item) => item.id === revised.brandId);
     if (!brand) throw new AuthError("BRAND_NOT_FOUND", 404, "Marca não encontrada.");
-    void automation.dispatch(revised, brand).catch((error) => {
-      request.log.error({ error, contentRequestId: id }, "Falha no disparo da revisão");
-    });
+    void automation.dispatch(revised, brand).catch((error) => request.log.error({ error, contentRequestId: id }, "Falha no disparo da revisão"));
     return reply.code(202).send(revised);
   });
-
   app.post("/api/v1/content-requests/:id/retry", async (request, reply) => {
     const context = await auth.authenticate(bearerToken(request));
     const id = (request.params as { id: string }).id;
     const queued = await content.retry(id, context.organization.id);
-    const brands = await auth.listBrands(context.organization.id);
-    const brand = brands.find((item) => item.id === queued.brandId);
+    const brand = (await auth.listBrands(context.organization.id)).find((item) => item.id === queued.brandId);
     if (!brand) throw new AuthError("BRAND_NOT_FOUND", 404, "Marca não encontrada.");
-    void automation.dispatch(queued, brand).catch((error) => {
-      request.log.error({ error, contentRequestId: id }, "Falha no reenvio de conteúdo");
-    });
+    void automation.dispatch(queued, brand).catch((error) => request.log.error({ error, contentRequestId: id }, "Falha no reenvio de conteúdo"));
     return reply.code(202).send(queued);
   });
+  app.post("/api/v1/internal/content-requests/:id/result", { config: { rateLimit: { max: 120, timeWindow: "1 minute" } } }, async (request, reply) => {
+    automation.validateCallbackSecret(callbackSecret(request));
+    const id = (request.params as { id: string }).id;
+    const callback = ContentGenerationCallbackSchema.parse(request.body);
+    if (callback.status === "completed") await content.complete(id, callback.output, callback.providerRunId);
+    else await content.fail(id, callback.error, callback.providerRunId);
+    return reply.code(200).send({ received: true });
+  });
 
-  app.post(
-    "/api/v1/internal/content-requests/:id/result",
-    { config: { rateLimit: { max: 120, timeWindow: "1 minute" } } },
-    async (request, reply) => {
-      automation.validateCallbackSecret(callbackSecret(request));
-      const id = (request.params as { id: string }).id;
-      const callback = ContentGenerationCallbackSchema.parse(request.body);
-      if (callback.status === "completed") {
-        await content.complete(id, callback.output, callback.providerRunId);
-      } else {
-        await content.fail(id, callback.error, callback.providerRunId);
-      }
-      return reply.code(200).send({ received: true });
-    },
-  );
-
-  app.post(
-    "/api/v1/payments/checkout",
-    { config: { rateLimit: { max: 6, timeWindow: "15 minutes" } } },
-    async (request, reply) => {
-      const context = await auth.authenticate(bearerToken(request));
-      const input = WooviCheckoutRequestSchema.parse(request.body);
-      if (input.customer.email.toLowerCase() !== context.user.email.toLowerCase()) {
-        throw new PaymentError(
-          "PAYER_EMAIL_MISMATCH",
-          400,
-          "Use o mesmo e-mail da sua conta MODO.",
-        );
-      }
-      return reply
-        .code(201)
-        .send(await payments.createCheckout(context.organization.id, input));
-    },
-  );
-
+  app.post("/api/v1/payments/checkout", { config: { rateLimit: { max: 6, timeWindow: "15 minutes" } } }, async (request, reply) => {
+    const context = await auth.authenticate(bearerToken(request));
+    const input = WooviCheckoutRequestSchema.parse(request.body);
+    if (input.customer.email.toLowerCase() !== context.user.email.toLowerCase()) throw new PaymentError("PAYER_EMAIL_MISMATCH", 400, "Use o mesmo e-mail da sua conta MODO.");
+    return reply.code(201).send(await payments.createCheckout(context.organization.id, input));
+  });
   app.post("/api/v1/payments/cancel", async (request) => {
     const context = await auth.authenticate(bearerToken(request));
     const result = await payments.cancelLatest(context.organization.id);
-    const usage = await billing.setStatus(context.organization.id, "canceled");
-    return { ...result, usage };
+    return { ...result, usage: await billing.setStatus(context.organization.id, "canceled") };
   });
-
   app.post("/api/v1/payments/woovi/webhook", async (request, reply) => {
     const body = request.body as Record<string, unknown>;
-    const isRegistrationTest = Boolean(
-      body.event &&
-        body.data_criacao &&
-        !body.globalID &&
-        !body.paymentSubscriptionGlobalID,
-    );
-
+    const isRegistrationTest = Boolean(body.event && body.data_criacao && !body.globalID && !body.paymentSubscriptionGlobalID);
     if (isRegistrationTest) return reply.code(200).send();
-
-    const authorization = String(
-      request.headers["x-openpix-authorization"] || request.headers.authorization || "",
-    );
+    const authorization = String(request.headers["x-openpix-authorization"] || request.headers.authorization || "");
     payments.validateWebhookAuthorization(authorization);
     const lifecycle = await payments.processWebhook(body);
-
     try {
-      if (lifecycle?.action === "paid") {
-        await billing.applyPaidCycle(lifecycle.accountId, lifecycle.plan, lifecycle.eventKey);
-      } else if (lifecycle?.action === "retrying") {
-        await billing.setStatus(lifecycle.accountId, "retrying");
-      } else if (lifecycle?.action === "suspend") {
-        await billing.setStatus(lifecycle.accountId, "suspended");
-      } else if (lifecycle?.action === "cancel") {
-        await billing.setStatus(lifecycle.accountId, "canceled");
-      }
-    } catch (error) {
-      if (lifecycle) await payments.releaseEvent(lifecycle.eventKey);
-      throw error;
-    }
-
-    if (lifecycle) {
-      request.log.info(
-        {
-          accountId: lifecycle.accountId,
-          plan: lifecycle.plan,
-          action: lifecycle.action,
-        },
-        "Ciclo de assinatura MODO atualizado via Woovi",
-      );
-    }
+      if (lifecycle?.action === "paid") await billing.applyPaidCycle(lifecycle.accountId, lifecycle.plan, lifecycle.eventKey);
+      else if (lifecycle?.action === "retrying") await billing.setStatus(lifecycle.accountId, "retrying");
+      else if (lifecycle?.action === "suspend") await billing.setStatus(lifecycle.accountId, "suspended");
+      else if (lifecycle?.action === "cancel") await billing.setStatus(lifecycle.accountId, "canceled");
+    } catch (error) { if (lifecycle) await payments.releaseEvent(lifecycle.eventKey); throw error }
+    if (lifecycle) request.log.info({ accountId: lifecycle.accountId, plan: lifecycle.plan, action: lifecycle.action }, "Ciclo de assinatura MODO atualizado via Woovi");
     return reply.code(200).send();
   });
 
-  app.post(
-    "/api/v1/diagnostics",
-    { config: { rateLimit: { max: 8, timeWindow: "10 minutes" } } },
-    async (request, reply) => {
-      const input = DiagnosticCreateRequestSchema.parse(request.body);
-      assertPublicHttpUrl(input.websiteUrl);
-      const job = diagnostics.create(input);
-      return reply.code(202).send({
-        id: job.id,
-        status: job.status,
-        pollUrl: `/api/v1/diagnostics/${job.id}`,
-      });
-    },
-  );
+  app.post("/api/v1/diagnostics", { config: { rateLimit: { max: 8, timeWindow: "10 minutes" } } }, async (request, reply) => {
+    const input = DiagnosticCreateRequestSchema.parse(request.body);
+    assertPublicHttpUrl(input.websiteUrl);
+    const job = diagnostics.create(input);
+    return reply.code(202).send({ id: job.id, status: job.status, pollUrl: `/api/v1/diagnostics/${job.id}` });
+  });
   app.get("/api/v1/diagnostics/:id", async (request, reply) => {
     const job = diagnostics.get((request.params as { id: string }).id);
-    return (
-      job ??
-      reply.code(404).send({
-        code: "DIAGNOSTIC_NOT_FOUND",
-        message: "Diagnóstico não encontrado.",
-      })
-    );
+    return job ?? reply.code(404).send({ code: "DIAGNOSTIC_NOT_FOUND", message: "Diagnóstico não encontrado." });
   });
-  app.post(
-    "/api/v1/leads",
-    { config: { rateLimit: { max: 10, timeWindow: "10 minutes" } } },
-    async (request, reply) => {
-      const input = LeadCreateRequestSchema.parse(request.body);
-      if (!diagnostics.get(input.diagnosticId)) {
-        return reply.code(404).send({
-          code: "DIAGNOSTIC_NOT_FOUND",
-          message: "Diagnóstico não encontrado.",
-        });
-      }
-      const lead = leads.create(input);
-      request.log.info({ leadId: lead.id }, "Lead capturado");
-      return reply.code(201).send({ id: lead.id, status: "captured" });
-    },
-  );
+  app.post("/api/v1/leads", { config: { rateLimit: { max: 10, timeWindow: "10 minutes" } } }, async (request, reply) => {
+    const input = LeadCreateRequestSchema.parse(request.body);
+    if (!diagnostics.get(input.diagnosticId)) return reply.code(404).send({ code: "DIAGNOSTIC_NOT_FOUND", message: "Diagnóstico não encontrado." });
+    const lead = leads.create(input);
+    request.log.info({ leadId: lead.id }, "Lead capturado");
+    return reply.code(201).send({ id: lead.id, status: "captured" });
+  });
 
   app.setErrorHandler((error, _request, reply) => {
-    if (
-      error instanceof BillingError ||
-      error instanceof AuthError ||
-      error instanceof PaymentError ||
-      error instanceof ContentError ||
-      error instanceof ContentAutomationError ||
-      error instanceof CreativeIntelligenceError
-    ) {
+    if (error instanceof BillingError || error instanceof AuthError || error instanceof PaymentError || error instanceof ContentError || error instanceof ContentAutomationError || error instanceof CreativeIntelligenceError) {
       return reply.code(error.statusCode).send({ code: error.code, message: error.message });
     }
     const message = error instanceof Error ? error.message : "Ocorreu um erro inesperado.";
-    const name = error instanceof Error ? error.name : "UnknownError";
-    const validation =
-      name === "ZodError" || message.includes("URL") || message.includes("Endereços");
-    return reply.code(validation ? 400 : 500).send({
-      code: validation ? "INVALID_REQUEST" : "INTERNAL_ERROR",
-      message: validation ? message : "Ocorreu um erro inesperado.",
-    });
+    const validation = (error instanceof Error ? error.name : "UnknownError") === "ZodError" || message.includes("URL") || message.includes("Endereços");
+    return reply.code(validation ? 400 : 500).send({ code: validation ? "INVALID_REQUEST" : "INTERNAL_ERROR", message: validation ? message : "Ocorreu um erro inesperado." });
   });
-
   return app;
 }

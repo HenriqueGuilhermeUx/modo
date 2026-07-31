@@ -4,6 +4,7 @@ import { DemoDiagnosticProvider } from "./providers/demo-diagnostic-provider.js"
 import { N8nDiagnosticProvider } from "./providers/n8n-diagnostic-provider.js";
 import { registerHumanOperationsRoutes } from "./routes/human-operations-routes.js";
 import { registerStrategyNetworkRoutes } from "./routes/strategy-network-routes.js";
+import { seedMetaReviewer } from "./services/meta-reviewer-seed.js";
 
 function createProvider() {
   if (config.DIAGNOSTIC_PROVIDER === "n8n") {
@@ -54,6 +55,23 @@ const app = await createApp({
   instagramGraphBaseUrl: config.INSTAGRAM_GRAPH_BASE_URL,
   publicWebUrl: config.PUBLIC_WEB_URL,
 });
+
+const reviewer = await seedMetaReviewer({
+  databaseUrl: config.DATABASE_URL,
+  databaseSsl: config.DATABASE_SSL,
+  password: process.env.REVIEWER_TEST_PASSWORD,
+});
+if (reviewer) {
+  app.log.info(
+    {
+      reviewerEmail: reviewer.email,
+      reviewerOrganizationId: reviewer.organizationId,
+      reviewerBrandId: reviewer.brandId,
+      reviewerAccessUntil: reviewer.periodEnd,
+    },
+    "Usuário fixo de revisão da Meta preparado",
+  );
+}
 
 await registerStrategyNetworkRoutes(app, {
   databaseUrl: config.DATABASE_URL,

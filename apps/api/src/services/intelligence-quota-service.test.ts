@@ -1,8 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  IntelligenceQuotaError,
-  IntelligenceQuotaService,
-} from "./intelligence-quota-service.js";
+import { IntelligenceQuotaService } from "./intelligence-quota-service.js";
 
 describe("IntelligenceQuotaService", () => {
   it("permite repetir uma missão falha mesmo quando a franquia do ciclo acabou", async () => {
@@ -34,7 +31,7 @@ describe("IntelligenceQuotaService", () => {
     await service.reserve(organizationId, 10, "create:first-mission");
 
     await expect(service.reserve(organizationId, 1, "create:second-mission"))
-      .rejects.toMatchObject<IntelligenceQuotaError>({
+      .rejects.toMatchObject({
         code: "INTELLIGENCE_MONTHLY_RUNS_EXHAUSTED",
         statusCode: 429,
       });
@@ -44,7 +41,7 @@ describe("IntelligenceQuotaService", () => {
     const service = new IntelligenceQuotaService();
 
     await expect(service.assertRetryCapacity("org-invalid-retry", 11))
-      .rejects.toMatchObject<IntelligenceQuotaError>({
+      .rejects.toMatchObject({
         code: "INTELLIGENCE_RUN_LIMIT_EXCEEDED",
         statusCode: 422,
       });

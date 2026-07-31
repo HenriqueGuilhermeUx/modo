@@ -139,6 +139,13 @@ export class IntelligenceQuotaService {
     }
   }
 
+  async assertRetryCapacity(organizationId: string, requestedItems: number) {
+    const quota = await this.usage(organizationId);
+    this.assertRequestedItems(quota, requestedItems);
+    this.assertConcurrentCapacity(quota);
+    return quota;
+  }
+
   async reserve(
     organizationId: string,
     requestedItems: number,
@@ -303,7 +310,14 @@ export class IntelligenceQuotaService {
     };
   }
 
-  private assertCapacity(quota: IntelligenceQuotaSnapshot, requestedItems: number) {
+  private assertRequestedItems(quota: IntelligenceQuotaSnapshot, requestedItems: number) {
+    if (!Number.isInteger(requestedItems) || requestedItems < 1) {
+      throw new IntelligenceQuotaError(
+        "INTELLIGENCE_INVALID_LIMIT",
+        400,
+        "O limite da missão precisa ser um número inteiro positivo.",
+      );
+    }
     if (requestedItems > quota.maxItemsPerRun) {
       throw new IntelligenceQuotaError(
         "INTELLIGENCE_RUN_LIMIT_EXCEEDED",
@@ -311,6 +325,20 @@ export class IntelligenceQuotaService {
         `Seu plano permite até ${quota.maxItemsPerRun} registros por missão.`,
       );
     }
+  }
+
+  private assertConcurrentCapacity(quota: IntelligenceQuotaSnapshot) {
+    if (quota.runningNow >= quota.maxConcurrentRuns) {
+      throw new IntelligenceQuotaError(
+        "INTELLIGENCE_CONCURRENT_LIMIT",
+        409,
+        "Já existe uma pesquisa em andamento. Aguarde a conclusão antes de iniciar outra.",
+      );
+    }
+  }
+
+  private assertCapacity(quota: IntelligenceQuotaSnapshot, requestedItems: number) {
+    this.assertRequestedItems(quota, requestedItems);
     if (quota.runsRemaining < 1) {
       throw new IntelligenceQuotaError(
         "INTELLIGENCE_MONTHLY_RUNS_EXHAUSTED",
@@ -325,13 +353,7 @@ export class IntelligenceQuotaService {
         `Restam ${quota.itemsRemaining} registros de inteligência neste ciclo.`,
       );
     }
-    if (quota.runningNow >= quota.maxConcurrentRuns) {
-      throw new IntelligenceQuotaError(
-        "INTELLIGENCE_CONCURRENT_LIMIT",
-        409,
-        "Já existe uma pesquisa em andamento. Aguarde a conclusão antes de iniciar outra.",
-      );
-    }
+    this.assertConcurrentCapacity(quota);
   }
 
   private memoryUsage(organizationId: string): IntelligenceQuotaSnapshot {

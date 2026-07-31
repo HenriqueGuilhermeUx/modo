@@ -5,6 +5,7 @@ import App from "./App";
 import { captureLead } from "./api";
 import DiagnosticImpactResult from "./DiagnosticImpactResult";
 import IntelligenceLandingAddon from "./IntelligenceLandingAddon";
+import ProductPathGuideAddon from "./ProductPathGuideAddon";
 import SmartBotsLandingAddon from "./SmartBotsLandingAddon";
 
 const CACHE_KEY = "modo.lastDiagnostic";
@@ -86,6 +87,7 @@ export default function ImpactLanding() {
   return (
     <>
       <App />
+      <ProductPathGuideAddon mode="public" />
       <IntelligenceLandingAddon />
       <SmartBotsLandingAddon />
       {target && result && createPortal(

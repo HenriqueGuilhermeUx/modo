@@ -205,6 +205,14 @@ export async function registerIntelligenceRoutes(
       const context = await auth.authenticate(bearerToken(request));
       const id = z.string().uuid().parse((request.params as { id: string }).id);
       const mission = await execute(() => intelligence.get(id, context.organization.id, false));
+      if (mission.status !== "failed") {
+        throw new AuthError(
+          "INTELLIGENCE_RETRY_NOT_ALLOWED",
+          409,
+          "Somente missões que falharam podem ser reenviadas sem novo consumo.",
+        );
+      }
+
       const brands = await auth.listBrands(context.organization.id);
       const brand = brands.find((item) => item.id === mission.brandId);
       if (!brand) {
@@ -215,25 +223,18 @@ export async function registerIntelligenceRoutes(
         );
       }
 
-      const reservationId = `retry:${id}:${randomUUID()}`;
-      await execute(() => quota.reserve(
+      await execute(() => quota.assertRetryCapacity(
         context.organization.id,
         mission.maxItems,
-        reservationId,
       ));
 
-      try {
-        return await execute(() => intelligence.retry(id, context.organization.id, {
-          id: brand.id,
-          name: brand.name,
-          niche: brand.niche,
-          websiteUrl: brand.websiteUrl || "",
-          instagramHandle: brand.instagramHandle || "",
-        }));
-      } catch (error) {
-        await quota.release(reservationId).catch(() => undefined);
-        throw error;
-      }
+      return execute(() => intelligence.retry(id, context.organization.id, {
+        id: brand.id,
+        name: brand.name,
+        niche: brand.niche,
+        websiteUrl: brand.websiteUrl || "",
+        instagramHandle: brand.instagramHandle || "",
+      }));
     },
   );
 

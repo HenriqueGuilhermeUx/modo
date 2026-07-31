@@ -11,6 +11,7 @@ import LinkedInWorkspace from "./LinkedInWorkspace";
 import OnboardingWorkspace from "./OnboardingWorkspace";
 import Portal from "./Portal";
 import PortalWelcomeGuide from "./PortalWelcomeGuide";
+import ProductPathGuideAddon from "./ProductPathGuideAddon";
 import SignalWorkspace from "./SignalWorkspace";
 import SmartBotsAdminWorkspace from "./SmartBotsAdminWorkspace";
 import SmartBotsOnboarding from "./SmartBotsOnboarding";
@@ -61,11 +62,12 @@ export default function Root() {
       <>
         <Portal />
         <PortalWelcomeGuide />
+        <ProductPathGuideAddon mode="portal" />
         <div className="portal-floating-actions">
           <a className="portal-plan-entry" href="/app/onboarding">Primeiros passos</a>
           <a className="portal-plan-entry" href="/app/base">Base estratégica</a>
           <a className="portal-plan-entry" href="/app/week">Minha semana</a>
-          <a className="portal-plan-entry" href="/app/director">Diretor</a>
+          <a className="portal-plan-entry" href="/app/director">Meu próximo movimento</a>
           <a className="portal-plan-entry" href="/app/campanhas">Campanhas</a>
           <a className="portal-plan-entry" href="/app/linkedin">LinkedIn</a>
           <a className="portal-plan-entry" href="/app/inteligencia">Inteligência</a>

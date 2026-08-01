@@ -57,6 +57,8 @@ services:
         sync: false
       - key: WOOVI_WEBHOOK_AUTHORIZATION
         sync: false
+      - key: REVIEWER_TEST_PASSWORD
+        sync: false
       - key: PLATFORM_ADMIN_EMAIL
         sync: false
       - key: PLATFORM_ADMIN_PASSWORD
@@ -87,18 +89,20 @@ services:
         sync: false
       - key: LINKEDIN_API_VERSION
         value: 202606
-      - key: META_CLIENT_ID
+      - key: INSTAGRAM_CLIENT_ID
         sync: false
-      - key: META_CLIENT_SECRET
+      - key: INSTAGRAM_CLIENT_SECRET
         sync: false
-      - key: META_REDIRECT_URI
-        value: https://modo-api-3m10.onrender.com/api/v1/meta/callback
-      - key: META_TOKEN_ENCRYPTION_SECRET
+      - key: INSTAGRAM_REDIRECT_URI
+        value: https://modo-api-3m10.onrender.com/api/v1/instagram/callback
+      - key: INSTAGRAM_TOKEN_ENCRYPTION_SECRET
         sync: false
-      - key: META_SCOPES
-        value: instagram_business_basic instagram_business_manage_insights
-      - key: META_API_VERSION
-        value: v25.0
+      - key: INSTAGRAM_SCOPES
+        value: instagram_business_basic,instagram_business_content_publish,instagram_business_manage_insights,instagram_business_manage_comments
+      - key: INSTAGRAM_API_VERSION
+        value: v21.0
+      - key: INSTAGRAM_GRAPH_BASE_URL
+        value: https://graph.instagram.com
       - key: CANVA_CLIENT_ID
         sync: false
       - key: CANVA_CLIENT_SECRET

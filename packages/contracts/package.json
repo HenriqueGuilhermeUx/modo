@@ -10,6 +10,7 @@
     "./content": {"types": "./src/content.ts", "import": "./dist/content.js"},
     "./payment": {"types": "./src/payment.ts", "import": "./dist/payment.js"},
     "./linkedin": {"types": "./src/linkedin.ts", "import": "./dist/linkedin.js"},
+    "./instagram": {"types": "./src/instagram.ts", "import": "./dist/instagram.js"},
     "./meta": {"types": "./src/meta.ts", "import": "./dist/meta.js"},
     "./creative-intelligence": {"types": "./src/creative-intelligence.ts", "import": "./dist/creative-intelligence.js"},
     "./signal": {"types": "./src/signal.ts", "import": "./dist/signal.js"},

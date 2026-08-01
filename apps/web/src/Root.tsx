@@ -8,11 +8,11 @@ const DirectorWorkspace = lazy(() => import("./DirectorWorkspace"));
 const HumanOperationsAdminWorkspace = lazy(() => import("./HumanOperationsAdminWorkspace"));
 const ImpactLanding = lazy(() => import("./ImpactLanding"));
 const IntelligenceWorkspace = lazy(() => import("./IntelligenceWorkspace"));
+const IntegrationsWorkspace = lazy(() => import("./IntegrationsWorkspace"));
 const InvitationWorkspace = lazy(() => import("./InvitationWorkspace"));
 const PrivacyPolicyPage = lazy(() => import("./LegalPages").then((module) => ({ default: module.PrivacyPolicyPage })));
 const DataDeletionPage = lazy(() => import("./LegalPages").then((module) => ({ default: module.DataDeletionPage })));
 const LinkedInWorkspace = lazy(() => import("./LinkedInWorkspace"));
-const MetaWorkspace = lazy(() => import("./MetaWorkspace"));
 const OnboardingWorkspace = lazy(() => import("./OnboardingWorkspace"));
 const Portal = lazy(() => import("./Portal"));
 const PortalWelcomeGuide = lazy(() => import("./PortalWelcomeGuide"));
@@ -90,7 +90,9 @@ export default function Root() {
   if (path.startsWith("/app/director")) return suspended(<DirectorWorkspace />);
   if (path.startsWith("/app/campanhas")) return suspended(<CampaignWorkspace />);
   if (path.startsWith("/app/linkedin")) return suspended(<LinkedInWorkspace />);
-  if (path.startsWith("/app/meta")) return suspended(<MetaWorkspace />);
+  if (path.startsWith("/app/settings/integrations") || path.startsWith("/app/meta")) {
+    return suspended(<IntegrationsWorkspace />);
+  }
   if (path.startsWith("/app/inteligencia")) return suspended(<IntelligenceWorkspace />);
   if (path.startsWith("/app/signal")) return suspended(<SignalWorkspace />);
   if (path.startsWith("/app/content")) return suspended(<ContentWorkspace />);
@@ -107,7 +109,7 @@ export default function Root() {
           <a className="portal-plan-entry" href="/app/director">Meu próximo movimento</a>
           <a className="portal-plan-entry" href="/app/campanhas">Campanhas</a>
           <a className="portal-plan-entry" href="/app/linkedin">LinkedIn</a>
-          <a className="portal-plan-entry" href="/app/meta">Instagram</a>
+          <a className="portal-plan-entry" href="/app/settings/integrations">Integrações</a>
           <a className="portal-plan-entry" href="/app/inteligencia">Inteligência</a>
           <a className="portal-plan-entry" href="/onboarding-smartbots.html">SmartBots</a>
           <a className="portal-plan-entry" href="/app/signal">Signal</a>

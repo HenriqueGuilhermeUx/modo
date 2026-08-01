@@ -1,4 +1,5 @@
 import cors from "@fastify/cors";
+import formbody from "@fastify/formbody";
 import helmet from "@fastify/helmet";
 import rateLimit from "@fastify/rate-limit";
 import {
@@ -22,6 +23,7 @@ import type { DiagnosticProvider } from "./providers/diagnostic-provider.js";
 import { registerActivationRoutes } from "./routes/activation-routes.js";
 import { registerCanvaRoutes } from "./routes/canva-routes.js";
 import { registerCreativeIntelligenceRoutes } from "./routes/creative-intelligence-routes.js";
+import { registerInstagramRoutes } from "./routes/instagram-routes.js";
 import { registerPlatformAdminRoutes } from "./routes/platform-admin-routes.js";
 import { registerSourceRoutes } from "./routes/source-routes.js";
 import { registerStudioRoutes } from "./routes/studio-routes.js";
@@ -38,12 +40,14 @@ import { ContentAssetService } from "./services/content-asset-service.js";
 import { ContentError, ContentService } from "./services/content-service.js";
 import { CreativeIntelligenceError } from "./services/creative-intelligence-service.js";
 import { DiagnosticService } from "./services/diagnostic-service.js";
+import { InstagramService } from "./services/instagram-service.js";
 import { LeadService } from "./services/lead-service.js";
 import { PaymentError, PaymentService } from "./services/payment-service.js";
 import { PlatformAdminError, PlatformAdminService } from "./services/platform-admin-service.js";
 
 export interface CreateAppOptions {
   provider: DiagnosticProvider;
+  diagnosticProviderName?: "demo" | "n8n";
   allowedOrigins?: string[];
   logger?: boolean;
   databaseUrl?: string;
@@ -66,6 +70,13 @@ export interface CreateAppOptions {
   canvaRedirectUri?: string;
   canvaEncryptionSecret?: string;
   canvaScopes?: string;
+  instagramClientId?: string;
+  instagramClientSecret?: string;
+  instagramRedirectUri?: string;
+  instagramEncryptionSecret?: string;
+  instagramScopes?: string;
+  instagramApiVersion?: string;
+  instagramGraphBaseUrl?: string;
   publicWebUrl?: string;
 }
 
@@ -121,6 +132,18 @@ export async function createApp(options: CreateAppOptions) {
     databaseUrl: options.databaseUrl,
     databaseSsl: options.databaseSsl,
   });
+  const instagram = new InstagramService({
+    clientId: options.instagramClientId,
+    clientSecret: options.instagramClientSecret,
+    redirectUri: options.instagramRedirectUri,
+    encryptionSecret: options.instagramEncryptionSecret,
+    scopes: options.instagramScopes,
+    apiVersion: options.instagramApiVersion,
+    graphBaseUrl: options.instagramGraphBaseUrl,
+    webUrl: options.publicWebUrl,
+    databaseUrl: options.databaseUrl,
+    databaseSsl: options.databaseSsl,
+  });
   const admin = new PlatformAdminService({
     databaseUrl: options.databaseUrl,
     databaseSsl: options.databaseSsl,
@@ -154,10 +177,21 @@ export async function createApp(options: CreateAppOptions) {
   await assets.initialize();
   await activation.initialize();
   await canva.initialize();
+  await instagram.initialize();
   await payments.initialize();
   await admin.initialize();
   app.addHook("onClose", async () => {
-    await Promise.all([billing.close(), auth.close(), content.close(), assets.close(), activation.close(), canva.close(), payments.close(), admin.close()]);
+    await Promise.all([
+      billing.close(),
+      auth.close(),
+      content.close(),
+      assets.close(),
+      activation.close(),
+      canva.close(),
+      instagram.close(),
+      payments.close(),
+      admin.close(),
+    ]);
   });
 
   const allowed = options.allowedOrigins ?? ["http://localhost:5173"];
@@ -170,6 +204,7 @@ export async function createApp(options: CreateAppOptions) {
       callback(new Error("Origem não permitida."), false);
     },
   });
+  await app.register(formbody);
   await app.register(rateLimit, { max: 80, timeWindow: "1 minute" });
   app.get("/api/v1/public/content-assets/:token", async (request, reply) => {
     const token = (request.params as { token: string }).token;
@@ -202,13 +237,15 @@ export async function createApp(options: CreateAppOptions) {
     databaseSsl: options.databaseSsl,
   });
   await registerCanvaRoutes(app, { auth, content, assets, canva });
+  await registerInstagramRoutes(app, { auth, content, assets, instagram });
 
   app.get("/health", async () => ({
     status: "ok",
     service: "modo-api",
-    version: "0.15.0",
+    version: "0.16.0",
     buildCommit: (process.env.RENDER_GIT_COMMIT || "local").slice(0, 12),
     gitBranch: process.env.RENDER_GIT_BRANCH || "local",
+    diagnosticProvider: options.diagnosticProviderName || "unknown",
     billingStorage: billing.storage,
     accountStorage: auth.storage,
     contentStorage: content.storage,
@@ -219,6 +256,8 @@ export async function createApp(options: CreateAppOptions) {
     imageGeneration: automation.imageMode,
     canvaIntegration: canva.configured ? "configured" : "not_configured",
     canvaStorage: canva.storage,
+    instagramIntegration: instagram.configured ? "configured" : "not_configured",
+    instagramStorage: instagram.storage,
     creativeIntelligence: "enabled",
     quickStart: "enabled",
     studio: "enabled",

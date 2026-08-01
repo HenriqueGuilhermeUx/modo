@@ -27,6 +27,15 @@ type AssetRow = {
   data: Buffer;
 };
 
+function publicTokenFromUrl(value: string | null | undefined) {
+  if (!value) return "";
+  try {
+    return new URL(value).pathname.split("/").filter(Boolean).at(-1) || "";
+  } catch {
+    return "";
+  }
+}
+
 export class ContentAssetService {
   private readonly pool?: Pool;
   private readonly memory = new Map<string, StoredAsset>();
@@ -88,7 +97,7 @@ export class ContentAssetService {
     }
     return {
       id,
-      url: `${this.publicApiUrl}/api/v1/public/content-assets/${publicToken}`,
+      url: this.urlForToken(publicToken),
     };
   }
 
@@ -134,6 +143,38 @@ export class ContentAssetService {
     return { mimeType: asset.mimeType, data: asset.data };
   }
 
+  async getPublicUrlForRequest(
+    organizationId: string,
+    contentRequestId: string,
+    preferredUrl?: string | null,
+  ): Promise<string | null> {
+    const preferredToken = publicTokenFromUrl(preferredUrl);
+    if (preferredToken) {
+      const preferred = await this.getForRequestByToken(
+        organizationId,
+        contentRequestId,
+        preferredToken,
+      );
+      if (preferred) return this.urlForToken(preferredToken);
+    }
+
+    if (this.pool) {
+      const result = await this.pool.query<Pick<AssetRow, "public_token">>(
+        `SELECT public_token FROM modo_content_assets
+         WHERE organization_id=$1 AND content_request_id=$2
+         ORDER BY created_at DESC LIMIT 1`,
+        [organizationId, contentRequestId],
+      );
+      const token = result.rows[0]?.public_token;
+      return token ? this.urlForToken(token) : null;
+    }
+
+    const matches = [...this.memory.values()]
+      .filter((asset) => asset.organizationId === organizationId && asset.contentRequestId === contentRequestId);
+    const asset = matches[matches.length - 1];
+    return asset ? this.urlForToken(asset.publicToken) : null;
+  }
+
   async getPublic(publicToken: string): Promise<{ mimeType: string; data: Buffer } | null> {
     if (this.pool) {
       const result = await this.pool.query<AssetRow>(
@@ -146,5 +187,9 @@ export class ContentAssetService {
     }
     const asset = this.memory.get(publicToken);
     return asset ? { mimeType: asset.mimeType, data: asset.data } : null;
+  }
+
+  private urlForToken(publicToken: string) {
+    return `${this.publicApiUrl}/api/v1/public/content-assets/${publicToken}`;
   }
 }

@@ -25,6 +25,7 @@ if (config.NODE_ENV === "production" && !config.DATABASE_URL) {
 
 const app = await createApp({
   provider: createProvider(),
+  diagnosticProviderName: config.DIAGNOSTIC_PROVIDER,
   allowedOrigins: config.allowedOrigins,
   logger: true,
   databaseUrl: config.DATABASE_URL,
@@ -45,6 +46,13 @@ const app = await createApp({
   canvaRedirectUri: config.CANVA_REDIRECT_URI,
   canvaEncryptionSecret: config.CANVA_TOKEN_ENCRYPTION_SECRET,
   canvaScopes: config.CANVA_SCOPES,
+  instagramClientId: config.INSTAGRAM_CLIENT_ID,
+  instagramClientSecret: config.INSTAGRAM_CLIENT_SECRET,
+  instagramRedirectUri: config.INSTAGRAM_REDIRECT_URI,
+  instagramEncryptionSecret: config.INSTAGRAM_TOKEN_ENCRYPTION_SECRET,
+  instagramScopes: config.INSTAGRAM_SCOPES,
+  instagramApiVersion: config.INSTAGRAM_API_VERSION,
+  instagramGraphBaseUrl: config.INSTAGRAM_GRAPH_BASE_URL,
   publicWebUrl: config.PUBLIC_WEB_URL,
 });
 

@@ -44,10 +44,17 @@ export function getCanvaDesign(contentRequestId: string) {
   );
 }
 
-export function connectCanva(contentRequestId: string) {
+export function connectCanva(contentRequestId?: string) {
   return request<{ authorizationUrl: string }>("/api/v1/canva/connect", {
     method: "POST",
-    body: JSON.stringify({ contentRequestId }),
+    body: JSON.stringify(contentRequestId ? { contentRequestId } : {}),
+  });
+}
+
+export function disconnectCanva() {
+  return request<{ disconnected: boolean }>("/api/v1/canva/disconnect", {
+    method: "POST",
+    body: JSON.stringify({}),
   });
 }
 

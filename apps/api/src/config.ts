@@ -64,6 +64,7 @@ const ConfigSchema = z
     PAYMENTS_PROVIDER: z.enum(["disabled", "woovi"]).default("disabled"),
     WOOVI_APP_ID: optionalTrimmedString,
     WOOVI_WEBHOOK_AUTHORIZATION: optionalTrimmedString,
+    REVIEWER_TEST_PASSWORD: optionalTrimmedString,
     RESEND_API_KEY: optionalTrimmedString,
     HUMAN_SUPPORT_EMAIL_FROM: optionalTrimmedString,
     HUMAN_SUPPORT_EMAIL_TO: z.preprocess(
@@ -81,6 +82,24 @@ const ConfigSchema = z
     ),
     LINKEDIN_TOKEN_ENCRYPTION_SECRET: optionalTrimmedString,
     LINKEDIN_API_VERSION: z.preprocess(emptyToUndefined, z.string().default("202606")),
+    INSTAGRAM_CLIENT_ID: optionalTrimmedString,
+    INSTAGRAM_CLIENT_SECRET: optionalTrimmedString,
+    INSTAGRAM_REDIRECT_URI: z.preprocess(
+      emptyToUndefined,
+      z.string().url().default("https://modo-api-3m10.onrender.com/api/v1/instagram/callback"),
+    ),
+    INSTAGRAM_TOKEN_ENCRYPTION_SECRET: optionalTrimmedString,
+    INSTAGRAM_SCOPES: z.preprocess(
+      emptyToUndefined,
+      z.string().default(
+        "instagram_business_basic,instagram_business_content_publish,instagram_business_manage_insights,instagram_business_manage_comments",
+      ),
+    ),
+    INSTAGRAM_API_VERSION: z.preprocess(emptyToUndefined, z.string().default("v21.0")),
+    INSTAGRAM_GRAPH_BASE_URL: z.preprocess(
+      emptyToUndefined,
+      z.string().url().default("https://graph.instagram.com"),
+    ),
     CANVA_CLIENT_ID: optionalTrimmedString,
     CANVA_CLIENT_SECRET: optionalTrimmedString,
     CANVA_REDIRECT_URI: optionalUrl,
@@ -205,8 +224,12 @@ export const config = {
   INTELLIGENCE_CALLBACK_SECRET: parsed.INTELLIGENCE_CALLBACK_SECRET ?? "",
   N8N_SMARTBOTS_SECRET: parsed.N8N_SMARTBOTS_SECRET ?? "",
   SMARTBOTS_PARTNER_API_KEY: parsed.SMARTBOTS_PARTNER_API_KEY ?? "",
+  REVIEWER_TEST_PASSWORD: parsed.REVIEWER_TEST_PASSWORD ?? "",
   RESEND_API_KEY: parsed.RESEND_API_KEY ?? "",
   HUMAN_SUPPORT_EMAIL_FROM: parsed.HUMAN_SUPPORT_EMAIL_FROM ?? "",
+  INSTAGRAM_CLIENT_ID: parsed.INSTAGRAM_CLIENT_ID ?? "",
+  INSTAGRAM_CLIENT_SECRET: parsed.INSTAGRAM_CLIENT_SECRET ?? "",
+  INSTAGRAM_TOKEN_ENCRYPTION_SECRET: parsed.INSTAGRAM_TOKEN_ENCRYPTION_SECRET ?? "",
   allowedOrigins: parsed.ALLOWED_ORIGINS.split(",")
     .map((origin) => origin.trim())
     .filter(Boolean),

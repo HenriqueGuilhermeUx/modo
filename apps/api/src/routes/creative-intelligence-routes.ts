@@ -9,6 +9,7 @@ import { AuthError, type AuthService } from "../services/auth-service.js";
 import { ContentService } from "../services/content-service.js";
 import { CreativeIntelligenceService } from "../services/creative-intelligence-service.js";
 import { registerLinkedInRoutes } from "./linkedin-routes.js";
+import { registerMetaRoutes } from "./meta-routes.js";
 import { registerSignalRoutes } from "./signal-routes.js";
 
 interface Options {
@@ -59,6 +60,18 @@ export async function registerCreativeIntelligenceRoutes(
     scopes: process.env.LINKEDIN_SCOPES,
     encryptionSecret: process.env.LINKEDIN_TOKEN_ENCRYPTION_SECRET,
     apiVersion: process.env.LINKEDIN_API_VERSION,
+    webUrl: process.env.PUBLIC_WEB_URL,
+    databaseUrl: options.databaseUrl,
+    databaseSsl: options.databaseSsl,
+  });
+  await registerMetaRoutes(app, {
+    auth: options.auth,
+    clientId: process.env.META_CLIENT_ID,
+    clientSecret: process.env.META_CLIENT_SECRET,
+    redirectUri: process.env.META_REDIRECT_URI,
+    encryptionSecret: process.env.META_TOKEN_ENCRYPTION_SECRET,
+    scopes: process.env.META_SCOPES,
+    apiVersion: process.env.META_API_VERSION,
     webUrl: process.env.PUBLIC_WEB_URL,
     databaseUrl: options.databaseUrl,
     databaseSsl: options.databaseSsl,

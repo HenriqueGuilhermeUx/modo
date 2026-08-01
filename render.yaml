@@ -87,6 +87,18 @@ services:
         sync: false
       - key: LINKEDIN_API_VERSION
         value: 202606
+      - key: META_CLIENT_ID
+        sync: false
+      - key: META_CLIENT_SECRET
+        sync: false
+      - key: META_REDIRECT_URI
+        value: https://modo-api-3m10.onrender.com/api/v1/meta/callback
+      - key: META_TOKEN_ENCRYPTION_SECRET
+        sync: false
+      - key: META_SCOPES
+        value: instagram_business_basic instagram_business_manage_insights
+      - key: META_API_VERSION
+        value: v25.0
       - key: CANVA_CLIENT_ID
         sync: false
       - key: CANVA_CLIENT_SECRET

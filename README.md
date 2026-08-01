@@ -27,7 +27,7 @@ O repositório é um monorepo npm. PostgreSQL é utilizado para contas, organiza
 - Minha Semana, campanhas, Signal e ativação;
 - Inteligência de mercado, Apify, missões e leads;
 - LinkedIn, documentos e publicação assistida;
-- Meta Connect para Instagram profissional em modo somente leitura;
+- Instagram Business Login com conexão profissional e publicação após aprovação;
 - SmartBots Assistido;
 - Curadoria Modo e área interna Time Modo;
 - planos, créditos, convites, descontos e administração.
@@ -66,6 +66,27 @@ O workflow `.github/workflows/ci.yml` executa as três verificações em pull re
 
 Nunca registre chaves, tokens ou segredos no repositório. Variáveis marcadas como `sync: false` devem ser cadastradas diretamente no Render.
 
+### Confirmar o provedor real do MODO Scan
+
+O valor de `render.yaml` descreve a configuração declarativa do serviço, mas uma variável já configurada no painel do Render pode prevalecer no ambiente implantado. Depois do deploy, consulte:
+
+```text
+GET https://modo-api-3m10.onrender.com/health
+```
+
+O campo abaixo representa o valor efetivamente selecionado pelo processo da API:
+
+```json
+{
+  "diagnosticProvider": "demo"
+}
+```
+
+- `demo`: o MODO Scan ainda usa o provedor simulado;
+- `n8n`: o MODO Scan usa o workflow real configurado no n8n.
+
+Além do health check, confirme o commit implantado pelos campos `buildCommit` e `gitBranch`.
+
 ### Conteúdo e imagem
 
 ```env
@@ -101,18 +122,24 @@ APIFY_B2B_PROSPECTING_TASK_ID=
 APIFY_PRICE_MONITORING_TASK_ID=
 ```
 
-### Meta Connect — Instagram somente leitura
+### Instagram Business Login e publicação
 
 ```env
-META_CLIENT_ID=
-META_CLIENT_SECRET=
-META_REDIRECT_URI=https://modo-api-3m10.onrender.com/api/v1/meta/callback
-META_TOKEN_ENCRYPTION_SECRET=
-META_SCOPES=instagram_business_basic instagram_business_manage_insights
-META_API_VERSION=v25.0
+INSTAGRAM_CLIENT_ID=
+INSTAGRAM_CLIENT_SECRET=
+INSTAGRAM_REDIRECT_URI=https://modo-api-3m10.onrender.com/api/v1/instagram/callback
+INSTAGRAM_TOKEN_ENCRYPTION_SECRET=
+INSTAGRAM_SCOPES=instagram_business_basic,instagram_business_content_publish,instagram_business_manage_insights,instagram_business_manage_comments
+INSTAGRAM_API_VERSION=v21.0
+INSTAGRAM_GRAPH_BASE_URL=https://graph.instagram.com
+REVIEWER_TEST_PASSWORD=
 ```
 
-O primeiro estágio importa perfil, indicadores permitidos e publicações recentes de contas profissionais. Ele não publica, edita ou exclui conteúdo no Instagram.
+A integração usa diretamente `graph.instagram.com`. O ID da conta profissional é obtido dinamicamente durante a autenticação e salvo com o token criptografado. Nenhum token de Página do Facebook é utilizado.
+
+Uma publicação só pode ser iniciada para conteúdo aprovado e imagem gerada. O backend cria o contêiner em `/{ig-user-id}/media`, acompanha o processamento e conclui em `/{ig-user-id}/media_publish`.
+
+O roteiro e as URLs necessárias ao App Review estão em [`docs/META-APP-REVIEW.md`](docs/META-APP-REVIEW.md).
 
 ### Canva e LinkedIn
 
@@ -124,5 +151,6 @@ As variáveis de Canva e LinkedIn estão descritas em `apps/api/.env.example` e 
 - mantenha `ALLOWED_ORIGINS` restrito aos domínios oficiais;
 - use segredos independentes e fortes para criptografia de tokens;
 - revise as permissões solicitadas por cada integração;
-- não habilite publicação automática antes da aprovação do usuário e da plataforma;
-- confirme o commit implantado e o endpoint `/health` depois de cada deploy.
+- não publique conteúdo sem aprovação explícita do usuário;
+- confirme o commit implantado e o endpoint `/health` depois de cada deploy;
+- nunca registre `access_token`, `client_secret` ou `REVIEWER_TEST_PASSWORD` em logs.

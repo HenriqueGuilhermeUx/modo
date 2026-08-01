@@ -1,13 +1,16 @@
-import { createHmac } from "node:crypto";
+import { createHmac, randomBytes } from "node:crypto";
 import type { FastifyInstance } from "fastify";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createApp } from "../app.js";
 import { DemoDiagnosticProvider } from "../providers/demo-diagnostic-provider.js";
 
+const TEST_CLIENT_SECRET = randomBytes(32).toString("hex");
+const TEST_ENCRYPTION_SECRET = randomBytes(32).toString("hex");
+
 function signedRequest(payload: Record<string, unknown>) {
   const encoded = Buffer.from(JSON.stringify({ algorithm: "HMAC-SHA256", ...payload }), "utf8")
     .toString("base64url");
-  const signature = createHmac("sha256", "instagram-route-secret")
+  const signature = createHmac("sha256", TEST_CLIENT_SECRET)
     .update(encoded)
     .digest("base64url");
   return `${signature}.${encoded}`;
@@ -20,7 +23,7 @@ async function register(app: FastifyInstance) {
     payload: {
       name: "Revisor de rota",
       email: "instagram-routes@example.com",
-      password: "ModoInstagram123",
+      password: `Modo-${randomBytes(10).toString("hex")}-A1`,
       organizationName: "Organização Instagram",
     },
   });
@@ -43,9 +46,9 @@ describe("rotas do Instagram", () => {
       publicApiUrl: "https://api.example.com",
       publicWebUrl: "https://modo.example.com",
       instagramClientId: "instagram-route-client",
-      instagramClientSecret: "instagram-route-secret",
+      instagramClientSecret: TEST_CLIENT_SECRET,
       instagramRedirectUri: "https://api.example.com/api/v1/instagram/callback",
-      instagramEncryptionSecret: "instagram-route-encryption-secret",
+      instagramEncryptionSecret: TEST_ENCRYPTION_SECRET,
       instagramScopes: "instagram_business_basic,instagram_business_content_publish,instagram_business_manage_insights,instagram_business_manage_comments",
       instagramApiVersion: "v21.0",
       instagramGraphBaseUrl: "https://graph.instagram.com",

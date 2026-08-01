@@ -9,6 +9,7 @@ import IntelligenceWorkspace from "./IntelligenceWorkspace";
 import InvitationWorkspace from "./InvitationWorkspace";
 import { DataDeletionPage, PrivacyPolicyPage } from "./LegalPages";
 import LinkedInWorkspace from "./LinkedInWorkspace";
+import MetaWorkspace from "./MetaWorkspace";
 import OnboardingWorkspace from "./OnboardingWorkspace";
 import Portal from "./Portal";
 import PortalWelcomeGuide from "./PortalWelcomeGuide";
@@ -62,6 +63,7 @@ export default function Root() {
   if (path.startsWith("/app/director")) return <DirectorWorkspace />;
   if (path.startsWith("/app/campanhas")) return <CampaignWorkspace />;
   if (path.startsWith("/app/linkedin")) return <LinkedInWorkspace />;
+  if (path.startsWith("/app/meta")) return <MetaWorkspace />;
   if (path.startsWith("/app/inteligencia")) return <IntelligenceWorkspace />;
   if (path.startsWith("/app/signal")) return <SignalWorkspace />;
   if (path.startsWith("/app/content")) return <ContentWorkspace />;
@@ -78,6 +80,7 @@ export default function Root() {
           <a className="portal-plan-entry" href="/app/director">Meu próximo movimento</a>
           <a className="portal-plan-entry" href="/app/campanhas">Campanhas</a>
           <a className="portal-plan-entry" href="/app/linkedin">LinkedIn</a>
+          <a className="portal-plan-entry" href="/app/meta">Instagram</a>
           <a className="portal-plan-entry" href="/app/inteligencia">Inteligência</a>
           <a className="portal-plan-entry" href="/onboarding-smartbots.html">SmartBots</a>
           <a className="portal-plan-entry" href="/app/signal">Signal</a>

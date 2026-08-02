@@ -6,7 +6,7 @@ import { colors } from "../src/theme";
 export default function RootLayout() {
   return (
     <SessionProvider>
-      <StatusBar style="dark" backgroundColor={colors.background} />
+      <StatusBar style="dark" />
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }}>
         <Stack.Screen name="index" />
         <Stack.Screen name="auth" options={{ animation: "fade" }} />

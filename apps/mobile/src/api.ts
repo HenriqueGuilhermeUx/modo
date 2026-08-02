@@ -1,9 +1,13 @@
 import {
   AuthSessionSchema,
+  BrandCreateRequestSchema,
+  BrandSchema,
   DashboardSchema,
   LoginRequestSchema,
   RegisterRequestSchema,
   type AuthSession,
+  type Brand,
+  type BrandCreateRequest,
   type Dashboard,
   type LoginRequest,
   type RegisterRequest,
@@ -70,6 +74,13 @@ export async function logout(token: string) {
 
 export async function getDashboard(token: string): Promise<Dashboard> {
   return DashboardSchema.parse(await request<unknown>("/api/v1/dashboard", undefined, token));
+}
+
+export async function createBrand(token: string, input: BrandCreateRequest): Promise<Brand> {
+  return BrandSchema.parse(await request<unknown>("/api/v1/brands", {
+    method: "POST",
+    body: JSON.stringify(BrandCreateRequestSchema.parse(input)),
+  }, token));
 }
 
 export async function listContent(token: string): Promise<ContentRequest[]> {

@@ -1,0 +1,56 @@
+{
+  "expo": {
+    "name": "MODO — Presença e Conteúdo",
+    "slug": "modo-presenca",
+    "version": "1.0.0",
+    "scheme": "modo",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "icon": "./assets/icon.png",
+    "android": {
+      "package": "br.com.alternativeventures.modo",
+      "versionCode": 1,
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#0D1B3E"
+      },
+      "edgeToEdgeEnabled": true,
+      "softwareKeyboardLayoutMode": "resize",
+      "permissions": []
+    },
+    "ios": {
+      "bundleIdentifier": "br.com.alternativeventures.modo",
+      "supportsTablet": true,
+      "buildNumber": "1"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-secure-store",
+        {
+          "configureAndroidBackup": true,
+          "faceIDPermission": "Permita que a MODO use o Face ID para proteger sua sessão."
+        }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "backgroundColor": "#0D1B3E",
+          "imageWidth": 180,
+          "resizeMode": "contain"
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "extra": {
+      "apiUrl": "https://modo-api-3m10.onrender.com",
+      "privacyUrl": "https://modo1.netlify.app/politica-de-privacidade",
+      "deletionUrl": "https://modo1.netlify.app/exclusao-de-dados",
+      "supportEmail": "henriquecampos66@gmail.com"
+    }
+  }
+}

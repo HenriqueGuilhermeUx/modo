@@ -1,8 +1,7 @@
 import { useState } from "react";
 import { Alert, Linking, Pressable, StyleSheet, Text, View } from "react-native";
-import { requestAccountDeletion } from "../../src/api";
 import { useSession } from "../../src/session";
-import { BrandMark, Button, Card, ErrorNotice, Pill, Screen, SectionHeading, typography } from "../../src/ui";
+import { BrandMark, Button, Card, Pill, Screen, SectionHeading, typography } from "../../src/ui";
 import { colors, radii, spacing } from "../../src/theme";
 
 const PRIVACY_URL = "https://modo1.netlify.app/politica-de-privacidade";
@@ -25,37 +24,40 @@ const statusLabels = {
 } as const;
 
 export default function AccountScreen() {
-  const { token, dashboard, signOut } = useSession();
-  const [deleting, setDeleting] = useState(false);
-  const [deletionRequested, setDeletionRequested] = useState(false);
-  const [error, setError] = useState("");
+  const { dashboard, signOut } = useSession();
+  const [requestOpened, setRequestOpened] = useState(false);
 
   if (!dashboard) return <Screen><Text style={typography.body}>Sincronizando sua conta...</Text></Screen>;
 
   function confirmDeletion() {
     Alert.alert(
-      "Solicitar exclusão da conta?",
-      "A solicitação será registrada para análise e exclusão dos dados vinculados, conforme a política da MODO. Esta ação não é o mesmo que sair do aplicativo.",
+      "Iniciar exclusão da conta?",
+      "Abriremos um pedido identificado pelo e-mail da sua conta. Você receberá as orientações sobre confirmação, dados envolvidos e prazo de exclusão.",
       [
         { text: "Voltar", style: "cancel" },
-        { text: "Solicitar exclusão", style: "destructive", onPress: () => void submitDeletion() },
+        { text: "Continuar", style: "destructive", onPress: () => void openDeletionRequest() },
       ],
     );
   }
 
-  async function submitDeletion() {
-    if (!token) return;
-    setDeleting(true);
-    setError("");
-    try {
-      await requestAccountDeletion(token);
-      setDeletionRequested(true);
-      Alert.alert("Solicitação registrada", "Você receberá orientações pelo e-mail da sua conta. Os detalhes também estão disponíveis na página de exclusão de dados.");
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Não foi possível registrar a solicitação.");
-    } finally {
-      setDeleting(false);
+  async function openDeletionRequest() {
+    const subject = encodeURIComponent("Solicitação de exclusão da conta MODO");
+    const body = encodeURIComponent([
+      "Solicito a exclusão da minha conta e dos dados vinculados na MODO.",
+      "",
+      `E-mail da conta: ${dashboard.user.email}`,
+      `Organização: ${dashboard.organization.name}`,
+      "",
+      "Confirmarei a solicitação conforme as orientações de segurança.",
+    ].join("\n"));
+    const mailto = `mailto:${SUPPORT_EMAIL}?subject=${subject}&body=${body}`;
+    const supported = await Linking.canOpenURL(mailto);
+    if (supported) {
+      await Linking.openURL(mailto);
+    } else {
+      await Linking.openURL(DELETION_URL);
     }
+    setRequestOpened(true);
   }
 
   return (
@@ -65,29 +67,28 @@ export default function AccountScreen() {
 
       <Card style={styles.planCard}>
         <View style={styles.planTop}>
-          <View><Text style={styles.label}>PLANO SINCRONIZADO</Text><Text style={typography.h2}>{planLabels[dashboard.usage.plan]}</Text></View>
+          <View><Text style={styles.planLabel}>PLANO SINCRONIZADO</Text><Text style={styles.planTitle}>{planLabels[dashboard.usage.plan]}</Text></View>
           <Pill tone={dashboard.usage.status === "active" ? "green" : "warning"}>{statusLabels[dashboard.usage.status]}</Pill>
         </View>
         <View style={styles.usage}>
           <View><Text style={styles.number}>{dashboard.usage.creditsRemaining}</Text><Text style={styles.muted}>créditos disponíveis</Text></View>
           <View><Text style={styles.number}>{dashboard.brands.length}</Text><Text style={styles.muted}>contextos ativos</Text></View>
         </View>
-        <Text style={typography.small}>Sua assinatura e seus direitos de uso são sincronizados com a conta MODO. O aplicativo não realiza cobranças externas.</Text>
+        <Text style={styles.planCopy}>Sua assinatura e seus direitos de uso são sincronizados com a conta MODO. O aplicativo Android não abre checkout externo.</Text>
       </Card>
 
       <Card style={styles.menuCard}>
         <Text style={styles.label}>PRIVACIDADE E SUPORTE</Text>
         <MenuItem title="Política de privacidade" copy="Entenda quais dados são usados e por quê." onPress={() => void Linking.openURL(PRIVACY_URL)} />
-        <MenuItem title="Instruções de exclusão" copy="Veja prazos, dados envolvidos e canais de contato." onPress={() => void Linking.openURL(DELETION_URL)} />
+        <MenuItem title="Instruções de exclusão" copy="Veja dados envolvidos, confirmação e prazo." onPress={() => void Linking.openURL(DELETION_URL)} />
         <MenuItem title="Falar com o suporte" copy={SUPPORT_EMAIL} onPress={() => void Linking.openURL(`mailto:${SUPPORT_EMAIL}?subject=Suporte%20MODO`)} />
       </Card>
 
       <Card style={styles.safetyCard}>
         <Text style={styles.label}>CONTROLE DA CONTA</Text>
-        <Text style={typography.body}>Você pode iniciar a exclusão da sua conta diretamente aqui. A solicitação fica vinculada ao usuário autenticado e à organização correta.</Text>
-        {deletionRequested ? <View style={styles.success}><Text style={styles.successText}>✓ Solicitação de exclusão registrada.</Text></View> : null}
-        {error ? <ErrorNotice message={error} /> : null}
-        <Button variant="danger" onPress={confirmDeletion} loading={deleting} disabled={deletionRequested}>Solicitar exclusão da conta</Button>
+        <Text style={typography.body}>Você pode iniciar a exclusão pelo aplicativo. O pedido usa o e-mail autenticado e precisa ser confirmado para impedir exclusões indevidas.</Text>
+        {requestOpened ? <View style={styles.success}><Text style={styles.successText}>✓ Canal de exclusão aberto. Conclua o envio ou siga as instruções exibidas.</Text></View> : null}
+        <Button variant="danger" onPress={confirmDeletion}>Iniciar pedido de exclusão</Button>
       </Card>
 
       <Button variant="ghost" onPress={() => void signOut()}>Sair deste dispositivo</Button>
@@ -109,6 +110,9 @@ const styles = StyleSheet.create({
   top: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   planCard: { gap: spacing.lg, backgroundColor: colors.navy, borderColor: colors.navy },
   planTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", gap: spacing.md },
+  planLabel: { color: "#72A0FF", fontSize: 10, fontWeight: "900", letterSpacing: 1.2, marginBottom: 6 },
+  planTitle: { color: colors.surface, fontSize: 22, lineHeight: 28, fontWeight: "900" },
+  planCopy: { color: "#AEBBD4", fontSize: 12, lineHeight: 19 },
   label: { color: colors.blue, fontSize: 10, fontWeight: "900", letterSpacing: 1.2, marginBottom: 6 },
   usage: { flexDirection: "row", gap: spacing.xl },
   number: { color: colors.surface, fontSize: 27, fontWeight: "900" },
@@ -122,6 +126,6 @@ const styles = StyleSheet.create({
   pressed: { opacity: 0.62 },
   safetyCard: { gap: spacing.md, borderColor: "#FECDCA" },
   success: { borderRadius: radii.medium, backgroundColor: colors.greenSoft, padding: spacing.md },
-  successText: { color: "#087A56", fontSize: 13, fontWeight: "900" },
+  successText: { color: "#087A56", fontSize: 13, lineHeight: 20, fontWeight: "900" },
   footer: { color: colors.subtle, fontSize: 10, lineHeight: 16, textAlign: "center", paddingHorizontal: spacing.lg },
 });

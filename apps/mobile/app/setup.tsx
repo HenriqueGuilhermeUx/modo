@@ -11,9 +11,9 @@ const suggestedNiches: Niche[] = [
   "servicos_profissionais",
   "saude_estetica",
   "imoveis",
-  "varejo_ecommerce",
+  "varejo",
   "educacao",
-  "creator_marca_pessoal",
+  "creator",
   "outro",
 ];
 

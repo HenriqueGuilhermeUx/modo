@@ -1,0 +1,165 @@
+name: Build MODO Android
+
+on:
+  workflow_dispatch:
+    inputs:
+      profile:
+        description: "Artefato Android"
+        required: true
+        default: "preview"
+        type: choice
+        options:
+          - preview
+          - production
+      submit_to_play:
+        description: "Enviar o AAB para a trilha interna da Google Play"
+        required: true
+        default: false
+        type: boolean
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/eas-build-android.yml"
+
+concurrency:
+  group: modo-android-eas
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  build-android:
+    name: Build Android MODO
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Setup Expo and EAS
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Verify Expo token
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          test -n "$EXPO_TOKEN" || (echo "::error::EXPO_TOKEN ausente neste repositório. Cadastre o mesmo token usado nos demais apps." && exit 1)
+          eas whoami
+
+      - name: Install monorepo dependencies
+        run: npm install --include=dev
+
+      - name: Link or create EAS project
+        working-directory: apps/mobile
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          if eas project:info --non-interactive; then
+            echo "Projeto EAS já vinculado."
+          else
+            echo "Criando e vinculando o projeto EAS da MODO..."
+            eas project:init --non-interactive --force
+            eas project:info --non-interactive
+          fi
+
+      - name: Persist EAS project ID in repository
+        run: |
+          if git diff --quiet -- apps/mobile/app.json; then
+            echo "app.json já estava vinculado."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add apps/mobile/app.json
+          git commit -m "chore: vincular app MODO ao projeto EAS [skip ci]"
+          git push origin HEAD:main || echo "::warning::O build continuará, mas o projectId deverá ser persistido depois caso a branch main bloqueie push do bot."
+
+      - name: Validate mobile project
+        working-directory: apps/mobile
+        env:
+          CI: "1"
+          EXPO_NO_TELEMETRY: "1"
+        run: |
+          npm run typecheck
+          npx expo-doctor@latest
+          rm -rf dist
+          npx expo export --platform android --output-dir dist
+
+      - name: Resolve profiles for this run
+        id: profiles
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "push" ]; then
+            echo "list=preview production" >> "$GITHUB_OUTPUT"
+          else
+            echo "list=${{ inputs.profile }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build Android binaries on EAS
+        id: eas_build
+        working-directory: apps/mobile
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          EAS_BUILD_NO_EXPO_GO_WARNING: "true"
+          EXPO_NO_TELEMETRY: "1"
+          PROFILES: ${{ steps.profiles.outputs.list }}
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts
+
+          for PROFILE in $PROFILES; do
+            echo "Iniciando build $PROFILE..."
+            eas build \
+              --platform android \
+              --profile "$PROFILE" \
+              --non-interactive \
+              --clear-cache \
+              --wait \
+              --json > "eas-build-$PROFILE.json"
+
+            cat "eas-build-$PROFILE.json"
+
+            ARTIFACT_URL=$(node -e "const fs=require('fs'); const raw=fs.readFileSync('eas-build-$PROFILE.json','utf8').trim(); const indexes=[raw.indexOf('['),raw.indexOf('{')].filter(i=>i>=0); const start=Math.min(...indexes); const data=JSON.parse(raw.slice(start)); const build=Array.isArray(data)?data[0]:data; const url=build?.artifacts?.buildUrl||build?.artifacts?.applicationArchiveUrl; if(!url){console.error(raw);process.exit(1)}; process.stdout.write(url)")
+
+            if [ "$PROFILE" = "preview" ]; then
+              FILE="artifacts/MODO-1.0.0-preview.apk"
+            else
+              FILE="artifacts/MODO-1.0.0-play-store.aab"
+            fi
+
+            curl --fail --location "$ARTIFACT_URL" --output "$FILE"
+            test -s "$FILE"
+            ls -lh "$FILE"
+          done
+
+      - name: Upload Android artifacts to GitHub
+        uses: actions/upload-artifact@v4
+        with:
+          name: MODO-Android-${{ github.run_number }}
+          path: apps/mobile/artifacts/*
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Submit production AAB to Google Play internal track
+        if: github.event_name == 'workflow_dispatch' && inputs.profile == 'production' && inputs.submit_to_play == true
+        working-directory: apps/mobile
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          EXPO_NO_TELEMETRY: "1"
+        run: |
+          test -f artifacts/MODO-1.0.0-play-store.aab
+          eas submit \
+            --platform android \
+            --profile production \
+            --path artifacts/MODO-1.0.0-play-store.aab \
+            --non-interactive

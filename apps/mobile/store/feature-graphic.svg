@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="500" viewBox="0 0 1024 500">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0D1B3E"/>
+      <stop offset="1" stop-color="#152C61"/>
+    </linearGradient>
+    <linearGradient id="card" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1F5EFF"/>
+      <stop offset="1" stop-color="#557FFF"/>
+    </linearGradient>
+  </defs>
+  <rect width="1024" height="500" fill="url(#bg)"/>
+  <circle cx="903" cy="78" r="155" fill="#1F5EFF" opacity=".14"/>
+  <circle cx="833" cy="431" r="210" fill="#2ED19A" opacity=".08"/>
+  <g transform="translate(72 82)">
+    <rect width="92" height="92" rx="28" fill="url(#card)"/>
+    <path d="M25 67V27h13l8 13 8-13h13v40H55V46l-9 13-9-13v21z" fill="#fff"/>
+    <circle cx="72" cy="20" r="7" fill="#2ED19A"/>
+  </g>
+  <text x="72" y="224" fill="#fff" font-family="Arial, sans-serif" font-size="54" font-weight="800" letter-spacing="4">MODO</text>
+  <text x="72" y="286" fill="#fff" font-family="Arial, sans-serif" font-size="34" font-weight="700">Contexto que vira presença.</text>
+  <text x="72" y="332" fill="#AEBBD4" font-family="Arial, sans-serif" font-size="20">Social · LinkedIn · Inteligência</text>
+  <g transform="translate(620 92)">
+    <rect width="320" height="316" rx="38" fill="#fff" opacity=".98"/>
+    <rect x="26" y="28" width="268" height="70" rx="20" fill="#EAF1FF"/>
+    <circle cx="63" cy="63" r="18" fill="#1F5EFF"/>
+    <rect x="94" y="49" width="126" height="12" rx="6" fill="#0D1B3E"/>
+    <rect x="94" y="70" width="86" height="8" rx="4" fill="#8B96AA"/>
+    <rect x="26" y="118" width="128" height="144" rx="22" fill="#E9FBF5"/>
+    <rect x="166" y="118" width="128" height="144" rx="22" fill="#F0EDFF"/>
+    <circle cx="67" cy="157" r="16" fill="#2ED19A"/>
+    <circle cx="207" cy="157" r="16" fill="#7259FF"/>
+    <rect x="48" y="190" width="84" height="11" rx="5" fill="#0D1B3E"/>
+    <rect x="188" y="190" width="84" height="11" rx="5" fill="#0D1B3E"/>
+    <rect x="48" y="211" width="62" height="7" rx="3" fill="#8B96AA"/>
+    <rect x="188" y="211" width="62" height="7" rx="3" fill="#8B96AA"/>
+    <rect x="26" y="280" width="268" height="12" rx="6" fill="#DCE3EF"/>
+  </g>
+</svg>

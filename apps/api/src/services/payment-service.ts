@@ -4,6 +4,8 @@ import { randomUUID, timingSafeEqual } from "node:crypto";
 import pg, { type Pool } from "pg";
 
 const { Pool: PgPool } = pg;
+const WOOVI_API = "https://api.woovi.com/api/v1";
+const REQUEST_TIMEOUT_MS = 20_000;
 
 const planNames: Record<PublicPlanSlug, string> = {
   start: "MODO Começar",
@@ -138,90 +140,95 @@ export class PaymentService {
   }
 
   async createCheckout(accountId: string, input: WooviCheckoutRequest) {
-  const discount = await this.discounts?.reserveDiscount(accountId, input.plan, input.couponCode);
-  const value = discount?.finalPriceCents ?? planEntitlements[input.plan].priceCents;
-  const correlationID = `modo:${accountId}:${input.plan}:${randomUUID()}`;
-  const dayGenerateCharge = Math.min(27, Math.max(1, new Date().getUTCDate()));
-  try {
-    const response = await fetch("https://api.woovi.com/api/v1/subscriptions", {
-      method: "POST",
-      headers: {
-        Authorization: this.requireAppId(),
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        value,
-        name: planNames[input.plan],
-        comment: discount
-          ? `${planNames[input.plan]} — assinatura mensal MODO — cupom ${discount.code}`
-          : `${planNames[input.plan]} — assinatura mensal MODO`,
-        correlationID,
-        frequency: "MONTHLY",
-        type: "PIX_RECURRING",
-        dayGenerateCharge,
-        dayDue: 3,
-        pixRecurringOptions: {
-          journey: "PAYMENT_ON_APPROVAL",
-          retryPolicy: "THREE_RETRIES_7_DAYS",
-        },
-        customer: {
-          name: input.customer.name,
-          email: input.customer.email,
-          phone: input.customer.phone.replace(/\D/g, ""),
-          taxID: input.customer.taxID.replace(/\D/g, ""),
-          address: {
-            ...input.customer.address,
-            zipcode: input.customer.address.zipcode.replace(/\D/g, ""),
-          },
-        },
-      }),
-    });
-
-    const payload = (await response.json().catch(() => ({}))) as Partial<WooviSubscriptionResponse> & {
-      message?: string;
-      errors?: Array<{ message?: string }>;
-    };
-    const subscription = payload.subscription;
-    if (
-      !response.ok ||
-      !subscription?.globalID ||
-      !subscription.paymentLinkUrl ||
-      !subscription.pixRecurring?.emv
-    ) {
+    const openSubscription = await this.findOpenSubscription(accountId);
+    if (openSubscription) {
+      const current = this.parseCorrelationID(openSubscription.correlationID);
+      if (current.plan === input.plan && openSubscription.paymentLinkUrl && openSubscription.pixRecurring?.emv) {
+        return this.checkoutPayload(openSubscription);
+      }
       throw new PaymentError(
-        "CHECKOUT_CREATION_FAILED",
-        502,
-        payload.errors?.[0]?.message || payload.message || "Não foi possível iniciar o Pix Automático.",
+        "SUBSCRIPTION_ALREADY_EXISTS",
+        409,
+        "Já existe uma assinatura Woovi ativa ou aguardando autorização para esta conta. Cancele ou conclua o fluxo atual antes de escolher outro plano.",
       );
     }
 
-    await this.persist(accountId, input.plan, subscription);
-    if (discount) await this.discounts?.linkDiscountToProvider(discount.reservationId, subscription.globalID);
-    return {
-      subscriptionId: subscription.globalID,
-      correlationID,
-      paymentLinkUrl: subscription.paymentLinkUrl,
-      emv: subscription.pixRecurring.emv,
-      status: subscription.status,
-      pixRecurringStatus: subscription.pixRecurring.status || "CREATED",
-      ...(discount
-        ? {
-            discount: {
-              code: discount.code,
-              originalPriceCents: discount.originalPriceCents,
-              finalPriceCents: discount.finalPriceCents,
-              savedCents: discount.savedCents,
-            },
-          }
-        : {}),
-    };
-  } catch (error) {
-    if (discount) await this.discounts?.releaseDiscount(discount.reservationId);
-    throw error;
-  }
-}
+    const discount = await this.discounts?.reserveDiscount(accountId, input.plan, input.couponCode);
+    const value = discount?.finalPriceCents ?? planEntitlements[input.plan].priceCents;
+    const correlationID = `modo:${accountId}:${input.plan}:${randomUUID()}`;
+    const dayGenerateCharge = new Date().toISOString();
 
-validateWebhookAuthorization(value: string) {
+    try {
+      const response = await fetch(`${WOOVI_API}/subscriptions`, {
+        method: "POST",
+        headers: {
+          Authorization: this.requireAppId(),
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          value,
+          name: planNames[input.plan],
+          comment: discount
+            ? `${planNames[input.plan]} — assinatura mensal MODO — cupom ${discount.code}`
+            : `${planNames[input.plan]} — assinatura mensal MODO`,
+          correlationID,
+          frequency: "MONTHLY",
+          type: "PIX_RECURRING",
+          dayGenerateCharge,
+          dayDue: 3,
+          pixRecurringOptions: {
+            journey: "PAYMENT_ON_APPROVAL",
+            retryPolicy: "THREE_RETRIES_7_DAYS",
+          },
+          customer: {
+            name: input.customer.name,
+            email: input.customer.email,
+            phone: input.customer.phone.replace(/\D/g, ""),
+            taxID: input.customer.taxID.replace(/\D/g, ""),
+            address: {
+              ...input.customer.address,
+              zipcode: input.customer.address.zipcode.replace(/\D/g, ""),
+            },
+          },
+        }),
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      });
+
+      const payload = (await response.json().catch(() => ({}))) as Partial<WooviSubscriptionResponse> & {
+        message?: string;
+        errors?: Array<{ message?: string }>;
+      };
+      const subscription = payload.subscription;
+      if (
+        !response.ok ||
+        !subscription?.globalID ||
+        !subscription.paymentLinkUrl ||
+        !subscription.pixRecurring?.emv
+      ) {
+        throw new PaymentError(
+          "CHECKOUT_CREATION_FAILED",
+          502,
+          payload.errors?.[0]?.message || payload.message || "Não foi possível iniciar o Pix Automático.",
+        );
+      }
+
+      await this.persist(accountId, input.plan, subscription);
+      if (discount) await this.discounts?.linkDiscountToProvider(discount.reservationId, subscription.globalID);
+      return this.checkoutPayload(subscription, discount);
+    } catch (error) {
+      if (discount) await this.discounts?.releaseDiscount(discount.reservationId);
+      if (error instanceof PaymentError) throw error;
+      throw new PaymentError(
+        "WOOVI_UNAVAILABLE",
+        502,
+        error instanceof Error && error.name === "TimeoutError"
+          ? "A Woovi demorou para responder. Tente novamente sem criar outro pagamento."
+          : "Não foi possível acessar a Woovi neste momento.",
+      );
+    }
+  }
+
+  validateWebhookAuthorization(value: string) {
     if (!this.webhookAuthorization) {
       throw new PaymentError("WEBHOOK_NOT_CONFIGURED", 503, "Webhook Woovi não configurado.");
     }
@@ -236,9 +243,7 @@ validateWebhookAuthorization(value: string) {
     const event = String(body.event || "");
     if (!event.startsWith("PIX_AUTOMATIC_")) return null;
 
-    const providerId = String(
-      body.paymentSubscriptionGlobalID || body.globalID || "",
-    );
+    const providerId = String(body.paymentSubscriptionGlobalID || body.globalID || "");
     if (!providerId) {
       throw new PaymentError("INVALID_WEBHOOK_PAYLOAD", 400, "Assinatura Woovi não identificada.");
     }
@@ -268,16 +273,17 @@ validateWebhookAuthorization(value: string) {
       this.memoryEvents.delete(eventKey);
       return;
     }
-    await this.pool.query(`DELETE FROM modo_payment_events WHERE event_key=$1`, [eventKey]);
+    await this.pool.query("DELETE FROM modo_payment_events WHERE event_key=$1", [eventKey]);
   }
 
   async cancelLatest(accountId: string) {
     const providerId = await this.findLatestProviderId(accountId);
     const response = await fetch(
-      `https://api.woovi.com/api/v1/subscriptions/${encodeURIComponent(providerId)}/cancel`,
+      `${WOOVI_API}/subscriptions/${encodeURIComponent(providerId)}/cancel`,
       {
         method: "PUT",
         headers: { Authorization: this.requireAppId() },
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
       },
     );
     const payload = (await response.json().catch(() => ({}))) as {
@@ -311,8 +317,11 @@ validateWebhookAuthorization(value: string) {
 
   async fetchSubscription(globalID: string) {
     const response = await fetch(
-      `https://api.woovi.com/api/v1/subscriptions/${encodeURIComponent(globalID)}`,
-      { headers: { Authorization: this.requireAppId() } },
+      `${WOOVI_API}/subscriptions/${encodeURIComponent(globalID)}`,
+      {
+        headers: { Authorization: this.requireAppId() },
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      },
     );
     const payload = (await response.json().catch(() => ({}))) as Partial<WooviSubscriptionResponse> & {
       message?: string;
@@ -326,6 +335,27 @@ validateWebhookAuthorization(value: string) {
       );
     }
     return payload.subscription;
+  }
+
+  private checkoutPayload(subscription: WooviSubscription, discount?: DiscountQuoteLike | null) {
+    return {
+      subscriptionId: subscription.globalID,
+      correlationID: subscription.correlationID,
+      paymentLinkUrl: subscription.paymentLinkUrl!,
+      emv: subscription.pixRecurring!.emv!,
+      status: subscription.status,
+      pixRecurringStatus: subscription.pixRecurring?.status || "CREATED",
+      ...(discount
+        ? {
+            discount: {
+              code: discount.code,
+              originalPriceCents: discount.originalPriceCents,
+              finalPriceCents: discount.finalPriceCents,
+              savedCents: discount.savedCents,
+            },
+          }
+        : {}),
+    };
   }
 
   private mapLifecycleAction(event: string): PaymentLifecycleAction | null {
@@ -406,29 +436,34 @@ validateWebhookAuthorization(value: string) {
     );
   }
 
-  private async findLatestProviderId(accountId: string) {
+  private async findOpenSubscription(accountId: string): Promise<WooviSubscription | null> {
     if (this.pool) {
-      const result = await this.pool.query<{ global_id: string }>(
-        `SELECT global_id FROM modo_payment_subscriptions
-         WHERE account_id=$1 AND COALESCE(pix_recurring_status,'') NOT IN ('CANCELED','REJECTED')
+      const result = await this.pool.query<{ raw: WooviSubscription }>(
+        `SELECT raw FROM modo_payment_subscriptions
+         WHERE account_id=$1
+           AND UPPER(status) NOT IN ('CANCELED','CANCELLED','REJECTED')
+           AND UPPER(COALESCE(pix_recurring_status,'')) NOT IN ('CANCELED','CANCELLED','REJECTED')
          ORDER BY updated_at DESC LIMIT 1`,
         [accountId],
       );
-      if (!result.rowCount) {
-        throw new PaymentError("SUBSCRIPTION_NOT_FOUND", 404, "Assinatura Woovi não encontrada.");
-      }
-      return result.rows[0].global_id;
+      return result.rows[0]?.raw || null;
     }
 
-    const match = [...this.memorySubscriptions.values()].reverse().find((subscription) => {
+    return [...this.memorySubscriptions.values()].reverse().find((subscription) => {
       try {
-        return this.parseCorrelationID(subscription.correlationID).accountId === accountId;
+        const sameAccount = this.parseCorrelationID(subscription.correlationID).accountId === accountId;
+        const state = `${subscription.status} ${subscription.pixRecurring?.status || ""}`.toUpperCase();
+        return sameAccount && !/(CANCELED|CANCELLED|REJECTED)/.test(state);
       } catch {
         return false;
       }
-    });
-    if (!match) throw new PaymentError("SUBSCRIPTION_NOT_FOUND", 404, "Assinatura Woovi não encontrada.");
-    return match.globalID;
+    }) || null;
+  }
+
+  private async findLatestProviderId(accountId: string) {
+    const open = await this.findOpenSubscription(accountId);
+    if (!open) throw new PaymentError("SUBSCRIPTION_NOT_FOUND", 404, "Assinatura Woovi não encontrada.");
+    return open.globalID;
   }
 
   private requireAppId() {

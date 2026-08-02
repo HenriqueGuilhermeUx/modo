@@ -27,7 +27,8 @@ export default function AccountScreen() {
   const { dashboard, signOut } = useSession();
   const [requestOpened, setRequestOpened] = useState(false);
 
-  if (!dashboard) return <Screen><Text style={typography.body}>Sincronizando sua conta...</Text></Screen>;
+  const currentDashboard = dashboard;
+  if (!currentDashboard) return <Screen><Text style={typography.body}>Sincronizando sua conta...</Text></Screen>;
 
   function confirmDeletion() {
     Alert.alert(
@@ -45,8 +46,8 @@ export default function AccountScreen() {
     const body = encodeURIComponent([
       "Solicito a exclusão da minha conta e dos dados vinculados na MODO.",
       "",
-      `E-mail da conta: ${dashboard.user.email}`,
-      `Organização: ${dashboard.organization.name}`,
+      `E-mail da conta: ${currentDashboard.user.email}`,
+      `Organização: ${currentDashboard.organization.name}`,
       "",
       "Confirmarei a solicitação conforme as orientações de segurança.",
     ].join("\n"));
@@ -63,16 +64,16 @@ export default function AccountScreen() {
   return (
     <Screen>
       <View style={styles.top}><BrandMark /><Pill tone="neutral">VERSÃO 1.0.0</Pill></View>
-      <SectionHeading eyebrow="SUA CONTA" title={dashboard.user.name} copy={dashboard.user.email} />
+      <SectionHeading eyebrow="SUA CONTA" title={currentDashboard.user.name} copy={currentDashboard.user.email} />
 
       <Card style={styles.planCard}>
         <View style={styles.planTop}>
-          <View><Text style={styles.planLabel}>PLANO SINCRONIZADO</Text><Text style={styles.planTitle}>{planLabels[dashboard.usage.plan]}</Text></View>
-          <Pill tone={dashboard.usage.status === "active" ? "green" : "warning"}>{statusLabels[dashboard.usage.status]}</Pill>
+          <View><Text style={styles.planLabel}>PLANO SINCRONIZADO</Text><Text style={styles.planTitle}>{planLabels[currentDashboard.usage.plan]}</Text></View>
+          <Pill tone={currentDashboard.usage.status === "active" ? "green" : "warning"}>{statusLabels[currentDashboard.usage.status]}</Pill>
         </View>
         <View style={styles.usage}>
-          <View><Text style={styles.number}>{dashboard.usage.creditsRemaining}</Text><Text style={styles.muted}>créditos disponíveis</Text></View>
-          <View><Text style={styles.number}>{dashboard.brands.length}</Text><Text style={styles.muted}>contextos ativos</Text></View>
+          <View><Text style={styles.number}>{currentDashboard.usage.creditsRemaining}</Text><Text style={styles.muted}>créditos disponíveis</Text></View>
+          <View><Text style={styles.number}>{currentDashboard.brands.length}</Text><Text style={styles.muted}>contextos ativos</Text></View>
         </View>
         <Text style={styles.planCopy}>Sua assinatura e seus direitos de uso são sincronizados com a conta MODO. O aplicativo Android não abre checkout externo.</Text>
       </Card>

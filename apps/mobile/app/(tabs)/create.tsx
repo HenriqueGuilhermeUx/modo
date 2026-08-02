@@ -107,7 +107,7 @@ export default function CreateScreen() {
       const finalBrief = [selectedFormat?.instruction, brief.trim()].filter(Boolean).join("\n\n");
       const result = await createContent(token, { brandId, channel, objective, contentType, brief: finalBrief });
       setRequest(result.request);
-      updateDashboard({ ...dashboard, usage: result.usage });
+      updateDashboard({ ...dashboard!, usage: result.usage });
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Não foi possível iniciar esta criação.");
     } finally {

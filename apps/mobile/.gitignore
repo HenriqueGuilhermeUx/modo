@@ -1,0 +1,7 @@
+.expo/
+dist/
+assets/*.png
+*.jks
+*.keystore
+android/
+ios/

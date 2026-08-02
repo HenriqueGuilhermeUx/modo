@@ -8,11 +8,13 @@
     "dev": "npm run dev --workspace=@modo/api & npm run dev --workspace=@modo/web",
     "dev:web": "npm run dev --workspace=@modo/web",
     "dev:api": "npm run dev --workspace=@modo/api",
+    "dev:mobile": "npm run start --workspace=@modo/mobile",
+    "android": "npm run android --workspace=@modo/mobile",
     "build": "npm run build --workspace=@modo/contracts && npm run build --workspace=@modo/api && npm run build --workspace=@modo/web",
     "test": "npm run test --workspace=@modo/api",
-    "typecheck": "npm run typecheck --workspace=@modo/contracts && npm run typecheck --workspace=@modo/api && npm run typecheck --workspace=@modo/web",
+    "typecheck": "npm run typecheck --workspace=@modo/contracts && npm run typecheck --workspace=@modo/api && npm run typecheck --workspace=@modo/web && npm run typecheck --workspace=@modo/mobile",
     "smoke:production": "node scripts/smoke-production.mjs",
     "postinstall": "npm run build --workspace=@modo/contracts"
   },
-  "engines": {"node": ">=20"}
+  "engines": {"node": ">=20.19"}
 }

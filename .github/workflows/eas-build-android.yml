@@ -20,9 +20,13 @@ on:
     branches: [main]
     paths:
       - ".github/workflows/eas-build-android.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - ".github/workflows/eas-build-android.yml"
 
 concurrency:
-  group: modo-android-eas
+  group: modo-android-eas-${{ github.ref }}
   cancel-in-progress: false
 
 permissions:
@@ -73,6 +77,7 @@ jobs:
           fi
 
       - name: Persist EAS project ID in repository
+        if: github.event_name != 'pull_request'
         run: |
           if git diff --quiet -- apps/mobile/app.json; then
             echo "app.json já estava vinculado."
@@ -99,11 +104,17 @@ jobs:
         id: profiles
         shell: bash
         run: |
-          if [ "${{ github.event_name }}" = "push" ]; then
-            echo "list=preview production" >> "$GITHUB_OUTPUT"
-          else
-            echo "list=${{ inputs.profile }}" >> "$GITHUB_OUTPUT"
-          fi
+          case "${{ github.event_name }}" in
+            push)
+              echo "list=preview production" >> "$GITHUB_OUTPUT"
+              ;;
+            pull_request)
+              echo "list=preview" >> "$GITHUB_OUTPUT"
+              ;;
+            *)
+              echo "list=${{ inputs.profile }}" >> "$GITHUB_OUTPUT"
+              ;;
+          esac
 
       - name: Build Android binaries on EAS
         id: eas_build

@@ -10,6 +10,7 @@ on:
 permissions:
   contents: write
   actions: read
+  issues: write
 
 jobs:
   release:
@@ -23,6 +24,7 @@ jobs:
       AAB_RUN_ID: "30775816030"
       APK_ARTIFACT: MODO-Android-6
       AAB_ARTIFACT: MODO-Production-AAB-2
+      AUDIT_PR: "76"
 
     steps:
       - name: Download APK artifact
@@ -108,3 +110,25 @@ jobs:
           fi
 
           gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json url,tagName,name,isLatest
+
+      - name: Record successful publication
+        shell: bash
+        run: |
+          set -euo pipefail
+          RELEASE_URL=$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json url --jq .url)
+          BODY=$(cat <<EOF
+          ✅ Release Android publicada e validada.
+
+          - Release: $RELEASE_URL
+          - Tag: \`$TAG\`
+          - APK: \`MODO-1.0.0-preview.apk\`
+          - AAB: \`MODO-1.0.0-play-store.aab\`
+          - Integridade: \`SHA256SUMS.txt\`
+          - Workflow run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID
+          EOF
+          )
+          gh api \
+            --method POST \
+            -H "Accept: application/vnd.github+json" \
+            "/repos/$GITHUB_REPOSITORY/issues/$AUDIT_PR/comments" \
+            -f body="$BODY"

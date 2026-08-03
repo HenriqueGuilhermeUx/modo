@@ -1,0 +1,70 @@
+name: Woovi Production Smoke
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - ".github/workflows/woovi-production-smoke.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    name: Validate Woovi production readiness
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      API_URL: https://modo-api-3m10.onrender.com
+
+    steps:
+      - name: Wait for production API
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in {1..12}; do
+            code=$(curl --silent --show-error --location --max-time 30 \
+              --output health.json --write-out '%{http_code}' "$API_URL/health" || true)
+            if [ "$code" = "200" ]; then
+              cat health.json
+              exit 0
+            fi
+            echo "Tentativa $attempt: health respondeu HTTP $code"
+            sleep 10
+          done
+          echo "::error::A API de produção não respondeu 200 em /health."
+          exit 1
+
+      - name: Assert Woovi and PostgreSQL are active
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+          const health = JSON.parse(fs.readFileSync('health.json', 'utf8'));
+          const failures = [];
+          if (health.status !== 'ok') failures.push(`status=${health.status}`);
+          if (health.paymentsProvider !== 'woovi') failures.push(`paymentsProvider=${health.paymentsProvider}`);
+          if (health.billingStorage !== 'postgres') failures.push(`billingStorage=${health.billingStorage}`);
+          if (health.accountStorage !== 'postgres') failures.push(`accountStorage=${health.accountStorage}`);
+          if (failures.length) {
+            console.error(`Produção ainda não está pronta: ${failures.join(', ')}`);
+            process.exit(1);
+          }
+          console.log('Woovi ativa e dados persistentes em PostgreSQL.');
+          NODE
+
+      - name: Validate public webhook registration probe
+        shell: bash
+        run: |
+          set -euo pipefail
+          response_code=$(curl --silent --show-error --location --max-time 30 \
+            --output webhook-response.txt --write-out '%{http_code}' \
+            --request POST "$API_URL/api/v1/payments/woovi/webhook" \
+            --header 'Content-Type: application/json' \
+            --data '{"event":"WEBHOOK_REGISTERED","data_criacao":"2026-08-03T12:00:00-03:00"}')
+          cat webhook-response.txt || true
+          test "$response_code" = "200" || {
+            echo "::error::Endpoint de webhook respondeu HTTP $response_code ao teste de cadastro."
+            exit 1
+          }
+          echo "Endpoint de webhook acessível e retornando 200 ao teste de cadastro."

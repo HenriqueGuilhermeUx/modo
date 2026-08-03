@@ -2,11 +2,11 @@
   "expo": {
     "name": "MODO — Presença e Conteúdo",
     "slug": "modo-presenca",
+    "owner": "henrriquenexa",
     "version": "1.0.0",
     "scheme": "modo",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
-    "newArchEnabled": true,
     "icon": "./assets/icon.png",
     "android": {
       "package": "br.com.alternativeventures.modo",
@@ -15,7 +15,6 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#0D1B3E"
       },
-      "edgeToEdgeEnabled": true,
       "softwareKeyboardLayoutMode": "resize",
       "permissions": []
     },
@@ -50,7 +49,13 @@
       "apiUrl": "https://modo-api-3m10.onrender.com",
       "privacyUrl": "https://modo1.netlify.app/politica-de-privacidade",
       "deletionUrl": "https://modo1.netlify.app/exclusao-de-dados",
-      "supportEmail": "henriquecampos66@gmail.com"
+      "supportEmail": "henriquecampos66@gmail.com",
+      "eas": {
+        "projectId": "3ed108b0-91e7-41c4-bb94-fe894183f527"
+      }
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
     }
   }
 }

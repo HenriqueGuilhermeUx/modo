@@ -1,0 +1,29 @@
+{
+  "status": "published",
+  "message": "Release Android publicada e validada com APK, AAB e hashes.",
+  "tag": "v1.0.0",
+  "releaseUrl": "https://github.com/HenriqueGuilhermeUx/modo/releases/tag/v1.0.0",
+  "workflowRun": "https://github.com/HenriqueGuilhermeUx/modo/actions/runs/30832782179",
+  "commit": "da430abb4e6ede514e914664fcea2ced1ea85bfd",
+  "generatedAt": "2026-08-03T16:34:44Z",
+  "assets": [
+    {
+      "name": "MODO-1.0.0-play-store.aab",
+      "size": 67684949,
+      "digest": "sha256:4c0ae89aa1e4efef53a42065be82c872ca70a962bc57f7bb00b06e06cad0918b",
+      "browserDownloadUrl": "https://github.com/HenriqueGuilhermeUx/modo/releases/download/v1.0.0/MODO-1.0.0-play-store.aab"
+    },
+    {
+      "name": "MODO-1.0.0-preview.apk",
+      "size": 96554228,
+      "digest": "sha256:8e51021740f590ed463cb0032ed8b1ecda4d58937d8d1624e3de17ee08b725c2",
+      "browserDownloadUrl": "https://github.com/HenriqueGuilhermeUx/modo/releases/download/v1.0.0/MODO-1.0.0-preview.apk"
+    },
+    {
+      "name": "SHA256SUMS.txt",
+      "size": 181,
+      "digest": "sha256:f01156622e9bd6867b8243666c255dda4e3e883c0f2a0ddbd0185c9cb36df678",
+      "browserDownloadUrl": "https://github.com/HenriqueGuilhermeUx/modo/releases/download/v1.0.0/SHA256SUMS.txt"
+    }
+  ]
+}

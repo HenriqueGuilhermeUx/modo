@@ -1,0 +1,110 @@
+name: Publish Android Release
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/publish-android-release.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  release:
+    name: Publish MODO v1.0.0
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: v1.0.0
+      APK_RUN_ID: "30774923024"
+      AAB_RUN_ID: "30775816030"
+      APK_ARTIFACT: MODO-Android-6
+      AAB_ARTIFACT: MODO-Production-AAB-2
+
+    steps:
+      - name: Download APK artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p release-assets/apk
+          gh run download "$APK_RUN_ID" \
+            --repo "$GITHUB_REPOSITORY" \
+            --name "$APK_ARTIFACT" \
+            --dir release-assets/apk
+
+      - name: Download AAB artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p release-assets/aab
+          gh run download "$AAB_RUN_ID" \
+            --repo "$GITHUB_REPOSITORY" \
+            --name "$AAB_ARTIFACT" \
+            --dir release-assets/aab
+
+      - name: Validate and prepare release files
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK=$(find release-assets/apk -type f -name '*.apk' -print -quit)
+          AAB=$(find release-assets/aab -type f -name '*.aab' -print -quit)
+
+          test -n "$APK" || { echo "::error::APK não encontrado no artifact $APK_ARTIFACT"; exit 1; }
+          test -n "$AAB" || { echo "::error::AAB não encontrado no artifact $AAB_ARTIFACT"; exit 1; }
+
+          cp "$APK" MODO-1.0.0-preview.apk
+          cp "$AAB" MODO-1.0.0-play-store.aab
+          sha256sum MODO-1.0.0-preview.apk MODO-1.0.0-play-store.aab > SHA256SUMS.txt
+
+          cat > RELEASE_NOTES.md <<'NOTES'
+          # MODO v1.0.0 — Android
+
+          Primeira versão Android nativa da MODO — Presença e Conteúdo.
+
+          ## Arquivos
+
+          - `MODO-1.0.0-preview.apk`: instalação direta em Android para testes controlados.
+          - `MODO-1.0.0-play-store.aab`: pacote de produção destinado ao Google Play Console.
+          - `SHA256SUMS.txt`: hashes para verificação de integridade.
+
+          ## Observações
+
+          - O APK pode exigir a permissão temporária “Instalar apps desconhecidos” no Android.
+          - O AAB não é instalável diretamente no celular; ele deve ser enviado ao Google Play Console.
+          - Esta release disponibiliza os binários, mas não confirma publicação pública na Google Play.
+          NOTES
+
+          cat SHA256SUMS.txt
+
+      - name: Create or update GitHub Release
+        shell: bash
+        run: |
+          set -euo pipefail
+          ASSETS=(
+            MODO-1.0.0-preview.apk
+            MODO-1.0.0-play-store.aab
+            SHA256SUMS.txt
+          )
+
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release edit "$TAG" \
+              --repo "$GITHUB_REPOSITORY" \
+              --title "MODO v1.0.0 — Android" \
+              --notes-file RELEASE_NOTES.md \
+              --latest
+            gh release upload "$TAG" "${ASSETS[@]}" \
+              --repo "$GITHUB_REPOSITORY" \
+              --clobber
+          else
+            gh release create "$TAG" "${ASSETS[@]}" \
+              --repo "$GITHUB_REPOSITORY" \
+              --target main \
+              --title "MODO v1.0.0 — Android" \
+              --notes-file RELEASE_NOTES.md \
+              --latest
+          fi
+
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json url,tagName,name,isLatest

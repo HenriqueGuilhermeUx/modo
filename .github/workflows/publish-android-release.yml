@@ -14,9 +14,9 @@ permissions:
 
 jobs:
   release:
-    name: Publish MODO v1.0.0
+    name: Publish and audit MODO v1.0.0
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     env:
       GH_TOKEN: ${{ github.token }}
       TAG: v1.0.0
@@ -25,37 +25,102 @@ jobs:
       APK_ARTIFACT: MODO-Android-6
       AAB_ARTIFACT: MODO-Production-AAB-2
       AUDIT_PR: "76"
+      STATUS_PATH: docs/releases/v1.0.0-status.json
 
     steps:
-      - name: Download APK artifact
+      - name: Publish and audit release
         shell: bash
         run: |
-          set -euo pipefail
-          mkdir -p release-assets/apk
+          set -Eeuo pipefail
+
+          LOG="$RUNNER_TEMP/modo-release.log"
+          ASSETS_JSON="$RUNNER_TEMP/release-assets.json"
+          mkdir -p release-assets/apk release-assets/aab "$RUNNER_TEMP"
+          touch "$LOG"
+          exec > >(tee -a "$LOG") 2>&1
+
+          write_status() {
+            local status="$1"
+            local message="$2"
+            local release_url="${3:-}"
+            local generated_at
+            local assets='[]'
+            local encoded
+            local current_sha
+
+            generated_at="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+            if [[ -f "$ASSETS_JSON" ]]; then
+              assets="$(cat "$ASSETS_JSON")"
+            fi
+
+            jq -n \
+              --arg status "$status" \
+              --arg message "$message" \
+              --arg tag "$TAG" \
+              --arg releaseUrl "$release_url" \
+              --arg workflowRun "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" \
+              --arg commit "$GITHUB_SHA" \
+              --arg generatedAt "$generated_at" \
+              --argjson assets "$assets" \
+              '{status:$status,message:$message,tag:$tag,releaseUrl:$releaseUrl,workflowRun:$workflowRun,commit:$commit,generatedAt:$generatedAt,assets:$assets}' \
+              > "$RUNNER_TEMP/release-status.json"
+
+            encoded="$(base64 -w0 "$RUNNER_TEMP/release-status.json")"
+            current_sha="$(gh api "/repos/$GITHUB_REPOSITORY/contents/$STATUS_PATH?ref=main" --jq .sha 2>/dev/null || true)"
+
+            if [[ -n "$current_sha" ]]; then
+              gh api --method PUT \
+                "/repos/$GITHUB_REPOSITORY/contents/$STATUS_PATH" \
+                -f message="chore: atualizar status da release $TAG" \
+                -f content="$encoded" \
+                -f branch=main \
+                -f sha="$current_sha" \
+                >/dev/null
+            else
+              gh api --method PUT \
+                "/repos/$GITHUB_REPOSITORY/contents/$STATUS_PATH" \
+                -f message="chore: registrar status da release $TAG" \
+                -f content="$encoded" \
+                -f branch=main \
+                >/dev/null
+            fi
+          }
+
+          comment_audit() {
+            local body="$1"
+            gh api --method POST \
+              -H "Accept: application/vnd.github+json" \
+              "/repos/$GITHUB_REPOSITORY/issues/$AUDIT_PR/comments" \
+              -f body="$body" \
+              >/dev/null || true
+          }
+
+          on_exit() {
+            local code=$?
+            if (( code != 0 )); then
+              local summary
+              summary="$(tail -n 30 "$LOG" | tr '\n' ' ' | cut -c1-1500)"
+              write_status "failed" "$summary" "" || true
+              comment_audit "❌ Falha ao publicar a release Android \`$TAG\`. Execução: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+            fi
+          }
+          trap on_exit EXIT
+
           gh run download "$APK_RUN_ID" \
             --repo "$GITHUB_REPOSITORY" \
             --name "$APK_ARTIFACT" \
             --dir release-assets/apk
 
-      - name: Download AAB artifact
-        shell: bash
-        run: |
-          set -euo pipefail
-          mkdir -p release-assets/aab
           gh run download "$AAB_RUN_ID" \
             --repo "$GITHUB_REPOSITORY" \
             --name "$AAB_ARTIFACT" \
             --dir release-assets/aab
 
-      - name: Validate and prepare release files
-        shell: bash
-        run: |
-          set -euo pipefail
-          APK=$(find release-assets/apk -type f -name '*.apk' -print -quit)
-          AAB=$(find release-assets/aab -type f -name '*.aab' -print -quit)
+          APK="$(find release-assets/apk -type f -name '*.apk' -print -quit)"
+          AAB="$(find release-assets/aab -type f -name '*.aab' -print -quit)"
 
-          test -n "$APK" || { echo "::error::APK não encontrado no artifact $APK_ARTIFACT"; exit 1; }
-          test -n "$AAB" || { echo "::error::AAB não encontrado no artifact $AAB_ARTIFACT"; exit 1; }
+          test -n "$APK" || { echo "APK não encontrado no artifact $APK_ARTIFACT"; exit 1; }
+          test -n "$AAB" || { echo "AAB não encontrado no artifact $AAB_ARTIFACT"; exit 1; }
 
           cp "$APK" MODO-1.0.0-preview.apk
           cp "$AAB" MODO-1.0.0-play-store.aab
@@ -79,12 +144,6 @@ jobs:
           - Esta release disponibiliza os binários, mas não confirma publicação pública na Google Play.
           NOTES
 
-          cat SHA256SUMS.txt
-
-      - name: Create or update GitHub Release
-        shell: bash
-        run: |
-          set -euo pipefail
           ASSETS=(
             MODO-1.0.0-preview.apk
             MODO-1.0.0-play-store.aab
@@ -109,13 +168,19 @@ jobs:
               --latest
           fi
 
-          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json url,tagName,name,isLatest
+          gh api "/repos/$GITHUB_REPOSITORY/releases/tags/$TAG" > "$RUNNER_TEMP/release.json"
 
-      - name: Record successful publication
-        shell: bash
-        run: |
-          set -euo pipefail
-          RELEASE_URL=$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json url --jq .url)
+          jq '[.assets[] | {name,size,digest,browserDownloadUrl:.browser_download_url}]' \
+            "$RUNNER_TEMP/release.json" > "$ASSETS_JSON"
+
+          for required in MODO-1.0.0-preview.apk MODO-1.0.0-play-store.aab SHA256SUMS.txt; do
+            jq -e --arg name "$required" '.assets[] | select(.name == $name and .state == "uploaded")' \
+              "$RUNNER_TEMP/release.json" >/dev/null
+          done
+
+          RELEASE_URL="$(jq -r .html_url "$RUNNER_TEMP/release.json")"
+          write_status "published" "Release Android publicada e validada com APK, AAB e hashes." "$RELEASE_URL"
+
           BODY=$(cat <<EOF
           ✅ Release Android publicada e validada.
 
@@ -127,8 +192,6 @@ jobs:
           - Workflow run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID
           EOF
           )
-          gh api \
-            --method POST \
-            -H "Accept: application/vnd.github+json" \
-            "/repos/$GITHUB_REPOSITORY/issues/$AUDIT_PR/comments" \
-            -f body="$BODY"
+          comment_audit "$BODY"
+
+          trap - EXIT

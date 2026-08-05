@@ -1,0 +1,31 @@
+{
+  "status": "verified",
+  "message": "As páginas exigidas pelo Google Play carregam publicamente em navegador real e apresentam os conteúdos e controles obrigatórios.",
+  "verifiedAt": "2026-08-05T00:21:50.158Z",
+  "appName": "MODO — Presença e Conteúdo",
+  "developer": "Alternative Ventures",
+  "results": [
+    {
+      "name": "Privacy Policy",
+      "path": "/politica-de-privacidade",
+      "url": "https://modo1.netlify.app/politica-de-privacidade",
+      "httpStatus": 200,
+      "heading": "Política de Privacidade da MODO",
+      "publicWithoutLogin": true,
+      "bodySha256": "a9eeddc5ea8cf229125afb9cbdfecf632f05a22048e217cfb0833e18b6e01844",
+      "screenshot": ".playwright-check/privacy-policy.png"
+    },
+    {
+      "name": "Account and Data Deletion",
+      "path": "/exclusao-de-dados",
+      "url": "https://modo1.netlify.app/exclusao-de-dados",
+      "httpStatus": 200,
+      "heading": "Instruções para exclusão de dados",
+      "publicWithoutLogin": true,
+      "bodySha256": "67b6a270b3f9c074758a6ac38c38790916e17465436bf3d9dcac61919b4058d1",
+      "screenshot": ".playwright-check/account-deletion.png"
+    }
+  ],
+  "workflowRun": "https://github.com/HenriqueGuilhermeUx/modo/actions/runs/30962979577",
+  "commit": "40bfe135e78e6962da5178df39348cc1a0288b32"
+}

@@ -26,8 +26,16 @@ jobs:
           fetch-depth: 0
 
       - name: Install Playwright Chromium
+        shell: bash
         run: |
-          npm exec --yes --package=@playwright/test@1.55.0 -- playwright install --with-deps chromium
+          set -euo pipefail
+          mkdir -p .playwright-check
+          npm install \
+            --prefix .playwright-check \
+            --no-save \
+            --package-lock=false \
+            @playwright/test@1.55.0
+          ./.playwright-check/node_modules/.bin/playwright install --with-deps chromium
 
       - name: Verify pages in a real browser
         shell: bash
@@ -129,7 +137,8 @@ jobs:
           };
           JS
 
-          npm exec --yes --package=@playwright/test@1.55.0 -- playwright test \
+          NODE_PATH="$PWD/.playwright-check/node_modules" \
+            ./.playwright-check/node_modules/.bin/playwright test \
             --config=.playwright-check/playwright.config.js \
             .playwright-check/legal-pages.spec.js
 

@@ -1,0 +1,151 @@
+name: Verify Google Play Legal Pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/verify-google-play-legal-pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  verify:
+    name: Verify public privacy and deletion pages
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      BASE_URL: https://modo1.netlify.app
+      STATUS_FILE: docs/google-play/legal-pages-status.json
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install Playwright Chromium
+        run: |
+          npm exec --yes --package=@playwright/test@1.55.0 -- playwright install --with-deps chromium
+
+      - name: Verify pages in a real browser
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .playwright-check docs/google-play
+          cat > .playwright-check/legal-pages.spec.js <<'JS'
+          const { test, expect } = require('@playwright/test');
+          const fs = require('fs');
+          const crypto = require('crypto');
+
+          const baseUrl = process.env.BASE_URL;
+          const statusFile = process.env.STATUS_FILE;
+          const results = [];
+
+          async function verifyPage(page, config) {
+            const response = await page.goto(`${baseUrl}${config.path}`, {
+              waitUntil: 'networkidle',
+              timeout: 60_000,
+            });
+            expect(response, `${config.path} deve responder`).not.toBeNull();
+            expect(response.status(), `${config.path} deve responder HTTP 200`).toBe(200);
+            await expect(page.locator('h1')).toHaveText(config.heading);
+            await expect(page.getByText('Alternative Ventures', { exact: true })).toBeVisible();
+            await expect(page.getByText('CNPJ 61.920.356/0001-38', { exact: true })).toBeVisible();
+            await expect(page.getByText('henriquecampos66@gmail.com', { exact: true }).first()).toBeVisible();
+            for (const text of config.requiredTexts) {
+              await expect(page.getByText(text, { exact: false }).first()).toBeVisible();
+            }
+            if (config.linkText) {
+              const link = page.getByRole('link', { name: config.linkText });
+              await expect(link).toBeVisible();
+              const href = await link.getAttribute('href');
+              expect(href).toContain('mailto:henriquecampos66@gmail.com');
+            }
+            const html = await page.content();
+            const screenshot = `.playwright-check/${config.slug}.png`;
+            await page.screenshot({ path: screenshot, fullPage: true });
+            results.push({
+              name: config.name,
+              path: config.path,
+              url: page.url(),
+              httpStatus: response.status(),
+              heading: config.heading,
+              publicWithoutLogin: !page.url().includes('/app'),
+              bodySha256: crypto.createHash('sha256').update(html).digest('hex'),
+              screenshot,
+            });
+          }
+
+          test('Google Play legal pages are public and functional', async ({ page }) => {
+            await verifyPage(page, {
+              name: 'Privacy Policy',
+              slug: 'privacy-policy',
+              path: '/politica-de-privacidade',
+              heading: 'Política de Privacidade da MODO',
+              requiredTexts: [
+                'A MODO não vende dados pessoais',
+                'Retenção e exclusão',
+                'Contato de privacidade',
+              ],
+            });
+            await verifyPage(page, {
+              name: 'Account and Data Deletion',
+              slug: 'account-deletion',
+              path: '/exclusao-de-dados',
+              heading: 'Instruções para exclusão de dados',
+              requiredTexts: [
+                'exclusão integral da conta e dos dados associados',
+                'Verificação de segurança',
+                'O que acontece após o pedido',
+              ],
+              linkText: 'Solicitar exclusão por e-mail',
+            });
+            fs.writeFileSync(statusFile, JSON.stringify({
+              status: 'verified',
+              message: 'As páginas exigidas pelo Google Play carregam publicamente em navegador real e apresentam os conteúdos e controles obrigatórios.',
+              verifiedAt: new Date().toISOString(),
+              appName: 'MODO — Presença e Conteúdo',
+              developer: 'Alternative Ventures',
+              results,
+              workflowRun: `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`,
+              commit: process.env.GITHUB_SHA,
+            }, null, 2) + '\n');
+          });
+          JS
+
+          cat > .playwright-check/playwright.config.js <<'JS'
+          module.exports = {
+            testDir: '.',
+            timeout: 120000,
+            use: {
+              browserName: 'chromium',
+              headless: true,
+              locale: 'pt-BR',
+              viewport: { width: 1280, height: 900 },
+            },
+            reporter: 'line',
+          };
+          JS
+
+          npm exec --yes --package=@playwright/test@1.55.0 -- playwright test \
+            --config=.playwright-check/playwright.config.js \
+            .playwright-check/legal-pages.spec.js
+
+          cat "$STATUS_FILE"
+
+      - name: Publish verification status
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "$STATUS_FILE"
+          if git diff --cached --quiet; then
+            echo "Status file unchanged."
+            exit 0
+          fi
+          git commit -m "docs: registrar validação das páginas legais"
+          git pull --rebase origin main
+          git push origin HEAD:main

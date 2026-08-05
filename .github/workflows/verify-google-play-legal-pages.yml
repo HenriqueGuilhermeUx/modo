@@ -59,8 +59,8 @@ jobs:
             expect(response, `${config.path} deve responder`).not.toBeNull();
             expect(response.status(), `${config.path} deve responder HTTP 200`).toBe(200);
             await expect(page.locator('h1')).toHaveText(config.heading);
-            await expect(page.getByText('Alternative Ventures', { exact: true })).toBeVisible();
-            await expect(page.getByText('CNPJ 61.920.356/0001-38', { exact: true })).toBeVisible();
+            await expect(page.getByText('Alternative Ventures', { exact: true }).first()).toBeVisible();
+            await expect(page.getByText('CNPJ 61.920.356/0001-38', { exact: true }).first()).toBeVisible();
             await expect(page.getByText('henriquecampos66@gmail.com', { exact: true }).first()).toBeVisible();
             for (const text of config.requiredTexts) {
               await expect(page.getByText(text, { exact: false }).first()).toBeVisible();

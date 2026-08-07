@@ -3,14 +3,14 @@
     "name": "MODO — Presença e Conteúdo",
     "slug": "modo-presenca",
     "owner": "henrriquenexa",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "scheme": "modo",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
     "icon": "./assets/icon.png",
     "android": {
       "package": "br.com.alternativeventures.modo",
-      "versionCode": 1,
+      "versionCode": 3,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#0D1B3E"
@@ -21,7 +21,7 @@
     "ios": {
       "bundleIdentifier": "br.com.alternativeventures.modo",
       "supportsTablet": true,
-      "buildNumber": "1"
+      "buildNumber": "3"
     },
     "plugins": [
       "expo-router",

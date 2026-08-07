@@ -20,10 +20,14 @@ on:
     branches: [main]
     paths:
       - ".github/workflows/eas-build-android.yml"
+      - "apps/mobile/app.json"
+      - "apps/mobile/eas.json"
   pull_request:
     branches: [main]
     paths:
       - ".github/workflows/eas-build-android.yml"
+      - "apps/mobile/app.json"
+      - "apps/mobile/eas.json"
 
 concurrency:
   group: modo-android-eas-${{ github.ref }}
@@ -62,6 +66,21 @@ jobs:
 
       - name: Install monorepo dependencies
         run: npm install --include=dev
+
+      - name: Resolve app metadata
+        id: app_meta
+        shell: bash
+        run: |
+          VERSION=$(node -p "require('./apps/mobile/app.json').expo.version")
+          VERSION_CODE=$(node -p "require('./apps/mobile/app.json').expo.android.versionCode")
+          PACKAGE=$(node -p "require('./apps/mobile/app.json').expo.android.package")
+          test -n "$VERSION"
+          test -n "$VERSION_CODE"
+          test "$VERSION_CODE" -ge 3
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "version_code=$VERSION_CODE" >> "$GITHUB_OUTPUT"
+          echo "package=$PACKAGE" >> "$GITHUB_OUTPUT"
+          echo "MODO $VERSION | versionCode $VERSION_CODE | $PACKAGE"
 
       - name: Link or create EAS project
         working-directory: apps/mobile
@@ -106,7 +125,7 @@ jobs:
         run: |
           case "${{ github.event_name }}" in
             push)
-              echo "list=preview production" >> "$GITHUB_OUTPUT"
+              echo "list=production" >> "$GITHUB_OUTPUT"
               ;;
             pull_request)
               echo "list=preview" >> "$GITHUB_OUTPUT"
@@ -124,12 +143,14 @@ jobs:
           EAS_BUILD_NO_EXPO_GO_WARNING: "true"
           EXPO_NO_TELEMETRY: "1"
           PROFILES: ${{ steps.profiles.outputs.list }}
+          APP_VERSION: ${{ steps.app_meta.outputs.version }}
+          VERSION_CODE: ${{ steps.app_meta.outputs.version_code }}
         run: |
           set -euo pipefail
           mkdir -p artifacts
 
           for PROFILE in $PROFILES; do
-            echo "Iniciando build $PROFILE..."
+            echo "Iniciando build $PROFILE para MODO $APP_VERSION, versionCode $VERSION_CODE..."
             eas build \
               --platform android \
               --profile "$PROFILE" \
@@ -143,20 +164,21 @@ jobs:
             ARTIFACT_URL=$(node -e "const fs=require('fs'); const raw=fs.readFileSync('eas-build-$PROFILE.json','utf8').trim(); const indexes=[raw.indexOf('['),raw.indexOf('{')].filter(i=>i>=0); const start=Math.min(...indexes); const data=JSON.parse(raw.slice(start)); const build=Array.isArray(data)?data[0]:data; const url=build?.artifacts?.buildUrl||build?.artifacts?.applicationArchiveUrl; if(!url){console.error(raw);process.exit(1)}; process.stdout.write(url)")
 
             if [ "$PROFILE" = "preview" ]; then
-              FILE="artifacts/MODO-1.0.0-preview.apk"
+              FILE="artifacts/MODO-$APP_VERSION-code-$VERSION_CODE-preview.apk"
             else
-              FILE="artifacts/MODO-1.0.0-play-store.aab"
+              FILE="artifacts/MODO-$APP_VERSION-code-$VERSION_CODE-play-store.aab"
             fi
 
             curl --fail --location "$ARTIFACT_URL" --output "$FILE"
             test -s "$FILE"
+            sha256sum "$FILE" | tee "$FILE.sha256"
             ls -lh "$FILE"
           done
 
       - name: Upload Android artifacts to GitHub
         uses: actions/upload-artifact@v4
         with:
-          name: MODO-Android-${{ github.run_number }}
+          name: MODO-Android-${{ steps.app_meta.outputs.version }}-code-${{ steps.app_meta.outputs.version_code }}-${{ github.run_number }}
           path: apps/mobile/artifacts/*
           if-no-files-found: error
           retention-days: 30
@@ -167,10 +189,13 @@ jobs:
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
           EXPO_NO_TELEMETRY: "1"
+          APP_VERSION: ${{ steps.app_meta.outputs.version }}
+          VERSION_CODE: ${{ steps.app_meta.outputs.version_code }}
         run: |
-          test -f artifacts/MODO-1.0.0-play-store.aab
+          AAB="artifacts/MODO-$APP_VERSION-code-$VERSION_CODE-play-store.aab"
+          test -f "$AAB"
           eas submit \
             --platform android \
             --profile production \
-            --path artifacts/MODO-1.0.0-play-store.aab \
+            --path "$AAB" \
             --non-interactive

@@ -22,12 +22,6 @@ on:
       - ".github/workflows/eas-build-android.yml"
       - "apps/mobile/app.json"
       - "apps/mobile/eas.json"
-  pull_request:
-    branches: [main]
-    paths:
-      - ".github/workflows/eas-build-android.yml"
-      - "apps/mobile/app.json"
-      - "apps/mobile/eas.json"
 
 concurrency:
   group: modo-android-eas-${{ github.ref }}
@@ -51,6 +45,12 @@ jobs:
         with:
           node-version: 22
 
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
       - name: Setup Expo and EAS
         uses: expo/expo-github-action@v8
         with:
@@ -61,7 +61,7 @@ jobs:
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: |
-          test -n "$EXPO_TOKEN" || (echo "::error::EXPO_TOKEN ausente neste repositório. Cadastre o mesmo token usado nos demais apps." && exit 1)
+          test -n "$EXPO_TOKEN" || (echo "::error::EXPO_TOKEN ausente neste repositório." && exit 1)
           eas whoami
 
       - name: Install monorepo dependencies
@@ -77,36 +77,18 @@ jobs:
           test -n "$VERSION"
           test -n "$VERSION_CODE"
           test "$VERSION_CODE" -ge 3
+          test "$PACKAGE" = "br.com.alternativeventures.modo"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "version_code=$VERSION_CODE" >> "$GITHUB_OUTPUT"
           echo "package=$PACKAGE" >> "$GITHUB_OUTPUT"
           echo "MODO $VERSION | versionCode $VERSION_CODE | $PACKAGE"
 
-      - name: Link or create EAS project
+      - name: Verify linked EAS project and credentials
         working-directory: apps/mobile
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: |
-          if eas project:info --non-interactive; then
-            echo "Projeto EAS já vinculado."
-          else
-            echo "Criando e vinculando o projeto EAS da MODO..."
-            eas project:init --non-interactive --force
-            eas project:info --non-interactive
-          fi
-
-      - name: Persist EAS project ID in repository
-        if: github.event_name != 'pull_request'
-        run: |
-          if git diff --quiet -- apps/mobile/app.json; then
-            echo "app.json já estava vinculado."
-            exit 0
-          fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add apps/mobile/app.json
-          git commit -m "chore: vincular app MODO ao projeto EAS [skip ci]"
-          git push origin HEAD:main || echo "::warning::O build continuará, mas o projectId deverá ser persistido depois caso a branch main bloqueie push do bot."
+          eas project:info --non-interactive
 
       - name: Validate mobile project
         working-directory: apps/mobile
@@ -127,21 +109,19 @@ jobs:
             push)
               echo "list=production" >> "$GITHUB_OUTPUT"
               ;;
-            pull_request)
-              echo "list=preview" >> "$GITHUB_OUTPUT"
-              ;;
             *)
               echo "list=${{ inputs.profile }}" >> "$GITHUB_OUTPUT"
               ;;
           esac
 
-      - name: Build Android binaries on EAS
+      - name: Build Android locally with EAS credentials
         id: eas_build
         working-directory: apps/mobile
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
           EAS_BUILD_NO_EXPO_GO_WARNING: "true"
           EXPO_NO_TELEMETRY: "1"
+          EAS_LOCAL_BUILD_SKIP_CLEANUP: "0"
           PROFILES: ${{ steps.profiles.outputs.list }}
           APP_VERSION: ${{ steps.app_meta.outputs.version }}
           VERSION_CODE: ${{ steps.app_meta.outputs.version_code }}
@@ -150,26 +130,21 @@ jobs:
           mkdir -p artifacts
 
           for PROFILE in $PROFILES; do
-            echo "Iniciando build $PROFILE para MODO $APP_VERSION, versionCode $VERSION_CODE..."
+            if [ "$PROFILE" = "preview" ]; then
+              FILE="$PWD/artifacts/MODO-$APP_VERSION-code-$VERSION_CODE-preview.apk"
+            else
+              FILE="$PWD/artifacts/MODO-$APP_VERSION-code-$VERSION_CODE-play-store.aab"
+            fi
+
+            echo "Compilando localmente $PROFILE para MODO $APP_VERSION, versionCode $VERSION_CODE..."
+            rm -f "$FILE"
             eas build \
               --platform android \
               --profile "$PROFILE" \
               --non-interactive \
-              --clear-cache \
-              --wait \
-              --json > "eas-build-$PROFILE.json"
+              --local \
+              --output "$FILE"
 
-            cat "eas-build-$PROFILE.json"
-
-            ARTIFACT_URL=$(node -e "const fs=require('fs'); const raw=fs.readFileSync('eas-build-$PROFILE.json','utf8').trim(); const indexes=[raw.indexOf('['),raw.indexOf('{')].filter(i=>i>=0); const start=Math.min(...indexes); const data=JSON.parse(raw.slice(start)); const build=Array.isArray(data)?data[0]:data; const url=build?.artifacts?.buildUrl||build?.artifacts?.applicationArchiveUrl; if(!url){console.error(raw);process.exit(1)}; process.stdout.write(url)")
-
-            if [ "$PROFILE" = "preview" ]; then
-              FILE="artifacts/MODO-$APP_VERSION-code-$VERSION_CODE-preview.apk"
-            else
-              FILE="artifacts/MODO-$APP_VERSION-code-$VERSION_CODE-play-store.aab"
-            fi
-
-            curl --fail --location "$ARTIFACT_URL" --output "$FILE"
             test -s "$FILE"
             sha256sum "$FILE" | tee "$FILE.sha256"
             ls -lh "$FILE"

@@ -83,8 +83,10 @@ services:
         sync: false
       - key: LINKEDIN_REDIRECT_URI
         value: https://modo-api-3m10.onrender.com/api/v1/linkedin/callback
+      - key: LINKEDIN_PUBLISHER_REDIRECT_URI
+        value: https://modo-api-3m10.onrender.com/api/v2/publisher/oauth/linkedin/callback
       - key: LINKEDIN_SCOPES
-        value: r_liteprofile w_member_social
+        value: openid profile w_member_social
       - key: LINKEDIN_TOKEN_ENCRYPTION_SECRET
         sync: false
       - key: LINKEDIN_API_VERSION
@@ -95,10 +97,12 @@ services:
         sync: false
       - key: INSTAGRAM_REDIRECT_URI
         value: https://modo-api-3m10.onrender.com/api/v1/instagram/callback
+      - key: INSTAGRAM_PUBLISHER_REDIRECT_URI
+        value: https://modo-api-3m10.onrender.com/api/v2/publisher/oauth/instagram/callback
       - key: INSTAGRAM_TOKEN_ENCRYPTION_SECRET
         sync: false
       - key: INSTAGRAM_SCOPES
-        value: instagram_business_basic,instagram_business_content_publish,instagram_business_manage_insights,instagram_business_manage_comments
+        value: instagram_business_basic,instagram_business_content_publish,instagram_business_manage_insights
       - key: INSTAGRAM_API_VERSION
         value: v21.0
       - key: INSTAGRAM_GRAPH_BASE_URL
@@ -110,7 +114,7 @@ services:
       - key: FACEBOOK_REDIRECT_URI
         value: https://modo-api-3m10.onrender.com/api/v2/publisher/oauth/facebook/callback
       - key: FACEBOOK_API_VERSION
-        value: v23.0
+        value: v26.0
       - key: THREADS_APP_ID
         sync: false
       - key: THREADS_APP_SECRET

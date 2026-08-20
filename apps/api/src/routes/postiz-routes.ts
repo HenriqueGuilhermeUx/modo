@@ -158,18 +158,28 @@ export async function registerPostizRoutes(app: FastifyInstance, options: Option
     return postizResponse(reply, async () => {
       const result = await service.refreshAnalytics(context.organization.id, id, days);
       if (result.summary.learningSignal !== "neutral") {
-        const recommendationId = await learning.recommendationIdForContent(
+        const signal = result.summary.learningSignal;
+        const alreadyLearned = await learning.performanceSignalAlreadyRecorded(
           context.organization.id,
-          result.publication.brandId,
           result.publication.contentRequestId,
+          result.publication.id,
+          signal,
         );
-        await creative.recordFeedback(context.organization.id, result.publication.brandId, {
-          ...(recommendationId ? { recommendationId } : {}),
-          contentRequestId: result.publication.contentRequestId,
-          signal: result.summary.learningSignal,
-          score: result.summary.score,
-          metrics: result.summary.normalized,
-        });
+        if (!alreadyLearned) {
+          const recommendationId = await learning.recommendationIdForContent(
+            context.organization.id,
+            result.publication.brandId,
+            result.publication.contentRequestId,
+          );
+          await creative.recordFeedback(context.organization.id, result.publication.brandId, {
+            ...(recommendationId ? { recommendationId } : {}),
+            contentRequestId: result.publication.contentRequestId,
+            signal,
+            score: result.summary.score,
+            notes: `postiz_publication:${result.publication.id}`,
+            metrics: result.summary.normalized,
+          });
+        }
       }
       return result;
     });

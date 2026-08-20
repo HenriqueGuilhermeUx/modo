@@ -13,6 +13,7 @@
     "./instagram": {"types": "./src/instagram.ts", "import": "./dist/instagram.js"},
     "./postiz": {"types": "./src/postiz.ts", "import": "./dist/postiz.js"},
     "./distribution-quality": {"types": "./src/distribution-quality.ts", "import": "./dist/distribution-quality.js"},
+    "./native-publisher": {"types": "./src/native-publisher.ts", "import": "./dist/native-publisher.js"},
     "./creative-intelligence": {"types": "./src/creative-intelligence.ts", "import": "./dist/creative-intelligence.js"},
     "./signal": {"types": "./src/signal.ts", "import": "./dist/signal.js"},
     "./admin": {"types": "./src/admin.ts", "import": "./dist/admin.js"},

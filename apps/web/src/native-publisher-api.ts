@@ -33,11 +33,33 @@ export type PublisherHealth = {
   storage: string;
   providers: Record<NativePublisherProvider, boolean>;
   capabilities: Record<string, boolean>;
-  callbacks: { facebook: string | null; threads: string | null };
+  callbacks: {
+    facebook: string | null;
+    threads: string | null;
+    instagram?: string | null;
+    linkedin?: string | null;
+  };
 };
 
 export async function getPublisherHealth(): Promise<PublisherHealth> {
-  return request("/api/v2/publisher/health");
+  const health = await request("/api/v2/publisher/health") as PublisherHealth;
+  try {
+    const direct = await request("/api/v2/publisher/direct-oauth/health") as {
+      configured: { instagram: boolean; linkedin: boolean };
+      callbacks: { instagram: string | null; linkedin: string | null };
+    };
+    return {
+      ...health,
+      providers: {
+        ...health.providers,
+        instagram: direct.configured.instagram,
+        linkedin: direct.configured.linkedin,
+      },
+      callbacks: { ...health.callbacks, ...direct.callbacks },
+    };
+  } catch {
+    return health;
+  }
 }
 
 export async function listNativeConnections(brandId?: string): Promise<NativeConnection[]> {
@@ -62,7 +84,7 @@ export async function importLinkedInConnection(brandId: string): Promise<NativeC
   return NativeConnectionSchema.parse(payload.connection);
 }
 
-export async function startNativeConnection(provider: "facebook" | "threads", brandId: string) {
+export async function startNativeConnection(provider: NativePublisherProvider, brandId: string) {
   return request(`/api/v2/publisher/connect/${provider}`, {
     method: "POST",
     body: JSON.stringify({ brandId }),
@@ -87,6 +109,7 @@ export async function createNativePublication(input: {
   mode: NativePublisherMode;
   scheduledFor?: string;
   idempotencyKey?: string;
+  connectionId?: string;
 }): Promise<{ publication: NativePublication; quality: unknown }> {
   const payload = await request("/api/v2/publisher/publications", {
     method: "POST",

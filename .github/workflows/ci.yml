@@ -14,8 +14,8 @@ jobs:
         image: postgres:16
         env:
           POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
           POSTGRES_DB: modo_ci
+          POSTGRES_HOST_AUTH_METHOD: trust
         ports:
           - 5432:5432
         options: >-
@@ -76,14 +76,13 @@ jobs:
       - name: Publisher PostgreSQL startup smoke
         shell: bash
         env:
-          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/modo_ci
+          DATABASE_URL: postgresql://postgres@127.0.0.1:5432/modo_ci
           DATABASE_SSL: "false"
           PORT: "4011"
           NODE_ENV: test
           PUBLIC_API_URL: http://127.0.0.1:4011
           PUBLIC_WEB_URL: http://127.0.0.1:5173
           ALLOWED_ORIGINS: http://127.0.0.1:5173
-          INSTAGRAM_TOKEN_ENCRYPTION_SECRET: modo-ci-native-publisher-encryption-secret-32chars
         run: |
           set -euo pipefail
           LOG_FILE="${RUNNER_TEMP}/modo-api-postgres-startup.log"

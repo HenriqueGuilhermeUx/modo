@@ -106,7 +106,9 @@ services:
       - key: POSTIZ_API_KEY
         sync: false
       - key: POSTIZ_BASE_URL
-        value: https://api.postiz.com/public/v1
+        sync: false
+      - key: DISTRIBUTION_CRON_SECRET
+        sync: false
       - key: CANVA_CLIENT_ID
         sync: false
       - key: CANVA_CLIENT_SECRET

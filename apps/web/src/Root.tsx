@@ -14,6 +14,7 @@ const PrivacyPolicyPage = lazy(() => import("./LegalPages").then((module) => ({ 
 const DataDeletionPage = lazy(() => import("./LegalPages").then((module) => ({ default: module.DataDeletionPage })));
 const LinkedInWorkspace = lazy(() => import("./LinkedInWorkspace"));
 const OnboardingWorkspace = lazy(() => import("./OnboardingWorkspace"));
+const PerformanceWorkspace = lazy(() => import("./PerformanceWorkspace"));
 const Portal = lazy(() => import("./Portal"));
 const PortalWelcomeGuide = lazy(() => import("./PortalWelcomeGuide"));
 const ProductPathGuideAddon = lazy(() => import("./ProductPathGuideAddon"));
@@ -86,6 +87,7 @@ export default function Root() {
   if (path.startsWith("/app/base")) return suspended(<StrategyWorkspace />);
   if (path.startsWith("/app/especialista")) return suspended(<SpecialistSupportWorkspace />);
   if (path.startsWith("/app/week")) return suspended(<WeekWorkspace />);
+  if (path.startsWith("/app/resultados")) return suspended(<PerformanceWorkspace />);
   if (path.startsWith("/app/planos")) return suspended(<BillingWorkspace />);
   if (path.startsWith("/app/director")) return suspended(<DirectorWorkspace />);
   if (path.startsWith("/app/campanhas")) return suspended(<CampaignWorkspace />);
@@ -108,6 +110,7 @@ export default function Root() {
           <a className="portal-plan-entry" href="/app/week">Minha semana</a>
           <a className="portal-plan-entry" href="/app/director">Meu próximo movimento</a>
           <a className="portal-plan-entry" href="/app/campanhas">Campanhas</a>
+          <a className="portal-plan-entry" href="/app/resultados">Resultados</a>
           <a className="portal-plan-entry" href="/app/linkedin">LinkedIn</a>
           <a className="portal-plan-entry" href="/app/settings/integrations">Integrações</a>
           <a className="portal-plan-entry" href="/app/inteligencia">Inteligência</a>

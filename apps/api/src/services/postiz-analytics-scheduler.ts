@@ -14,6 +14,18 @@ interface DuePublicationRow {
   account_id: string;
 }
 
+export interface ScheduledAnalyticsResult {
+  publicationId: string;
+  accountId: string;
+  ok: boolean;
+  brandId?: string;
+  contentRequestId?: string;
+  score?: number;
+  learningSignal?: "performed_well" | "performed_poorly" | "neutral";
+  normalized?: Record<string, number>;
+  error?: string;
+}
+
 export class PostizAnalyticsScheduler {
   private readonly pool?: Pool;
 
@@ -33,7 +45,7 @@ export class PostizAnalyticsScheduler {
 
   async refreshDue(limit = 50) {
     if (!this.pool) {
-      return { processed: 0, refreshed: 0, failed: 0, results: [] as Array<Record<string, unknown>> };
+      return { processed: 0, refreshed: 0, failed: 0, results: [] as ScheduledAnalyticsResult[] };
     }
 
     const due = await this.pool.query<DuePublicationRow>(
@@ -53,7 +65,7 @@ export class PostizAnalyticsScheduler {
       [Math.max(1, Math.min(100, limit))],
     );
 
-    const results: Array<Record<string, unknown>> = [];
+    const results: ScheduledAnalyticsResult[] = [];
     let refreshed = 0;
     let failed = 0;
 
@@ -69,6 +81,7 @@ export class PostizAnalyticsScheduler {
           contentRequestId: result.publication.contentRequestId,
           score: result.summary.score,
           learningSignal: result.summary.learningSignal,
+          normalized: result.summary.normalized,
         });
       } catch (error) {
         failed += 1;

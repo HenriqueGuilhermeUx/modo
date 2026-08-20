@@ -3,7 +3,10 @@ import { config } from "./config.js";
 import { DemoDiagnosticProvider } from "./providers/demo-diagnostic-provider.js";
 import { N8nDiagnosticProvider } from "./providers/n8n-diagnostic-provider.js";
 import { registerHumanOperationsRoutes } from "./routes/human-operations-routes.js";
+import { registerPostizRoutes } from "./routes/postiz-routes.js";
 import { registerStrategyNetworkRoutes } from "./routes/strategy-network-routes.js";
+import { AuthService } from "./services/auth-service.js";
+import { ContentService } from "./services/content-service.js";
 
 function createProvider() {
   if (config.DIAGNOSTIC_PROVIDER === "n8n") {
@@ -54,6 +57,32 @@ const app = await createApp({
   instagramApiVersion: config.INSTAGRAM_API_VERSION,
   instagramGraphBaseUrl: config.INSTAGRAM_GRAPH_BASE_URL,
   publicWebUrl: config.PUBLIC_WEB_URL,
+});
+
+// O Publisher usa os mesmos dados persistidos do core, mas em serviços auxiliares
+// para manter o wiring isolado e evitar acoplamento ao createApp.
+const distributionAuth = new AuthService({
+  databaseUrl: config.DATABASE_URL,
+  databaseSsl: config.DATABASE_SSL,
+  sessionDays: config.AUTH_SESSION_DAYS,
+});
+const distributionContent = new ContentService({
+  databaseUrl: config.DATABASE_URL,
+  databaseSsl: config.DATABASE_SSL,
+});
+await Promise.all([distributionAuth.initialize(), distributionContent.initialize()]);
+
+await registerPostizRoutes(app, {
+  auth: distributionAuth,
+  content: distributionContent,
+  apiKey: config.POSTIZ_API_KEY,
+  baseUrl: config.POSTIZ_BASE_URL,
+  databaseUrl: config.DATABASE_URL,
+  databaseSsl: config.DATABASE_SSL,
+});
+
+app.addHook("onClose", async () => {
+  await Promise.all([distributionAuth.close(), distributionContent.close()]);
 });
 
 await registerStrategyNetworkRoutes(app, {

@@ -1,0 +1,69 @@
+name: Validate Postiz Self-Hosted
+
+on:
+  pull_request:
+    paths:
+      - "infra/postiz/**"
+      - "scripts/postiz/**"
+      - "n8n/workflows/modo-distribution-analytics-refresh.json"
+      - ".github/workflows/postiz-self-hosted-validation.yml"
+  push:
+    branches: [main]
+    paths:
+      - "infra/postiz/**"
+      - "scripts/postiz/**"
+      - "n8n/workflows/modo-distribution-analytics-refresh.json"
+      - ".github/workflows/postiz-self-hosted-validation.yml"
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout MODO
+        uses: actions/checkout@v4
+
+      - name: Validate PowerShell syntax
+        shell: pwsh
+        run: |
+          $errors = @()
+          Get-ChildItem scripts/postiz/*.ps1 | ForEach-Object {
+            $tokens = $null
+            $parseErrors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile($_.FullName, [ref]$tokens, [ref]$parseErrors) | Out-Null
+            if ($parseErrors.Count -gt 0) {
+              $errors += $parseErrors
+              Write-Host "Erros em $($_.Name):" -ForegroundColor Red
+              $parseErrors | ForEach-Object { Write-Host $_.Message }
+            }
+          }
+          if ($errors.Count -gt 0) { exit 1 }
+
+      - name: Validate n8n workflow JSON
+        run: jq empty n8n/workflows/modo-distribution-analytics-refresh.json
+
+      - name: Clone canonical Postiz compose
+        run: git clone --depth 1 https://github.com/gitroomhq/postiz-docker-compose /tmp/postiz-compose
+
+      - name: Validate combined Docker Compose
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > /tmp/postiz-modo.env <<'EOF'
+          POSTIZ_PUBLIC_URL=http://localhost:4007
+          POSTIZ_JWT_SECRET=ci-only-secret-not-for-production
+          POSTIZ_DISABLE_REGISTRATION=false
+          POSTIZ_API_LIMIT=90
+          FACEBOOK_APP_ID=
+          FACEBOOK_APP_SECRET=
+          LINKEDIN_CLIENT_ID=
+          LINKEDIN_CLIENT_SECRET=
+          THREADS_APP_ID=
+          THREADS_APP_SECRET=
+          EOF
+          cd /tmp/postiz-compose
+          docker compose \
+            --env-file /tmp/postiz-modo.env \
+            -f docker-compose.yaml \
+            -f "$GITHUB_WORKSPACE/infra/postiz/docker-compose.modo.yml" \
+            config --quiet

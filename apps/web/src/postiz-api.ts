@@ -1,4 +1,8 @@
 import {
+  DistributionQualityReportSchema,
+  type DistributionQualityReport,
+} from "@modo/contracts/distribution-quality";
+import {
   PostizAnalyticsSummarySchema,
   PostizClaimRequestSchema,
   PostizClaimResponseSchema,
@@ -43,6 +47,12 @@ export async function getDistributionStatus(brandId: string): Promise<PostizStat
   );
 }
 
+export async function getDistributionQuality(contentRequestId: string): Promise<DistributionQualityReport> {
+  return DistributionQualityReportSchema.parse(
+    await request<unknown>(`/api/v1/content-requests/${contentRequestId}/distribution/quality`),
+  );
+}
+
 export async function startDistributionConnection(
   input: PostizConnectRequest,
 ): Promise<PostizConnectResponse> {
@@ -74,15 +84,18 @@ export async function disconnectDistributionIntegration(id: string) {
 export async function distributeContent(
   contentRequestId: string,
   input: PostizPublishRequest,
-): Promise<PostizPublication[]> {
-  const payload = await request<{ publications: unknown[] }>(
+): Promise<{ publications: PostizPublication[]; quality: DistributionQualityReport }> {
+  const payload = await request<{ publications: unknown[]; quality: unknown }>(
     `/api/v1/content-requests/${contentRequestId}/distribute`,
     {
       method: "POST",
       body: JSON.stringify(PostizPublishRequestSchema.parse(input)),
     },
   );
-  return payload.publications.map((item) => PostizPublicationSchema.parse(item));
+  return {
+    publications: payload.publications.map((item) => PostizPublicationSchema.parse(item)),
+    quality: DistributionQualityReportSchema.parse(payload.quality),
+  };
 }
 
 export async function listContentPublications(contentRequestId: string): Promise<PostizPublication[]> {

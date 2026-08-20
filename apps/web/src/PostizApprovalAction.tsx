@@ -1,4 +1,5 @@
 import type { ContentRequest } from "@modo/contracts/content";
+import type { DistributionQualityReport } from "@modo/contracts/distribution-quality";
 import type {
   PostizAnalyticsSummary,
   PostizIntegration,
@@ -11,6 +12,7 @@ import {
   claimDistributionConnection,
   distributeContent,
   getDistributionInsights,
+  getDistributionQuality,
   getDistributionStatus,
   listContentPublications,
   refreshPublicationAnalytics,
@@ -49,6 +51,36 @@ function defaultScheduleValue() {
   return local.toISOString().slice(0, 16);
 }
 
+function QualityGateView({ report }: { report: DistributionQualityReport }) {
+  const label = report.status === "recommended"
+    ? "Recomendado para publicar"
+    : report.status === "review"
+      ? "Revisão recomendada"
+      : "Publicação bloqueada";
+  return (
+    <section className={`distribution-quality ${report.status}`}>
+      <div className="distribution-quality-score">
+        <strong>{report.score}</strong>
+        <span>/100</span>
+      </div>
+      <div className="distribution-quality-body">
+        <small>MODO QUALITY GATE</small>
+        <h4>{label}</h4>
+        <div className="distribution-quality-checks">
+          {report.checks.map((item) => (
+            <span key={item.key} className={item.status} title={item.message}>
+              {item.status === "pass" ? "✓" : item.status === "block" ? "×" : "!"} {item.label} · {item.score}/{item.maxScore}
+            </span>
+          ))}
+        </div>
+        {report.blockers.length > 0 && <p className="quality-blocker">{report.blockers[0]}</p>}
+        {report.blockers.length === 0 && report.warnings.length > 0 && <p>{report.warnings[0]}</p>}
+        {report.blockers.length === 0 && report.warnings.length === 0 && <p>A peça passou pelos controles automáticos e continua dependente da sua ação explícita para sair.</p>}
+      </div>
+    </section>
+  );
+}
+
 function AnalyticsView({ summary }: { summary: PostizAnalyticsSummary }) {
   const topMetrics = summary.metrics.filter((item) => item.latest > 0).slice(0, 5);
   return (
@@ -83,6 +115,7 @@ export default function PostizApprovalAction({ request }: { request: ContentRequ
   const [integrations, setIntegrations] = useState<PostizIntegration[]>([]);
   const [selected, setSelected] = useState<string[]>([]);
   const [publications, setPublications] = useState<PostizPublication[]>([]);
+  const [quality, setQuality] = useState<DistributionQualityReport | null>(null);
   const [analytics, setAnalytics] = useState<Record<string, PostizAnalyticsSummary>>({});
   const [insights, setInsights] = useState<{ samples: number; averageScore: number; bestScore: number; signal: string } | null>(null);
   const [mode, setMode] = useState<PostizPublishMode>("schedule");
@@ -93,13 +126,15 @@ export default function PostizApprovalAction({ request }: { request: ContentRequ
   const mounted = useRef(true);
 
   async function load() {
-    const [status, currentPublications, currentInsights] = await Promise.all([
+    const [status, currentPublications, currentInsights, currentQuality] = await Promise.all([
       getDistributionStatus(request.brandId),
       listContentPublications(request.id).catch(() => []),
       getDistributionInsights(request.brandId).catch(() => null),
+      getDistributionQuality(request.id).catch(() => null),
     ]);
     if (!mounted.current) return;
     setConfigured(status.configured);
+    setQuality(currentQuality);
     const active = status.integrations.filter((item) => !item.disabled);
     setIntegrations(active);
     setSelected((current) => {
@@ -166,6 +201,10 @@ export default function PostizApprovalAction({ request }: { request: ContentRequ
       setError("Selecione pelo menos um canal.");
       return;
     }
+    if (quality && !quality.publishAllowed) {
+      setError(quality.blockers[0] || "O Quality Gate bloqueou esta publicação.");
+      return;
+    }
     setBusy("publish");
     setError("");
     setMessage("");
@@ -177,14 +216,15 @@ export default function PostizApprovalAction({ request }: { request: ContentRequ
           ? { scheduledFor: new Date(scheduledFor).toISOString() }
           : {}),
       } as const;
-      const created = await distributeContent(request.id, input);
-      setPublications((current) => [...created, ...current]);
+      const result = await distributeContent(request.id, input);
+      setQuality(result.quality);
+      setPublications((current) => [...result.publications, ...current]);
       setMessage(
         mode === "now"
-          ? `Conteúdo enviado para ${created.length} canal(is).`
+          ? `Conteúdo enviado para ${result.publications.length} canal(is).`
           : mode === "draft"
-            ? `Rascunho criado em ${created.length} canal(is).`
-            : `Conteúdo agendado em ${created.length} canal(is).`,
+            ? `Rascunho criado em ${result.publications.length} canal(is).`
+            : `Conteúdo agendado em ${result.publications.length} canal(is).`,
       );
       await load();
     } catch (caught) {
@@ -217,8 +257,9 @@ export default function PostizApprovalAction({ request }: { request: ContentRequ
     return (
       <div className="distribution-unavailable">
         <small>DISTRIBUIÇÃO MULTICANAL</small>
-        <strong>Postiz pronto para ativação</strong>
-        <p>O motor está instalado na MODO. Falta somente a chave privada do provider no ambiente de produção.</p>
+        <strong>Postiz self-hosted pronto para ativação</strong>
+        <p>O motor está instalado na MODO. Aponte POSTIZ_BASE_URL para o servidor próprio e informe a API Key dele no ambiente da API.</p>
+        {quality && <QualityGateView report={quality} />}
       </div>
     );
   }
@@ -235,6 +276,8 @@ export default function PostizApprovalAction({ request }: { request: ContentRequ
           <span className="distribution-learning-badge">IA aprendendo · {insights.samples} leitura{insights.samples > 1 ? "s" : ""}</span>
         )}
       </div>
+
+      {quality && <QualityGateView report={quality} />}
 
       <div className="distribution-connect-row">
         {connectOptions.map((option) => (
@@ -303,16 +346,23 @@ export default function PostizApprovalAction({ request }: { request: ContentRequ
           <button
             type="button"
             className="button button-primary distribution-submit"
-            disabled={busy === "publish" || selectedIntegrations.length === 0 || (mode === "schedule" && !scheduledFor)}
+            disabled={
+              busy === "publish" ||
+              selectedIntegrations.length === 0 ||
+              Boolean(quality && !quality.publishAllowed) ||
+              (mode === "schedule" && !scheduledFor)
+            }
             onClick={() => void publish()}
           >
-            {busy === "publish"
-              ? "Enviando para os canais..."
-              : mode === "now"
-                ? `Publicar agora em ${selectedIntegrations.length} canal(is)`
-                : mode === "draft"
-                  ? `Criar rascunho em ${selectedIntegrations.length} canal(is)`
-                  : `Agendar em ${selectedIntegrations.length} canal(is)`}
+            {quality && !quality.publishAllowed
+              ? "Corrija os bloqueios do Quality Gate"
+              : busy === "publish"
+                ? "Enviando para os canais..."
+                : mode === "now"
+                  ? `Publicar agora em ${selectedIntegrations.length} canal(is)`
+                  : mode === "draft"
+                    ? `Criar rascunho em ${selectedIntegrations.length} canal(is)`
+                    : `Agendar em ${selectedIntegrations.length} canal(is)`}
           </button>
         </>
       )}

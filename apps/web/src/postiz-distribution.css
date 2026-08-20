@@ -51,6 +51,110 @@
   font-weight: 800;
 }
 
+.distribution-quality {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 14px;
+  padding: 14px;
+  border: 1px solid #dfe5ed;
+  border-radius: 14px;
+  background: #fbfcfe;
+}
+
+.distribution-quality.recommended {
+  border-color: #bfdfca;
+  background: #f7fcf8;
+}
+
+.distribution-quality.review {
+  border-color: #ead9a8;
+  background: #fffdf6;
+}
+
+.distribution-quality.blocked {
+  border-color: #e7baba;
+  background: #fff8f8;
+}
+
+.distribution-quality-score {
+  width: 70px;
+  height: 70px;
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  padding-top: 13px;
+  border-radius: 14px;
+  background: #17274d;
+  color: #fff;
+}
+
+.distribution-quality-score strong {
+  font-size: 1.7rem;
+}
+
+.distribution-quality-score span {
+  font-size: 0.7rem;
+  opacity: 0.75;
+}
+
+.distribution-quality-body {
+  display: grid;
+  gap: 7px;
+}
+
+.distribution-quality-body small {
+  color: #697386;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+}
+
+.distribution-quality-body h4,
+.distribution-quality-body p {
+  margin: 0;
+}
+
+.distribution-quality-body p {
+  color: #596579;
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
+.distribution-quality-body .quality-blocker {
+  color: #9b2f2f;
+  font-weight: 700;
+}
+
+.distribution-quality-checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.distribution-quality-checks span {
+  padding: 5px 7px;
+  border-radius: 999px;
+  background: #eef1f5;
+  color: #596579;
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
+.distribution-quality-checks span.pass {
+  background: #e9f7ee;
+  color: #276943;
+}
+
+.distribution-quality-checks span.warning {
+  background: #fff4d6;
+  color: #805d08;
+}
+
+.distribution-quality-checks span.block {
+  background: #fdeaea;
+  color: #9b2f2f;
+}
+
 .distribution-connect-row,
 .distribution-mode-row {
   display: flex;
@@ -177,6 +281,11 @@
 
 .distribution-submit {
   width: fit-content;
+}
+
+.distribution-submit:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .distribution-error,
@@ -329,6 +438,10 @@
   .distribution-publications-heading {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .distribution-quality {
+    grid-template-columns: 1fr;
   }
 
   .distribution-publications article {

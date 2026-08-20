@@ -1,0 +1,96 @@
+{
+  "name": "MODO — Atualização de Analytics da Distribuição",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "814ae373-9661-40f0-979a-bbfeb9fa9671",
+      "name": "Teste manual",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [-420, 100]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 6
+            }
+          ]
+        }
+      },
+      "id": "45e5d361-506d-445e-821c-5473ff174f40",
+      "name": "A cada 6 horas",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [-420, -80]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://modo-api-3m10.onrender.com/api/v1/internal/distribution/analytics/refresh-due",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ limit: 50 }) }}",
+        "options": {
+          "timeout": 120000,
+          "response": {
+            "response": {
+              "neverError": false,
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "cda9b632-4ff0-4adf-8737-b2e9db3779d6",
+      "name": "Atualizar analytics na MODO",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-120, 0],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_MODO_DISTRIBUTION_CRON_CREDENTIAL",
+          "name": "MODO Distribution Cron Secret"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $json;\nreturn [{ json: { ok: true, processed: Number(data.processed || 0), refreshed: Number(data.refreshed || 0), failed: Number(data.failed || 0), checkedAt: new Date().toISOString() } }];"
+      },
+      "id": "778d16ad-c3c7-443c-93fa-32efcbafec49",
+      "name": "Resumo da execução",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [160, 0]
+    }
+  ],
+  "connections": {
+    "Teste manual": {
+      "main": [[{ "node": "Atualizar analytics na MODO", "type": "main", "index": 0 }]]
+    },
+    "A cada 6 horas": {
+      "main": [[{ "node": "Atualizar analytics na MODO", "type": "main", "index": 0 }]]
+    },
+    "Atualizar analytics na MODO": {
+      "main": [[{ "node": "Resumo da execução", "type": "main", "index": 0 }]]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "none",
+    "saveManualExecutions": true,
+    "timezone": "America/Sao_Paulo"
+  },
+  "versionId": "fd04208c-1146-456b-8fbd-36e06fe4257a",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}

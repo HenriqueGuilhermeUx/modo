@@ -157,6 +157,7 @@ export async function registerNativePublisherV2Routes(app: FastifyInstance, opti
       learning: true,
       qualityGate: true,
       calendar: true,
+      explicitAccountSelection: true,
     },
     callbacks: {
       facebook: options.facebookRedirectUri || null,
@@ -194,11 +195,12 @@ export async function registerNativePublisherV2Routes(app: FastifyInstance, opti
   app.get("/api/v2/publisher/oauth/facebook/callback", async (request, reply) => {
     const query = request.query as { state?: string; code?: string; error?: string };
     try {
-      await publisher.completeFacebookAuthorization(query);
-      return reply.redirect(`${options.publicWebUrl || "http://localhost:5173"}/app/settings/integrations?facebook=connected`);
+      const connections = await publisher.completeFacebookAuthorization(query);
+      const brandId = connections[0]?.brandId;
+      return reply.redirect(`${options.publicWebUrl || "http://localhost:5173"}/app/publisher${brandId ? `?brand=${encodeURIComponent(brandId)}&facebook=connected` : "?facebook=connected"}`);
     } catch (error) {
       const message = encodeURIComponent(error instanceof Error ? error.message.slice(0, 300) : "Autorização não concluída.");
-      return reply.redirect(`${options.publicWebUrl || "http://localhost:5173"}/app/settings/integrations?facebook=error&message=${message}`);
+      return reply.redirect(`${options.publicWebUrl || "http://localhost:5173"}/app/publisher?facebook=error&message=${message}`);
     }
   });
 
@@ -211,11 +213,11 @@ export async function registerNativePublisherV2Routes(app: FastifyInstance, opti
   app.get("/api/v2/publisher/oauth/threads/callback", async (request, reply) => {
     const query = request.query as { state?: string; code?: string; error?: string };
     try {
-      await publisher.completeThreadsAuthorization(query);
-      return reply.redirect(`${options.publicWebUrl || "http://localhost:5173"}/app/settings/integrations?threads=connected`);
+      const connection = await publisher.completeThreadsAuthorization(query);
+      return reply.redirect(`${options.publicWebUrl || "http://localhost:5173"}/app/publisher?brand=${encodeURIComponent(connection.brandId)}&threads=connected`);
     } catch (error) {
       const message = encodeURIComponent(error instanceof Error ? error.message.slice(0, 300) : "Autorização não concluída.");
-      return reply.redirect(`${options.publicWebUrl || "http://localhost:5173"}/app/settings/integrations?threads=error&message=${message}`);
+      return reply.redirect(`${options.publicWebUrl || "http://localhost:5173"}/app/publisher?threads=error&message=${message}`);
     }
   });
 
@@ -240,6 +242,7 @@ export async function registerNativePublisherV2Routes(app: FastifyInstance, opti
       brandId: input.brandId,
       content: contentRequest,
       provider: input.provider,
+      connectionId: input.connectionId,
       mode: input.mode,
       scheduledFor: input.scheduledFor,
       idempotencyKey: input.idempotencyKey,

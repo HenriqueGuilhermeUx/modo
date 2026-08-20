@@ -79,6 +79,7 @@ await registerPostizRoutes(app, {
   baseUrl: config.POSTIZ_BASE_URL,
   databaseUrl: config.DATABASE_URL,
   databaseSsl: config.DATABASE_SSL,
+  cronSecret: process.env.DISTRIBUTION_CRON_SECRET,
 });
 
 app.addHook("onClose", async () => {

@@ -1,0 +1,341 @@
+.distribution-workspace,
+.distribution-unavailable,
+.distribution-loading {
+  display: grid;
+  gap: 16px;
+  width: 100%;
+}
+
+.distribution-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.distribution-heading > div,
+.distribution-unavailable {
+  display: grid;
+  gap: 6px;
+}
+
+.distribution-heading small,
+.distribution-unavailable small {
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  color: var(--muted, #667085);
+}
+
+.distribution-heading strong,
+.distribution-unavailable strong {
+  font-size: 1.1rem;
+  color: var(--ink, #172033);
+}
+
+.distribution-heading p,
+.distribution-unavailable p,
+.distribution-empty p {
+  margin: 0;
+  color: var(--muted, #667085);
+  line-height: 1.55;
+}
+
+.distribution-learning-badge {
+  flex: 0 0 auto;
+  padding: 7px 10px;
+  border-radius: 999px;
+  background: #eef8f1;
+  color: #246b3f;
+  font-size: 0.76rem;
+  font-weight: 800;
+}
+
+.distribution-connect-row,
+.distribution-mode-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.distribution-connect-row button,
+.distribution-mode-row button,
+.distribution-publication-actions button {
+  border: 1px solid #d7dce5;
+  border-radius: 10px;
+  background: #fff;
+  color: #243048;
+  padding: 9px 12px;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.distribution-connect-row button:hover,
+.distribution-mode-row button:hover,
+.distribution-publication-actions button:hover {
+  border-color: #8995aa;
+}
+
+.distribution-mode-row button.active {
+  background: #17274d;
+  border-color: #17274d;
+  color: #fff;
+}
+
+.distribution-connect-row button:disabled,
+.distribution-publication-actions button:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+
+.distribution-channel-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 10px;
+}
+
+.distribution-channel-list label {
+  display: grid;
+  grid-template-columns: auto auto 1fr;
+  align-items: center;
+  gap: 10px;
+  padding: 11px;
+  border: 1px solid #dde2ea;
+  border-radius: 12px;
+  background: #fff;
+  cursor: pointer;
+}
+
+.distribution-channel-list label.selected {
+  border-color: #4967ac;
+  box-shadow: 0 0 0 2px rgba(73, 103, 172, 0.09);
+}
+
+.distribution-channel-list input {
+  width: 16px;
+  height: 16px;
+}
+
+.distribution-channel-list img,
+.distribution-channel-avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.distribution-channel-avatar {
+  display: grid;
+  place-items: center;
+  background: #17274d;
+  color: #fff;
+  font-weight: 800;
+}
+
+.distribution-channel-list label > span:last-child {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.distribution-channel-list strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.distribution-channel-list small {
+  color: #697386;
+}
+
+.distribution-empty,
+.distribution-unavailable {
+  padding: 14px;
+  border: 1px dashed #d5dae4;
+  border-radius: 12px;
+  background: #fafbfc;
+}
+
+.distribution-schedule-field {
+  display: grid;
+  gap: 6px;
+  max-width: 330px;
+  color: #44506a;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.distribution-schedule-field input {
+  padding: 10px 12px;
+  border: 1px solid #d7dce5;
+  border-radius: 10px;
+  background: #fff;
+  font: inherit;
+}
+
+.distribution-submit {
+  width: fit-content;
+}
+
+.distribution-error,
+.distribution-success {
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-size: 0.84rem;
+  line-height: 1.45;
+}
+
+.distribution-error {
+  background: #fff1f1;
+  color: #9b2626;
+}
+
+.distribution-success {
+  background: #eff8f2;
+  color: #28653f;
+}
+
+.distribution-publications {
+  display: grid;
+  gap: 10px;
+  padding-top: 14px;
+  border-top: 1px solid #e6e9ef;
+}
+
+.distribution-publications-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+}
+
+.distribution-publications-heading span {
+  color: #687386;
+  font-size: 0.78rem;
+}
+
+.distribution-publications article {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid #e0e4eb;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.distribution-publications article > div:first-child {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.distribution-publications article small {
+  color: #747e90;
+}
+
+.distribution-status {
+  padding: 4px 7px;
+  border-radius: 999px;
+  background: #eef1f6;
+  color: #4f5d74;
+  font-size: 0.7rem;
+  font-weight: 800;
+}
+
+.distribution-status.published {
+  background: #eaf7ee;
+  color: #247243;
+}
+
+.distribution-status.scheduled {
+  background: #edf3ff;
+  color: #345fa8;
+}
+
+.distribution-status.failed {
+  background: #fff0f0;
+  color: #a53a3a;
+}
+
+.distribution-publication-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.distribution-publication-actions a {
+  color: #2f5ca7;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.distribution-analytics-result {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 12px 16px;
+  padding-top: 12px;
+  border-top: 1px solid #edf0f4;
+}
+
+.distribution-score {
+  display: grid;
+  place-items: center;
+  align-content: center;
+  width: 74px;
+  min-height: 68px;
+  border-radius: 12px;
+  background: #17274d;
+  color: #fff;
+}
+
+.distribution-score strong {
+  font-size: 1.35rem;
+}
+
+.distribution-score span {
+  font-size: 0.65rem;
+}
+
+.distribution-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  align-content: center;
+}
+
+.distribution-metrics span {
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: #f4f6f9;
+  color: #596579;
+  font-size: 0.74rem;
+}
+
+.distribution-analytics-result p {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: #596579;
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+@media (max-width: 720px) {
+  .distribution-heading,
+  .distribution-publications-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .distribution-publications article {
+    grid-template-columns: 1fr;
+  }
+
+  .distribution-publication-actions {
+    flex-wrap: wrap;
+  }
+}

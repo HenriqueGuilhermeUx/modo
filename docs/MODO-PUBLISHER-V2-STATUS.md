@@ -1,3 +1,0 @@
-# Status
-
-Implementação em andamento.

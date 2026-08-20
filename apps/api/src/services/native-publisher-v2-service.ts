@@ -544,6 +544,7 @@ export class NativePublisherV2Service {
     brandId: string;
     content: ContentRequest;
     provider: NativePublisherProvider;
+    connectionId?: string;
     mode: "now" | "schedule" | "draft";
     scheduledFor?: string;
     idempotencyKey?: string;
@@ -551,13 +552,21 @@ export class NativePublisherV2Service {
     imageUrl?: string | null;
   }) {
     const pool = this.requirePool();
-    const connection = await this.primaryConnection(input.organizationId, input.brandId, input.provider);
+    const connection = input.connectionId
+      ? await this.connectionForPublication(
+          input.organizationId,
+          input.brandId,
+          input.provider,
+          input.connectionId,
+        )
+      : await this.primaryConnection(input.organizationId, input.brandId, input.provider);
     if (!connection) throw new NativePublisherV2Error("SOCIAL_CONNECTION_NOT_FOUND", 409, `Conecte ${input.provider} para esta marca antes de publicar.`);
     const scheduledFor = input.mode === "schedule" ? new Date(input.scheduledFor || "") : null;
     if (input.mode === "schedule" && (!scheduledFor || Number.isNaN(scheduledFor.getTime()) || scheduledFor <= new Date())) {
       throw new NativePublisherV2Error("INVALID_SCHEDULE", 400, "Informe uma data futura válida para o agendamento.");
     }
-    const idempotencyKey = input.idempotencyKey || `${input.content.id}:${input.provider}:${input.mode}:${scheduledFor?.toISOString() || "now"}`;
+    const clientKey = input.idempotencyKey || `${input.content.id}:${input.provider}:${input.mode}:${scheduledFor?.toISOString() || "now"}`;
+    const idempotencyKey = `${clientKey}:${connection.id}`;
     const id = randomUUID();
     const status = input.mode === "draft" ? "draft" : input.mode === "schedule" ? "scheduled" : "publishing";
     const result = await pool.query<PublicationRow>(
@@ -716,6 +725,30 @@ export class NativePublisherV2Service {
       [organizationId,brandId,provider],
     );
     return result.rows[0] || null;
+  }
+
+  private async connectionForPublication(
+    organizationId: string,
+    brandId: string,
+    provider: NativePublisherProvider,
+    connectionId: string,
+  ) {
+    const pool = this.requirePool();
+    const result = await pool.query<ConnectionRow>(
+      `SELECT * FROM modo_native_social_connections
+       WHERE id=$1 AND organization_id=$2 AND brand_id=$3 AND provider=$4
+         AND (token_expires_at IS NULL OR token_expires_at>NOW())
+       LIMIT 1`,
+      [connectionId, organizationId, brandId, provider],
+    );
+    if (!result.rows[0]) {
+      throw new NativePublisherV2Error(
+        "SOCIAL_CONNECTION_NOT_AVAILABLE",
+        409,
+        "A conta social selecionada não pertence a esta marca, está expirada ou não corresponde ao canal escolhido.",
+      );
+    }
+    return result.rows[0];
   }
 
   private async connectionById(id: string) {

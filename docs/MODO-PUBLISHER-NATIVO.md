@@ -19,6 +19,40 @@ Postiz permanece opcional e não é necessário para o fluxo nativo.
 - Temporal local
 - n8n local
 
+## Isolamento por cliente
+
+Cada cliente cria ou acessa a própria conta MODO. Essa conta pertence a uma `organization` própria no backend.
+
+O fluxo OAuth do Instagram gera um estado assinado contendo:
+
+- `accountId`: organização autenticada na MODO;
+- `brandId`: marca escolhida, quando informada;
+- `nonce`: identificador descartável;
+- expiração do fluxo.
+
+O callback valida e consome esse estado antes de armazenar a conexão. O token de acesso é criptografado antes de ser persistido. As rotas de status, desconexão e publicação autenticam novamente o usuário e consultam somente a organização da sessão.
+
+Portanto, um cliente não enxerga nem utiliza a autorização social de outro cliente.
+
+### Fluxo do cliente
+
+1. Cliente cria a conta MODO ou recebe acesso à sua organização;
+2. cadastra a marca;
+3. abre **Integrações**;
+4. escolhe a marca e clica **Conectar Instagram**;
+5. autentica e autoriza no ambiente oficial do Instagram;
+6. retorna à MODO com a conta conectada;
+7. cria conteúdo para aquela marca;
+8. revisa e aprova a peça;
+9. confirma **Publicar no Instagram**;
+10. a MODO publica usando exclusivamente a autorização da organização autenticada.
+
+Nada é publicado automaticamente.
+
+### Estado atual de multi-marca
+
+O OAuth já carrega `brandId` e a publicação bloqueia conteúdo de outra marca quando a conexão está vinculada a uma marca específica. A persistência atual mantém uma conexão Instagram ativa por organização. Isso atende clientes com uma operação/Instagram principal. Para agências ou organizações com múltiplas marcas e múltiplas contas Instagram simultâneas, a camada de conexões deve evoluir para chave composta organização + marca.
+
 ## Instagram
 
 O backend já implementa OAuth, token de longa duração, renovação, publicação de imagem aprovada, persistência e desligamento.
@@ -36,7 +70,7 @@ O usuário conecta pelo navegador em `/app/settings/integrations`.
 
 ## LinkedIn
 
-O backend implementa OAuth, perfil, publicação, agendamento e documentos/carrosséis. As rotas são compostas uma única vez pelo core da API, junto ao módulo de inteligência criativa; `server.ts` não deve registrá-las novamente.
+O backend implementa OAuth, perfil, publicação, agendamento e documentos/carrosséis. As rotas são registradas pelo core da API uma única vez.
 
 Variáveis no Render:
 
@@ -58,9 +92,9 @@ https://modo-api-3m10.onrender.com/api/v1/native-publisher/health
 
 A rota informa apenas se os conectores estão configurados e os redirect URIs. Nenhum segredo é exposto.
 
-## Composição e prevenção de regressão
+## Composição de rotas
 
-LinkedIn e Postiz já são registrados pelo core através de `registerCreativeIntelligenceRoutes()`. Registrar novamente esses módulos no `server.ts` gera colisão de método/URL no Fastify. O CI agora executa também um startup smoke real da API depois do build para detectar esse tipo de erro antes do merge e antes do Render.
+`createApp()` registra `registerCreativeIntelligenceRoutes()`, que compõe LinkedIn, Signal e Postiz. O `server.ts` não deve registrar LinkedIn ou Postiz uma segunda vez. O CI executa um startup smoke após o build para impedir regressões de rotas duplicadas.
 
 ## Pós-aprovação
 
@@ -70,4 +104,5 @@ A tela de conteúdo aprovado prioriza o Publisher Nativo. Instagram e LinkedIn o
 
 1. Facebook Pages pela Meta Graph API;
 2. Threads pela Threads API;
-3. analytics nativo por canal alimentando MODO Learning.
+3. analytics nativo por canal alimentando MODO Learning;
+4. múltiplas contas sociais simultâneas por marca em organizações multi-marca.

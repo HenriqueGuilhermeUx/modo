@@ -9,6 +9,7 @@ import { AuthError, type AuthService } from "../services/auth-service.js";
 import { ContentService } from "../services/content-service.js";
 import { CreativeIntelligenceService } from "../services/creative-intelligence-service.js";
 import { registerLinkedInRoutes } from "./linkedin-routes.js";
+import { registerPostizRoutes } from "./postiz-routes.js";
 import { registerSignalRoutes } from "./signal-routes.js";
 
 interface Options {
@@ -66,6 +67,14 @@ export async function registerCreativeIntelligenceRoutes(
   await registerSignalRoutes(app, {
     auth: options.auth,
     content: auxiliaryContent,
+    databaseUrl: options.databaseUrl,
+    databaseSsl: options.databaseSsl,
+  });
+  await registerPostizRoutes(app, {
+    auth: options.auth,
+    content: auxiliaryContent,
+    apiKey: process.env.POSTIZ_API_KEY,
+    baseUrl: process.env.POSTIZ_BASE_URL,
     databaseUrl: options.databaseUrl,
     databaseSsl: options.databaseSsl,
   });

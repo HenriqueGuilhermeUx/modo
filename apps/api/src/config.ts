@@ -100,6 +100,11 @@ const ConfigSchema = z
       emptyToUndefined,
       z.string().url().default("https://graph.instagram.com"),
     ),
+    POSTIZ_API_KEY: optionalTrimmedString,
+    POSTIZ_BASE_URL: z.preprocess(
+      emptyToUndefined,
+      z.string().url().default("https://api.postiz.com/public/v1"),
+    ),
     CANVA_CLIENT_ID: optionalTrimmedString,
     CANVA_CLIENT_SECRET: optionalTrimmedString,
     CANVA_REDIRECT_URI: optionalUrl,
@@ -230,6 +235,7 @@ export const config = {
   INSTAGRAM_CLIENT_ID: parsed.INSTAGRAM_CLIENT_ID ?? "",
   INSTAGRAM_CLIENT_SECRET: parsed.INSTAGRAM_CLIENT_SECRET ?? "",
   INSTAGRAM_TOKEN_ENCRYPTION_SECRET: parsed.INSTAGRAM_TOKEN_ENCRYPTION_SECRET ?? "",
+  POSTIZ_API_KEY: parsed.POSTIZ_API_KEY ?? "",
   allowedOrigins: parsed.ALLOWED_ORIGINS.split(",")
     .map((origin) => origin.trim())
     .filter(Boolean),

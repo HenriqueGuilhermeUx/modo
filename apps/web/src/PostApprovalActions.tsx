@@ -2,6 +2,7 @@ import { contentCreditCost, type ContentUnitType } from "@modo/contracts";
 import type { ContentRequest } from "@modo/contracts/content";
 import CanvaApprovalAction from "./CanvaApprovalAction";
 import InstagramApprovalAction from "./InstagramApprovalAction";
+import PostizApprovalAction from "./PostizApprovalAction";
 
 interface Props {
   request: ContentRequest;
@@ -62,6 +63,10 @@ export default function PostApprovalActions({
           <InstagramApprovalAction contentRequestId={request.id} />
         </article>
       </div>
+
+      <section className="post-approval-card postiz-card">
+        <PostizApprovalAction request={request} />
+      </section>
 
       {available.length > 0 && (
         <section className="derivative-workspace">

@@ -27,6 +27,7 @@ export default function NativePublisherApprovalAction({ request }: { request: Co
   const [connections, setConnections] = useState<NativeConnection[]>([]);
   const [quality, setQuality] = useState<Awaited<ReturnType<typeof getNativeQuality>> | null>(null);
   const [provider, setProvider] = useState<NativePublisherProvider>("instagram");
+  const [connectionId, setConnectionId] = useState("");
   const [mode, setMode] = useState<NativePublisherMode>("now");
   const [scheduledFor, setScheduledFor] = useState(defaultScheduleValue());
   const [working, setWorking] = useState(false);
@@ -44,7 +45,7 @@ export default function NativePublisherApprovalAction({ request }: { request: Co
         await importInstagramConnection(request.brandId);
         updated = await listNativeConnections(request.brandId);
       } catch {
-        // A marca pode ainda não ter Instagram conectado no fluxo V1.
+        // Migração opcional: novos clientes conectam diretamente no Publisher V2.
       }
     }
     if (!updated.some((item) => item.provider === "linkedin")) {
@@ -52,13 +53,16 @@ export default function NativePublisherApprovalAction({ request }: { request: Co
         await importLinkedInConnection(request.brandId);
         updated = await listNativeConnections(request.brandId);
       } catch {
-        // LinkedIn é opcional e pode ainda não estar configurado.
+        // Migração opcional: novos clientes conectam diretamente no Publisher V2.
       }
     }
     setQuality(qualityResult);
     setConnections(updated);
     const firstConnected = updated.find((item) => item.connected && item.canPublish);
-    if (firstConnected) setProvider(firstConnected.provider);
+    if (firstConnected) {
+      setProvider(firstConnected.provider);
+      setConnectionId(firstConnected.id);
+    }
   }
 
   useEffect(() => {
@@ -70,21 +74,45 @@ export default function NativePublisherApprovalAction({ request }: { request: Co
     [connections],
   );
 
+  const providerConnections = useMemo(
+    () => connections.filter(
+      (item) => item.provider === provider && item.connected && item.canPublish,
+    ),
+    [connections, provider],
+  );
+
+  function chooseProvider(nextProvider: NativePublisherProvider) {
+    setProvider(nextProvider);
+    const first = connections.find(
+      (item) => item.provider === nextProvider && item.connected && item.canPublish,
+    );
+    setConnectionId(first?.id || "");
+  }
+
   async function publish() {
+    if (!connectionId) {
+      setError("Escolha a conta social que deve receber esta publicação.");
+      return;
+    }
     setWorking(true);
     setError("");
     setMessage("");
     try {
+      const selectedConnection = providerConnections.find((item) => item.id === connectionId);
+      if (!selectedConnection) {
+        throw new Error("A conta social selecionada não está mais disponível para esta marca.");
+      }
       const scheduledIso = mode === "schedule" ? new Date(scheduledFor).toISOString() : undefined;
       const result = await createNativePublication({
         contentRequestId: request.id,
         brandId: request.brandId,
         provider,
+        connectionId,
         mode,
         ...(scheduledIso ? { scheduledFor: scheduledIso } : {}),
-        idempotencyKey: `${request.id}:${provider}:${mode}:${scheduledIso || "now"}`,
+        idempotencyKey: `${request.id}:${provider}:${connectionId}:${mode}:${scheduledIso || "now"}`,
       });
-      const label = providerLabels[provider];
+      const label = `${providerLabels[provider]} · ${selectedConnection.displayName}`;
       setMessage(
         result.publication.status === "published"
           ? `${label} publicado com sucesso.`
@@ -121,11 +149,23 @@ export default function NativePublisherApprovalAction({ request }: { request: Co
         <>
           <div className="publisher-provider-tabs">
             {availableProviders.map((item) => (
-              <button key={item} type="button" className={provider === item ? "active" : ""} onClick={() => setProvider(item)}>
+              <button key={item} type="button" className={provider === item ? "active" : ""} onClick={() => chooseProvider(item)}>
                 {providerLabels[item]}
               </button>
             ))}
           </div>
+
+          <label className="publisher-schedule-field">
+            Publicar como
+            <select value={connectionId} onChange={(event) => setConnectionId(event.target.value)}>
+              {providerConnections.map((connection) => (
+                <option key={connection.id} value={connection.id}>
+                  {connection.displayName}{connection.username && !connection.displayName.includes(connection.username) ? ` · @${connection.username}` : ""}
+                </option>
+              ))}
+            </select>
+          </label>
+
           <div className="publisher-mode-tabs">
             <button type="button" className={mode === "now" ? "active" : ""} onClick={() => setMode("now")}>Publicar agora</button>
             <button type="button" className={mode === "schedule" ? "active" : ""} onClick={() => setMode("schedule")}>Agendar</button>
@@ -137,13 +177,13 @@ export default function NativePublisherApprovalAction({ request }: { request: Co
               <input type="datetime-local" value={scheduledFor} onChange={(event) => setScheduledFor(event.target.value)} />
             </label>
           )}
-          <button type="button" className="button button-primary" disabled={working || quality?.publishAllowed === false} onClick={() => void publish()}>
+          <button type="button" className="button button-primary" disabled={working || !connectionId || quality?.publishAllowed === false} onClick={() => void publish()}>
             {working ? "Processando..." : mode === "now" ? `Publicar no ${providerLabels[provider]}` : mode === "schedule" ? `Agendar no ${providerLabels[provider]}` : `Salvar para ${providerLabels[provider]}`}
           </button>
         </>
       ) : (
         <div className="publisher-empty-connections">
-          <p>Esta marca ainda não possui um canal importado no Publisher V2.</p>
+          <p>Esta marca ainda não possui um canal conectado no Publisher V2.</p>
           <a className="button button-secondary" href={`/app/publisher?brand=${encodeURIComponent(request.brandId)}`}>Conectar canais</a>
         </div>
       )}

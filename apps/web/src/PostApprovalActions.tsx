@@ -3,6 +3,7 @@ import type { ContentRequest } from "@modo/contracts/content";
 import CanvaApprovalAction from "./CanvaApprovalAction";
 import InstagramApprovalAction from "./InstagramApprovalAction";
 import LinkedInApprovalAction from "./LinkedInApprovalAction";
+import NativePublisherApprovalAction from "./NativePublisherApprovalAction";
 
 interface Props {
   request: ContentRequest;
@@ -47,6 +48,10 @@ export default function PostApprovalActions({
         <span>✓ Versão protegida</span>
       </div>
 
+      <section className="post-approval-card publisher-v2-card">
+        <NativePublisherApprovalAction request={request} />
+      </section>
+
       <div className="post-approval-grid">
         <article className="post-approval-card primary">
           <small>ACABAMENTO NA MODO</small>
@@ -59,22 +64,22 @@ export default function PostApprovalActions({
           <CanvaApprovalAction contentRequestId={request.id} />
         </article>
 
-        <article className="post-approval-card instagram-card">
+        <article className="post-approval-card instagram-card legacy-publisher-card">
           <InstagramApprovalAction contentRequestId={request.id} />
         </article>
 
         {/linkedin/i.test(request.channel) && (
-          <article className="post-approval-card instagram-card">
+          <article className="post-approval-card instagram-card legacy-publisher-card">
             <LinkedInApprovalAction contentRequestId={request.id} channel={request.channel} />
           </article>
         )}
       </div>
 
       <section className="post-approval-card">
-        <small>MODO PUBLISHER NATIVO</small>
-        <strong>Sem Postiz, Docker ou instalação local</strong>
-        <p>Instagram e LinkedIn usam conectores diretos da MODO no backend hospedado. Facebook e Threads entram pela mesma arquitetura Meta em seguida.</p>
-        <a className="button button-secondary" href="/app/settings/integrations">Gerenciar canais</a>
+        <small>CENTRAL DE PUBLICAÇÃO</small>
+        <strong>Calendário, canais e desempenho</strong>
+        <p>Gerencie conexões por marca, acompanhe agendamentos, falhas, retries e o que a MODO aprendeu com a performance.</p>
+        <a className="button button-secondary" href={`/app/publisher?brand=${encodeURIComponent(request.brandId)}`}>Abrir Publisher</a>
       </section>
 
       {available.length > 0 && (

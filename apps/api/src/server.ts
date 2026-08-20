@@ -3,6 +3,7 @@ import { config } from "./config.js";
 import { DemoDiagnosticProvider } from "./providers/demo-diagnostic-provider.js";
 import { N8nDiagnosticProvider } from "./providers/n8n-diagnostic-provider.js";
 import { registerHumanOperationsRoutes } from "./routes/human-operations-routes.js";
+import { registerNativePublisherV2Routes } from "./routes/native-publisher-v2-routes.js";
 import { registerStrategyNetworkRoutes } from "./routes/strategy-network-routes.js";
 
 function createProvider() {
@@ -56,9 +57,8 @@ const app = await createApp({
   publicWebUrl: config.PUBLIC_WEB_URL,
 });
 
-// LinkedIn e Postiz já são registrados uma única vez pelo core em
-// registerCreativeIntelligenceRoutes(). Não os registre novamente aqui:
-// o Fastify rejeita duas rotas com o mesmo método e URL no startup.
+// LinkedIn e Postiz V1 são registrados uma única vez pelo core em
+// registerCreativeIntelligenceRoutes(). O Publisher V2 é encapsulado em plugin próprio.
 app.get("/api/v1/native-publisher/health", async () => ({
   status: "ok",
   provider: "modo_native",
@@ -86,6 +86,28 @@ app.get("/api/v1/native-publisher/health", async () => ({
     configured: Boolean(config.POSTIZ_API_KEY),
   },
 }));
+
+await app.register(async (scope) => {
+  await registerNativePublisherV2Routes(scope, {
+    databaseUrl: config.DATABASE_URL,
+    databaseSsl: config.DATABASE_SSL,
+    publicApiUrl: config.PUBLIC_API_URL,
+    publicWebUrl: config.PUBLIC_WEB_URL,
+    instagramEncryptionSecret: config.INSTAGRAM_TOKEN_ENCRYPTION_SECRET,
+    instagramGraphBaseUrl: config.INSTAGRAM_GRAPH_BASE_URL,
+    instagramApiVersion: config.INSTAGRAM_API_VERSION,
+    facebookAppId: process.env.FACEBOOK_APP_ID,
+    facebookAppSecret: process.env.FACEBOOK_APP_SECRET,
+    facebookRedirectUri: process.env.FACEBOOK_REDIRECT_URI || "https://modo-api-3m10.onrender.com/api/v2/publisher/oauth/facebook/callback",
+    facebookApiVersion: process.env.FACEBOOK_API_VERSION || "v23.0",
+    threadsAppId: process.env.THREADS_APP_ID,
+    threadsAppSecret: process.env.THREADS_APP_SECRET,
+    threadsRedirectUri: process.env.THREADS_REDIRECT_URI || "https://modo-api-3m10.onrender.com/api/v2/publisher/oauth/threads/callback",
+    threadsScopes: process.env.THREADS_SCOPES || "threads_basic,threads_content_publish,threads_manage_insights",
+    linkedinEncryptionSecret: config.LINKEDIN_TOKEN_ENCRYPTION_SECRET,
+    linkedinApiVersion: config.LINKEDIN_API_VERSION,
+  });
+});
 
 await registerStrategyNetworkRoutes(app, {
   databaseUrl: config.DATABASE_URL,

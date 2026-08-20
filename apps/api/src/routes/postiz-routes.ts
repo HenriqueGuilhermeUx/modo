@@ -4,11 +4,13 @@ import {
   PostizPublishRequestSchema,
 } from "@modo/contracts/postiz";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
+import { createHash, timingSafeEqual } from "node:crypto";
 import { z } from "zod";
 import { AuthError, type AuthService } from "../services/auth-service.js";
 import type { ContentService } from "../services/content-service.js";
 import { CreativeIntelligenceService } from "../services/creative-intelligence-service.js";
 import { DistributionQualityService } from "../services/distribution-quality-service.js";
+import { PostizAnalyticsScheduler } from "../services/postiz-analytics-scheduler.js";
 import { PostizLearningBridge } from "../services/postiz-learning-bridge.js";
 import { PostizError, PostizService } from "../services/postiz-service.js";
 
@@ -19,6 +21,7 @@ interface Options {
   baseUrl?: string;
   databaseUrl?: string;
   databaseSsl?: boolean;
+  cronSecret?: string;
 }
 
 function bearerToken(request: FastifyRequest) {
@@ -27,6 +30,13 @@ function bearerToken(request: FastifyRequest) {
     throw new AuthError("UNAUTHORIZED", 401, "Faça login para continuar.");
   }
   return value.slice(7).trim();
+}
+
+function secureSecretMatch(candidate: string, expected?: string) {
+  if (!expected || !candidate) return false;
+  const left = createHash("sha256").update(candidate).digest();
+  const right = createHash("sha256").update(expected).digest();
+  return timingSafeEqual(left, right);
 }
 
 async function requireBrand(auth: AuthService, request: FastifyRequest, brandId: string) {
@@ -64,16 +74,53 @@ export async function registerPostizRoutes(app: FastifyInstance, options: Option
     databaseSsl: options.databaseSsl,
   });
   const quality = new DistributionQualityService();
+  const scheduler = new PostizAnalyticsScheduler({
+    databaseUrl: options.databaseUrl,
+    databaseSsl: options.databaseSsl,
+    postiz: service,
+  });
 
   await Promise.all([service.initialize(), creative.initialize()]);
   app.addHook("onClose", async () => {
-    await Promise.all([service.close(), creative.close(), learning.close()]);
+    await Promise.all([service.close(), creative.close(), learning.close(), scheduler.close()]);
   });
 
   async function qualityReport(accountId: string, contentRequestId: string) {
     const contentRequest = await options.content.getForOrganization(contentRequestId, accountId);
     const profile = await creative.getProfile(accountId, contentRequest.brandId);
     return quality.evaluate(contentRequest, profile);
+  }
+
+  async function recordPerformanceSignal(input: {
+    accountId: string;
+    brandId: string;
+    contentRequestId: string;
+    publicationId: string;
+    signal: "performed_well" | "performed_poorly" | "neutral";
+    score: number;
+    normalized: Record<string, number>;
+  }) {
+    if (input.signal === "neutral") return;
+    const alreadyLearned = await learning.performanceSignalAlreadyRecorded(
+      input.accountId,
+      input.contentRequestId,
+      input.publicationId,
+      input.signal,
+    );
+    if (alreadyLearned) return;
+    const recommendationId = await learning.recommendationIdForContent(
+      input.accountId,
+      input.brandId,
+      input.contentRequestId,
+    );
+    await creative.recordFeedback(input.accountId, input.brandId, {
+      ...(recommendationId ? { recommendationId } : {}),
+      contentRequestId: input.contentRequestId,
+      signal: input.signal,
+      score: input.score,
+      notes: `postiz_publication:${input.publicationId}`,
+      metrics: input.normalized,
+    });
   }
 
   app.get("/api/v1/distribution/provider-health", async () => {
@@ -91,8 +138,57 @@ export async function registerPostizRoutes(app: FastifyInstance, options: Option
       host,
       storage: service.storage,
       qualityGate: "enabled",
+      analyticsAutomation: options.cronSecret ? "configured" : "not_configured",
     };
   });
+
+  app.post(
+    "/api/v1/internal/distribution/analytics/refresh-due",
+    { config: { rateLimit: { max: 12, timeWindow: "1 hour" } } },
+    async (request, reply) => {
+      const candidate = String(
+        request.headers["x-modo-distribution-secret"] || request.headers.authorization || "",
+      ).replace(/^Bearer\s+/i, "");
+      if (!secureSecretMatch(candidate, options.cronSecret)) {
+        return reply.code(401).send({ code: "INVALID_DISTRIBUTION_SECRET", message: "Acesso negado." });
+      }
+      if (!service.configured) {
+        return reply.code(503).send({
+          code: "POSTIZ_NOT_CONFIGURED",
+          message: "Configure o provider Postiz antes de atualizar analytics.",
+        });
+      }
+
+      const limit = z.coerce.number().int().min(1).max(100).default(50).parse(
+        (request.body as { limit?: unknown })?.limit ?? 50,
+      );
+      const batch = await scheduler.refreshDue(limit);
+      for (const item of batch.results) {
+        if (
+          item.ok &&
+          item.brandId &&
+          item.contentRequestId &&
+          item.learningSignal &&
+          typeof item.score === "number"
+        ) {
+          await recordPerformanceSignal({
+            accountId: item.accountId,
+            brandId: item.brandId,
+            contentRequestId: item.contentRequestId,
+            publicationId: item.publicationId,
+            signal: item.learningSignal,
+            score: item.score,
+            normalized: item.normalized || {},
+          });
+        }
+      }
+      return {
+        processed: batch.processed,
+        refreshed: batch.refreshed,
+        failed: batch.failed,
+      };
+    },
+  );
 
   app.get("/api/v1/distribution/status", async (request, reply) => {
     const context = await options.auth.authenticate(bearerToken(request));
@@ -199,30 +295,15 @@ export async function registerPostizRoutes(app: FastifyInstance, options: Option
     );
     return postizResponse(reply, async () => {
       const result = await service.refreshAnalytics(context.organization.id, id, days);
-      if (result.summary.learningSignal !== "neutral") {
-        const signal = result.summary.learningSignal;
-        const alreadyLearned = await learning.performanceSignalAlreadyRecorded(
-          context.organization.id,
-          result.publication.contentRequestId,
-          result.publication.id,
-          signal,
-        );
-        if (!alreadyLearned) {
-          const recommendationId = await learning.recommendationIdForContent(
-            context.organization.id,
-            result.publication.brandId,
-            result.publication.contentRequestId,
-          );
-          await creative.recordFeedback(context.organization.id, result.publication.brandId, {
-            ...(recommendationId ? { recommendationId } : {}),
-            contentRequestId: result.publication.contentRequestId,
-            signal,
-            score: result.summary.score,
-            notes: `postiz_publication:${result.publication.id}`,
-            metrics: result.summary.normalized,
-          });
-        }
-      }
+      await recordPerformanceSignal({
+        accountId: context.organization.id,
+        brandId: result.publication.brandId,
+        contentRequestId: result.publication.contentRequestId,
+        publicationId: result.publication.id,
+        signal: result.summary.learningSignal,
+        score: result.summary.score,
+        normalized: result.summary.normalized,
+      });
       return result;
     });
   });

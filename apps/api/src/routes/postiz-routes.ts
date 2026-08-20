@@ -76,6 +76,24 @@ export async function registerPostizRoutes(app: FastifyInstance, options: Option
     return quality.evaluate(contentRequest, profile);
   }
 
+  app.get("/api/v1/distribution/provider-health", async () => {
+    let host = "invalid";
+    try {
+      host = new URL(service.baseUrl).host;
+    } catch {
+      // Mantém resposta segura mesmo em ambiente inválido.
+    }
+    return {
+      status: "ok",
+      provider: "postiz",
+      configured: service.configured,
+      mode: host === "api.postiz.com" ? "cloud" : "self_hosted",
+      host,
+      storage: service.storage,
+      qualityGate: "enabled",
+    };
+  });
+
   app.get("/api/v1/distribution/status", async (request, reply) => {
     const context = await options.auth.authenticate(bearerToken(request));
     const brandIdRaw = (request.query as { brandId?: string })?.brandId;

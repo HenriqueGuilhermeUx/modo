@@ -60,7 +60,7 @@ FACEBOOK_APP_ID=
 FACEBOOK_APP_SECRET=
 FACEBOOK_REDIRECT_URI=https://modo-api-3m10.onrender.com/api/v1/native-publisher/facebook/callback
 FACEBOOK_SCOPES=pages_show_list,pages_read_engagement,pages_manage_posts,read_insights
-FACEBOOK_API_VERSION=v21.0
+FACEBOOK_API_VERSION=v26.0
 ```
 
 `FACEBOOK_APP_ID` e `FACEBOOK_APP_SECRET` podem vir do mesmo aplicativo Meta desde que os produtos/permissões necessários estejam habilitados para o app.

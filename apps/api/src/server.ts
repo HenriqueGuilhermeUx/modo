@@ -3,6 +3,7 @@ import { config } from "./config.js";
 import { DemoDiagnosticProvider } from "./providers/demo-diagnostic-provider.js";
 import { N8nDiagnosticProvider } from "./providers/n8n-diagnostic-provider.js";
 import { registerHumanOperationsRoutes } from "./routes/human-operations-routes.js";
+import { registerLinkedInRoutes } from "./routes/linkedin-routes.js";
 import { registerPostizRoutes } from "./routes/postiz-routes.js";
 import { registerStrategyNetworkRoutes } from "./routes/strategy-network-routes.js";
 import { AuthService } from "./services/auth-service.js";
@@ -59,8 +60,9 @@ const app = await createApp({
   publicWebUrl: config.PUBLIC_WEB_URL,
 });
 
-// O Publisher usa os mesmos dados persistidos do core, mas em serviços auxiliares
-// para manter o wiring isolado e evitar acoplamento ao createApp.
+// O Publisher usa os mesmos dados persistidos do core em serviços auxiliares.
+// Isso permite operar Instagram/LinkedIn diretamente no Render sem exigir
+// Docker, Postiz ou qualquer software instalado no computador do usuário.
 const distributionAuth = new AuthService({
   databaseUrl: config.DATABASE_URL,
   databaseSsl: config.DATABASE_SSL,
@@ -72,6 +74,22 @@ const distributionContent = new ContentService({
 });
 await Promise.all([distributionAuth.initialize(), distributionContent.initialize()]);
 
+await registerLinkedInRoutes(app, {
+  auth: distributionAuth,
+  content: distributionContent,
+  clientId: config.LINKEDIN_CLIENT_ID,
+  clientSecret: config.LINKEDIN_CLIENT_SECRET,
+  redirectUri: config.LINKEDIN_REDIRECT_URI,
+  scopes: config.LINKEDIN_SCOPES,
+  encryptionSecret: config.LINKEDIN_TOKEN_ENCRYPTION_SECRET,
+  apiVersion: config.LINKEDIN_API_VERSION,
+  webUrl: config.PUBLIC_WEB_URL,
+  databaseUrl: config.DATABASE_URL,
+  databaseSsl: config.DATABASE_SSL,
+});
+
+// O Postiz permanece opcional. Se não houver chave/base URL próprias, a MODO
+// continua funcionando com os conectores nativos acima.
 await registerPostizRoutes(app, {
   auth: distributionAuth,
   content: distributionContent,
@@ -81,6 +99,34 @@ await registerPostizRoutes(app, {
   databaseSsl: config.DATABASE_SSL,
   cronSecret: process.env.DISTRIBUTION_CRON_SECRET,
 });
+
+app.get("/api/v1/native-publisher/health", async () => ({
+  status: "ok",
+  provider: "modo_native",
+  requiresLocalInfrastructure: false,
+  instagram: {
+    configured: Boolean(
+      config.INSTAGRAM_CLIENT_ID &&
+      config.INSTAGRAM_CLIENT_SECRET &&
+      config.INSTAGRAM_REDIRECT_URI &&
+      config.INSTAGRAM_TOKEN_ENCRYPTION_SECRET,
+    ),
+    redirectUri: config.INSTAGRAM_REDIRECT_URI,
+  },
+  linkedin: {
+    configured: Boolean(
+      config.LINKEDIN_CLIENT_ID &&
+      config.LINKEDIN_CLIENT_SECRET &&
+      config.LINKEDIN_REDIRECT_URI &&
+      config.LINKEDIN_TOKEN_ENCRYPTION_SECRET,
+    ),
+    redirectUri: config.LINKEDIN_REDIRECT_URI || null,
+  },
+  postiz: {
+    optional: true,
+    configured: Boolean(config.POSTIZ_API_KEY),
+  },
+}));
 
 app.addHook("onClose", async () => {
   await Promise.all([distributionAuth.close(), distributionContent.close()]);

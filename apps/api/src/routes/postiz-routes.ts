@@ -3,13 +3,13 @@ import {
   PostizConnectRequestSchema,
   PostizPublishRequestSchema,
 } from "@modo/contracts/postiz";
-import type { FastifyInstance, FastifyRequest } from "fastify";
+import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { z } from "zod";
 import { AuthError, type AuthService } from "../services/auth-service.js";
 import type { ContentService } from "../services/content-service.js";
 import { CreativeIntelligenceService } from "../services/creative-intelligence-service.js";
 import { PostizLearningBridge } from "../services/postiz-learning-bridge.js";
-import { PostizService } from "../services/postiz-service.js";
+import { PostizError, PostizService } from "../services/postiz-service.js";
 
 interface Options {
   auth: AuthService;
@@ -36,6 +36,17 @@ async function requireBrand(auth: AuthService, request: FastifyRequest, brandId:
   return { context, brand };
 }
 
+async function postizResponse<T>(reply: FastifyReply, operation: () => Promise<T>) {
+  try {
+    return await operation();
+  } catch (error) {
+    if (error instanceof PostizError) {
+      return reply.code(error.statusCode).send({ code: error.code, message: error.message });
+    }
+    throw error;
+  }
+}
+
 export async function registerPostizRoutes(app: FastifyInstance, options: Options) {
   const service = new PostizService({
     apiKey: options.apiKey,
@@ -57,20 +68,22 @@ export async function registerPostizRoutes(app: FastifyInstance, options: Option
     await Promise.all([service.close(), creative.close(), learning.close()]);
   });
 
-  app.get("/api/v1/distribution/status", async (request) => {
+  app.get("/api/v1/distribution/status", async (request, reply) => {
     const context = await options.auth.authenticate(bearerToken(request));
     const brandIdRaw = (request.query as { brandId?: string })?.brandId;
     const brandId = brandIdRaw ? z.string().uuid().parse(brandIdRaw) : undefined;
     if (brandId) await requireBrand(options.auth, request, brandId);
-    return service.connectionStatus(context.organization.id, brandId);
+    return postizResponse(reply, () => service.connectionStatus(context.organization.id, brandId));
   });
 
-  app.get("/api/v1/distribution/integrations", async (request) => {
+  app.get("/api/v1/distribution/integrations", async (request, reply) => {
     const context = await options.auth.authenticate(bearerToken(request));
     const brandIdRaw = (request.query as { brandId?: string })?.brandId;
     const brandId = brandIdRaw ? z.string().uuid().parse(brandIdRaw) : undefined;
     if (brandId) await requireBrand(options.auth, request, brandId);
-    return { integrations: await service.listConnections(context.organization.id, brandId) };
+    return postizResponse(reply, async () => ({
+      integrations: await service.listConnections(context.organization.id, brandId),
+    }));
   });
 
   app.post(
@@ -79,22 +92,24 @@ export async function registerPostizRoutes(app: FastifyInstance, options: Option
     async (request, reply) => {
       const input = PostizConnectRequestSchema.parse(request.body);
       const { context } = await requireBrand(options.auth, request, input.brandId);
-      return reply
-        .code(201)
-        .send(await service.startConnection(context.organization.id, input.brandId, input.platform));
+      const result = await postizResponse(reply, () =>
+        service.startConnection(context.organization.id, input.brandId, input.platform),
+      );
+      if (reply.sent) return result;
+      return reply.code(201).send(result);
     },
   );
 
-  app.post("/api/v1/distribution/connections/claim", async (request) => {
+  app.post("/api/v1/distribution/connections/claim", async (request, reply) => {
     const context = await options.auth.authenticate(bearerToken(request));
     const input = PostizClaimRequestSchema.parse(request.body);
-    return service.claimConnection(context.organization.id, input.pendingId);
+    return postizResponse(reply, () => service.claimConnection(context.organization.id, input.pendingId));
   });
 
-  app.delete("/api/v1/distribution/integrations/:id", async (request) => {
+  app.delete("/api/v1/distribution/integrations/:id", async (request, reply) => {
     const context = await options.auth.authenticate(bearerToken(request));
     const id = z.string().min(1).max(240).parse((request.params as { id: string }).id);
-    return service.removeConnection(context.organization.id, id);
+    return postizResponse(reply, () => service.removeConnection(context.organization.id, id));
   });
 
   app.post(
@@ -105,61 +120,65 @@ export async function registerPostizRoutes(app: FastifyInstance, options: Option
       const id = z.string().uuid().parse((request.params as { id: string }).id);
       const contentRequest = await options.content.getForOrganization(id, context.organization.id);
       const input = PostizPublishRequestSchema.parse(request.body);
-      const publications = await service.publish(context.organization.id, contentRequest, input);
-      const recommendationId = await learning.recommendationIdForContent(
-        context.organization.id,
-        contentRequest.brandId,
-        contentRequest.id,
-      );
-      await creative.recordFeedback(context.organization.id, contentRequest.brandId, {
-        ...(recommendationId ? { recommendationId } : {}),
-        contentRequestId: contentRequest.id,
-        signal: "published",
-        metrics: { channels: publications.length },
+      const result = await postizResponse(reply, async () => {
+        const publications = await service.publish(context.organization.id, contentRequest, input);
+        const recommendationId = await learning.recommendationIdForContent(
+          context.organization.id,
+          contentRequest.brandId,
+          contentRequest.id,
+        );
+        await creative.recordFeedback(context.organization.id, contentRequest.brandId, {
+          ...(recommendationId ? { recommendationId } : {}),
+          contentRequestId: contentRequest.id,
+          signal: "published",
+          metrics: { channels: publications.length },
+        });
+        return { publications };
       });
-      return reply.code(201).send({ publications });
+      if (reply.sent) return result;
+      return reply.code(201).send(result);
     },
   );
 
-  app.get("/api/v1/content-requests/:id/publications", async (request) => {
+  app.get("/api/v1/content-requests/:id/publications", async (request, reply) => {
     const context = await options.auth.authenticate(bearerToken(request));
     const id = z.string().uuid().parse((request.params as { id: string }).id);
     await options.content.getForOrganization(id, context.organization.id);
-    return { publications: await service.syncPublications(context.organization.id, id) };
+    return postizResponse(reply, async () => ({
+      publications: await service.syncPublications(context.organization.id, id),
+    }));
   });
 
-  app.post("/api/v1/publications/:id/analytics/refresh", async (request) => {
+  app.post("/api/v1/publications/:id/analytics/refresh", async (request, reply) => {
     const context = await options.auth.authenticate(bearerToken(request));
     const id = z.string().uuid().parse((request.params as { id: string }).id);
-    const days = z.coerce
-      .number()
-      .int()
-      .min(1)
-      .max(365)
-      .default(30)
-      .parse((request.body as { days?: unknown })?.days ?? 30);
-    const result = await service.refreshAnalytics(context.organization.id, id, days);
-    if (result.summary.learningSignal !== "neutral") {
-      const recommendationId = await learning.recommendationIdForContent(
-        context.organization.id,
-        result.publication.brandId,
-        result.publication.contentRequestId,
-      );
-      await creative.recordFeedback(context.organization.id, result.publication.brandId, {
-        ...(recommendationId ? { recommendationId } : {}),
-        contentRequestId: result.publication.contentRequestId,
-        signal: result.summary.learningSignal,
-        score: result.summary.score,
-        metrics: result.summary.normalized,
-      });
-    }
-    return result;
+    const days = z.coerce.number().int().min(1).max(365).default(30).parse(
+      (request.body as { days?: unknown })?.days ?? 30,
+    );
+    return postizResponse(reply, async () => {
+      const result = await service.refreshAnalytics(context.organization.id, id, days);
+      if (result.summary.learningSignal !== "neutral") {
+        const recommendationId = await learning.recommendationIdForContent(
+          context.organization.id,
+          result.publication.brandId,
+          result.publication.contentRequestId,
+        );
+        await creative.recordFeedback(context.organization.id, result.publication.brandId, {
+          ...(recommendationId ? { recommendationId } : {}),
+          contentRequestId: result.publication.contentRequestId,
+          signal: result.summary.learningSignal,
+          score: result.summary.score,
+          metrics: result.summary.normalized,
+        });
+      }
+      return result;
+    });
   });
 
-  app.get("/api/v1/brands/:brandId/distribution/insights", async (request) => {
+  app.get("/api/v1/brands/:brandId/distribution/insights", async (request, reply) => {
     const brandId = z.string().uuid().parse((request.params as { brandId: string }).brandId);
     const { context } = await requireBrand(options.auth, request, brandId);
-    return service.brandInsights(context.organization.id, brandId);
+    return postizResponse(reply, () => service.brandInsights(context.organization.id, brandId));
   });
 
   return service;

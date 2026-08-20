@@ -11,6 +11,7 @@
     "./payment": {"types": "./src/payment.ts", "import": "./dist/payment.js"},
     "./linkedin": {"types": "./src/linkedin.ts", "import": "./dist/linkedin.js"},
     "./instagram": {"types": "./src/instagram.ts", "import": "./dist/instagram.js"},
+    "./postiz": {"types": "./src/postiz.ts", "import": "./dist/postiz.js"},
     "./creative-intelligence": {"types": "./src/creative-intelligence.ts", "import": "./dist/creative-intelligence.js"},
     "./signal": {"types": "./src/signal.ts", "import": "./dist/signal.js"},
     "./admin": {"types": "./src/admin.ts", "import": "./dist/admin.js"},

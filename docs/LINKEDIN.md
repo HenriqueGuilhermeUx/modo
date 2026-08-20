@@ -1,89 +1,95 @@
-# MODO LinkedIn
+# MODO LinkedIn — Publisher V2
 
-## Operating modes
+## Modos disponíveis
 
-### Manual mode
+### Manual
 
-Available without LinkedIn credentials:
+Sem credenciais LinkedIn:
 
-- specialized LinkedIn content creation;
-- approval in MODO Create;
-- copy final post;
-- generate and download PDF document;
-- manual publication history.
+- criação de conteúdo especializado;
+- aprovação na MODO;
+- cópia do texto final;
+- geração/download de PDF;
+- publicação manual.
 
-### Connected mode
+### Conectado — perfil do membro
 
-Enabled after creating and configuring an official LinkedIn application:
+O Publisher V2 usa o fluxo atual de OAuth/OIDC do LinkedIn:
 
-- OAuth connection;
-- encrypted token storage;
-- profile or organization author;
-- publish text posts;
-- publish PDF documents;
-- schedule publication;
-- publication status and failure history.
+- produto **Sign in with LinkedIn using OpenID Connect**;
+- produto **Share on LinkedIn**;
+- scopes `openid profile w_member_social`;
+- perfil recuperado por `GET https://api.linkedin.com/v2/userinfo`;
+- token criptografado;
+- conexão associada à organização + marca;
+- publicação e agendamento pelo Publisher.
 
-## LinkedIn Developer configuration
+A documentação oficial atual do LinkedIn substituiu o antigo `r_liteprofile` pelo fluxo OIDC para novas integrações. `w_member_social` continua sendo a permissão self-service para publicar em nome do membro autenticado.
 
-1. Create an application in LinkedIn Developers.
-2. Associate the application with the MODO company page when requested.
-3. Enable the product required for member sign-in and the product **Share on LinkedIn**.
-4. Configure this exact redirect URL:
+## LinkedIn Developer
+
+1. Crie/abra o aplicativo da MODO.
+2. Associe a Company Page exigida pelo LinkedIn.
+3. Em **Products**, habilite **Sign in with LinkedIn using OpenID Connect**.
+4. Habilite **Share on LinkedIn**.
+5. Cadastre durante a migração:
 
 ```text
 https://modo-api-3m10.onrender.com/api/v1/linkedin/callback
+https://modo-api-3m10.onrender.com/api/v2/publisher/oauth/linkedin/callback
 ```
 
-5. For organization pages, request Community Management API access and the permissions required for organization publishing.
+Novos clientes devem usar o callback V2. O callback V1 permanece apenas para migração de conexões antigas.
 
-## Render environment
+## Render
 
 ```env
 PUBLIC_WEB_URL=https://modo1.netlify.app
-LINKEDIN_CLIENT_ID=YOUR_CLIENT_ID
-LINKEDIN_CLIENT_SECRET=YOUR_CLIENT_SECRET
+LINKEDIN_CLIENT_ID=
+LINKEDIN_CLIENT_SECRET=
 LINKEDIN_REDIRECT_URI=https://modo-api-3m10.onrender.com/api/v1/linkedin/callback
-LINKEDIN_SCOPES=r_liteprofile w_member_social
-LINKEDIN_TOKEN_ENCRYPTION_SECRET=A_RANDOM_SECRET_WITH_AT_LEAST_32_CHARACTERS
+LINKEDIN_PUBLISHER_REDIRECT_URI=https://modo-api-3m10.onrender.com/api/v2/publisher/oauth/linkedin/callback
+LINKEDIN_SCOPES=openid profile w_member_social
+LINKEDIN_TOKEN_ENCRYPTION_SECRET=
 LINKEDIN_API_VERSION=202606
 ```
 
-Do not put these credentials in Netlify, GitHub or frontend code.
+Nunca coloque Client Secret ou segredo de criptografia no frontend/GitHub.
 
-For organization publishing, add the approved organization scope to `LINKEDIN_SCOPES` after LinkedIn grants access. The user must also be authorized to publish for the selected organization.
+## Publisher V2
 
-## Routes
-
-```text
-GET  /api/v1/linkedin/status
-POST /api/v1/linkedin/connect
-GET  /api/v1/linkedin/callback
-POST /api/v1/linkedin/disconnect
-GET  /api/v1/linkedin/publications
-POST /api/v1/linkedin/publications
-GET  /api/v1/linkedin/content/:id/document
-```
-
-## Security
-
-- OAuth state is single-use and expires.
-- Access tokens are encrypted with AES-256-GCM before persistence.
-- Tokens never reach the browser after exchange.
-- Publication requires an authenticated MODO session.
-- Only approved LinkedIn content can be sent to publication.
-- Document uploads use the official Documents API flow.
-
-## Restrictions
-
-MODO must not automate connection requests, profile visits, mass direct messages, likes, comments, scraping or simulated browser activity. Publishing and analytics must use official APIs and approved permissions.
-
-## Organization URN
-
-The initial interface accepts the organization URN manually:
+Fluxo:
 
 ```text
-urn:li:organization:123456
+cliente -> Publisher -> seleciona marca -> Conectar LinkedIn nesta marca
+        -> OAuth oficial -> OIDC userinfo -> token criptografado
+        -> conteúdo aprovado -> Quality Gate -> publicar/agendar
+        -> status/calendário -> performance/Learning quando disponível
 ```
 
-A future approved organization lookup can replace manual input without changing the publication model.
+Rotas novas:
+
+```text
+POST /api/v2/publisher/connect/linkedin
+GET  /api/v2/publisher/oauth/linkedin/callback
+GET  /api/v2/publisher/connections?brandId=<uuid>
+POST /api/v2/publisher/publications
+```
+
+As rotas V1 continuam disponíveis para migração.
+
+## Company Pages
+
+Publicação como **organização** não deve ser confundida com publicação como membro. Ela exige os produtos/permissões de organização concedidos pelo LinkedIn (por exemplo, acesso aplicável de Community Management/Marketing APIs) e autorização administrativa da Page.
+
+O OAuth V2 implementado nesta fase conecta perfis de membros. O motor mantém suporte ao modelo de `connectionId`, portanto a futura conexão oficial de Pages entra sem alterar scheduler, calendário, retry ou Learning.
+
+## Segurança
+
+- OAuth state é persistido, single-use e expira;
+- tokens usam AES-256-GCM;
+- tokens não voltam ao navegador depois da troca;
+- conexão pertence à organização e marca autenticadas;
+- publicação depende de conteúdo aprovado e confirmação;
+- retry/idempotência evitam duplicações acidentais;
+- automações proibidas (scraping, visitas simuladas, convites em massa ou DMs em massa) não fazem parte do Publisher.

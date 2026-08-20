@@ -186,6 +186,10 @@ O vídeo deve deixar claro por que cada permissão é necessária para uma funci
 - [ ] callbacks registrados no painel Meta são idênticos aos de produção;
 - [ ] vídeo de revisão mostra o uso real de cada permissão solicitada.
 
+## Segurança dos testes automatizados
+
+Os workflows de CI não armazenam credenciais reais. O PostgreSQL efêmero usado no startup smoke roda com autenticação `trust` apenas dentro do runner descartável do GitHub Actions, e a URL do banco de teste não contém senha. Segredos reais de produção permanecem exclusivamente nos ambientes autorizados, como Render/GitHub Secrets, e nunca são versionados.
+
 ## Depois da aprovação
 
 Advanced Access é uma aprovação externa da Meta. O merge deste código não concede Advanced Access por si só. Após aprovação, clientes que não são administradores/testadores do nosso app poderão conectar suas próprias contas profissionais pelo mesmo fluxo já usado em produção pela conta de teste.

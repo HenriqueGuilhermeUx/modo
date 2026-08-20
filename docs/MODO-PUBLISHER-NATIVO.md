@@ -36,7 +36,7 @@ O usuário conecta pelo navegador em `/app/settings/integrations`.
 
 ## LinkedIn
 
-O backend implementa OAuth, perfil, publicação, agendamento e documentos/carrosséis. As rotas são registradas pelo servidor.
+O backend implementa OAuth, perfil, publicação, agendamento e documentos/carrosséis. As rotas são compostas uma única vez pelo core da API, junto ao módulo de inteligência criativa; `server.ts` não deve registrá-las novamente.
 
 Variáveis no Render:
 
@@ -57,6 +57,10 @@ https://modo-api-3m10.onrender.com/api/v1/native-publisher/health
 ```
 
 A rota informa apenas se os conectores estão configurados e os redirect URIs. Nenhum segredo é exposto.
+
+## Composição e prevenção de regressão
+
+LinkedIn e Postiz já são registrados pelo core através de `registerCreativeIntelligenceRoutes()`. Registrar novamente esses módulos no `server.ts` gera colisão de método/URL no Fastify. O CI agora executa também um startup smoke real da API depois do build para detectar esse tipo de erro antes do merge e antes do Render.
 
 ## Pós-aprovação
 

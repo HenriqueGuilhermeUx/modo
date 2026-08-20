@@ -4,6 +4,7 @@ import { DemoDiagnosticProvider } from "./providers/demo-diagnostic-provider.js"
 import { N8nDiagnosticProvider } from "./providers/n8n-diagnostic-provider.js";
 import { registerHumanOperationsRoutes } from "./routes/human-operations-routes.js";
 import { registerNativePublisherDirectOAuthRoutes } from "./routes/native-publisher-direct-oauth-routes.js";
+import { registerNativePublisherInstagramComplianceRoutes } from "./routes/native-publisher-instagram-compliance-routes.js";
 import { registerNativePublisherV2Routes } from "./routes/native-publisher-v2-routes.js";
 import { registerStrategyNetworkRoutes } from "./routes/strategy-network-routes.js";
 
@@ -138,6 +139,13 @@ await app.register(async (scope) => {
     linkedinRedirectUri: linkedinPublisherRedirectUri,
     linkedinEncryptionSecret: config.LINKEDIN_TOKEN_ENCRYPTION_SECRET,
     linkedinScopes: config.LINKEDIN_SCOPES,
+  });
+
+  await registerNativePublisherInstagramComplianceRoutes(scope, {
+    databaseUrl: config.DATABASE_URL,
+    databaseSsl: config.DATABASE_SSL,
+    instagramClientSecret: config.INSTAGRAM_CLIENT_SECRET,
+    publicWebUrl: config.PUBLIC_WEB_URL,
   });
 });
 

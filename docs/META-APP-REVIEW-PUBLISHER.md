@@ -34,21 +34,21 @@ Callback:
 https://modo-api-3m10.onrender.com/api/v1/instagram/callback
 ```
 
-Permissões utilizadas:
+Permissões mínimas que a versão atual realmente utiliza:
 
 ```text
 instagram_business_basic
 instagram_business_content_publish
 instagram_business_manage_insights
-instagram_business_manage_comments
 ```
 
 Finalidade:
 
 - `instagram_business_basic`: identificar a conta profissional que o próprio cliente autorizou;
 - `instagram_business_content_publish`: publicar peça que o cliente aprovou e confirmou;
-- `instagram_business_manage_insights`: coletar desempenho da publicação para mostrar ao cliente e alimentar o MODO Learning;
-- `instagram_business_manage_comments`: preparar gestão de interação e leitura operacional dentro da conta autorizada; não é usada para publicidade comportamental.
+- `instagram_business_manage_insights`: coletar desempenho da publicação para mostrar ao cliente e alimentar o MODO Learning.
+
+`instagram_business_manage_comments` não deve ser solicitado nesta revisão enquanto a MODO não oferecer uma função real de gestão de comentários. Solicitar apenas o necessário reduz superfície de dados e simplifica a revisão.
 
 ## Facebook Pages
 
@@ -171,6 +171,7 @@ O vídeo deve deixar claro por que cada permissão é necessária para uma funci
 - [ ] `/health` responde 200;
 - [ ] `/api/v1/native-publisher/health` responde 200;
 - [ ] `instagram.configured=true`;
+- [ ] `INSTAGRAM_SCOPES` no Render contém apenas os três escopos realmente usados nesta versão;
 - [ ] login da conta de revisão funciona;
 - [ ] marca de revisão disponível;
 - [ ] OAuth Instagram conclui e volta à MODO;

@@ -8,6 +8,7 @@ import { z } from "zod";
 import { AuthError, type AuthService } from "../services/auth-service.js";
 import type { ContentService } from "../services/content-service.js";
 import { CreativeIntelligenceService } from "../services/creative-intelligence-service.js";
+import { DistributionQualityService } from "../services/distribution-quality-service.js";
 import { PostizLearningBridge } from "../services/postiz-learning-bridge.js";
 import { PostizError, PostizService } from "../services/postiz-service.js";
 
@@ -62,11 +63,18 @@ export async function registerPostizRoutes(app: FastifyInstance, options: Option
     databaseUrl: options.databaseUrl,
     databaseSsl: options.databaseSsl,
   });
+  const quality = new DistributionQualityService();
 
   await Promise.all([service.initialize(), creative.initialize()]);
   app.addHook("onClose", async () => {
     await Promise.all([service.close(), creative.close(), learning.close()]);
   });
+
+  async function qualityReport(accountId: string, contentRequestId: string) {
+    const contentRequest = await options.content.getForOrganization(contentRequestId, accountId);
+    const profile = await creative.getProfile(accountId, contentRequest.brandId);
+    return quality.evaluate(contentRequest, profile);
+  }
 
   app.get("/api/v1/distribution/status", async (request, reply) => {
     const context = await options.auth.authenticate(bearerToken(request));
@@ -84,6 +92,12 @@ export async function registerPostizRoutes(app: FastifyInstance, options: Option
     return postizResponse(reply, async () => ({
       integrations: await service.listConnections(context.organization.id, brandId),
     }));
+  });
+
+  app.get("/api/v1/content-requests/:id/distribution/quality", async (request) => {
+    const context = await options.auth.authenticate(bearerToken(request));
+    const id = z.string().uuid().parse((request.params as { id: string }).id);
+    return qualityReport(context.organization.id, id);
   });
 
   app.post(
@@ -121,6 +135,14 @@ export async function registerPostizRoutes(app: FastifyInstance, options: Option
       const contentRequest = await options.content.getForOrganization(id, context.organization.id);
       const input = PostizPublishRequestSchema.parse(request.body);
       const result = await postizResponse(reply, async () => {
+        const report = await qualityReport(context.organization.id, id);
+        if (!report.publishAllowed) {
+          throw new PostizError(
+            "MODO_QUALITY_GATE_BLOCKED",
+            409,
+            report.blockers[0] || "A peça foi bloqueada pelo Quality Gate da MODO.",
+          );
+        }
         const publications = await service.publish(context.organization.id, contentRequest, input);
         const recommendationId = await learning.recommendationIdForContent(
           context.organization.id,
@@ -131,9 +153,11 @@ export async function registerPostizRoutes(app: FastifyInstance, options: Option
           ...(recommendationId ? { recommendationId } : {}),
           contentRequestId: contentRequest.id,
           signal: "published",
-          metrics: { channels: publications.length },
+          score: report.score,
+          notes: `quality_gate:${report.status}`,
+          metrics: { channels: publications.length, qualityScore: report.score },
         });
-        return { publications };
+        return { publications, quality: report };
       });
       if (reply.sent) return result;
       return reply.code(201).send(result);

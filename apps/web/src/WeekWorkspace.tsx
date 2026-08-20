@@ -1,6 +1,7 @@
 import type { Dashboard } from "@modo/contracts";
 import type { ContentRequest } from "@modo/contracts/content";
 import type { CreativeRecommendation } from "@modo/contracts/creative-intelligence";
+import type { NativeCalendarItem } from "@modo/contracts/native-publisher";
 import { useEffect, useMemo, useState } from "react";
 import { getDashboard, getSessionToken, listContentRequests } from "./api";
 import {
@@ -8,6 +9,7 @@ import {
   recordCreativeFeedback,
   setCreativeRecommendationStatus,
 } from "./director-api";
+import { getNativeCalendar } from "./native-publisher-api";
 
 type WeekTask = {
   id: string;
@@ -30,14 +32,41 @@ const kindLabels: Record<WeekTask["kind"], string> = {
   fix: "CORRIGIR",
 };
 
+const platformLabels: Record<NativeCalendarItem["platform"], string> = {
+  instagram: "Instagram",
+  facebook: "Facebook",
+  threads: "Threads",
+  linkedin: "LinkedIn",
+};
+
+const publicationLabels: Record<NativeCalendarItem["status"], string> = {
+  scheduled: "Agendado",
+  publishing: "Publicando",
+  retrying: "Retry automático",
+  published: "Publicado",
+  failed: "Falhou",
+  cancelled: "Cancelado",
+};
+
 function requestTitle(request: ContentRequest) {
   return request.output?.hook || request.brief.split("\n").find(Boolean) || "Conteúdo da marca";
+}
+
+function calendarRange() {
+  const from = new Date();
+  from.setDate(from.getDate() - 7);
+  from.setHours(0, 0, 0, 0);
+  const to = new Date();
+  to.setDate(to.getDate() + 21);
+  to.setHours(23, 59, 59, 999);
+  return { from: from.toISOString(), to: to.toISOString() };
 }
 
 export default function WeekWorkspace() {
   const [dashboard, setDashboard] = useState<Dashboard | null>(null);
   const [requests, setRequests] = useState<ContentRequest[]>([]);
   const [recommendations, setRecommendations] = useState<CreativeRecommendation[]>([]);
+  const [calendar, setCalendar] = useState<NativeCalendarItem[]>([]);
   const [brandId, setBrandId] = useState("");
   const [loading, setLoading] = useState(true);
   const [actionId, setActionId] = useState("");
@@ -50,7 +79,15 @@ export default function WeekWorkspace() {
     setRequests(currentRequests);
     const nextBrandId = brandId || currentDashboard.brands[0]?.id || "";
     setBrandId(nextBrandId);
-    if (nextBrandId) setRecommendations(await listCreativeRecommendations(nextBrandId));
+    if (nextBrandId) {
+      const range = calendarRange();
+      const [nextRecommendations, nextCalendar] = await Promise.all([
+        listCreativeRecommendations(nextBrandId),
+        getNativeCalendar({ brandId: nextBrandId, ...range }).catch(() => ({ items: [] })),
+      ]);
+      setRecommendations(nextRecommendations);
+      setCalendar(nextCalendar.items);
+    }
   }
 
   useEffect(() => {
@@ -65,16 +102,25 @@ export default function WeekWorkspace() {
 
   useEffect(() => {
     if (!brandId || !dashboard) return;
-    listCreativeRecommendations(brandId).then(setRecommendations).catch(() => undefined);
+    const range = calendarRange();
+    Promise.all([
+      listCreativeRecommendations(brandId),
+      getNativeCalendar({ brandId, ...range }).catch(() => ({ items: [] })),
+    ]).then(([nextRecommendations, nextCalendar]) => {
+      setRecommendations(nextRecommendations);
+      setCalendar(nextCalendar.items);
+    }).catch(() => undefined);
   }, [brandId]);
 
   const tasks = useMemo<WeekTask[]>(() => {
     const result: WeekTask[] = [];
     for (const request of requests.filter((item) => item.brandId === brandId)) {
       if (request.status === "ready") result.push({ id: request.id, kind: "approve", title: `Revisar: ${requestTitle(request)}`, copy: "Leia a entrega, aprove ou escolha um ajuste guiado.", minutes: 4, priority: 100, href: `/app/content?open=${request.id}`, request });
-      if (request.status === "failed") result.push({ id: request.id, kind: "fix", title: `Reenviar produção com falha`, copy: request.error || "A automação precisa ser reenviada.", minutes: 2, priority: 95, href: `/app/content?open=${request.id}`, request });
+      if (request.status === "failed") result.push({ id: request.id, kind: "fix", title: "Reenviar produção com falha", copy: request.error || "A automação precisa ser reenviada.", minutes: 2, priority: 95, href: `/app/content?open=${request.id}`, request });
       if (["queued", "processing", "revision_requested"].includes(request.status)) result.push({ id: request.id, kind: "wait", title: `A MODO está produzindo: ${requestTitle(request)}`, copy: "Nenhuma ação necessária agora. O resultado aparecerá automaticamente.", minutes: 0, priority: 45, href: `/app/content?open=${request.id}`, request });
-      if (request.status === "approved") result.push({ id: request.id, kind: "publish", title: `Publicar e acompanhar: ${requestTitle(request)}`, copy: "Use o Studio para exportar e depois ensine a MODO com o resultado.", minutes: 8, priority: 78, href: `/app/studio/${request.id}`, request });
+      if (request.status === "approved" && !calendar.some((item) => item.contentRequestId === request.id && !["cancelled", "failed"].includes(item.status))) {
+        result.push({ id: request.id, kind: "publish", title: `Distribuir: ${requestTitle(request)}`, copy: "A peça está aprovada. Escolha canais e publique agora ou agende no MODO Publisher.", minutes: 4, priority: 78, href: `/app/content?open=${request.id}`, request });
+      }
     }
 
     for (const recommendation of recommendations.filter((item) => ["suggested", "accepted"].includes(item.status))) {
@@ -93,10 +139,12 @@ export default function WeekWorkspace() {
       });
     }
     return result.sort((a, b) => b.priority - a.priority).slice(0, 12);
-  }, [requests, recommendations, brandId]);
+  }, [requests, recommendations, brandId, calendar]);
 
   const totalMinutes = tasks.reduce((total, task) => total + task.minutes, 0);
   const urgent = tasks.filter((task) => task.priority >= 80).length;
+  const scheduledCount = calendar.filter((item) => ["scheduled", "retrying", "publishing"].includes(item.status)).length;
+  const publishedCount = calendar.filter((item) => item.status === "published").length;
 
   async function markRecommendation(task: WeekTask) {
     if (!task.recommendation) return;
@@ -148,16 +196,33 @@ export default function WeekWorkspace() {
 
       <main className="week-main">
         <section className="week-hero">
-          <div><div className="section-kicker">SUA SEMANA EM MODO PRESENÇA</div><h1>Menos decisões soltas. Próximos passos claros.</h1><p>A MODO reúne o que precisa ser aprovado, gravado, publicado e medido. Faça uma coisa por vez.</p></div>
+          <div><div className="section-kicker">SUA SEMANA EM MODO PRESENÇA</div><h1>Menos decisões soltas. Conteúdo no calendário.</h1><p>A MODO reúne o que precisa ser criado, aprovado, distribuído e medido — e acompanha cada publicação até o resultado.</p></div>
           <label>Marca<select value={brandId} onChange={(event) => setBrandId(event.target.value)}>{dashboard.brands.map((brand) => <option key={brand.id} value={brand.id}>{brand.name}</option>)}</select></label>
         </section>
 
-        <section className="week-summary"><article><small>AÇÕES</small><strong>{tasks.length}</strong><span>organizadas</span></article><article><small>PRIORIDADE</small><strong>{urgent}</strong><span>pedem atenção</span></article><article><small>TEMPO</small><strong>{totalMinutes}</strong><span>minutos estimados</span></article><article><small>REGRA</small><strong>1</strong><span>próximo passo por vez</span></article></section>
+        <section className="week-summary"><article><small>AÇÕES</small><strong>{tasks.length}</strong><span>organizadas</span></article><article><small>PRIORIDADE</small><strong>{urgent}</strong><span>pedem atenção</span></article><article><small>AGENDADOS</small><strong>{scheduledCount}</strong><span>na fila nativa</span></article><article><small>PUBLICADOS</small><strong>{publishedCount}</strong><span>na janela atual</span></article></section>
         {error && <div className="portal-error">{error}</div>}
         {success && <div className="workspace-success">{success}</div>}
 
+        <section className="week-calendar">
+          <div className="week-calendar-heading"><div><small>CALENDÁRIO EDITORIAL</small><h2>Da aprovação à publicação</h2></div><a className="button button-outline" href="/app/settings/integrations">Gerenciar canais</a></div>
+          {calendar.length === 0 ? (
+            <div className="week-calendar-empty"><strong>Nenhuma publicação agendada ainda.</strong><p>Aprove uma peça, abra o MODO Publisher e escolha canal + horário.</p><a href="/app/content">Abrir produção</a></div>
+          ) : (
+            <div className="week-calendar-list">
+              {calendar.map((item) => (
+                <article key={item.id} className={item.status}>
+                  <time><strong>{new Date(item.scheduledFor).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}</strong><span>{new Date(item.scheduledFor).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</span></time>
+                  <div><span>{platformLabels[item.platform]} · {publicationLabels[item.status]}</span><h3>{item.contentTitle}</h3><p>{item.channel}</p>{item.lastError && <em>{item.lastError}</em>}</div>
+                  <div className="week-calendar-actions">{item.releaseUrl && <a href={item.releaseUrl} target="_blank" rel="noreferrer">Ver post ↗</a>}<a href={`/app/content?open=${item.contentRequestId}`}>Abrir peça</a></div>
+                </article>
+              ))}
+            </div>
+          )}
+        </section>
+
         <section className="week-list">
-          {tasks.length === 0 ? <div className="week-empty"><strong>Sua semana está livre.</strong><p>Gere um plano no Diretor ou comece pelo Quick Start.</p><a className="button button-primary" href="/app/content">Começar conteúdo</a></div> : tasks.map((task, index) => <article className={`week-task ${task.kind}`} key={`${task.kind}-${task.id}`}><div className="week-task-order">{String(index + 1).padStart(2, "0")}</div><div className="week-task-content"><div><span>{kindLabels[task.kind]}</span><em>{task.minutes ? `${task.minutes} min` : "automático"}</em></div><h2>{task.title}</h2><p>{task.copy}</p>{task.kind === "publish" && task.request && <div className="week-signal-buttons"><button disabled={actionId === task.id} onClick={() => void quickSignal(task.request!, true)}>✓ Gerou conversa ou resultado</button><button disabled={actionId === task.id} onClick={() => void quickSignal(task.request!, false)}>Ainda não funcionou</button><button onClick={() => openSignal(task.request!)}>Informar métricas</button></div>}</div><div className="week-task-actions"><a className="button button-outline" href={task.href}>{task.kind === "capture" ? "Ver missão" : task.kind === "publish" ? "Abrir no Studio" : "Abrir"}</a>{task.recommendation && <button className="button button-primary" disabled={actionId === task.id} onClick={() => void markRecommendation(task)}>Marcar concluída</button>}</div></article>)}
+          {tasks.length === 0 ? <div className="week-empty"><strong>Sua fila de decisões está livre.</strong><p>A agenda continua sendo monitorada automaticamente. Gere um plano no Diretor ou comece pelo Quick Start.</p><a className="button button-primary" href="/app/content">Começar conteúdo</a></div> : tasks.map((task, index) => <article className={`week-task ${task.kind}`} key={`${task.kind}-${task.id}`}><div className="week-task-order">{String(index + 1).padStart(2, "0")}</div><div className="week-task-content"><div><span>{kindLabels[task.kind]}</span><em>{task.minutes ? `${task.minutes} min` : "automático"}</em></div><h2>{task.title}</h2><p>{task.copy}</p>{task.kind === "publish" && task.request && <div className="week-signal-buttons"><button disabled={actionId === task.id} onClick={() => void quickSignal(task.request!, true)}>✓ Gerou conversa ou resultado</button><button disabled={actionId === task.id} onClick={() => void quickSignal(task.request!, false)}>Ainda não funcionou</button><button onClick={() => openSignal(task.request!)}>Informar métricas</button></div>}</div><div className="week-task-actions"><a className="button button-outline" href={task.href}>{task.kind === "capture" ? "Ver missão" : task.kind === "publish" ? "Distribuir" : "Abrir"}</a>{task.recommendation && <button className="button button-primary" disabled={actionId === task.id} onClick={() => void markRecommendation(task)}>Marcar concluída</button>}</div></article>)}
         </section>
       </main>
     </div>

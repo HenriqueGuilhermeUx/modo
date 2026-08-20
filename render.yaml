@@ -98,7 +98,7 @@ services:
       - key: INSTAGRAM_TOKEN_ENCRYPTION_SECRET
         sync: false
       - key: INSTAGRAM_SCOPES
-        value: instagram_business_basic,instagram_business_content_publish,instagram_business_manage_insights,instagram_business_manage_comments
+        value: instagram_business_basic,instagram_business_content_publish,instagram_business_manage_insights
       - key: INSTAGRAM_API_VERSION
         value: v21.0
       - key: INSTAGRAM_GRAPH_BASE_URL
@@ -112,7 +112,7 @@ services:
       - key: FACEBOOK_SCOPES
         value: pages_show_list,pages_read_engagement,pages_manage_posts,read_insights
       - key: FACEBOOK_API_VERSION
-        value: v21.0
+        value: v26.0
       - key: THREADS_CLIENT_ID
         sync: false
       - key: THREADS_CLIENT_SECRET

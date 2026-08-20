@@ -9,6 +9,20 @@ on:
 jobs:
   validate:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_DB: modo_ci
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres -d modo_ci"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -56,5 +70,44 @@ jobs:
           done
 
           echo "MODO API não ficou saudável dentro do tempo esperado:"
+          cat "${LOG_FILE}"
+          exit 1
+
+      - name: Publisher V2 PostgreSQL startup smoke
+        shell: bash
+        env:
+          DATABASE_URL: postgresql://postgres@127.0.0.1:5432/modo_ci
+          DATABASE_SSL: "false"
+          PORT: "4011"
+          NODE_ENV: test
+          PUBLIC_API_URL: http://127.0.0.1:4011
+          PUBLIC_WEB_URL: http://127.0.0.1:5173
+          ALLOWED_ORIGINS: http://127.0.0.1:5173
+        run: |
+          set -euo pipefail
+          LOG_FILE="${RUNNER_TEMP}/modo-api-publisher-v2.log"
+          npm run start --workspace=@modo/api >"${LOG_FILE}" 2>&1 &
+          API_PID=$!
+          cleanup() {
+            kill "${API_PID}" 2>/dev/null || true
+          }
+          trap cleanup EXIT
+
+          for attempt in {1..45}; do
+            if curl --fail --silent "http://127.0.0.1:4011/health" >/dev/null && \
+               curl --fail --silent "http://127.0.0.1:4011/api/v2/publisher/health" >/dev/null && \
+               curl --fail --silent "http://127.0.0.1:4011/api/v2/publisher/direct-oauth/health" >/dev/null; then
+              echo "MODO Publisher V2 iniciou com PostgreSQL e OAuth direto."
+              exit 0
+            fi
+            if ! kill -0 "${API_PID}" 2>/dev/null; then
+              echo "MODO API encerrou durante o startup PostgreSQL:"
+              cat "${LOG_FILE}"
+              exit 1
+            fi
+            sleep 1
+          done
+
+          echo "MODO Publisher V2 não ficou saudável com PostgreSQL:"
           cat "${LOG_FILE}"
           exit 1

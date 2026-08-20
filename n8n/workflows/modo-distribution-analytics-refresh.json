@@ -33,8 +33,9 @@
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
         "sendBody": true,
-        "contentType": "json",
-        "jsonBody": "={\"limit\":50}",
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ limit: 50 }) }}",
         "options": {
           "timeout": 120000,
           "response": {

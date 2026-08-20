@@ -40,9 +40,10 @@ export const NativePublicationCreateSchema = z.object({
   contentRequestId: z.string().uuid(),
   provider: NativePublisherProviderSchema,
   brandId: z.string().uuid(),
+  connectionId: z.string().uuid().optional(),
   mode: NativePublisherModeSchema.default("now"),
   scheduledFor: z.string().datetime().optional(),
-  idempotencyKey: z.string().min(8).max(200).optional(),
+  idempotencyKey: z.string().min(8).max(240).optional(),
 });
 export type NativePublicationCreate = z.infer<typeof NativePublicationCreateSchema>;
 
@@ -106,7 +107,5 @@ export const NativeCalendarItemSchema = z.object({
 });
 export type NativeCalendarItem = z.infer<typeof NativeCalendarItemSchema>;
 
-export const NativeProviderConnectSchema = z.object({
-  brandId: z.string().uuid(),
-});
+export const NativeProviderConnectSchema = z.object({ brandId: z.string().uuid() });
 export type NativeProviderConnect = z.infer<typeof NativeProviderConnectSchema>;

@@ -8,6 +8,7 @@ import { z } from "zod";
 import { AuthError, type AuthService } from "../services/auth-service.js";
 import type { ContentService } from "../services/content-service.js";
 import { CreativeIntelligenceService } from "../services/creative-intelligence-service.js";
+import { PostizLearningBridge } from "../services/postiz-learning-bridge.js";
 import { PostizService } from "../services/postiz-service.js";
 
 interface Options {
@@ -46,10 +47,14 @@ export async function registerPostizRoutes(app: FastifyInstance, options: Option
     databaseUrl: options.databaseUrl,
     databaseSsl: options.databaseSsl,
   });
+  const learning = new PostizLearningBridge({
+    databaseUrl: options.databaseUrl,
+    databaseSsl: options.databaseSsl,
+  });
 
   await Promise.all([service.initialize(), creative.initialize()]);
   app.addHook("onClose", async () => {
-    await Promise.all([service.close(), creative.close()]);
+    await Promise.all([service.close(), creative.close(), learning.close()]);
   });
 
   app.get("/api/v1/distribution/status", async (request) => {
@@ -101,7 +106,13 @@ export async function registerPostizRoutes(app: FastifyInstance, options: Option
       const contentRequest = await options.content.getForOrganization(id, context.organization.id);
       const input = PostizPublishRequestSchema.parse(request.body);
       const publications = await service.publish(context.organization.id, contentRequest, input);
+      const recommendationId = await learning.recommendationIdForContent(
+        context.organization.id,
+        contentRequest.brandId,
+        contentRequest.id,
+      );
       await creative.recordFeedback(context.organization.id, contentRequest.brandId, {
+        ...(recommendationId ? { recommendationId } : {}),
         contentRequestId: contentRequest.id,
         signal: "published",
         metrics: { channels: publications.length },
@@ -129,7 +140,13 @@ export async function registerPostizRoutes(app: FastifyInstance, options: Option
       .parse((request.body as { days?: unknown })?.days ?? 30);
     const result = await service.refreshAnalytics(context.organization.id, id, days);
     if (result.summary.learningSignal !== "neutral") {
+      const recommendationId = await learning.recommendationIdForContent(
+        context.organization.id,
+        result.publication.brandId,
+        result.publication.contentRequestId,
+      );
       await creative.recordFeedback(context.organization.id, result.publication.brandId, {
+        ...(recommendationId ? { recommendationId } : {}),
         contentRequestId: result.publication.contentRequestId,
         signal: result.summary.learningSignal,
         score: result.summary.score,

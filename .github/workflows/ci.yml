@@ -29,3 +29,32 @@ jobs:
 
       - name: Build
         run: npm run build
+
+      - name: API startup smoke
+        shell: bash
+        run: |
+          set -euo pipefail
+          LOG_FILE="${RUNNER_TEMP}/modo-api-startup.log"
+          PORT=4010 NODE_ENV=test npm run start --workspace=@modo/api >"${LOG_FILE}" 2>&1 &
+          API_PID=$!
+          cleanup() {
+            kill "${API_PID}" 2>/dev/null || true
+          }
+          trap cleanup EXIT
+
+          for attempt in {1..30}; do
+            if curl --fail --silent "http://127.0.0.1:4010/health" >/dev/null; then
+              echo "MODO API iniciou sem colisão de rotas."
+              exit 0
+            fi
+            if ! kill -0 "${API_PID}" 2>/dev/null; then
+              echo "MODO API encerrou durante o startup:"
+              cat "${LOG_FILE}"
+              exit 1
+            fi
+            sleep 1
+          done
+
+          echo "MODO API não ficou saudável dentro do tempo esperado:"
+          cat "${LOG_FILE}"
+          exit 1

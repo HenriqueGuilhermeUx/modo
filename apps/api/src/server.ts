@@ -3,7 +3,12 @@ import { config } from "./config.js";
 import { DemoDiagnosticProvider } from "./providers/demo-diagnostic-provider.js";
 import { N8nDiagnosticProvider } from "./providers/n8n-diagnostic-provider.js";
 import { registerHumanOperationsRoutes } from "./routes/human-operations-routes.js";
+import { registerNativePublisherRoutes } from "./routes/native-publisher-routes.js";
 import { registerStrategyNetworkRoutes } from "./routes/strategy-network-routes.js";
+import { AuthService } from "./services/auth-service.js";
+import { ContentAssetService } from "./services/content-asset-service.js";
+import { ContentService } from "./services/content-service.js";
+import { NativePublisherService } from "./services/native-publisher-service.js";
 
 function createProvider() {
   if (config.DIAGNOSTIC_PROVIDER === "n8n") {
@@ -56,13 +61,88 @@ const app = await createApp({
   publicWebUrl: config.PUBLIC_WEB_URL,
 });
 
-// LinkedIn e Postiz já são registrados uma única vez pelo core em
-// registerCreativeIntelligenceRoutes(). Não os registre novamente aqui:
-// o Fastify rejeita duas rotas com o mesmo método e URL no startup.
+// O Publisher nativo é um módulo próprio com rotas exclusivas. Ele compartilha
+// apenas o banco e os dados do core; LinkedIn/Postiz continuam registrados uma
+// única vez pelo createApp/registerCreativeIntelligenceRoutes.
+const publisherAuth = new AuthService({
+  databaseUrl: config.DATABASE_URL,
+  databaseSsl: config.DATABASE_SSL,
+  sessionDays: config.AUTH_SESSION_DAYS,
+});
+const publisherContent = new ContentService({
+  databaseUrl: config.DATABASE_URL,
+  databaseSsl: config.DATABASE_SSL,
+});
+const publisherAssets = new ContentAssetService({
+  databaseUrl: config.DATABASE_URL,
+  databaseSsl: config.DATABASE_SSL,
+  publicApiUrl: config.PUBLIC_API_URL,
+});
+const nativePublisher = new NativePublisherService({
+  databaseUrl: config.DATABASE_URL,
+  databaseSsl: config.DATABASE_SSL,
+  content: publisherContent,
+  assets: publisherAssets,
+  encryptionSecret: config.INSTAGRAM_TOKEN_ENCRYPTION_SECRET,
+  instagramGraphBaseUrl: config.INSTAGRAM_GRAPH_BASE_URL,
+  instagramApiVersion: config.INSTAGRAM_API_VERSION,
+  facebookAppId: process.env.FACEBOOK_APP_ID,
+  facebookAppSecret: process.env.FACEBOOK_APP_SECRET,
+  facebookRedirectUri:
+    process.env.FACEBOOK_REDIRECT_URI ||
+    "https://modo-api-3m10.onrender.com/api/v1/native-publisher/facebook/callback",
+  facebookScopes:
+    process.env.FACEBOOK_SCOPES ||
+    "pages_show_list,pages_read_engagement,pages_manage_posts,read_insights",
+  facebookApiVersion: process.env.FACEBOOK_API_VERSION || "v21.0",
+  threadsClientId: process.env.THREADS_CLIENT_ID,
+  threadsClientSecret: process.env.THREADS_CLIENT_SECRET,
+  threadsRedirectUri:
+    process.env.THREADS_REDIRECT_URI ||
+    "https://modo-api-3m10.onrender.com/api/v1/native-publisher/threads/callback",
+  threadsScopes:
+    process.env.THREADS_SCOPES ||
+    "threads_basic,threads_content_publish,threads_manage_insights",
+  threadsGraphBaseUrl: process.env.THREADS_GRAPH_BASE_URL || "https://graph.threads.net",
+  threadsApiVersion: process.env.THREADS_API_VERSION || "v1.0",
+  linkedinConfigured: Boolean(
+    config.LINKEDIN_CLIENT_ID &&
+    config.LINKEDIN_CLIENT_SECRET &&
+    config.LINKEDIN_REDIRECT_URI &&
+    config.LINKEDIN_TOKEN_ENCRYPTION_SECRET,
+  ),
+  webUrl: config.PUBLIC_WEB_URL,
+});
+await Promise.all([
+  publisherAuth.initialize(),
+  publisherContent.initialize(),
+  publisherAssets.initialize(),
+]);
+await nativePublisher.initialize();
+await registerNativePublisherRoutes(app, {
+  auth: publisherAuth,
+  content: publisherContent,
+  publisher: nativePublisher,
+});
+
+app.addHook("onClose", async () => {
+  await Promise.all([
+    publisherAuth.close(),
+    publisherContent.close(),
+    publisherAssets.close(),
+    nativePublisher.close(),
+  ]);
+});
+
 app.get("/api/v1/native-publisher/health", async () => ({
   status: "ok",
   provider: "modo_native",
   requiresLocalInfrastructure: false,
+  storage: nativePublisher.storage,
+  scheduling: "enabled",
+  retries: "enabled",
+  analytics: "enabled",
+  learningLoop: "enabled",
   instagram: {
     configured: Boolean(
       config.INSTAGRAM_CLIENT_ID &&
@@ -71,6 +151,18 @@ app.get("/api/v1/native-publisher/health", async () => ({
       config.INSTAGRAM_TOKEN_ENCRYPTION_SECRET,
     ),
     redirectUri: config.INSTAGRAM_REDIRECT_URI,
+  },
+  facebook: {
+    configured: nativePublisher.facebookConfigured,
+    redirectUri:
+      process.env.FACEBOOK_REDIRECT_URI ||
+      "https://modo-api-3m10.onrender.com/api/v1/native-publisher/facebook/callback",
+  },
+  threads: {
+    configured: nativePublisher.threadsConfigured,
+    redirectUri:
+      process.env.THREADS_REDIRECT_URI ||
+      "https://modo-api-3m10.onrender.com/api/v1/native-publisher/threads/callback",
   },
   linkedin: {
     configured: Boolean(

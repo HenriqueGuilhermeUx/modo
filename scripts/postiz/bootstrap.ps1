@@ -1,8 +1,8 @@
-. "$PSScriptRoot\common.ps1"
-
 param(
   [switch]$ResetLocalConfig
 )
+
+. "$PSScriptRoot\common.ps1"
 
 Assert-Command "git" "Instale o Git for Windows e abra um novo PowerShell."
 Assert-Command "docker" "Instale o Docker Desktop e aguarde o Docker Engine iniciar."

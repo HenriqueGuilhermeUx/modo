@@ -43,4 +43,25 @@ export class PostizLearningBridge {
     );
     return result.rows[0]?.recommendation_id || undefined;
   }
+
+  async performanceSignalAlreadyRecorded(
+    accountId: string,
+    contentRequestId: string,
+    publicationId: string,
+    signal: "performed_well" | "performed_poorly",
+  ) {
+    if (!this.pool) return false;
+    const result = await this.pool.query<{ exists: boolean }>(
+      `SELECT EXISTS(
+         SELECT 1
+         FROM modo_creative_feedback
+         WHERE account_id=$1
+           AND content_request_id=$2
+           AND signal=$3
+           AND notes=$4
+       ) AS exists`,
+      [accountId, contentRequestId, signal, `postiz_publication:${publicationId}`],
+    );
+    return Boolean(result.rows[0]?.exists);
+  }
 }

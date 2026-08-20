@@ -3,6 +3,7 @@ import { config } from "./config.js";
 import { DemoDiagnosticProvider } from "./providers/demo-diagnostic-provider.js";
 import { N8nDiagnosticProvider } from "./providers/n8n-diagnostic-provider.js";
 import { registerHumanOperationsRoutes } from "./routes/human-operations-routes.js";
+import { registerNativePublisherDirectOAuthRoutes } from "./routes/native-publisher-direct-oauth-routes.js";
 import { registerNativePublisherV2Routes } from "./routes/native-publisher-v2-routes.js";
 import { registerStrategyNetworkRoutes } from "./routes/strategy-network-routes.js";
 
@@ -88,6 +89,13 @@ app.get("/api/v1/native-publisher/health", async () => ({
 }));
 
 await app.register(async (scope) => {
+  const instagramPublisherRedirectUri =
+    process.env.INSTAGRAM_PUBLISHER_REDIRECT_URI ||
+    "https://modo-api-3m10.onrender.com/api/v2/publisher/oauth/instagram/callback";
+  const linkedinPublisherRedirectUri =
+    process.env.LINKEDIN_PUBLISHER_REDIRECT_URI ||
+    "https://modo-api-3m10.onrender.com/api/v2/publisher/oauth/linkedin/callback";
+
   await registerNativePublisherV2Routes(scope, {
     databaseUrl: config.DATABASE_URL,
     databaseSsl: config.DATABASE_SSL,
@@ -98,14 +106,38 @@ await app.register(async (scope) => {
     instagramApiVersion: config.INSTAGRAM_API_VERSION,
     facebookAppId: process.env.FACEBOOK_APP_ID,
     facebookAppSecret: process.env.FACEBOOK_APP_SECRET,
-    facebookRedirectUri: process.env.FACEBOOK_REDIRECT_URI || "https://modo-api-3m10.onrender.com/api/v2/publisher/oauth/facebook/callback",
-    facebookApiVersion: process.env.FACEBOOK_API_VERSION || "v23.0",
+    facebookRedirectUri:
+      process.env.FACEBOOK_REDIRECT_URI ||
+      "https://modo-api-3m10.onrender.com/api/v2/publisher/oauth/facebook/callback",
+    facebookApiVersion: process.env.FACEBOOK_API_VERSION || "v26.0",
     threadsAppId: process.env.THREADS_APP_ID,
     threadsAppSecret: process.env.THREADS_APP_SECRET,
-    threadsRedirectUri: process.env.THREADS_REDIRECT_URI || "https://modo-api-3m10.onrender.com/api/v2/publisher/oauth/threads/callback",
-    threadsScopes: process.env.THREADS_SCOPES || "threads_basic,threads_content_publish,threads_manage_insights",
+    threadsRedirectUri:
+      process.env.THREADS_REDIRECT_URI ||
+      "https://modo-api-3m10.onrender.com/api/v2/publisher/oauth/threads/callback",
+    threadsScopes:
+      process.env.THREADS_SCOPES ||
+      "threads_basic,threads_content_publish,threads_manage_insights",
     linkedinEncryptionSecret: config.LINKEDIN_TOKEN_ENCRYPTION_SECRET,
     linkedinApiVersion: config.LINKEDIN_API_VERSION,
+  });
+
+  await registerNativePublisherDirectOAuthRoutes(scope, {
+    databaseUrl: config.DATABASE_URL,
+    databaseSsl: config.DATABASE_SSL,
+    publicWebUrl: config.PUBLIC_WEB_URL,
+    instagramClientId: config.INSTAGRAM_CLIENT_ID,
+    instagramClientSecret: config.INSTAGRAM_CLIENT_SECRET,
+    instagramRedirectUri: instagramPublisherRedirectUri,
+    instagramEncryptionSecret: config.INSTAGRAM_TOKEN_ENCRYPTION_SECRET,
+    instagramScopes: config.INSTAGRAM_SCOPES,
+    instagramGraphBaseUrl: config.INSTAGRAM_GRAPH_BASE_URL,
+    instagramApiVersion: config.INSTAGRAM_API_VERSION,
+    linkedinClientId: config.LINKEDIN_CLIENT_ID,
+    linkedinClientSecret: config.LINKEDIN_CLIENT_SECRET,
+    linkedinRedirectUri: linkedinPublisherRedirectUri,
+    linkedinEncryptionSecret: config.LINKEDIN_TOKEN_ENCRYPTION_SECRET,
+    linkedinScopes: config.LINKEDIN_SCOPES,
   });
 });
 

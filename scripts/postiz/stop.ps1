@@ -1,8 +1,8 @@
-. "$PSScriptRoot\common.ps1"
-
 param(
   [switch]$Purge
 )
+
+. "$PSScriptRoot\common.ps1"
 
 $paths = Get-PostizPaths
 Stop-CloudflaredIfRunning

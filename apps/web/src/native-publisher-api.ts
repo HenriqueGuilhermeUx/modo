@@ -36,8 +36,19 @@ export type PublisherHealth = {
   callbacks: { instagram: string | null; facebook: string | null; threads: string | null };
 };
 
+export type LinkedInPublisherHealth = {
+  status: string;
+  configured: boolean;
+  callback: string | null;
+  directOAuth: boolean;
+};
+
 export async function getPublisherHealth(): Promise<PublisherHealth> {
   return request("/api/v2/publisher/health");
+}
+
+export async function getLinkedInPublisherHealth(): Promise<LinkedInPublisherHealth> {
+  return request("/api/v2/publisher/linkedin/health");
 }
 
 export async function listNativeConnections(brandId?: string): Promise<NativeConnection[]> {

@@ -1,6 +1,7 @@
 import { lazy, Suspense, type ReactNode } from "react";
 
 const AdminWorkspace=lazy(()=>import("./AdminWorkspace"));
+const AgencyLanding=lazy(()=>import("./AgencyLanding"));
 const BillingWorkspace=lazy(()=>import("./BillingWorkspace"));
 const CampaignWorkspace=lazy(()=>import("./CampaignWorkspace"));
 const ContentWorkspace=lazy(()=>import("./ContentWorkspace"));
@@ -35,6 +36,7 @@ export default function Root(){
  const path=window.location.pathname.replace(/\/$/,"")||"/";
  if(["/politica-de-privacidade","/privacy","/privacy-policy"].includes(path))return suspended(<PrivacyPolicyPage/>);
  if(["/exclusao-de-dados","/data-deletion"].includes(path))return suspended(<DataDeletionPage/>);
+ if(path==="/agency"||path==="/modo-agency")return suspended(<AgencyLanding/>);
  if(path==="/smartbots.html"||path==="/smartbots")return suspended(<SmartBotsPage/>);
  if(path==="/onboarding-smartbots.html"||path==="/app/smartbots")return suspended(<SmartBotsOnboarding/>);
  if(path==="/rede-modo/convite")return suspended(<SpecialistApplicationPage/>);

@@ -1,6 +1,7 @@
 import { nicheLabels, type Dashboard, type Niche } from "@modo/contracts";
 import type { ContentRequest } from "@modo/contracts/content";
 import { type FormEvent, useEffect, useMemo, useState } from "react";
+import { createAgencyApprovalLink, type AgencyApprovalLink } from "./agency-api";
 import {
   createBrand,
   getDashboard,
@@ -17,6 +18,7 @@ const agencyPlanNames: Record<string, string> = {
   agency_professional: "MODO Professional",
   agency_studio: "MODO Studio",
   agency: "MODO Agency",
+  "agency-pro": "Agency Pro · implantação assistida",
   business: "MODO Business",
 };
 
@@ -24,6 +26,7 @@ const landingPlanToBillingPlan: Record<string, string> = {
   professional: "agency_professional",
   studio: "agency_studio",
   agency: "agency",
+  "agency-pro": "agency-pro",
 };
 
 function selectedAgencyPlan() {
@@ -42,6 +45,12 @@ function formatDate(value: string) {
   return new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short" }).format(new Date(value));
 }
 
+function contactAgencyPro() {
+  const subject = encodeURIComponent("Quero conhecer o MODO Agency Pro");
+  const body = encodeURIComponent("Olá, quero conversar sobre uma operação MODO Agency Pro para mais de 40 clientes / white-label.");
+  window.location.href = `mailto:henriquecampos66@gmail.com?subject=${subject}&body=${body}`;
+}
+
 export default function AgencyWorkspace() {
   const [authMode, setAuthMode] = useState<"login" | "register">("register");
   const [dashboard, setDashboard] = useState<Dashboard | null>(null);
@@ -50,6 +59,9 @@ export default function AgencyWorkspace() {
   const [publicationCount, setPublicationCount] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(Boolean(getSessionToken()));
   const [submitting, setSubmitting] = useState(false);
+  const [approvalBusy, setApprovalBusy] = useState("");
+  const [approvalShare, setApprovalShare] = useState<AgencyApprovalLink | null>(null);
+  const [copiedApproval, setCopiedApproval] = useState(false);
   const [error, setError] = useState("");
   const [showClientForm, setShowClientForm] = useState(false);
 
@@ -148,6 +160,25 @@ export default function AgencyWorkspace() {
     }
   }
 
+  async function handleApprovalLink(brandId: string) {
+    setApprovalBusy(brandId);
+    setCopiedApproval(false);
+    setError("");
+    try {
+      setApprovalShare(await createAgencyApprovalLink(brandId));
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Não foi possível gerar o portal de aprovação.");
+    } finally {
+      setApprovalBusy("");
+    }
+  }
+
+  async function copyApprovalLink() {
+    if (!approvalShare) return;
+    await navigator.clipboard.writeText(approvalShare.approvalUrl);
+    setCopiedApproval(true);
+  }
+
   async function handleLogout() {
     await logoutAccount();
     setDashboard(null);
@@ -194,13 +225,13 @@ export default function AgencyWorkspace() {
           <div className="agency-auth-plan">
             <small>PLANO ESCOLHIDO</small>
             <strong>{agencyPlanNames[chosenPlan] || "MODO Studio"}</strong>
-            <span>Você começa com um cliente no teste e ativa a carteira completa quando quiser.</span>
+            <span>{chosenPlan === "agency-pro" ? "Plano personalizado com implantação assistida e condições definidas com o time MODO." : "Você começa com um cliente no teste e ativa a carteira completa quando quiser."}</span>
           </div>
           <div className="agency-auth-benefits">
             <span>✓ Contexto separado por cliente</span>
             <span>✓ Instagram, Facebook e LinkedIn</span>
             <span>✓ Publisher e calendário por marca</span>
-            <span>✓ Toda criação continua editável pela equipe</span>
+            <span>✓ Toda criação continua editável pela agência</span>
           </div>
         </section>
 
@@ -221,6 +252,7 @@ export default function AgencyWorkspace() {
             {error && <div className="agency-ws-error">{error}</div>}
             <button className="agency-ws-primary" disabled={submitting}>{submitting ? "Processando..." : authMode === "register" ? "Criar minha operação Agency" : "Entrar na MODO Agency"}</button>
           </form>
+          {chosenPlan === "agency-pro" && <button className="agency-ws-secondary agency-auth-contact" type="button" onClick={contactAgencyPro}>Falar sobre Agency Pro</button>}
           <a href="/agency" className="agency-auth-back">← Voltar para MODO Agency</a>
         </section>
       </main>
@@ -236,6 +268,10 @@ export default function AgencyWorkspace() {
 
   function activatePlan() {
     const plan = selectedAgencyPlan();
+    if (plan === "agency-pro") {
+      contactAgencyPro();
+      return;
+    }
     window.sessionStorage.setItem("modo.selectedPlan", plan);
     window.sessionStorage.setItem("modo.accountMode", "agency");
     window.location.href = `/app/planos?mode=agency&plan=${encodeURIComponent(plan)}`;
@@ -285,7 +321,7 @@ export default function AgencyWorkspace() {
 
         {usage.plan === "trial" && (
           <section className="agency-ws-upgrade">
-            <div><small>TESTE A OPERAÇÃO REAL</small><h2>Cadastre o primeiro cliente e use o motor completo.</h2><p>Quando estiver pronto para abrir a carteira, ative o plano Agency escolhido e libere os demais clientes e usuários.</p></div>
+            <div><small>TESTE A OPERAÇÃO REAL</small><h2>Cadastre o primeiro cliente e use o motor completo.</h2><p>Quando estiver pronto para abrir a carteira, ative o plano Agency escolhido e amplie sua capacidade de clientes.</p></div>
             <button className="agency-ws-primary" type="button" onClick={activatePlan}>Liberar minha carteira ↗</button>
           </section>
         )}
@@ -323,6 +359,7 @@ export default function AgencyWorkspace() {
                       <a href={brandHref("/app/base", brand.id)}>Base</a>
                       <a href={brandHref("/app/director", brand.id)}>Diretor</a>
                       <a href={brandHref("/app/content", brand.id)}>Criar</a>
+                      <button type="button" onClick={() => void handleApprovalLink(brand.id)} disabled={approvalBusy === brand.id}>{approvalBusy === brand.id ? "Gerando..." : "Aprovar"}</button>
                       <a className="primary" href={brandHref("/app/publisher", brand.id)}>Publicar ↗</a>
                     </div>
                   </article>
@@ -341,7 +378,7 @@ export default function AgencyWorkspace() {
           <ol>
             <li><span>1</span><div><strong>Contexto</strong><p>Base, oferta, público e restrições por cliente.</p></div></li>
             <li><span>2</span><div><strong>Direção</strong><p>A MODO cruza objetivo com histórico e canal.</p></div></li>
-            <li><span>3</span><div><strong>Criação</strong><p>Sua ideia entra e continua totalmente editável.</p></div></li>
+            <li><span>3</span><div><strong>Criação + aprovação</strong><p>Sua ideia entra, você edita e o cliente decide por um link seguro.</p></div></li>
             <li><span>4</span><div><strong>Publicação</strong><p>Conta certa, horário certo e aprendizado depois.</p></div></li>
           </ol>
         </section>
@@ -362,6 +399,20 @@ export default function AgencyWorkspace() {
               {error && <div className="agency-ws-error">{error}</div>}
               <button className="agency-ws-primary" disabled={submitting}>{submitting ? "Criando workspace..." : "Criar cliente na MODO"}</button>
             </form>
+          </section>
+        </div>
+      )}
+
+      {approvalShare && (
+        <div className="agency-ws-modal-backdrop" role="presentation" onMouseDown={() => setApprovalShare(null)}>
+          <section className="agency-ws-modal agency-ws-share-modal" role="dialog" aria-modal="true" onMouseDown={(event) => event.stopPropagation()}>
+            <button className="agency-ws-modal-close" type="button" onClick={() => setApprovalShare(null)}>×</button>
+            <small>APROVAÇÃO DO CLIENTE</small>
+            <h2>Envie este portal para {approvalShare.brandName}.</h2>
+            <p>O cliente verá somente os conteúdos compartilhados desta marca. Ele poderá aprovar ou solicitar um ajuste sem acessar sua operação interna.</p>
+            <div className="agency-ws-share-link"><span>{approvalShare.approvalUrl}</span><button type="button" onClick={() => void copyApprovalLink()}>{copiedApproval ? "Copiado ✓" : "Copiar link"}</button></div>
+            <div className="agency-ws-share-trust">Link válido por 30 dias. Ao gerar um novo portal para este cliente, o link anterior é revogado automaticamente.</div>
+            <a className="agency-ws-primary agency-ws-share-open" href={approvalShare.approvalUrl} target="_blank" rel="noreferrer">Abrir portal como cliente ↗</a>
           </section>
         </div>
       )}

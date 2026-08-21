@@ -22,6 +22,8 @@ on:
       - ".github/workflows/eas-build-android.yml"
       - "apps/mobile/app.json"
       - "apps/mobile/eas.json"
+      - "apps/mobile/package.json"
+      - "package-lock.json"
 
 concurrency:
   group: modo-android-eas-${{ github.ref }}

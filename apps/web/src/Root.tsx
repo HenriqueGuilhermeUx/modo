@@ -1,6 +1,7 @@
 import { lazy, Suspense, type ReactNode } from "react";
 
 const AdminWorkspace=lazy(()=>import("./AdminWorkspace"));
+const AgencyApprovalPortal=lazy(()=>import("./AgencyApprovalPortal"));
 const AgencyLanding=lazy(()=>import("./AgencyLanding"));
 const AgencyWorkspace=lazy(()=>import("./AgencyWorkspace"));
 const BillingWorkspace=lazy(()=>import("./BillingWorkspace"));
@@ -39,6 +40,7 @@ export default function Root(){
  const agencyMode=params.get("mode")==="agency"||window.sessionStorage.getItem("modo.accountMode")==="agency";
  if(["/politica-de-privacidade","/privacy","/privacy-policy"].includes(path))return suspended(<PrivacyPolicyPage/>);
  if(["/exclusao-de-dados","/data-deletion"].includes(path))return suspended(<DataDeletionPage/>);
+ if(path.startsWith("/approve/"))return suspended(<AgencyApprovalPortal/>);
  if(path==="/agency"||path==="/modo-agency")return suspended(<AgencyLanding/>);
  if(path==="/smartbots.html"||path==="/smartbots")return suspended(<SmartBotsPage/>);
  if(path==="/onboarding-smartbots.html"||path==="/app/smartbots")return suspended(<SmartBotsOnboarding/>);

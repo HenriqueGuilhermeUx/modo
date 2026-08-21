@@ -84,6 +84,7 @@ export async function createNativePublication(input: {
   contentRequestId: string;
   brandId: string;
   provider: NativePublisherProvider;
+  connectionId?: string;
   mode: NativePublisherMode;
   scheduledFor?: string;
   idempotencyKey?: string;

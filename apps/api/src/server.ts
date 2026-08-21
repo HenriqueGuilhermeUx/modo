@@ -7,6 +7,7 @@ import { registerHumanOperationsRoutes } from "./routes/human-operations-routes.
 import { registerNativeLinkedInV2Routes } from "./routes/native-linkedin-v2-routes.js";
 import { registerNativePublisherV2Routes } from "./routes/native-publisher-v2-routes.js";
 import { registerStrategyNetworkRoutes } from "./routes/strategy-network-routes.js";
+import { registerWorkspaceAuthRoutes } from "./routes/workspace-auth-routes.js";
 import { NativeSocialTokenLifecycleService } from "./services/native-social-token-lifecycle-service.js";
 
 function createProvider() {
@@ -58,6 +59,14 @@ const app = await createApp({
   instagramApiVersion: config.INSTAGRAM_API_VERSION,
   instagramGraphBaseUrl: config.INSTAGRAM_GRAPH_BASE_URL,
   publicWebUrl: config.PUBLIC_WEB_URL,
+});
+
+await app.register(async (scope) => {
+  await registerWorkspaceAuthRoutes(scope, {
+    databaseUrl: config.DATABASE_URL,
+    databaseSsl: config.DATABASE_SSL,
+    sessionDays: config.AUTH_SESSION_DAYS,
+  });
 });
 
 // LinkedIn e Postiz V1 são registrados uma única vez pelo core em

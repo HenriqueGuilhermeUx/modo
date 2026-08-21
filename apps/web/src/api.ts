@@ -39,6 +39,13 @@ export const getSessionToken = () => window.localStorage.getItem(TOKEN_KEY) ?? "
 export const saveSessionToken = (token: string) => window.localStorage.setItem(TOKEN_KEY, token);
 export const clearSessionToken = () => window.localStorage.removeItem(TOKEN_KEY);
 
+function authWorkspace() {
+  const params = new URLSearchParams(window.location.search);
+  return window.location.pathname.startsWith("/app/agency") || params.get("mode") === "agency"
+    ? "agency"
+    : "business";
+}
+
 async function request<T>(path: string, init?: RequestInit, authenticated = false): Promise<T> {
   const token = authenticated ? getSessionToken() : "";
   const response = await fetch(`${API_URL}${path}`, {
@@ -74,8 +81,9 @@ export const captureLead = (input: LeadCreateRequest) =>
   });
 
 export async function registerAccount(input: RegisterRequest): Promise<AuthSession> {
+  const workspace = authWorkspace();
   const session = AuthSessionSchema.parse(
-    await request<unknown>("/api/v1/auth/register", {
+    await request<unknown>(`/api/v1/auth/${workspace}/register`, {
       method: "POST",
       body: JSON.stringify(RegisterRequestSchema.parse(input)),
     }),
@@ -86,8 +94,9 @@ export async function registerAccount(input: RegisterRequest): Promise<AuthSessi
 }
 
 export async function loginAccount(input: LoginRequest): Promise<AuthSession> {
+  const workspace = authWorkspace();
   const session = AuthSessionSchema.parse(
-    await request<unknown>("/api/v1/auth/login", {
+    await request<unknown>(`/api/v1/auth/${workspace}/login`, {
       method: "POST",
       body: JSON.stringify(LoginRequestSchema.parse(input)),
     }),

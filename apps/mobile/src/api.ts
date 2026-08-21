@@ -55,14 +55,14 @@ async function request<T>(path: string, init?: RequestInit, token?: string): Pro
 }
 
 export async function login(input: LoginRequest): Promise<AuthSession> {
-  return AuthSessionSchema.parse(await request<unknown>("/api/v1/auth/login", {
+  return AuthSessionSchema.parse(await request<unknown>("/api/v1/auth/business/login", {
     method: "POST",
     body: JSON.stringify(LoginRequestSchema.parse(input)),
   }));
 }
 
 export async function register(input: RegisterRequest): Promise<AuthSession> {
-  return AuthSessionSchema.parse(await request<unknown>("/api/v1/auth/register", {
+  return AuthSessionSchema.parse(await request<unknown>("/api/v1/auth/business/register", {
     method: "POST",
     body: JSON.stringify(RegisterRequestSchema.parse(input)),
   }));

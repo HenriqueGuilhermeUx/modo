@@ -6,6 +6,7 @@ import { registerHumanOperationsRoutes } from "./routes/human-operations-routes.
 import { registerNativeLinkedInV2Routes } from "./routes/native-linkedin-v2-routes.js";
 import { registerNativePublisherV2Routes } from "./routes/native-publisher-v2-routes.js";
 import { registerStrategyNetworkRoutes } from "./routes/strategy-network-routes.js";
+import { NativeSocialTokenLifecycleService } from "./services/native-social-token-lifecycle-service.js";
 
 function createProvider() {
   if (config.DIAGNOSTIC_PROVIDER === "n8n") {
@@ -126,6 +127,16 @@ await app.register(async (scope) => {
     encryptionSecret: config.LINKEDIN_TOKEN_ENCRYPTION_SECRET,
   });
 });
+
+const socialTokenLifecycle = new NativeSocialTokenLifecycleService({
+  databaseUrl: config.DATABASE_URL,
+  databaseSsl: config.DATABASE_SSL,
+  instagramEncryptionSecret: config.INSTAGRAM_TOKEN_ENCRYPTION_SECRET,
+  instagramGraphBaseUrl: config.INSTAGRAM_GRAPH_BASE_URL,
+  threadsAppSecret: process.env.THREADS_APP_SECRET,
+});
+await socialTokenLifecycle.initialize();
+app.addHook("onClose", async () => socialTokenLifecycle.close());
 
 await registerStrategyNetworkRoutes(app, {
   databaseUrl: config.DATABASE_URL,

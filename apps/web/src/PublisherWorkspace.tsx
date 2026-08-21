@@ -10,6 +10,7 @@ import { useEffect, useMemo, useState } from "react";
 import { getDashboard, getSessionToken } from "./api";
 import {
   cancelNativePublication,
+  getLinkedInPublisherHealth,
   getNativeBrandInsight,
   getNativeCalendar,
   getPublisherHealth,
@@ -20,6 +21,7 @@ import {
   refreshNativeAnalytics,
   retryNativePublication,
   startNativeConnection,
+  type LinkedInPublisherHealth,
   type PublisherHealth,
 } from "./native-publisher-api";
 
@@ -46,6 +48,7 @@ function statusLabel(status: NativePublication["status"]) {
 export default function PublisherWorkspace() {
   const [dashboard, setDashboard] = useState<Dashboard | null>(null);
   const [health, setHealth] = useState<PublisherHealth | null>(null);
+  const [linkedinHealth, setLinkedinHealth] = useState<LinkedInPublisherHealth | null>(null);
   const [brandId, setBrandId] = useState("");
   const [connections, setConnections] = useState<NativeConnection[]>([]);
   const [publications, setPublications] = useState<NativePublication[]>([]);
@@ -61,10 +64,15 @@ export default function PublisherWorkspace() {
   async function load(targetBrandId?: string) {
     setLoading(true);
     try {
-      const [currentDashboard, currentHealth] = await Promise.all([getDashboard(), getPublisherHealth()]);
+      const [currentDashboard, currentHealth, currentLinkedInHealth] = await Promise.all([
+        getDashboard(),
+        getPublisherHealth(),
+        getLinkedInPublisherHealth().catch(() => null),
+      ]);
       const requested = targetBrandId || new URLSearchParams(window.location.search).get("brand") || currentDashboard.brands[0]?.id || "";
       setDashboard(currentDashboard);
       setHealth(currentHealth);
+      setLinkedinHealth(currentLinkedInHealth);
       setBrandId(requested);
       if (requested) {
         const [currentConnections, currentPublications, currentCalendar, currentInsight] = await Promise.all([
@@ -92,7 +100,7 @@ export default function PublisherWorkspace() {
       return;
     }
     const query = new URLSearchParams(window.location.search);
-    for (const provider of ["instagram", "facebook", "threads"] as const) {
+    for (const provider of ["instagram", "facebook", "threads", "linkedin"] as const) {
       if (query.get(provider) === "connected") setMessage(`${providerLabels[provider]} conectado com sucesso à marca.`);
       if (query.get(provider) === "error") setError(query.get("message") || `Não foi possível conectar ${providerLabels[provider]}.`);
     }
@@ -121,7 +129,7 @@ export default function PublisherWorkspace() {
     }
   }
 
-  async function connect(provider: "instagram" | "facebook" | "threads") {
+  async function connect(provider: "instagram" | "facebook" | "threads" | "linkedin") {
     if (!brandId) return;
     setWorking(`connect-${provider}`);
     setError("");
@@ -167,8 +175,8 @@ export default function PublisherWorkspace() {
         <section className="publisher-hero">
           <div>
             <div className="section-kicker">MODO PUBLISHER · DISTRIBUIÇÃO + LEARNING</div>
-            <h1>Publique. Meça. Aprenda. Faça melhor.</h1>
-            <p>Uma única operação para conectar canais por marca, agendar, recuperar falhas e transformar performance real em próxima decisão criativa.</p>
+            <h1>Crie com contexto. Publique na sua conta. Aprenda com o resultado.</h1>
+            <p>Conecte os canais de cada marca, publique imediatamente ou agende e acompanhe tudo na mesma operação da MODO.</p>
           </div>
           <label>Marca<select value={brandId} onChange={(event) => void switchBrand(event.target.value)}>{dashboard.brands.map((brand) => <option key={brand.id} value={brand.id}>{brand.name}</option>)}</select></label>
         </section>
@@ -189,24 +197,35 @@ export default function PublisherWorkspace() {
         </section>
 
         <section className="publisher-panel">
-          <div className="publisher-panel-heading"><div><small>CANAIS POR MARCA</small><h2>{selectedBrand?.name || "Marca"}</h2></div><span>{connections.length} conexão(ões) no Publisher V2</span></div>
+          <div className="publisher-panel-heading"><div><small>CANAIS POR MARCA</small><h2>{selectedBrand?.name || "Marca"}</h2></div><span>{connections.length} conexão(ões)</span></div>
           <div className="publisher-channel-grid">
-            {(["instagram", "facebook", "threads", "linkedin"] as NativePublisherProvider[]).map((provider) => {
+            {(["instagram", "facebook", "linkedin", "threads"] as NativePublisherProvider[]).map((provider) => {
               const connected = connections.filter((item) => item.provider === provider && item.connected);
-              const configured = health?.providers[provider] ?? false;
+              const configured = provider === "linkedin" ? Boolean(linkedinHealth?.configured) : (health?.providers[provider] ?? false);
+              const ready = connected.filter((item) => item.canPublish);
               return (
                 <article key={provider} className={connected.length ? "connected" : ""}>
                   <div><small>{provider.toUpperCase()}</small><h3>{providerLabels[provider]}</h3></div>
-                  {connected.length ? <p>{connected.map((item) => item.displayName).join(" · ")}</p> : <p>{configured ? "Pronto para conectar nesta marca." : "Credenciais do app ainda não configuradas."}</p>}
+                  {connected.length ? (
+                    <p>{connected.map((item) => `${item.displayName}${item.canPublish ? " · pronto" : " · reconectar"}`).join(" · ")}</p>
+                  ) : (
+                    <p>{configured ? "Pronto para conectar nesta marca." : "Credenciais do app ainda não configuradas."}</p>
+                  )}
                   {provider === "instagram" && (
                     <>
                       <button className="button button-secondary" disabled={!configured || Boolean(working)} onClick={() => void connect("instagram")}>{working === "connect-instagram" ? "Abrindo Instagram..." : connected.length ? "Conectar outra conta" : "Conectar Instagram"}</button>
                       {!connected.length && <button className="publisher-link-button" disabled={Boolean(working)} onClick={() => void syncExisting("instagram")}>{working === "sync-instagram" ? "Importando..." : "Usar conexão anterior"}</button>}
                     </>
                   )}
-                  {provider === "linkedin" && <button className="button button-secondary" disabled={Boolean(working)} onClick={() => void syncExisting("linkedin")}>{working === "sync-linkedin" ? "Vinculando..." : connected.length ? "Atualizar vínculo" : "Vincular LinkedIn conectado"}</button>}
-                  {provider === "facebook" && <button className="button button-secondary" disabled={!configured || Boolean(working)} onClick={() => void connect("facebook")}>{working === "connect-facebook" ? "Abrindo Meta..." : "Conectar Facebook Pages"}</button>}
-                  {provider === "threads" && <button className="button button-secondary" disabled={!configured || Boolean(working)} onClick={() => void connect("threads")}>{working === "connect-threads" ? "Abrindo Threads..." : "Conectar Threads"}</button>}
+                  {provider === "linkedin" && (
+                    <>
+                      <button className="button button-secondary" disabled={!configured || Boolean(working)} onClick={() => void connect("linkedin")}>{working === "connect-linkedin" ? "Abrindo LinkedIn..." : connected.length ? "Conectar outro perfil" : "Conectar LinkedIn"}</button>
+                      {!connected.length && <button className="publisher-link-button" disabled={Boolean(working)} onClick={() => void syncExisting("linkedin")}>{working === "sync-linkedin" ? "Vinculando..." : "Usar conexão anterior"}</button>}
+                    </>
+                  )}
+                  {provider === "facebook" && <button className="button button-secondary" disabled={!configured || Boolean(working)} onClick={() => void connect("facebook")}>{working === "connect-facebook" ? "Abrindo Meta..." : connected.length ? "Conectar outra Página" : "Conectar Facebook Pages"}</button>}
+                  {provider === "threads" && <button className="button button-secondary" disabled={!configured || Boolean(working)} onClick={() => void connect("threads")}>{working === "connect-threads" ? "Abrindo Threads..." : connected.length ? "Conectar outra conta" : "Conectar Threads"}</button>}
+                  {connected.length > 0 && ready.length === 0 && <small className="publisher-connection-warning">A conta está conectada, mas precisa de permissão de publicação ou reconexão.</small>}
                 </article>
               );
             })}

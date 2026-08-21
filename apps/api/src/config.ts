@@ -81,7 +81,7 @@ const ConfigSchema = z
       z.string().default("r_liteprofile w_member_social"),
     ),
     LINKEDIN_TOKEN_ENCRYPTION_SECRET: optionalTrimmedString,
-    LINKEDIN_API_VERSION: z.preprocess(emptyToUndefined, z.string().default("202606")),
+    LINKEDIN_API_VERSION: z.preprocess(emptyToUndefined, z.string().default("202607")),
     INSTAGRAM_CLIENT_ID: optionalTrimmedString,
     INSTAGRAM_CLIENT_SECRET: optionalTrimmedString,
     INSTAGRAM_REDIRECT_URI: z.preprocess(
@@ -95,7 +95,7 @@ const ConfigSchema = z
         "instagram_business_basic,instagram_business_content_publish,instagram_business_manage_insights,instagram_business_manage_comments",
       ),
     ),
-    INSTAGRAM_API_VERSION: z.preprocess(emptyToUndefined, z.string().default("v21.0")),
+    INSTAGRAM_API_VERSION: z.preprocess(emptyToUndefined, z.string().default("v25.0")),
     INSTAGRAM_GRAPH_BASE_URL: z.preprocess(
       emptyToUndefined,
       z.string().url().default("https://graph.instagram.com"),

@@ -32,7 +32,7 @@ export async function registerNativeLinkedInV2Routes(app: FastifyInstance, optio
     encryptionSecret: options.encryptionSecret,
   });
 
-  await auth.initialize();
+  await Promise.all([auth.initialize(), linkedin.initialize()]);
   app.addHook("onClose", async () => Promise.all([auth.close(), linkedin.close()]));
 
   app.setErrorHandler((error, request, reply) => {

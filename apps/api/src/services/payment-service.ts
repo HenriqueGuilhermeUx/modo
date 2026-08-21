@@ -17,6 +17,12 @@ const planNames: Record<PublicPlanSlug, string> = {
   agency: "MODO Agency",
 };
 
+const agencyPlans = new Set<PublicPlanSlug>([
+  "agency_professional",
+  "agency_studio",
+  "agency",
+]);
+
 interface DiscountQuoteLike {
   reservationId: string;
   code: string;
@@ -108,6 +114,9 @@ export class PaymentService {
   async initialize() {
     if (!this.pool) return;
     await this.pool.query(`
+      ALTER TABLE modo_organizations
+        ADD COLUMN IF NOT EXISTS workspace_type TEXT NOT NULL DEFAULT 'business';
+
       CREATE TABLE IF NOT EXISTS modo_payment_subscriptions (
         global_id TEXT PRIMARY KEY,
         correlation_id TEXT NOT NULL UNIQUE,
@@ -143,6 +152,8 @@ export class PaymentService {
   }
 
   async createCheckout(accountId: string, input: WooviCheckoutRequest) {
+    await this.assertPlanMatchesWorkspace(accountId, input.plan);
+
     const openSubscription = await this.findOpenSubscription(accountId);
     if (openSubscription) {
       const current = this.parseCorrelationID(openSubscription.correlationID);
@@ -258,6 +269,7 @@ export class PaymentService {
     try {
       const subscription = await this.fetchSubscription(providerId);
       const parsed = this.parseCorrelationID(subscription.correlationID);
+      await this.assertPlanMatchesWorkspace(parsed.accountId, parsed.plan);
       await this.persist(parsed.accountId, parsed.plan, subscription);
 
       const action = this.mapLifecycleAction(event);
@@ -375,6 +387,31 @@ export class PaymentService {
       throw new PaymentError("INVALID_CORRELATION_ID", 400, "Correlação Woovi inválida.");
     }
     return { accountId: match[1], plan: match[2] as PublicPlanSlug };
+  }
+
+  private async assertPlanMatchesWorkspace(accountId: string, plan: PublicPlanSlug) {
+    if (!this.pool) return;
+
+    const result = await this.pool.query<{ workspace_type: string }>(
+      `SELECT workspace_type FROM modo_organizations WHERE id=$1 LIMIT 1`,
+      [accountId],
+    );
+    const workspaceType = result.rows[0]?.workspace_type;
+    if (!workspaceType) {
+      throw new PaymentError("PAYMENT_ACCOUNT_NOT_FOUND", 404, "Conta MODO não encontrada para cobrança.");
+    }
+
+    const isAgencyWorkspace = workspaceType === "agency";
+    const isAgencyPlan = agencyPlans.has(plan);
+    if (isAgencyWorkspace === isAgencyPlan) return;
+
+    throw new PaymentError(
+      "PLAN_WORKSPACE_MISMATCH",
+      409,
+      isAgencyWorkspace
+        ? "Este workspace MODO Agency aceita somente planos Agency."
+        : "Esta conta MODO Business aceita somente planos MODO para empresas.",
+    );
   }
 
   private async persist(accountId: string, plan: PublicPlanSlug, subscription: WooviSubscription) {

@@ -33,10 +33,6 @@ interface ProfilePayload extends Json {
   localizedFirstName?: string;
   localizedLastName?: string;
   localizedHeadline?: string;
-  profilePicture?: {
-    displayImage?: string;
-    "displayImage~"?: { elements?: Array<{ identifiers?: Array<{ identifier?: string }> }> };
-  };
   message?: string;
 }
 
@@ -79,6 +75,41 @@ export class NativeLinkedInOAuthService {
       .split(/[\s,]+/)
       .map((scope) => scope.trim())
       .filter(Boolean);
+  }
+
+  async initialize() {
+    if (!this.pool) return;
+    await this.pool.query(`
+      CREATE TABLE IF NOT EXISTS modo_native_social_oauth_states (
+        state TEXT PRIMARY KEY,
+        organization_id TEXT NOT NULL REFERENCES modo_organizations(id) ON DELETE CASCADE,
+        brand_id TEXT NOT NULL REFERENCES modo_brands(id) ON DELETE CASCADE,
+        provider TEXT NOT NULL,
+        expires_at TIMESTAMPTZ NOT NULL,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS modo_native_social_connections (
+        id UUID PRIMARY KEY,
+        organization_id TEXT NOT NULL REFERENCES modo_organizations(id) ON DELETE CASCADE,
+        brand_id TEXT NOT NULL REFERENCES modo_brands(id) ON DELETE CASCADE,
+        provider TEXT NOT NULL,
+        provider_account_id TEXT NOT NULL,
+        display_name TEXT NOT NULL,
+        username TEXT,
+        profile_picture_url TEXT,
+        encrypted_access_token TEXT NOT NULL,
+        token_expires_at TIMESTAMPTZ,
+        scopes TEXT[] NOT NULL DEFAULT '{}',
+        metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        UNIQUE(organization_id,brand_id,provider,provider_account_id)
+      );
+      CREATE INDEX IF NOT EXISTS modo_native_social_connections_brand_idx
+        ON modo_native_social_connections(organization_id,brand_id,provider,updated_at DESC);
+      DELETE FROM modo_native_social_oauth_states WHERE expires_at < NOW();
+    `);
   }
 
   async close() {

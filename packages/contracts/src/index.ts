@@ -90,10 +90,27 @@ export const LeadCreateRequestSchema = z.object({
 });
 export type LeadCreateRequest = z.infer<typeof LeadCreateRequestSchema>;
 
-export const PlanSlugSchema = z.enum(["trial", "start", "presenca", "pro", "business"]);
+export const PlanSlugSchema = z.enum([
+  "trial",
+  "start",
+  "presenca",
+  "pro",
+  "business",
+  "agency_professional",
+  "agency_studio",
+  "agency",
+]);
 export type PlanSlug = z.infer<typeof PlanSlugSchema>;
 
-export const PublicPlanSlugSchema = z.enum(["start", "presenca", "pro", "business"]);
+export const PublicPlanSlugSchema = z.enum([
+  "start",
+  "presenca",
+  "pro",
+  "business",
+  "agency_professional",
+  "agency_studio",
+  "agency",
+]);
 export type PublicPlanSlug = z.infer<typeof PublicPlanSlugSchema>;
 
 export const SubscriptionStatusSchema = z.enum(["active", "retrying", "suspended", "canceled"]);
@@ -193,6 +210,45 @@ export const planEntitlements: Record<PlanSlug, PlanEntitlement> = {
     maxCarouselsPerMonth: 12,
     maxShortVideoScriptsPerMonth: 12,
     includedRevisionCycles: 3,
+    scheduling: true,
+    analytics: true,
+    customApprovalFlows: true,
+  },
+  agency_professional: {
+    priceCents: 19900,
+    monthlyCredits: 60,
+    maxBrands: 5,
+    maxChannels: 20,
+    maxUsers: 1,
+    maxCarouselsPerMonth: 20,
+    maxShortVideoScriptsPerMonth: 15,
+    includedRevisionCycles: 3,
+    scheduling: true,
+    analytics: true,
+    customApprovalFlows: false,
+  },
+  agency_studio: {
+    priceCents: 49900,
+    monthlyCredits: 180,
+    maxBrands: 15,
+    maxChannels: 60,
+    maxUsers: 5,
+    maxCarouselsPerMonth: 60,
+    maxShortVideoScriptsPerMonth: 45,
+    includedRevisionCycles: 4,
+    scheduling: true,
+    analytics: true,
+    customApprovalFlows: true,
+  },
+  agency: {
+    priceCents: 99900,
+    monthlyCredits: 480,
+    maxBrands: 40,
+    maxChannels: 160,
+    maxUsers: 15,
+    maxCarouselsPerMonth: 160,
+    maxShortVideoScriptsPerMonth: 120,
+    includedRevisionCycles: 5,
     scheduling: true,
     analytics: true,
     customApprovalFlows: true,

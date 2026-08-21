@@ -19,6 +19,9 @@ const planNames: Record<PublicPlanSlug, string> = {
   presenca: "MODO Presença",
   pro: "MODO Crescer",
   business: "MODO Business",
+  agency_professional: "MODO Professional",
+  agency_studio: "MODO Studio",
+  agency: "MODO Agency",
 };
 
 const planDescriptions: Record<PublicPlanSlug, string> = {
@@ -26,7 +29,13 @@ const planDescriptions: Record<PublicPlanSlug, string> = {
   presenca: "Para publicar toda semana.",
   pro: "Para quem já vende e quer avançar.",
   business: "Para equipes e operações mais complexas.",
+  agency_professional: "Para social medias e publicitários independentes.",
+  agency_studio: "Para microagências e times enxutos.",
+  agency: "Para operações com carteira ativa e escala.",
 };
+
+const directPlans: PublicPlanSlug[] = ["start", "presenca", "pro", "business"];
+const agencyPlans: PublicPlanSlug[] = ["agency_professional", "agency_studio", "agency"];
 
 const statusLabels: Record<SubscriptionStatus, string> = {
   active: "Ativa",
@@ -52,11 +61,14 @@ function isOperational(dashboard: Dashboard) {
 }
 
 export default function BillingWorkspace() {
-  const storedPlan = window.sessionStorage.getItem("modo.selectedPlan");
-  const initialPlan: PublicPlanSlug =
-    storedPlan && ["start", "presenca", "pro", "business"].includes(storedPlan)
-      ? (storedPlan as PublicPlanSlug)
-      : "presenca";
+  const params = new URLSearchParams(window.location.search);
+  const agencyMode = params.get("mode") === "agency" || window.sessionStorage.getItem("modo.accountMode") === "agency";
+  const allowedPlans = agencyMode ? agencyPlans : directPlans;
+  const requestedPlan = params.get("plan") || window.sessionStorage.getItem("modo.selectedPlan");
+  const initialPlan: PublicPlanSlug = requestedPlan && allowedPlans.includes(requestedPlan as PublicPlanSlug)
+    ? requestedPlan as PublicPlanSlug
+    : agencyMode ? "agency_studio" : "presenca";
+  const homeHref = agencyMode ? "/app/agency" : "/app";
 
   const [dashboard, setDashboard] = useState<Dashboard | null>(null);
   const [plan, setPlan] = useState<PublicPlanSlug>(initialPlan);
@@ -92,7 +104,7 @@ export default function BillingWorkspace() {
 
   useEffect(() => {
     if (!getSessionToken()) {
-      window.location.href = "/app";
+      window.location.href = agencyMode ? "/app/agency" : "/app";
       return;
     }
     getDashboard()
@@ -102,7 +114,7 @@ export default function BillingWorkspace() {
       })
       .catch((caught) => setError(caught instanceof Error ? caught.message : "Não foi possível carregar sua conta."))
       .finally(() => setLoading(false));
-  }, []);
+  }, [agencyMode]);
 
   useEffect(() => {
     if (!checkout || !dashboard || isOperational(dashboard)) return;
@@ -162,7 +174,7 @@ export default function BillingWorkspace() {
   }
 
   async function handleCancel() {
-    if (!window.confirm("Cancelar a recorrência da MODO? A produção será bloqueada imediatamente.")) return;
+    if (!window.confirm(`Cancelar a recorrência da ${agencyMode ? "MODO Agency" : "MODO"}? A produção será bloqueada imediatamente.`)) return;
     setCanceling(true);
     setError("");
     try {
@@ -178,7 +190,7 @@ export default function BillingWorkspace() {
 
   async function handleLogout() {
     await logoutAccount();
-    window.location.href = "/app";
+    window.location.href = agencyMode ? "/app/agency" : "/app";
   }
 
   if (loading) {
@@ -186,7 +198,7 @@ export default function BillingWorkspace() {
       <main className="billing-loading">
         <img src="/logo.svg" alt="MODO" />
         <div className="portal-spinner" />
-        <p>Carregando seus planos...</p>
+        <p>{agencyMode ? "Carregando planos para sua carteira..." : "Carregando seus planos..."}</p>
       </main>
     );
   }
@@ -196,21 +208,22 @@ export default function BillingWorkspace() {
       <main className="billing-loading">
         <img src="/logo.svg" alt="MODO" />
         <div className="portal-error">{error || "Sua sessão expirou."}</div>
-        <a className="button button-primary" href="/app">Voltar ao login</a>
+        <a className="button button-primary" href={homeHref}>Voltar ao login</a>
       </main>
     );
   }
 
   const operational = isOperational(dashboard);
   const paidPlan = dashboard.usage.plan !== "trial";
+  const currentPlanLabel = dashboard.usage.plan === "trial" ? (agencyMode ? "Teste Agency" : "Teste gratuito") : planNames[dashboard.usage.plan];
 
   return (
     <div className="billing-shell">
       <header className="billing-topbar">
-        <a href="/app"><img src="/logo.svg" alt="MODO" /></a>
+        <a href={homeHref}><img src="/logo.svg" alt="MODO" /></a>
         <div>
-          <a href="/app">Painel</a>
-          <a href="/app/content">Criar conteúdo</a>
+          <a href={homeHref}>{agencyMode ? "Carteira" : "Painel"}</a>
+          <a href={`/app/content${agencyMode ? "?mode=agency" : ""}`}>Criar conteúdo</a>
           <button onClick={handleLogout}>Sair</button>
         </div>
       </header>
@@ -218,13 +231,13 @@ export default function BillingWorkspace() {
       <main className="billing-main">
         <section className="billing-hero">
           <div>
-            <span>PIX AUTOMÁTICO • WOOVI</span>
-            <h1>Escolha o ritmo da sua presença.</h1>
-            <p>A primeira mensalidade e a autorização das próximas cobranças acontecem em um único fluxo seguro no seu banco.</p>
+            <span>PIX AUTOMÁTICO • WOOVI{agencyMode ? " • MODO AGENCY" : ""}</span>
+            <h1>{agencyMode ? "Escolha o tamanho da sua carteira." : "Escolha o ritmo da sua presença."}</h1>
+            <p>{agencyMode ? "O plano acompanha o número de clientes e a capacidade operacional da sua agência. A cobrança mensal fica centralizada em uma única assinatura." : "A primeira mensalidade e a autorização das próximas cobranças acontecem em um único fluxo seguro no seu banco."}</p>
           </div>
           <aside>
             <small>Plano atual</small>
-            <strong>{dashboard.usage.plan === "trial" ? "Teste gratuito" : planNames[dashboard.usage.plan]}</strong>
+            <strong>{currentPlanLabel}</strong>
             <span className={`billing-status status-${dashboard.usage.status}`}>{statusLabels[dashboard.usage.status]}</span>
           </aside>
         </section>
@@ -235,10 +248,10 @@ export default function BillingWorkspace() {
           <section className={`billing-success ${dashboard.usage.status === "retrying" ? "billing-warning" : ""}`}>
             <div>{dashboard.usage.status === "retrying" ? "!" : "✓"}</div>
             <span>{dashboard.usage.status === "retrying" ? "COBRANÇA EM RETENTATIVA" : "ASSINATURA ATIVA"}</span>
-            <h2>{dashboard.usage.status === "retrying" ? "Seu acesso segue ativo durante as tentativas." : "Seu plano está em modo presença."}</h2>
-            <p>{dashboard.usage.status === "retrying" ? "A Woovi fará novas tentativas. Atualize o saldo da conta vinculada para evitar suspensão." : "Créditos e limites estão disponíveis até o fim deste ciclo."}</p>
+            <h2>{dashboard.usage.status === "retrying" ? "Seu acesso segue ativo durante as tentativas." : agencyMode ? "Sua carteira Agency está liberada." : "Seu plano está em modo presença."}</h2>
+            <p>{dashboard.usage.status === "retrying" ? "A Woovi fará novas tentativas. Atualize o saldo da conta vinculada para evitar suspensão." : agencyMode ? "Clientes, créditos, equipe e limites estão disponíveis até o fim deste ciclo." : "Créditos e limites estão disponíveis até o fim deste ciclo."}</p>
             <div className="billing-success-actions">
-              <a className="button button-primary" href="/app">Ir para o painel</a>
+              <a className="button button-primary" href={homeHref}>{agencyMode ? "Voltar à carteira" : "Ir para o painel"}</a>
               <button className="button button-secondary" onClick={handleCancel} disabled={canceling}>
                 {canceling ? "Cancelando..." : "Cancelar assinatura"}
               </button>
@@ -254,7 +267,7 @@ export default function BillingWorkspace() {
             )}
 
             <section className="billing-plan-grid">
-              {(Object.keys(planNames) as PublicPlanSlug[]).map((slug) => {
+              {allowedPlans.map((slug) => {
                 const item = planEntitlements[slug];
                 return (
                   <button
@@ -263,14 +276,14 @@ export default function BillingWorkspace() {
                     className={`billing-plan-card ${plan === slug ? "selected" : ""}`}
                     onClick={() => setPlan(slug)}
                   >
-                    {slug === "presenca" && <em>Mais escolhido</em>}
+                    {(agencyMode ? slug === "agency_studio" : slug === "presenca") && <em>Mais escolhido</em>}
                     <small>{planNames[slug]}</small>
                     <strong>R$ {item.priceCents / 100}<span>/mês</span></strong>
                     <p>{planDescriptions[slug]}</p>
                     <ul>
                       <li>{item.monthlyCredits} créditos mensais</li>
-                      <li>{item.maxBrands} marca(s)</li>
-                      <li>Até {item.maxChannels} canal(is)</li>
+                      <li>{item.maxBrands} {agencyMode ? "cliente(s)" : "marca(s)"}</li>
+                      <li>Até {item.maxUsers} {item.maxUsers === 1 ? "usuário" : "usuários"}</li>
                     </ul>
                   </button>
                 );
@@ -310,8 +323,8 @@ export default function BillingWorkspace() {
                 <h3>{planNames[plan]}</h3>
                 <div><small>Mensalidade</small><strong>{price}</strong></div>
                 <div><small>Créditos</small><strong>{selectedEntitlement.monthlyCredits}/mês</strong></div>
-                <div><small>Marcas</small><strong>{selectedEntitlement.maxBrands}</strong></div>
-                <div><small>Canais</small><strong>{selectedEntitlement.maxChannels}</strong></div>
+                <div><small>{agencyMode ? "Clientes" : "Marcas"}</small><strong>{selectedEntitlement.maxBrands}</strong></div>
+                <div><small>Equipe</small><strong>{selectedEntitlement.maxUsers}</strong></div>
                 <ul>
                   <li>Cancelamento direto pelo painel</li>
                   <li>Ativação automática após pagamento</li>

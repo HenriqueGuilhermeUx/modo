@@ -12,6 +12,9 @@ const planNames: Record<PublicPlanSlug, string> = {
   presenca: "MODO Presença",
   pro: "MODO Crescer",
   business: "MODO Business",
+  agency_professional: "MODO Agency Professional",
+  agency_studio: "MODO Agency Studio",
+  agency: "MODO Agency",
 };
 
 interface DiscountQuoteLike {
@@ -367,7 +370,7 @@ export class PaymentService {
   }
 
   private parseCorrelationID(value: string) {
-    const match = /^modo:([0-9a-f-]{36}):(start|presenca|pro|business):([0-9a-f-]{36})$/i.exec(value);
+    const match = /^modo:([0-9a-f-]{36}):(start|presenca|pro|business|agency_professional|agency_studio|agency):([0-9a-f-]{36})$/i.exec(value);
     if (!match) {
       throw new PaymentError("INVALID_CORRELATION_ID", 400, "Correlação Woovi inválida.");
     }

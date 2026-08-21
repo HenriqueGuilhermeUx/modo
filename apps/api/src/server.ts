@@ -2,6 +2,7 @@ import { createApp } from "./app.js";
 import { config } from "./config.js";
 import { DemoDiagnosticProvider } from "./providers/demo-diagnostic-provider.js";
 import { N8nDiagnosticProvider } from "./providers/n8n-diagnostic-provider.js";
+import { registerAgencyApprovalRoutes } from "./routes/agency-approval-routes.js";
 import { registerHumanOperationsRoutes } from "./routes/human-operations-routes.js";
 import { registerNativeLinkedInV2Routes } from "./routes/native-linkedin-v2-routes.js";
 import { registerNativePublisherV2Routes } from "./routes/native-publisher-v2-routes.js";
@@ -151,6 +152,18 @@ await registerStrategyNetworkRoutes(app, {
 await registerHumanOperationsRoutes(app, {
   databaseUrl: config.DATABASE_URL,
   databaseSsl: config.DATABASE_SSL,
+});
+
+await app.register(async (scope) => {
+  await registerAgencyApprovalRoutes(scope, {
+    databaseUrl: config.DATABASE_URL,
+    databaseSsl: config.DATABASE_SSL,
+    publicApiUrl: config.PUBLIC_API_URL,
+    publicWebUrl: config.PUBLIC_WEB_URL,
+    openAiApiKey: config.OPENAI_API_KEY,
+    openAiTextModel: config.OPENAI_TEXT_MODEL,
+    openAiImageModel: config.OPENAI_IMAGE_MODEL,
+  });
 });
 
 try {

@@ -15,6 +15,10 @@ const planLabels = {
   business: "MODO Business",
 } as const;
 
+function directPlanLabel(plan: string) {
+  return planLabels[plan as keyof typeof planLabels] || "MODO";
+}
+
 const statusLabels: Record<ContentRequest["status"], string> = {
   queued: "Na fila",
   processing: "Em produção",
@@ -78,7 +82,7 @@ export default function HomeScreen() {
       </View>
 
       <View style={styles.hero}>
-        <Pill tone="green">{planLabels[dashboard.usage.plan]}</Pill>
+        <Pill tone="green">{directPlanLabel(dashboard.usage.plan)}</Pill>
         <Text style={typography.hero}>Olá, {firstName(dashboard.user.name)}.</Text>
         <Text style={typography.body}>A MODO já conhece <Text style={styles.strong}>{activeBrand.name}</Text>. Escolha o resultado que você precisa agora.</Text>
       </View>

@@ -16,6 +16,10 @@ const planLabels = {
   business: "MODO Business",
 } as const;
 
+function directPlanLabel(plan: string) {
+  return planLabels[plan as keyof typeof planLabels] || "MODO";
+}
+
 const statusLabels = {
   active: "Ativa",
   retrying: "Em atualização",
@@ -69,7 +73,7 @@ export default function AccountScreen() {
 
       <Card style={styles.planCard}>
         <View style={styles.planTop}>
-          <View><Text style={styles.planLabel}>PLANO SINCRONIZADO</Text><Text style={styles.planTitle}>{planLabels[dashboard.usage.plan]}</Text></View>
+          <View><Text style={styles.planLabel}>PLANO SINCRONIZADO</Text><Text style={styles.planTitle}>{directPlanLabel(dashboard.usage.plan)}</Text></View>
           <Pill tone={dashboard.usage.status === "active" ? "green" : "warning"}>{statusLabels[dashboard.usage.status]}</Pill>
         </View>
         <View style={styles.usage}>

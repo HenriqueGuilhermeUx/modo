@@ -97,7 +97,15 @@ export async function loginAccount(input: LoginRequest): Promise<AuthSession> {
 }
 
 export async function getDashboard(): Promise<Dashboard> {
-  return DashboardSchema.parse(await request<unknown>("/api/v1/dashboard", undefined, true));
+  const dashboard = DashboardSchema.parse(await request<unknown>("/api/v1/dashboard", undefined, true));
+  const requestedBrandId = new URLSearchParams(window.location.search).get("brand");
+  if (!requestedBrandId) return dashboard;
+  const requestedBrand = dashboard.brands.find((brand) => brand.id === requestedBrandId);
+  if (!requestedBrand) return dashboard;
+  return {
+    ...dashboard,
+    brands: [requestedBrand, ...dashboard.brands.filter((brand) => brand.id !== requestedBrandId)],
+  };
 }
 
 export async function createBrand(input: BrandCreateRequest): Promise<Brand> {

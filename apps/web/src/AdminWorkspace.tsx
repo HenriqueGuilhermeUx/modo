@@ -37,6 +37,9 @@ const planLabels: Record<PlanSlug, string> = {
   presenca: "Presença",
   pro: "Pro",
   business: "Business",
+  agency_professional: "Agency Professional",
+  agency_studio: "Agency Studio",
+  agency: "Agency",
 };
 
 const statusLabels: Record<SubscriptionStatus, string> = {
@@ -178,8 +181,8 @@ export default function AdminWorkspace() {
   }
 
   async function handleSubscription(item: AdminOrganization) {
-    const plan = window.prompt("Novo plano: trial, start, presenca, pro ou business", item.plan)?.trim() as PlanSlug | undefined;
-    if (!plan || !["trial", "start", "presenca", "pro", "business"].includes(plan)) return;
+    const plan = window.prompt("Novo plano: trial, start, presenca, pro, business, agency_professional, agency_studio ou agency", item.plan)?.trim() as PlanSlug | undefined;
+    if (!plan || !["trial", "start", "presenca", "pro", "business", "agency_professional", "agency_studio", "agency"].includes(plan)) return;
     const status = window.prompt("Status: active, retrying, suspended ou canceled", item.status)?.trim() as SubscriptionStatus | undefined;
     if (!status || !["active", "retrying", "suspended", "canceled"].includes(status)) return;
     setBusy(true);
@@ -349,7 +352,7 @@ export default function AdminWorkspace() {
               <label>Nome da campanha<input value={campaignName} onChange={(event) => setCampaignName(event.target.value)} placeholder="Ex.: Lançamento julho" required /></label>
               <label>Código<input value={campaignCode} onChange={(event) => setCampaignCode(event.target.value.toUpperCase().replace(/[^A-Z0-9_-]/g, ""))} placeholder="MODO20" required /></label>
               <div className="admin-form-grid"><label>Tipo<select value={discountKind} onChange={(event) => setDiscountKind(event.target.value as "percent" | "fixed_cents")}><option value="percent">Percentual</option><option value="fixed_cents">Valor em reais</option></select></label><label>{discountKind === "percent" ? "Percentual" : "Valor R$"}<input type="number" min="1" value={discountValue} onChange={(event) => setDiscountValue(Number(event.target.value))} /></label></div>
-              <fieldset><legend>Planos válidos</legend>{(["start", "presenca", "pro", "business"] as PublicPlanSlug[]).map((plan) => <label key={plan}><input type="checkbox" checked={discountPlans.includes(plan)} onChange={() => togglePlan(plan)} />{planLabels[plan]}</label>)}</fieldset>
+              <fieldset><legend>Planos válidos</legend>{(["start", "presenca", "pro", "business", "agency_professional", "agency_studio", "agency"] as PublicPlanSlug[]).map((plan) => <label key={plan}><input type="checkbox" checked={discountPlans.includes(plan)} onChange={() => togglePlan(plan)} />{planLabels[plan]}</label>)}</fieldset>
               <label>Máximo de usos<input type="number" min="1" value={maxRedemptions} onChange={(event) => setMaxRedemptions(Number(event.target.value))} /></label>
               <div className="admin-form-grid"><label>Início<input type="datetime-local" value={startsAt} onChange={(event) => setStartsAt(event.target.value)} required /></label><label>Término<input type="datetime-local" value={endsAt} onChange={(event) => setEndsAt(event.target.value)} required /></label></div>
               <button className="button button-primary button-full" disabled={busy}>Ativar campanha</button>

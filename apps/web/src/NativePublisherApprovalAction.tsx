@@ -27,6 +27,7 @@ export default function NativePublisherApprovalAction({ request }: { request: Co
   const [connections, setConnections] = useState<NativeConnection[]>([]);
   const [quality, setQuality] = useState<Awaited<ReturnType<typeof getNativeQuality>> | null>(null);
   const [provider, setProvider] = useState<NativePublisherProvider>("instagram");
+  const [connectionId, setConnectionId] = useState("");
   const [mode, setMode] = useState<NativePublisherMode>("now");
   const [scheduledFor, setScheduledFor] = useState(defaultScheduleValue());
   const [working, setWorking] = useState(false);
@@ -58,7 +59,10 @@ export default function NativePublisherApprovalAction({ request }: { request: Co
     setQuality(qualityResult);
     setConnections(updated);
     const firstConnected = updated.find((item) => item.connected && item.canPublish);
-    if (firstConnected) setProvider(firstConnected.provider);
+    if (firstConnected) {
+      setProvider(firstConnected.provider);
+      setConnectionId(firstConnected.id);
+    }
   }
 
   useEffect(() => {
@@ -70,7 +74,27 @@ export default function NativePublisherApprovalAction({ request }: { request: Co
     [connections],
   );
 
+  const providerConnections = useMemo(
+    () => connections.filter((item) => item.provider === provider && item.connected && item.canPublish),
+    [connections, provider],
+  );
+
+  useEffect(() => {
+    if (!providerConnections.some((item) => item.id === connectionId)) {
+      setConnectionId(providerConnections[0]?.id || "");
+    }
+  }, [providerConnections, connectionId]);
+
+  const selectedConnection = useMemo(
+    () => providerConnections.find((item) => item.id === connectionId) || null,
+    [providerConnections, connectionId],
+  );
+
   async function publish() {
+    if (!connectionId) {
+      setError("Escolha a conta social que deve receber esta publicação.");
+      return;
+    }
     setWorking(true);
     setError("");
     setMessage("");
@@ -80,17 +104,18 @@ export default function NativePublisherApprovalAction({ request }: { request: Co
         contentRequestId: request.id,
         brandId: request.brandId,
         provider,
+        connectionId,
         mode,
         ...(scheduledIso ? { scheduledFor: scheduledIso } : {}),
-        idempotencyKey: `${request.id}:${provider}:${mode}:${scheduledIso || "now"}`,
+        idempotencyKey: `${request.id}:${provider}:${connectionId}:${mode}:${scheduledIso || "now"}`,
       });
-      const label = providerLabels[provider];
+      const destination = selectedConnection?.displayName || providerLabels[provider];
       setMessage(
         result.publication.status === "published"
-          ? `${label} publicado com sucesso.`
+          ? `Publicado com sucesso em ${destination}.`
           : result.publication.status === "scheduled"
-            ? `${label} agendado para ${new Date(result.publication.scheduledFor!).toLocaleString("pt-BR")}.`
-            : `Rascunho salvo para ${label}.`,
+            ? `Agendado em ${destination} para ${new Date(result.publication.scheduledFor!).toLocaleString("pt-BR")}.`
+            : `Rascunho salvo para ${destination}.`,
       );
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Não foi possível concluir a publicação.");
@@ -126,6 +151,14 @@ export default function NativePublisherApprovalAction({ request }: { request: Co
               </button>
             ))}
           </div>
+          <label className="publisher-schedule-field">
+            Conta de destino
+            <select value={connectionId} onChange={(event) => setConnectionId(event.target.value)}>
+              {providerConnections.map((item) => (
+                <option key={item.id} value={item.id}>{item.displayName}{item.username && !item.displayName.includes(item.username) ? ` · @${item.username}` : ""}</option>
+              ))}
+            </select>
+          </label>
           <div className="publisher-mode-tabs">
             <button type="button" className={mode === "now" ? "active" : ""} onClick={() => setMode("now")}>Publicar agora</button>
             <button type="button" className={mode === "schedule" ? "active" : ""} onClick={() => setMode("schedule")}>Agendar</button>
@@ -137,7 +170,7 @@ export default function NativePublisherApprovalAction({ request }: { request: Co
               <input type="datetime-local" value={scheduledFor} onChange={(event) => setScheduledFor(event.target.value)} />
             </label>
           )}
-          <button type="button" className="button button-primary" disabled={working || quality?.publishAllowed === false} onClick={() => void publish()}>
+          <button type="button" className="button button-primary" disabled={working || !connectionId || quality?.publishAllowed === false} onClick={() => void publish()}>
             {working ? "Processando..." : mode === "now" ? `Publicar no ${providerLabels[provider]}` : mode === "schedule" ? `Agendar no ${providerLabels[provider]}` : `Salvar para ${providerLabels[provider]}`}
           </button>
         </>

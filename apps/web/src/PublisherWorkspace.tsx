@@ -225,21 +225,24 @@ export default function PublisherWorkspace() {
           <div className="publisher-panel-heading"><div><small>OPERAÇÃO</small><h2>Publicações e performance</h2></div><span>{publications.length} registro(s)</span></div>
           <div className="publisher-publications">
             {publications.length === 0 && <div className="publisher-empty">As publicações da marca aparecerão aqui.</div>}
-            {publications.map((publication) => (
-              <article key={publication.id}>
-                <div className="publisher-publication-main">
-                  <div><small>{providerLabels[publication.provider]}</small><strong>{statusLabel(publication.status)}</strong></div>
-                  <span>{publication.publishedAt ? new Date(publication.publishedAt).toLocaleString("pt-BR") : publication.scheduledFor ? new Date(publication.scheduledFor).toLocaleString("pt-BR") : "Sem horário"}</span>
-                  {publication.lastError && <p>{publication.lastError}</p>}
-                </div>
-                <div className="publisher-publication-actions">
-                  {publication.permalink && <a href={publication.permalink} target="_blank" rel="noreferrer">Abrir post</a>}
-                  {publication.status === "published" && <button disabled={Boolean(working)} onClick={() => void publicationAction(publication.id, "analytics")}>Atualizar desempenho</button>}
-                  {publication.status === "failed" && <button disabled={Boolean(working)} onClick={() => void publicationAction(publication.id, "retry")}>Tentar novamente</button>}
-                  {["draft", "scheduled", "retrying", "failed"].includes(publication.status) && <button disabled={Boolean(working)} onClick={() => void publicationAction(publication.id, "cancel")}>Cancelar</button>}
-                </div>
-              </article>
-            ))}
+            {publications.map((publication) => {
+              const destination = connections.find((item) => item.id === publication.connectionId);
+              return (
+                <article key={publication.id}>
+                  <div className="publisher-publication-main">
+                    <div><small>{providerLabels[publication.provider]} · {destination?.displayName || "conta vinculada"}</small><strong>{statusLabel(publication.status)}</strong></div>
+                    <span>{publication.publishedAt ? new Date(publication.publishedAt).toLocaleString("pt-BR") : publication.scheduledFor ? new Date(publication.scheduledFor).toLocaleString("pt-BR") : "Sem horário"}</span>
+                    {publication.lastError && <p>{publication.lastError}</p>}
+                  </div>
+                  <div className="publisher-publication-actions">
+                    {publication.permalink && <a href={publication.permalink} target="_blank" rel="noreferrer">Abrir post</a>}
+                    {publication.status === "published" && <button disabled={Boolean(working)} onClick={() => void publicationAction(publication.id, "analytics")}>Atualizar desempenho</button>}
+                    {publication.status === "failed" && <button disabled={Boolean(working)} onClick={() => void publicationAction(publication.id, "retry")}>Tentar novamente</button>}
+                    {["draft", "scheduled", "retrying", "failed"].includes(publication.status) && <button disabled={Boolean(working)} onClick={() => void publicationAction(publication.id, "cancel")}>Cancelar</button>}
+                  </div>
+                </article>
+              );
+            })}
           </div>
         </section>
       </main>

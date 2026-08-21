@@ -3,8 +3,10 @@ import { config } from "./config.js";
 import { DemoDiagnosticProvider } from "./providers/demo-diagnostic-provider.js";
 import { N8nDiagnosticProvider } from "./providers/n8n-diagnostic-provider.js";
 import { registerHumanOperationsRoutes } from "./routes/human-operations-routes.js";
+import { registerNativeLinkedInV2Routes } from "./routes/native-linkedin-v2-routes.js";
 import { registerNativePublisherV2Routes } from "./routes/native-publisher-v2-routes.js";
 import { registerStrategyNetworkRoutes } from "./routes/strategy-network-routes.js";
+import { NativeSocialTokenLifecycleService } from "./services/native-social-token-lifecycle-service.js";
 
 function createProvider() {
   if (config.DIAGNOSTIC_PROVIDER === "n8n") {
@@ -112,6 +114,29 @@ await app.register(async (scope) => {
     linkedinApiVersion: config.LINKEDIN_API_VERSION,
   });
 });
+
+await app.register(async (scope) => {
+  await registerNativeLinkedInV2Routes(scope, {
+    databaseUrl: config.DATABASE_URL,
+    databaseSsl: config.DATABASE_SSL,
+    publicWebUrl: config.PUBLIC_WEB_URL,
+    clientId: config.LINKEDIN_CLIENT_ID,
+    clientSecret: config.LINKEDIN_CLIENT_SECRET,
+    redirectUri: process.env.LINKEDIN_PUBLISHER_REDIRECT_URI || "https://modo-api-3m10.onrender.com/api/v2/publisher/oauth/linkedin/callback",
+    scopes: config.LINKEDIN_SCOPES,
+    encryptionSecret: config.LINKEDIN_TOKEN_ENCRYPTION_SECRET,
+  });
+});
+
+const socialTokenLifecycle = new NativeSocialTokenLifecycleService({
+  databaseUrl: config.DATABASE_URL,
+  databaseSsl: config.DATABASE_SSL,
+  instagramEncryptionSecret: config.INSTAGRAM_TOKEN_ENCRYPTION_SECRET,
+  instagramGraphBaseUrl: config.INSTAGRAM_GRAPH_BASE_URL,
+  threadsAppSecret: process.env.THREADS_APP_SECRET,
+});
+await socialTokenLifecycle.initialize();
+app.addHook("onClose", async () => socialTokenLifecycle.close());
 
 await registerStrategyNetworkRoutes(app, {
   databaseUrl: config.DATABASE_URL,

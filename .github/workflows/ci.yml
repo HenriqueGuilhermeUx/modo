@@ -87,6 +87,10 @@ jobs:
           INSTAGRAM_CLIENT_SECRET: ci-instagram-secret
           INSTAGRAM_TOKEN_ENCRYPTION_SECRET: ci-instagram-encryption-secret
           INSTAGRAM_PUBLISHER_REDIRECT_URI: http://127.0.0.1:4011/api/v2/publisher/oauth/instagram/callback
+          LINKEDIN_CLIENT_ID: ci-linkedin-client
+          LINKEDIN_CLIENT_SECRET: ci-linkedin-secret
+          LINKEDIN_TOKEN_ENCRYPTION_SECRET: ci-linkedin-encryption-secret
+          LINKEDIN_PUBLISHER_REDIRECT_URI: http://127.0.0.1:4011/api/v2/publisher/oauth/linkedin/callback
         run: |
           set -euo pipefail
           LOG_FILE="${RUNNER_TEMP}/modo-api-publisher-v2-postgres.log"
@@ -100,9 +104,12 @@ jobs:
           for attempt in {1..45}; do
             if curl --fail --silent "http://127.0.0.1:4011/health" >/dev/null; then
               PUBLISHER_HEALTH="$(curl --fail --silent "http://127.0.0.1:4011/api/v2/publisher/health" || true)"
+              LINKEDIN_HEALTH="$(curl --fail --silent "http://127.0.0.1:4011/api/v2/publisher/linkedin/health" || true)"
               if printf '%s' "${PUBLISHER_HEALTH}" | grep -q '"directInstagramOAuth":true' && \
-                 printf '%s' "${PUBLISHER_HEALTH}" | grep -q 'api/v2/publisher/oauth/instagram/callback'; then
-                echo "MODO Publisher V2 iniciou com PostgreSQL e OAuth Instagram direto registrado."
+                 printf '%s' "${PUBLISHER_HEALTH}" | grep -q 'api/v2/publisher/oauth/instagram/callback' && \
+                 printf '%s' "${LINKEDIN_HEALTH}" | grep -q '"configured":true' && \
+                 printf '%s' "${LINKEDIN_HEALTH}" | grep -q 'api/v2/publisher/oauth/linkedin/callback'; then
+                echo "MODO Publisher V2 iniciou com PostgreSQL e OAuth direto de Instagram/LinkedIn registrado."
                 exit 0
               fi
             fi
@@ -114,6 +121,6 @@ jobs:
             sleep 1
           done
 
-          echo "MODO Publisher V2 não ficou saudável com PostgreSQL/OAuth Instagram:"
+          echo "MODO Publisher V2 não ficou saudável com PostgreSQL/OAuth social:"
           cat "${LOG_FILE}"
           exit 1

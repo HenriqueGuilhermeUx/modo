@@ -36,8 +36,19 @@ export type PublisherHealth = {
   callbacks: { instagram: string | null; facebook: string | null; threads: string | null };
 };
 
+export type LinkedInPublisherHealth = {
+  status: string;
+  configured: boolean;
+  callback: string | null;
+  directOAuth: boolean;
+};
+
 export async function getPublisherHealth(): Promise<PublisherHealth> {
   return request("/api/v2/publisher/health");
+}
+
+export async function getLinkedInPublisherHealth(): Promise<LinkedInPublisherHealth> {
+  return request("/api/v2/publisher/linkedin/health");
 }
 
 export async function listNativeConnections(brandId?: string): Promise<NativeConnection[]> {
@@ -62,7 +73,7 @@ export async function importLinkedInConnection(brandId: string): Promise<NativeC
   return NativeConnectionSchema.parse(payload.connection);
 }
 
-export async function startNativeConnection(provider: "instagram" | "facebook" | "threads", brandId: string) {
+export async function startNativeConnection(provider: "instagram" | "facebook" | "threads" | "linkedin", brandId: string) {
   return request(`/api/v2/publisher/connect/${provider}`, {
     method: "POST",
     body: JSON.stringify({ brandId }),

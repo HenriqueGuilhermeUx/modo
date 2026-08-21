@@ -1,8 +1,6 @@
 import { contentCreditCost, type ContentUnitType } from "@modo/contracts";
 import type { ContentRequest } from "@modo/contracts/content";
 import CanvaApprovalAction from "./CanvaApprovalAction";
-import InstagramApprovalAction from "./InstagramApprovalAction";
-import LinkedInApprovalAction from "./LinkedInApprovalAction";
 import NativePublisherApprovalAction from "./NativePublisherApprovalAction";
 
 interface Props {
@@ -63,16 +61,6 @@ export default function PostApprovalActions({
         <article className="post-approval-card canva-card">
           <CanvaApprovalAction contentRequestId={request.id} />
         </article>
-
-        <article className="post-approval-card instagram-card legacy-publisher-card">
-          <InstagramApprovalAction contentRequestId={request.id} />
-        </article>
-
-        {/linkedin/i.test(request.channel) && (
-          <article className="post-approval-card instagram-card legacy-publisher-card">
-            <LinkedInApprovalAction contentRequestId={request.id} channel={request.channel} />
-          </article>
-        )}
       </div>
 
       <section className="post-approval-card">

@@ -73,7 +73,7 @@ export async function createPublisherPublication(
     provider: NativePublisherProvider;
     connectionId: string;
     mode: NativePublisherMode;
-    scheduledFor?: string;
+    scheduledFor?: string | null;
     idempotencyKey?: string;
   },
 ): Promise<NativePublication> {

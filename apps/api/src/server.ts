@@ -99,7 +99,7 @@ await app.register(async (scope) => {
     facebookAppId: process.env.FACEBOOK_APP_ID,
     facebookAppSecret: process.env.FACEBOOK_APP_SECRET,
     facebookRedirectUri: process.env.FACEBOOK_REDIRECT_URI || "https://modo-api-3m10.onrender.com/api/v2/publisher/oauth/facebook/callback",
-    facebookApiVersion: process.env.FACEBOOK_API_VERSION || "v23.0",
+    facebookApiVersion: process.env.FACEBOOK_API_VERSION || "v25.0",
     threadsAppId: process.env.THREADS_APP_ID,
     threadsAppSecret: process.env.THREADS_APP_SECRET,
     threadsRedirectUri: process.env.THREADS_REDIRECT_URI || "https://modo-api-3m10.onrender.com/api/v2/publisher/oauth/threads/callback",

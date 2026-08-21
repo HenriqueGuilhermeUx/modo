@@ -2,6 +2,7 @@ import type { DiagnosticJob } from "@modo/contracts";
 import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import App from "./App";
+import AgencyEntryAddon from "./AgencyEntryAddon";
 import { captureLead } from "./api";
 import DiagnosticImpactResult from "./DiagnosticImpactResult";
 import IntelligenceLandingAddon from "./IntelligenceLandingAddon";
@@ -87,6 +88,7 @@ export default function ImpactLanding() {
   return (
     <>
       <App />
+      <AgencyEntryAddon />
       <ProductPathGuideAddon mode="public" />
       <IntelligenceLandingAddon />
       <SmartBotsLandingAddon />

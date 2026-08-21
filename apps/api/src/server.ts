@@ -3,6 +3,7 @@ import { config } from "./config.js";
 import { DemoDiagnosticProvider } from "./providers/demo-diagnostic-provider.js";
 import { N8nDiagnosticProvider } from "./providers/n8n-diagnostic-provider.js";
 import { registerHumanOperationsRoutes } from "./routes/human-operations-routes.js";
+import { registerNativeLinkedInV2Routes } from "./routes/native-linkedin-v2-routes.js";
 import { registerNativePublisherV2Routes } from "./routes/native-publisher-v2-routes.js";
 import { registerStrategyNetworkRoutes } from "./routes/strategy-network-routes.js";
 
@@ -110,6 +111,19 @@ await app.register(async (scope) => {
     threadsScopes: process.env.THREADS_SCOPES || "threads_basic,threads_content_publish,threads_manage_insights",
     linkedinEncryptionSecret: config.LINKEDIN_TOKEN_ENCRYPTION_SECRET,
     linkedinApiVersion: config.LINKEDIN_API_VERSION,
+  });
+});
+
+await app.register(async (scope) => {
+  await registerNativeLinkedInV2Routes(scope, {
+    databaseUrl: config.DATABASE_URL,
+    databaseSsl: config.DATABASE_SSL,
+    publicWebUrl: config.PUBLIC_WEB_URL,
+    clientId: config.LINKEDIN_CLIENT_ID,
+    clientSecret: config.LINKEDIN_CLIENT_SECRET,
+    redirectUri: process.env.LINKEDIN_PUBLISHER_REDIRECT_URI || "https://modo-api-3m10.onrender.com/api/v2/publisher/oauth/linkedin/callback",
+    scopes: config.LINKEDIN_SCOPES,
+    encryptionSecret: config.LINKEDIN_TOKEN_ENCRYPTION_SECRET,
   });
 });
 

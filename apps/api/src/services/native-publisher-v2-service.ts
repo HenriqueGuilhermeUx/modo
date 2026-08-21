@@ -429,7 +429,7 @@ export class NativePublisherV2Service {
   async createFacebookAuthorizationUrl(organizationId: string, brandId: string) {
     if (!this.providers.facebook) throw new NativePublisherV2Error("FACEBOOK_NOT_CONFIGURED", 503, "Facebook Pages ainda não foi configurado no ambiente.");
     const state = await this.saveOAuthState(organizationId, brandId, "facebook");
-    const version = this.options.facebookApiVersion || "v23.0";
+    const version = this.options.facebookApiVersion || "v25.0";
     const url = new URL(`https://www.facebook.com/${version}/dialog/oauth`);
     url.searchParams.set("client_id", this.options.facebookAppId!);
     url.searchParams.set("redirect_uri", this.options.facebookRedirectUri!);
@@ -441,7 +441,7 @@ export class NativePublisherV2Service {
   async completeFacebookAuthorization(input: { state?: string; code?: string; error?: string }) {
     if (!input.state || !input.code || input.error) throw new NativePublisherV2Error("FACEBOOK_OAUTH_FAILED", 400, input.error || "Autorização Facebook não concluída.");
     const context = await this.consumeOAuthState(input.state, "facebook");
-    const version = this.options.facebookApiVersion || "v23.0";
+    const version = this.options.facebookApiVersion || "v25.0";
     const tokenUrl = new URL(`https://graph.facebook.com/${version}/oauth/access_token`);
     tokenUrl.searchParams.set("client_id", this.options.facebookAppId!);
     tokenUrl.searchParams.set("client_secret", this.options.facebookAppSecret!);
@@ -544,6 +544,7 @@ export class NativePublisherV2Service {
     brandId: string;
     content: ContentRequest;
     provider: NativePublisherProvider;
+    connectionId?: string;
     mode: "now" | "schedule" | "draft";
     scheduledFor?: string;
     idempotencyKey?: string;
@@ -551,13 +552,18 @@ export class NativePublisherV2Service {
     imageUrl?: string | null;
   }) {
     const pool = this.requirePool();
-    const connection = await this.primaryConnection(input.organizationId, input.brandId, input.provider);
+    const connection = await this.connectionForPublication(
+      input.organizationId,
+      input.brandId,
+      input.provider,
+      input.connectionId,
+    );
     if (!connection) throw new NativePublisherV2Error("SOCIAL_CONNECTION_NOT_FOUND", 409, `Conecte ${input.provider} para esta marca antes de publicar.`);
     const scheduledFor = input.mode === "schedule" ? new Date(input.scheduledFor || "") : null;
     if (input.mode === "schedule" && (!scheduledFor || Number.isNaN(scheduledFor.getTime()) || scheduledFor <= new Date())) {
       throw new NativePublisherV2Error("INVALID_SCHEDULE", 400, "Informe uma data futura válida para o agendamento.");
     }
-    const idempotencyKey = input.idempotencyKey || `${input.content.id}:${input.provider}:${input.mode}:${scheduledFor?.toISOString() || "now"}`;
+    const idempotencyKey = input.idempotencyKey || `${input.content.id}:${input.provider}:${connection.id}:${input.mode}:${scheduledFor?.toISOString() || "now"}`;
     const id = randomUUID();
     const status = input.mode === "draft" ? "draft" : input.mode === "schedule" ? "scheduled" : "publishing";
     const result = await pool.query<PublicationRow>(
@@ -706,8 +712,30 @@ export class NativePublisherV2Service {
     };
   }
 
-  private async primaryConnection(organizationId: string, brandId: string, provider: NativePublisherProvider) {
+  private async connectionForPublication(
+    organizationId: string,
+    brandId: string,
+    provider: NativePublisherProvider,
+    connectionId?: string,
+  ) {
     const pool = this.requirePool();
+    if (connectionId) {
+      const selected = await pool.query<ConnectionRow>(
+        `SELECT * FROM modo_native_social_connections
+         WHERE id=$1 AND organization_id=$2 AND brand_id=$3 AND provider=$4
+           AND (token_expires_at IS NULL OR token_expires_at>NOW())
+         LIMIT 1`,
+        [connectionId,organizationId,brandId,provider],
+      );
+      if (!selected.rows[0]) {
+        throw new NativePublisherV2Error(
+          "SOCIAL_CONNECTION_INVALID",
+          409,
+          "A conta social selecionada não pertence a esta marca, não corresponde ao canal ou expirou.",
+        );
+      }
+      return selected.rows[0];
+    }
     const result = await pool.query<ConnectionRow>(
       `SELECT * FROM modo_native_social_connections
        WHERE organization_id=$1 AND brand_id=$2 AND provider=$3
@@ -767,7 +795,7 @@ export class NativePublisherV2Service {
   private async publishInstagram(connection: ConnectionRow, token: string, caption: string, imageUrl: string | null) {
     if (!imageUrl) throw new NativePublisherV2Error("INSTAGRAM_MEDIA_REQUIRED", 409, "Instagram exige imagem pronta neste fluxo.");
     const base = (this.options.instagramGraphBaseUrl || "https://graph.instagram.com").replace(/\/$/,"");
-    const version = (this.options.instagramApiVersion || "v21.0").replace(/^([^v])/,"v$1");
+    const version = (this.options.instagramApiVersion || "v25.0").replace(/^([^v])/,"v$1");
     const media = await this.formPost(`${base}/${version}/${encodeURIComponent(connection.provider_account_id)}/media`, { image_url:imageUrl, caption, access_token:token });
     const creationId = text(media.id);
     if (!creationId) throw new Error("Instagram não retornou creation_id.");
@@ -781,7 +809,7 @@ export class NativePublisherV2Service {
   }
 
   private async publishFacebook(connection: ConnectionRow, token: string, caption: string, imageUrl: string | null) {
-    const version = this.options.facebookApiVersion || "v23.0";
+    const version = this.options.facebookApiVersion || "v25.0";
     const base = `https://graph.facebook.com/${version}/${encodeURIComponent(connection.provider_account_id)}`;
     const payload = imageUrl
       ? await this.formPost(`${base}/photos`, { url:imageUrl,caption,access_token:token,published:"true" })
@@ -819,7 +847,7 @@ export class NativePublisherV2Service {
         authorization:`Bearer ${token}`,
         "content-type":"application/json",
         "x-restli-protocol-version":"2.0.0",
-        "linkedin-version":this.options.linkedinApiVersion || "202606",
+        "linkedin-version":this.options.linkedinApiVersion || "202607",
       },
       body:JSON.stringify({author:connection.provider_account_id,commentary:caption.slice(0,3000),visibility:"PUBLIC",distribution:{feedDistribution:"MAIN_FEED",targetEntities:[],thirdPartyDistributionChannels:[]},lifecycleState:"PUBLISHED",isReshareDisabledByAuthor:false}),
       signal:AbortSignal.timeout(30000),
@@ -885,7 +913,7 @@ export class NativePublisherV2Service {
     const token = this.decrypt(connection.encrypted_access_token,this.secretFor(connection.provider));
     if (publication.provider === "instagram") {
       const base=(this.options.instagramGraphBaseUrl||"https://graph.instagram.com").replace(/\/$/,"");
-      const version=this.options.instagramApiVersion||"v21.0";
+      const version=this.options.instagramApiVersion||"v25.0";
       const url=new URL(`${base}/${version}/${encodeURIComponent(publication.providerPostId!)}/insights`);
       url.searchParams.set("metric","views,reach,likes,comments,shares,saved"); url.searchParams.set("access_token",token);
       const response=await fetch(url,{signal:AbortSignal.timeout(20000)}); const payload=await response.json().catch(()=>({})) as any;
@@ -899,7 +927,7 @@ export class NativePublisherV2Service {
       return response.ok ? this.insightArray(payload.data) : {};
     }
     if (publication.provider === "facebook") {
-      const version=this.options.facebookApiVersion||"v23.0";
+      const version=this.options.facebookApiVersion||"v25.0";
       const url=new URL(`https://graph.facebook.com/${version}/${encodeURIComponent(publication.providerPostId!)}`);
       url.searchParams.set("fields","shares,likes.summary(true),comments.summary(true)"); url.searchParams.set("access_token",token);
       const response=await fetch(url,{signal:AbortSignal.timeout(20000)}); const payload=await response.json().catch(()=>({})) as any;
@@ -907,7 +935,7 @@ export class NativePublisherV2Service {
       return {shares:metricValue(payload.shares?.count),likes:metricValue(payload.likes?.summary?.total_count),comments:metricValue(payload.comments?.summary?.total_count)};
     }
     const url=`https://api.linkedin.com/rest/socialActions/${encodeURIComponent(publication.providerPostId!)}`;
-    const response=await fetch(url,{headers:{authorization:`Bearer ${token}`,"x-restli-protocol-version":"2.0.0","linkedin-version":this.options.linkedinApiVersion||"202606"},signal:AbortSignal.timeout(20000)});
+    const response=await fetch(url,{headers:{authorization:`Bearer ${token}`,"x-restli-protocol-version":"2.0.0","linkedin-version":this.options.linkedinApiVersion||"202607"},signal:AbortSignal.timeout(20000)});
     const payload=await response.json().catch(()=>({})) as any;
     return response.ok ? {likes:metricValue(payload.likesSummary?.totalLikes),comments:metricValue(payload.commentsSummary?.totalFirstLevelComments)} : {};
   }

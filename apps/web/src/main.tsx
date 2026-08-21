@@ -27,6 +27,7 @@ import "./diagnostic-impact-bridge.css";
 import "./fishing-landing.css";
 import "./agency.css";
 import "./agency-workspace.css";
+import "./agency-approval.css";
 import "./smartbots.css";
 import "./campaign.css";
 import "./activation.css";

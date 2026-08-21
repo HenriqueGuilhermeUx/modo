@@ -6,6 +6,9 @@ export type NativePublisherProvider = z.infer<typeof NativePublisherProviderSche
 export const NativePublisherModeSchema = z.enum(["now", "schedule", "draft"]);
 export type NativePublisherMode = z.infer<typeof NativePublisherModeSchema>;
 
+export const NativeOAuthReturnTargetSchema = z.enum(["web", "mobile"]);
+export type NativeOAuthReturnTarget = z.infer<typeof NativeOAuthReturnTargetSchema>;
+
 export const NativeConnectionSchema = z.object({
   id: z.string().uuid(),
   provider: NativePublisherProviderSchema,
@@ -107,5 +110,8 @@ export const NativeCalendarItemSchema = z.object({
 });
 export type NativeCalendarItem = z.infer<typeof NativeCalendarItemSchema>;
 
-export const NativeProviderConnectSchema = z.object({ brandId: z.string().uuid() });
+export const NativeProviderConnectSchema = z.object({
+  brandId: z.string().uuid(),
+  returnTo: NativeOAuthReturnTargetSchema.default("web"),
+});
 export type NativeProviderConnect = z.infer<typeof NativeProviderConnectSchema>;

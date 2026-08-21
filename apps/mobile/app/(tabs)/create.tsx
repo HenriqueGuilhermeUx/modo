@@ -1,7 +1,8 @@
 import { contentCreditCost, type ContentUnitType } from "@modo/contracts";
 import type { ContentObjective, ContentRequest } from "@modo/contracts/content";
+import type { NativeConnection, NativePublication, NativePublisherProvider } from "@modo/contracts/native-publisher";
 import { Redirect, useLocalSearchParams } from "expo-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Image,
   Linking,
@@ -13,12 +14,22 @@ import {
   View,
 } from "react-native";
 import { approveContent, createContent, getContent } from "../../src/api";
+import {
+  cancelPublisherPublication,
+  createPublisherPublication,
+  listPublisherConnections,
+  listPublisherPublications,
+  retryPublisherPublication,
+  startPublisherConnection,
+} from "../../src/publisher";
 import { useSession } from "../../src/session";
 import { Button, Card, ErrorNotice, Field, Pill, Screen, SectionHeading, typography } from "../../src/ui";
 import { colors, radii, spacing } from "../../src/theme";
 
 const channels = ["Instagram", "Facebook", "LinkedIn"] as const;
 type Channel = typeof channels[number];
+
+type PublishMode = "now" | "schedule";
 
 const objectives: Array<{ value: ContentObjective; label: string; copy: string }> = [
   { value: "autoridade", label: "Construir autoridade", copy: "Ensinar e fortalecer posicionamento." },
@@ -46,8 +57,61 @@ const statusLabels: Record<ContentRequest["status"], string> = {
   cancelled: "Cancelado",
 };
 
+const publicationLabels: Record<NativePublication["status"], string> = {
+  draft: "Rascunho",
+  scheduled: "Agendado",
+  publishing: "Publicando",
+  published: "Publicado",
+  retrying: "Nova tentativa",
+  failed: "Falhou",
+  cancelled: "Cancelado",
+};
+
+const providerLabels: Record<NativePublisherProvider, string> = {
+  instagram: "Instagram",
+  facebook: "Facebook",
+  linkedin: "LinkedIn",
+  threads: "Threads",
+};
+
 function selectedParam(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] : value;
+}
+
+function providerForChannel(channel: string): NativePublisherProvider {
+  if (channel === "Facebook") return "facebook";
+  if (channel === "LinkedIn") return "linkedin";
+  return "instagram";
+}
+
+function pad(value: number) {
+  return String(value).padStart(2, "0");
+}
+
+function defaultSchedule() {
+  const next = new Date(Date.now() + 24 * 60 * 60 * 1000);
+  return {
+    date: `${next.getFullYear()}-${pad(next.getMonth() + 1)}-${pad(next.getDate())}`,
+    time: "09:00",
+  };
+}
+
+function scheduleIso(date: string, time: string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^\d{2}:\d{2}$/.test(time)) return null;
+  const parsed = new Date(`${date}T${time}:00`);
+  if (Number.isNaN(parsed.getTime()) || parsed.getTime() <= Date.now() + 60_000) return null;
+  return parsed.toISOString();
+}
+
+function publicationDate(publication: NativePublication) {
+  const value = publication.publishedAt || publication.scheduledFor;
+  if (!value) return "";
+  return new Intl.DateTimeFormat("pt-BR", {
+    day: "2-digit",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(value));
 }
 
 export default function CreateScreen() {
@@ -55,6 +119,7 @@ export default function CreateScreen() {
   const { width } = useWindowDimensions();
   const { token, dashboard, updateDashboard, refresh } = useSession();
   const requestedChannel = selectedParam(params.channel);
+  const initialSchedule = defaultSchedule();
   const [brandId, setBrandId] = useState(dashboard?.brands[0]?.id || "");
   const [channel, setChannel] = useState<Channel>(channels.includes(requestedChannel as Channel) ? requestedChannel as Channel : "Instagram");
   const [objective, setObjective] = useState<ContentObjective>("autoridade");
@@ -64,6 +129,18 @@ export default function CreateScreen() {
   const [approving, setApproving] = useState(false);
   const [request, setRequest] = useState<ContentRequest | null>(null);
   const [error, setError] = useState("");
+
+  const [connections, setConnections] = useState<NativeConnection[]>([]);
+  const [connectionId, setConnectionId] = useState("");
+  const [publication, setPublication] = useState<NativePublication | null>(null);
+  const [publisherLoading, setPublisherLoading] = useState(false);
+  const [publishing, setPublishing] = useState(false);
+  const [connecting, setConnecting] = useState(false);
+  const [publisherError, setPublisherError] = useState("");
+  const [publisherMessage, setPublisherMessage] = useState("");
+  const [publishMode, setPublishMode] = useState<PublishMode>("now");
+  const [scheduleDate, setScheduleDate] = useState(initialSchedule.date);
+  const [scheduleTime, setScheduleTime] = useState(initialSchedule.time);
 
   useEffect(() => {
     if (!brandId && dashboard?.brands[0]) setBrandId(dashboard.brands[0].id);
@@ -82,6 +159,10 @@ export default function CreateScreen() {
     }, 2500);
     return () => clearInterval(timer);
   }, [request, token]);
+
+  useEffect(() => {
+    if (request?.status === "approved" && token) void loadPublisher(request);
+  }, [request?.id, request?.status, token]);
 
   if (dashboard && dashboard.brands.length === 0) return <Redirect href="/setup" />;
   if (!dashboard) return <Screen><Text style={typography.body}>Sincronizando sua conta...</Text></Screen>;
@@ -102,7 +183,11 @@ export default function CreateScreen() {
     if (!token || !canCreate) return;
     setSubmitting(true);
     setError("");
+    setPublisherError("");
+    setPublisherMessage("");
     setRequest(null);
+    setPublication(null);
+    setConnections([]);
     try {
       const finalBrief = [selectedFormat?.instruction, brief.trim()].filter(Boolean).join("\n\n");
       const result = await createContent(token, { brandId, channel, objective, contentType, brief: finalBrief });
@@ -120,8 +205,10 @@ export default function CreateScreen() {
     setApproving(true);
     setError("");
     try {
-      setRequest(await approveContent(token, request.id));
+      const approved = await approveContent(token, request.id);
+      setRequest(approved);
       await refresh();
+      await loadPublisher(approved);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Não foi possível aprovar esta entrega.");
     } finally {
@@ -138,7 +225,115 @@ export default function CreateScreen() {
     });
   }
 
+  async function loadPublisher(target = request) {
+    if (!token || !target) return;
+    setPublisherLoading(true);
+    setPublisherError("");
+    try {
+      const provider = providerForChannel(target.channel);
+      const [allConnections, publications] = await Promise.all([
+        listPublisherConnections(token, target.brandId),
+        listPublisherPublications(token, target.brandId),
+      ]);
+      const eligible = allConnections.filter((item) => item.provider === provider && item.connected && item.canPublish);
+      setConnections(eligible);
+      setConnectionId((current) => eligible.some((item) => item.id === current) ? current : eligible[0]?.id || "");
+      const existing = publications.find(
+        (item) => item.contentRequestId === target.id && item.provider === provider && item.status !== "cancelled",
+      );
+      setPublication(existing || null);
+    } catch (caught) {
+      setPublisherError(caught instanceof Error ? caught.message : "Não foi possível carregar suas contas de publicação.");
+    } finally {
+      setPublisherLoading(false);
+    }
+  }
+
+  async function connectProvider() {
+    if (!token || !request) return;
+    setConnecting(true);
+    setPublisherError("");
+    setPublisherMessage("");
+    try {
+      const provider = providerForChannel(request.channel);
+      const authorizationUrl = await startPublisherConnection(token, provider, request.brandId);
+      setPublisherMessage(`Conclua a autorização de ${providerLabels[provider]} e volte ao app. Depois toque em “Atualizar conexões”.`);
+      await Linking.openURL(authorizationUrl);
+    } catch (caught) {
+      setPublisherError(caught instanceof Error ? caught.message : "Não foi possível iniciar a conexão da rede.");
+    } finally {
+      setConnecting(false);
+    }
+  }
+
+  async function publishApproved() {
+    if (!token || !request || !connectionId) return;
+    setPublishing(true);
+    setPublisherError("");
+    setPublisherMessage("");
+    try {
+      const provider = providerForChannel(request.channel);
+      const scheduledFor = publishMode === "schedule" ? scheduleIso(scheduleDate, scheduleTime) : undefined;
+      if (publishMode === "schedule" && !scheduledFor) {
+        setPublisherError("Informe uma data e hora futuras no formato AAAA-MM-DD e HH:MM.");
+        return;
+      }
+      const result = await createPublisherPublication(token, {
+        contentRequestId: request.id,
+        brandId: request.brandId,
+        provider,
+        connectionId,
+        mode: publishMode === "schedule" ? "schedule" : "now",
+        scheduledFor,
+        idempotencyKey: `mobile:${request.id}:${connectionId}:${publishMode}:${scheduledFor || "now"}`,
+      });
+      setPublication(result);
+      setPublisherMessage(
+        result.status === "published"
+          ? "Publicado com sucesso na conta escolhida."
+          : result.status === "scheduled"
+            ? `Publicação agendada para ${publicationDate(result)}.`
+            : "A publicação foi enviada ao Publisher e está sendo processada.",
+      );
+    } catch (caught) {
+      setPublisherError(caught instanceof Error ? caught.message : "Não foi possível publicar esta entrega.");
+    } finally {
+      setPublishing(false);
+    }
+  }
+
+  async function cancelPublication() {
+    if (!token || !publication) return;
+    setPublishing(true);
+    setPublisherError("");
+    try {
+      await cancelPublisherPublication(token, publication.id);
+      setPublication(null);
+      setPublisherMessage("Agendamento cancelado. Você pode escolher uma nova data ou publicar agora.");
+    } catch (caught) {
+      setPublisherError(caught instanceof Error ? caught.message : "Não foi possível cancelar a publicação.");
+    } finally {
+      setPublishing(false);
+    }
+  }
+
+  async function retryPublication() {
+    if (!token || !publication) return;
+    setPublishing(true);
+    setPublisherError("");
+    try {
+      const retried = await retryPublisherPublication(token, publication.id);
+      setPublication(retried);
+      setPublisherMessage("Nova tentativa enviada ao Publisher.");
+    } catch (caught) {
+      setPublisherError(caught instanceof Error ? caught.message : "Não foi possível reenviar a publicação.");
+    } finally {
+      setPublishing(false);
+    }
+  }
+
   const output = request?.output;
+  const provider = request ? providerForChannel(request.channel) : providerForChannel(channel);
 
   return (
     <Screen>
@@ -228,10 +423,86 @@ export default function CreateScreen() {
               <View style={styles.outputBlock}><Text style={styles.outputLabel}>CHAMADA</Text><Text selectable style={styles.outputText}>{output.cta}</Text></View>
               {output.hashtags.length ? <Text selectable style={styles.hashtags}>{output.hashtags.join(" ")}</Text> : null}
               {request.status === "ready" ? <Button onPress={() => void approve()} loading={approving}>Aprovar entrega</Button> : null}
-              {request.status === "approved" ? <Button variant="secondary" onPress={() => void shareCopy()}>Compartilhar texto aprovado</Button> : null}
+              {request.status === "approved" ? <Button variant="ghost" onPress={() => void shareCopy()}>Compartilhar texto aprovado</Button> : null}
             </>
           ) : (
             <View style={styles.processing}><Text style={styles.processingMark}>✦</Text><Text style={typography.body}>Texto, direção visual e imagem estão sendo preparados. Você pode continuar usando o aplicativo.</Text></View>
+          )}
+        </Card>
+      ) : null}
+
+      {request?.status === "approved" ? (
+        <Card style={styles.publisherCard}>
+          <View style={styles.publisherHead}>
+            <View>
+              <Text style={styles.publisherEyebrow}>MODO PUBLISHER</Text>
+              <Text style={typography.h2}>Aprovou. Agora publique ou agende.</Text>
+              <Text style={typography.small}>A mesma peça segue para {providerLabels[provider]} pela conta oficial conectada à sua marca.</Text>
+            </View>
+            <Pill tone="green">APROVADO</Pill>
+          </View>
+
+          {publisherError ? <ErrorNotice message={publisherError} /> : null}
+          {publisherMessage ? <View style={styles.publisherSuccess}><Text style={styles.publisherSuccessText}>{publisherMessage}</Text></View> : null}
+
+          {publisherLoading ? (
+            <View style={styles.processing}><Text style={styles.processingMark}>↗</Text><Text style={typography.body}>Carregando contas e publicações...</Text></View>
+          ) : publication ? (
+            <View style={styles.publicationStatus}>
+              <View style={styles.publicationTop}>
+                <View><Text style={styles.outputLabel}>{providerLabels[publication.provider].toUpperCase()}</Text><Text style={typography.h3}>{publicationLabels[publication.status]}</Text></View>
+                <Pill tone={publication.status === "published" ? "green" : publication.status === "failed" ? "warning" : "blue"}>{publicationLabels[publication.status]}</Pill>
+              </View>
+              {publicationDate(publication) ? <Text style={typography.small}>{publicationDate(publication)}</Text> : null}
+              {publication.lastError ? <ErrorNotice message={publication.lastError} /> : null}
+              {publication.permalink ? <Button variant="ghost" onPress={() => void Linking.openURL(publication.permalink!)}>Abrir publicação</Button> : null}
+              {publication.status === "scheduled" ? <Button variant="ghost" onPress={() => void cancelPublication()} loading={publishing}>Cancelar agendamento</Button> : null}
+              {publication.status === "failed" ? <Button onPress={() => void retryPublication()} loading={publishing}>Tentar publicar novamente</Button> : null}
+            </View>
+          ) : connections.length === 0 ? (
+            <View style={styles.connectBox}>
+              <Text style={typography.h3}>Conecte {providerLabels[provider]} uma vez.</Text>
+              <Text style={typography.small}>A autorização é feita pelo provedor oficial. Depois a MODO pode publicar e agendar pela conta escolhida.</Text>
+              <Button onPress={() => void connectProvider()} loading={connecting}>Conectar {providerLabels[provider]}</Button>
+              <Button variant="ghost" onPress={() => void loadPublisher()}>Atualizar conexões</Button>
+            </View>
+          ) : (
+            <View style={styles.publisherForm}>
+              <View style={styles.group}>
+                <Text style={typography.label}>Conta de publicação</Text>
+                <View style={styles.options}>
+                  {connections.map((item) => (
+                    <Option
+                      key={item.id}
+                      selected={connectionId === item.id}
+                      label={item.username ? `@${item.username.replace(/^@/, "")}` : item.displayName}
+                      onPress={() => setConnectionId(item.id)}
+                      compact={compactOptions}
+                    />
+                  ))}
+                </View>
+              </View>
+
+              <View style={styles.group}>
+                <Text style={typography.label}>Quando vai ao ar?</Text>
+                <View style={styles.options}>
+                  <Option selected={publishMode === "now"} label="Publicar agora" onPress={() => setPublishMode("now")} compact={compactOptions} />
+                  <Option selected={publishMode === "schedule"} label="Agendar" onPress={() => setPublishMode("schedule")} compact={compactOptions} />
+                </View>
+              </View>
+
+              {publishMode === "schedule" ? (
+                <View style={styles.scheduleGrid}>
+                  <Field label="Data" value={scheduleDate} onChangeText={setScheduleDate} placeholder="AAAA-MM-DD" autoCapitalize="none" />
+                  <Field label="Hora" value={scheduleTime} onChangeText={setScheduleTime} placeholder="09:00" autoCapitalize="none" />
+                </View>
+              ) : null}
+
+              <Button onPress={() => void publishApproved()} disabled={!connectionId} loading={publishing}>
+                {publishMode === "schedule" ? "Agendar publicação" : "Publicar agora"}
+              </Button>
+              <Button variant="ghost" onPress={() => void loadPublisher()}>Atualizar contas</Button>
+            </View>
           )}
         </Card>
       ) : null}
@@ -277,4 +548,14 @@ const styles = StyleSheet.create({
   hashtags: { color: colors.blue, fontSize: 13, lineHeight: 20, fontWeight: "700" },
   processing: { alignItems: "center", paddingVertical: spacing.lg, gap: spacing.sm },
   processingMark: { color: colors.blue, fontSize: 34 },
+  publisherCard: { gap: spacing.lg, borderColor: "#BFD0FF" },
+  publisherHead: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", gap: spacing.md },
+  publisherEyebrow: { color: colors.green, fontSize: 10, fontWeight: "900", letterSpacing: 1.2, marginBottom: 5 },
+  publisherSuccess: { borderRadius: radii.medium, backgroundColor: colors.greenSoft, padding: spacing.md },
+  publisherSuccessText: { color: "#087A56", fontSize: 13, lineHeight: 20, fontWeight: "800" },
+  publisherForm: { gap: spacing.lg },
+  connectBox: { gap: spacing.md, padding: spacing.md, borderRadius: radii.medium, backgroundColor: colors.blueSoft },
+  scheduleGrid: { gap: spacing.md },
+  publicationStatus: { gap: spacing.md, padding: spacing.md, borderRadius: radii.medium, backgroundColor: colors.background },
+  publicationTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: spacing.md },
 });

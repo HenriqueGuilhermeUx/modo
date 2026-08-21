@@ -33,7 +33,7 @@ export type PublisherHealth = {
   storage: string;
   providers: Record<NativePublisherProvider, boolean>;
   capabilities: Record<string, boolean>;
-  callbacks: { facebook: string | null; threads: string | null };
+  callbacks: { instagram: string | null; facebook: string | null; threads: string | null };
 };
 
 export async function getPublisherHealth(): Promise<PublisherHealth> {
@@ -62,7 +62,7 @@ export async function importLinkedInConnection(brandId: string): Promise<NativeC
   return NativeConnectionSchema.parse(payload.connection);
 }
 
-export async function startNativeConnection(provider: "facebook" | "threads", brandId: string) {
+export async function startNativeConnection(provider: "instagram" | "facebook" | "threads", brandId: string) {
   return request(`/api/v2/publisher/connect/${provider}`, {
     method: "POST",
     body: JSON.stringify({ brandId }),

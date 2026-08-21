@@ -95,6 +95,8 @@ services:
         sync: false
       - key: INSTAGRAM_REDIRECT_URI
         value: https://modo-api-3m10.onrender.com/api/v1/instagram/callback
+      - key: INSTAGRAM_PUBLISHER_REDIRECT_URI
+        value: https://modo-api-3m10.onrender.com/api/v2/publisher/oauth/instagram/callback
       - key: INSTAGRAM_TOKEN_ENCRYPTION_SECRET
         sync: false
       - key: INSTAGRAM_SCOPES

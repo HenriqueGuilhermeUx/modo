@@ -11,6 +11,7 @@ import { ContentAssetService } from "../services/content-asset-service.js";
 import { ContentService } from "../services/content-service.js";
 import { CreativeIntelligenceService } from "../services/creative-intelligence-service.js";
 import { DistributionQualityService } from "../services/distribution-quality-service.js";
+import { NativeInstagramOAuthError, NativeInstagramOAuthService } from "../services/native-instagram-oauth-service.js";
 import { NativePublisherV2Error, NativePublisherV2Service } from "../services/native-publisher-v2-service.js";
 
 const { Pool: PgPool } = pg;
@@ -20,6 +21,10 @@ interface Options {
   databaseSsl?: boolean;
   publicApiUrl?: string;
   publicWebUrl?: string;
+  instagramClientId?: string;
+  instagramClientSecret?: string;
+  instagramRedirectUri?: string;
+  instagramScopes?: string;
   instagramEncryptionSecret?: string;
   instagramGraphBaseUrl?: string;
   instagramApiVersion?: string;
@@ -48,6 +53,17 @@ export async function registerNativePublisherV2Routes(app: FastifyInstance, opti
   const creative = new CreativeIntelligenceService({ databaseUrl: options.databaseUrl, databaseSsl: options.databaseSsl });
   const quality = new DistributionQualityService();
   const publisher = new NativePublisherV2Service(options);
+  const instagramOAuth = new NativeInstagramOAuthService({
+    databaseUrl: options.databaseUrl,
+    databaseSsl: options.databaseSsl,
+    clientId: options.instagramClientId,
+    clientSecret: options.instagramClientSecret,
+    redirectUri: options.instagramRedirectUri,
+    encryptionSecret: options.instagramEncryptionSecret,
+    scopes: options.instagramScopes,
+    graphBaseUrl: options.instagramGraphBaseUrl,
+    apiVersion: options.instagramApiVersion,
+  });
   const learningPool: Pool | undefined = options.databaseUrl
     ? new PgPool({ connectionString: options.databaseUrl, ssl: options.databaseSsl ? { rejectUnauthorized: false } : undefined, max: 2 })
     : undefined;
@@ -70,11 +86,11 @@ export async function registerNativePublisherV2Routes(app: FastifyInstance, opti
   learningTimer.unref?.();
   app.addHook("onClose", async () => {
     clearInterval(learningTimer);
-    await Promise.all([auth.close(), content.close(), assets.close(), creative.close(), publisher.close(), learningPool?.end()]);
+    await Promise.all([auth.close(), content.close(), assets.close(), creative.close(), publisher.close(), instagramOAuth.close(), learningPool?.end()]);
   });
 
   app.setErrorHandler((error, request, reply) => {
-    if (error instanceof NativePublisherV2Error || error instanceof AuthError) {
+    if (error instanceof NativePublisherV2Error || error instanceof NativeInstagramOAuthError || error instanceof AuthError) {
       return reply.code(error.statusCode).send({ code: error.code, message: error.message });
     }
     request.log.error({ error }, "Publisher V2 error");
@@ -147,7 +163,7 @@ export async function registerNativePublisherV2Routes(app: FastifyInstance, opti
     status: "ok",
     provider: "modo_native_v2",
     storage: publisher.storage,
-    providers: publisher.providers,
+    providers: { ...publisher.providers, instagram: instagramOAuth.configured },
     capabilities: {
       multiBrand: true,
       scheduling: true,
@@ -157,8 +173,10 @@ export async function registerNativePublisherV2Routes(app: FastifyInstance, opti
       learning: true,
       qualityGate: true,
       calendar: true,
+      directInstagramOAuth: true,
     },
     callbacks: {
+      instagram: options.instagramRedirectUri || null,
       facebook: options.facebookRedirectUri || null,
       threads: options.threadsRedirectUri || null,
     },
@@ -169,6 +187,28 @@ export async function registerNativePublisherV2Routes(app: FastifyInstance, opti
     const brandId = z.string().uuid().optional().parse((request.query as { brandId?: string })?.brandId);
     if (brandId) await requireBrand(request, brandId);
     return { connections: await publisher.listConnections(current.organization.id, brandId) };
+  });
+
+  app.post("/api/v2/publisher/connect/instagram", async (request) => {
+    const { brandId } = NativeProviderConnectSchema.parse(request.body);
+    const { current } = await requireBrand(request, brandId);
+    return instagramOAuth.createAuthorizationUrl(current.organization.id, brandId);
+  });
+
+  app.get("/api/v2/publisher/oauth/instagram/callback", async (request, reply) => {
+    const query = request.query as { state?: string; code?: string; error?: string; error_description?: string };
+    try {
+      const result = await instagramOAuth.completeAuthorization({
+        state: query.state,
+        code: query.code,
+        error: query.error,
+        errorDescription: query.error_description,
+      });
+      return reply.redirect(`${options.publicWebUrl || "http://localhost:5173"}/app/publisher?brand=${encodeURIComponent(result.brandId)}&instagram=connected`);
+    } catch (error) {
+      const message = encodeURIComponent(error instanceof Error ? error.message.slice(0, 300) : "Autorização não concluída.");
+      return reply.redirect(`${options.publicWebUrl || "http://localhost:5173"}/app/publisher?instagram=error&message=${message}`);
+    }
   });
 
   app.post("/api/v2/publisher/connections/instagram/import", async (request, reply) => {

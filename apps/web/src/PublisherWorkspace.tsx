@@ -92,8 +92,8 @@ export default function PublisherWorkspace() {
       return;
     }
     const query = new URLSearchParams(window.location.search);
-    for (const provider of ["facebook", "threads"] as const) {
-      if (query.get(provider) === "connected") setMessage(`${providerLabels[provider]} conectado com sucesso.`);
+    for (const provider of ["instagram", "facebook", "threads"] as const) {
+      if (query.get(provider) === "connected") setMessage(`${providerLabels[provider]} conectado com sucesso à marca.`);
       if (query.get(provider) === "error") setError(query.get("message") || `Não foi possível conectar ${providerLabels[provider]}.`);
     }
     void load();
@@ -112,16 +112,16 @@ export default function PublisherWorkspace() {
     try {
       if (provider === "instagram") await importInstagramConnection(brandId);
       else await importLinkedInConnection(brandId);
-      setMessage(`${providerLabels[provider]} vinculado a ${selectedBrand?.name || "esta marca"}.`);
+      setMessage(`${providerLabels[provider]} anterior vinculado a ${selectedBrand?.name || "esta marca"}.`);
       await load(brandId);
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Não foi possível importar a conexão.");
+      setError(caught instanceof Error ? caught.message : "Não foi possível importar a conexão anterior.");
     } finally {
       setWorking("");
     }
   }
 
-  async function connect(provider: "facebook" | "threads") {
+  async function connect(provider: "instagram" | "facebook" | "threads") {
     if (!brandId) return;
     setWorking(`connect-${provider}`);
     setError("");
@@ -168,7 +168,7 @@ export default function PublisherWorkspace() {
           <div>
             <div className="section-kicker">MODO PUBLISHER · DISTRIBUIÇÃO + LEARNING</div>
             <h1>Publique. Meça. Aprenda. Faça melhor.</h1>
-            <p>Uma única operação para conectar canais, agendar, recuperar falhas e transformar performance real em próxima decisão criativa.</p>
+            <p>Uma única operação para conectar canais por marca, agendar, recuperar falhas e transformar performance real em próxima decisão criativa.</p>
           </div>
           <label>Marca<select value={brandId} onChange={(event) => void switchBrand(event.target.value)}>{dashboard.brands.map((brand) => <option key={brand.id} value={brand.id}>{brand.name}</option>)}</select></label>
         </section>
@@ -197,8 +197,13 @@ export default function PublisherWorkspace() {
               return (
                 <article key={provider} className={connected.length ? "connected" : ""}>
                   <div><small>{provider.toUpperCase()}</small><h3>{providerLabels[provider]}</h3></div>
-                  {connected.length ? <p>{connected.map((item) => item.displayName).join(" · ")}</p> : <p>{configured ? "Pronto para conectar." : "Credenciais do app ainda não configuradas."}</p>}
-                  {provider === "instagram" && <button className="button button-secondary" disabled={Boolean(working)} onClick={() => void syncExisting("instagram")}>{working === "sync-instagram" ? "Vinculando..." : connected.length ? "Atualizar vínculo" : "Vincular Instagram conectado"}</button>}
+                  {connected.length ? <p>{connected.map((item) => item.displayName).join(" · ")}</p> : <p>{configured ? "Pronto para conectar nesta marca." : "Credenciais do app ainda não configuradas."}</p>}
+                  {provider === "instagram" && (
+                    <>
+                      <button className="button button-secondary" disabled={!configured || Boolean(working)} onClick={() => void connect("instagram")}>{working === "connect-instagram" ? "Abrindo Instagram..." : connected.length ? "Conectar outra conta" : "Conectar Instagram"}</button>
+                      {!connected.length && <button className="publisher-link-button" disabled={Boolean(working)} onClick={() => void syncExisting("instagram")}>{working === "sync-instagram" ? "Importando..." : "Usar conexão anterior"}</button>}
+                    </>
+                  )}
                   {provider === "linkedin" && <button className="button button-secondary" disabled={Boolean(working)} onClick={() => void syncExisting("linkedin")}>{working === "sync-linkedin" ? "Vinculando..." : connected.length ? "Atualizar vínculo" : "Vincular LinkedIn conectado"}</button>}
                   {provider === "facebook" && <button className="button button-secondary" disabled={!configured || Boolean(working)} onClick={() => void connect("facebook")}>{working === "connect-facebook" ? "Abrindo Meta..." : "Conectar Facebook Pages"}</button>}
                   {provider === "threads" && <button className="button button-secondary" disabled={!configured || Boolean(working)} onClick={() => void connect("threads")}>{working === "connect-threads" ? "Abrindo Threads..." : "Conectar Threads"}</button>}

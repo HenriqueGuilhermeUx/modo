@@ -83,6 +83,10 @@ jobs:
           PUBLIC_API_URL: http://127.0.0.1:4011
           PUBLIC_WEB_URL: http://127.0.0.1:5173
           ALLOWED_ORIGINS: http://127.0.0.1:5173
+          INSTAGRAM_CLIENT_ID: ci-instagram-client
+          INSTAGRAM_CLIENT_SECRET: ci-instagram-secret
+          INSTAGRAM_TOKEN_ENCRYPTION_SECRET: ci-instagram-encryption-secret
+          INSTAGRAM_PUBLISHER_REDIRECT_URI: http://127.0.0.1:4011/api/v2/publisher/oauth/instagram/callback
         run: |
           set -euo pipefail
           LOG_FILE="${RUNNER_TEMP}/modo-api-publisher-v2-postgres.log"
@@ -94,10 +98,13 @@ jobs:
           trap cleanup EXIT
 
           for attempt in {1..45}; do
-            if curl --fail --silent "http://127.0.0.1:4011/health" >/dev/null && \
-               curl --fail --silent "http://127.0.0.1:4011/api/v2/publisher/health" >/dev/null; then
-              echo "MODO Publisher V2 iniciou com PostgreSQL e criou a infraestrutura persistente."
-              exit 0
+            if curl --fail --silent "http://127.0.0.1:4011/health" >/dev/null; then
+              PUBLISHER_HEALTH="$(curl --fail --silent "http://127.0.0.1:4011/api/v2/publisher/health" || true)"
+              if printf '%s' "${PUBLISHER_HEALTH}" | grep -q '"directInstagramOAuth":true' && \
+                 printf '%s' "${PUBLISHER_HEALTH}" | grep -q 'api/v2/publisher/oauth/instagram/callback'; then
+                echo "MODO Publisher V2 iniciou com PostgreSQL e OAuth Instagram direto registrado."
+                exit 0
+              fi
             fi
             if ! kill -0 "${API_PID}" 2>/dev/null; then
               echo "MODO API encerrou durante o startup do Publisher V2:"
@@ -107,6 +114,6 @@ jobs:
             sleep 1
           done
 
-          echo "MODO Publisher V2 não ficou saudável com PostgreSQL:"
+          echo "MODO Publisher V2 não ficou saudável com PostgreSQL/OAuth Instagram:"
           cat "${LOG_FILE}"
           exit 1

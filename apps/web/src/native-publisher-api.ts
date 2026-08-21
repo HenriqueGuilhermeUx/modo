@@ -62,7 +62,7 @@ export async function importLinkedInConnection(brandId: string): Promise<NativeC
   return NativeConnectionSchema.parse(payload.connection);
 }
 
-export async function startNativeConnection(provider: "instagram" | "facebook" | "threads", brandId: string) {
+export async function startNativeConnection(provider: "instagram" | "facebook" | "threads" | "linkedin", brandId: string) {
   return request(`/api/v2/publisher/connect/${provider}`, {
     method: "POST",
     body: JSON.stringify({ brandId }),

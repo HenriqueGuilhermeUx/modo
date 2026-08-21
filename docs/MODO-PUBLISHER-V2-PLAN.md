@@ -12,12 +12,13 @@ Postiz não é obrigatório. O produto usa conectores nativos no backend hospeda
 
 - isolamento por organização e marca;
 - múltiplas conexões sociais por marca/provider;
+- escolha determinística da conta social por publicação;
 - Instagram, Facebook Pages, Threads e LinkedIn;
 - importar as autorizações Instagram/LinkedIn já existentes sem pedir a senha novamente;
 - publicação imediata;
 - agendamento;
 - rascunho;
-- idempotência;
+- idempotência por intenção e conta selecionada;
 - retry exponencial com limite de tentativas;
 - cancelamento e reenvio manual;
 - Quality Gate antes da distribuição;
@@ -38,11 +39,12 @@ Postiz não é obrigatório. O produto usa conectores nativos no backend hospeda
 7. O cliente cria uma peça.
 8. A peça passa por revisão e aprovação humana.
 9. O Quality Gate avalia aprovação, copy, CTA, hashtags, mídia, estrutura e tópicos proibidos.
-10. O cliente escolhe `Publicar agora`, `Agendar` ou `Rascunho`.
-11. A publicação é registrada com chave de idempotência.
-12. Em caso de falha transitória, entra em retry com backoff; falhas finais ficam visíveis para reenvio manual.
-13. A MODO coleta métricas periodicamente.
-14. Performance vira sinal de aprendizado para próximas recomendações.
+10. Quando houver mais de uma conta do mesmo canal, o cliente escolhe explicitamente a conta de destino.
+11. O cliente escolhe `Publicar agora`, `Agendar` ou `Rascunho`.
+12. A publicação é registrada com chave de idempotência que inclui a conta selecionada.
+13. Em caso de falha transitória, entra em retry com backoff; falhas finais ficam visíveis para reenvio manual.
+14. A MODO coleta métricas periodicamente.
+15. Performance vira sinal de aprendizado para próximas recomendações.
 
 ## Multi-marca e Instagram
 
@@ -59,6 +61,8 @@ Para cada marca:
 
 Assim a tabela V2 preserva simultaneamente os vínculos `Marca A -> Instagram A`, `Marca B -> Instagram B`, etc., mesmo que a conexão de compatibilidade V1 seja trocada depois.
 
+Quando uma marca possui mais de uma conexão do mesmo provider, o `connectionId` escolhido pelo cliente é validado no backend contra organização, marca, provider e validade do token. O backend não substitui silenciosamente essa escolha pela conexão mais recente.
+
 ## Variáveis de produção
 
 ### Instagram — já em uso
@@ -69,7 +73,7 @@ INSTAGRAM_CLIENT_SECRET=
 INSTAGRAM_REDIRECT_URI=https://modo-api-3m10.onrender.com/api/v1/instagram/callback
 INSTAGRAM_TOKEN_ENCRYPTION_SECRET=
 INSTAGRAM_SCOPES=instagram_business_basic,instagram_business_content_publish,instagram_business_manage_insights,instagram_business_manage_comments
-INSTAGRAM_API_VERSION=v21.0
+INSTAGRAM_API_VERSION=v25.0
 INSTAGRAM_GRAPH_BASE_URL=https://graph.instagram.com
 ```
 
@@ -79,7 +83,7 @@ INSTAGRAM_GRAPH_BASE_URL=https://graph.instagram.com
 FACEBOOK_APP_ID=
 FACEBOOK_APP_SECRET=
 FACEBOOK_REDIRECT_URI=https://modo-api-3m10.onrender.com/api/v2/publisher/oauth/facebook/callback
-FACEBOOK_API_VERSION=v23.0
+FACEBOOK_API_VERSION=v25.0
 ```
 
 Permissões pedidas pelo fluxo:
@@ -105,7 +109,7 @@ LINKEDIN_CLIENT_ID=
 LINKEDIN_CLIENT_SECRET=
 LINKEDIN_REDIRECT_URI=https://modo-api-3m10.onrender.com/api/v1/linkedin/callback
 LINKEDIN_TOKEN_ENCRYPTION_SECRET=
-LINKEDIN_API_VERSION=202606
+LINKEDIN_API_VERSION=202607
 ```
 
 O LinkedIn V1 continua responsável pelo OAuth. Depois da autorização, o Publisher V2 usa `Vincular LinkedIn conectado` para persistir o vínculo por marca.
@@ -135,8 +139,9 @@ Gravar um vídeo de revisão mostrando:
 6. criação de uma peça;
 7. aprovação humana;
 8. Quality Gate;
-9. publicação controlada;
-10. tela Publisher/performance.
+9. escolha explícita da conta, quando houver mais de uma;
+10. publicação controlada;
+11. tela Publisher/performance.
 
 Manter a conta de revisão da MODO funcional, com uma marca de teste e conteúdo suficiente para o avaliador.
 
@@ -178,7 +183,7 @@ Falha após o limite:
 
 `publishing -> failed`
 
-O cliente pode clicar `Tentar novamente`. A chave de idempotência impede criação acidental de duplicatas para a mesma intenção de publicação.
+O cliente pode clicar `Tentar novamente`. A chave de idempotência impede criação acidental de duplicatas para a mesma intenção de publicação e preserva a conta social escolhida.
 
 ## Analytics e Learning
 
@@ -219,6 +224,7 @@ GET  /api/v2/publisher/brands/:brandId/calendar
 - tokens persistidos são criptografados;
 - todas as operações privadas autenticam a organização;
 - `brandId` é validado contra a organização autenticada;
+- `connectionId`, quando informado, precisa pertencer à mesma organização, marca e provider e estar ativo;
 - conteúdo precisa pertencer à mesma marca;
 - publicação exige aprovação humana;
 - Quality Gate precede distribuição;
@@ -230,12 +236,13 @@ GET  /api/v2/publisher/brands/:brandId/calendar
 2. `GET /api/v2/publisher/health` -> `modo_native_v2` e `storage=postgres`.
 3. Abrir `/app/publisher`.
 4. Vincular o Instagram já conectado à marca de teste.
-5. Gerar/aprovar uma peça.
-6. Criar primeiro `Rascunho`.
-7. Criar primeiro `Agendamento` curto e validar execução.
-8. Fazer primeira publicação real controlada.
-9. Atualizar desempenho após a rede disponibilizar métricas.
-10. Confirmar recomendação do dashboard.
-11. Configurar LinkedIn e validar conexão.
-12. Configurar Meta App para Facebook/Threads e validar OAuth com contas de teste.
-13. Concluir App Review/Advanced Access antes de abrir os conectores a clientes externos.
+5. Confirmar que a conta selecionada no Publisher aparece como destino da publicação.
+6. Gerar/aprovar uma peça.
+7. Criar primeiro `Rascunho`.
+8. Criar primeiro `Agendamento` curto e validar execução.
+9. Fazer primeira publicação real controlada.
+10. Atualizar desempenho após a rede disponibilizar métricas.
+11. Confirmar recomendação do dashboard.
+12. Configurar LinkedIn e validar conexão.
+13. Configurar Meta App para Facebook/Threads e validar OAuth com contas de teste.
+14. Concluir App Review/Advanced Access antes de abrir os conectores a clientes externos.

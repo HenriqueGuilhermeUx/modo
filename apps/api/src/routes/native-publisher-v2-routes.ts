@@ -240,6 +240,7 @@ export async function registerNativePublisherV2Routes(app: FastifyInstance, opti
       brandId: input.brandId,
       content: contentRequest,
       provider: input.provider,
+      connectionId: input.connectionId,
       mode: input.mode,
       scheduledFor: input.scheduledFor,
       idempotencyKey: input.idempotencyKey,

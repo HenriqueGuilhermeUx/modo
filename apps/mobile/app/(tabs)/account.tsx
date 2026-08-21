@@ -68,7 +68,7 @@ export default function AccountScreen() {
 
   return (
     <Screen>
-      <View style={styles.top}><BrandMark /><Pill tone="neutral">VERSÃO 1.0.0</Pill></View>
+      <View style={styles.top}><BrandMark /><Pill tone="neutral">VERSÃO 1.0.2</Pill></View>
       <SectionHeading eyebrow="SUA CONTA" title={dashboard.user.name} copy={accountEmail} />
 
       <Card style={styles.planCard}>

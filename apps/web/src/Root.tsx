@@ -2,6 +2,7 @@ import { lazy, Suspense, type ReactNode } from "react";
 
 const AdminWorkspace=lazy(()=>import("./AdminWorkspace"));
 const AgencyLanding=lazy(()=>import("./AgencyLanding"));
+const AgencyWorkspace=lazy(()=>import("./AgencyWorkspace"));
 const BillingWorkspace=lazy(()=>import("./BillingWorkspace"));
 const CampaignWorkspace=lazy(()=>import("./CampaignWorkspace"));
 const ContentWorkspace=lazy(()=>import("./ContentWorkspace"));
@@ -34,6 +35,8 @@ function suspended(node:ReactNode){return <Suspense fallback={<RouteLoading/>}>{
 
 export default function Root(){
  const path=window.location.pathname.replace(/\/$/,"")||"/";
+ const params=new URLSearchParams(window.location.search);
+ const agencyMode=params.get("mode")==="agency"||window.sessionStorage.getItem("modo.accountMode")==="agency";
  if(["/politica-de-privacidade","/privacy","/privacy-policy"].includes(path))return suspended(<PrivacyPolicyPage/>);
  if(["/exclusao-de-dados","/data-deletion"].includes(path))return suspended(<DataDeletionPage/>);
  if(path==="/agency"||path==="/modo-agency")return suspended(<AgencyLanding/>);
@@ -45,6 +48,7 @@ export default function Root(){
  if(path==="/admin/rede")return suspended(<HumanOperationsAdminWorkspace/>);
  if(path.startsWith("/admin"))return suspended(<><AdminWorkspace/><div style={{position:"fixed",right:22,bottom:22,zIndex:1000,display:"flex",gap:8}}><a href="/admin/rede" style={{background:"#1F5EFF",color:"#fff",borderRadius:999,padding:"12px 17px",fontSize:11,fontWeight:900,boxShadow:"0 15px 40px rgba(13,27,62,.2)",textDecoration:"none"}}>Time Modo</a><a href="/admin/smartbots" style={{background:"#2ED19A",color:"#0D1B3E",borderRadius:999,padding:"12px 17px",fontSize:11,fontWeight:900,boxShadow:"0 15px 40px rgba(13,27,62,.2)",textDecoration:"none"}}>SmartBots</a></div></>);
  if(path.startsWith("/convite/"))return suspended(<InvitationWorkspace/>);
+ if(path==="/app/agency"||(path==="/app"&&agencyMode))return suspended(<AgencyWorkspace/>);
  if(path.startsWith("/app/onboarding"))return suspended(<OnboardingWorkspace/>);
  if(path.startsWith("/app/studio/"))return suspended(<StudioWorkspace/>);
  if(path.startsWith("/app/base"))return suspended(<StrategyWorkspace/>);

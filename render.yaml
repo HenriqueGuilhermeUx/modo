@@ -83,6 +83,8 @@ services:
         sync: false
       - key: LINKEDIN_REDIRECT_URI
         value: https://modo-api-3m10.onrender.com/api/v1/linkedin/callback
+      - key: LINKEDIN_PUBLISHER_REDIRECT_URI
+        value: https://modo-api-3m10.onrender.com/api/v2/publisher/oauth/linkedin/callback
       - key: LINKEDIN_SCOPES
         value: r_liteprofile w_member_social
       - key: LINKEDIN_TOKEN_ENCRYPTION_SECRET

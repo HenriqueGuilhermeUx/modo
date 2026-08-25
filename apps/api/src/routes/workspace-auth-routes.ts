@@ -43,6 +43,10 @@ async function passwordAction<T>(operation: () => Promise<T>) {
 export async function registerWorkspaceAuthRoutes(app: FastifyInstance, options: Options) {
   const workspaceAuth = new WorkspaceAuthService(options);
   const billing = new BillingService({ databaseUrl: options.databaseUrl, databaseSsl: options.databaseSsl });
+  const resendConfigured = Boolean(process.env.RESEND_API_KEY?.trim());
+  const senderConfigured = Boolean(
+    (process.env.PASSWORD_RESET_EMAIL_FROM || process.env.HUMAN_SUPPORT_EMAIL_FROM)?.trim(),
+  );
   const passwordReset = new PasswordResetService({
     databaseUrl: options.databaseUrl,
     databaseSsl: options.databaseSsl,
@@ -101,5 +105,10 @@ export async function registerWorkspaceAuthRoutes(app: FastifyInstance, options:
     configured: workspaceAuth.configured,
     separation: "business_vs_agency",
     passwordRecovery: passwordReset.configured ? "configured" : "not_configured",
+    passwordRecoveryConfig: {
+      database: Boolean(options.databaseUrl),
+      resend: resendConfigured,
+      sender: senderConfigured,
+    },
   }));
 }

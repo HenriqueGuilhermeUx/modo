@@ -17,6 +17,7 @@ import "./integrations.css";
 import "./signal.css";
 import "./admin.css";
 import "./onboarding.css";
+import "./smart-onboarding.css";
 import "./marketing-clarity.css";
 import "./quick-start.css";
 import "./studio.css";

@@ -47,30 +47,83 @@ jobs:
       - name: Verify production API capabilities
         shell: bash
         run: |
-          set -euo pipefail
+          set -u
+          failures=0
 
-          workspace="$(curl --fail --silent --show-error --max-time 20 "${API_URL}/api/v1/workspace-auth/health")"
-          printf '%s\n' "${workspace}" | jq .
-          printf '%s' "${workspace}" | jq -e '
+          fetch_json() {
+            local url="$1"
+            curl --fail --silent --show-error --max-time 20 "${url}" 2>/dev/null || printf '{}'
+          }
+
+          echo "=== Core ==="
+          core="$(fetch_json "${API_URL}/health")"
+          printf '%s\n' "${core}" | jq .
+          if ! printf '%s' "${core}" | jq -e '
             .status == "ok" and
+            .billingStorage == "postgres" and
+            .accountStorage == "postgres" and
+            .contentStorage == "postgres" and
+            .contentProvider == "openai" and
+            .canvaIntegration == "configured" and
+            .instagramIntegration == "configured" and
+            .paymentsProvider == "woovi"
+          ' >/dev/null; then
+            echo "::error::Core de produção não está com PostgreSQL/OpenAI/Canva/Instagram/Woovi conforme esperado."
+            failures=$((failures + 1))
+          fi
+
+          echo "=== Workspace auth / password recovery ==="
+          workspace="$(fetch_json "${API_URL}/api/v1/workspace-auth/health")"
+          printf '%s\n' "${workspace}" | jq .
+          if ! printf '%s' "${workspace}" | jq -e '
+            .status == "ok" and
+            .configured == true and
             .separation == "business_vs_agency" and
             .passwordRecovery == "configured"
-          ' >/dev/null
+          ' >/dev/null; then
+            echo "::error::Recuperação de senha ainda não está pronta em produção. Consulte passwordRecoveryConfig acima."
+            failures=$((failures + 1))
+          fi
 
-          publisher="$(curl --fail --silent --show-error --max-time 20 "${API_URL}/api/v2/publisher/health")"
+          echo "=== Publisher V2 ==="
+          publisher="$(fetch_json "${API_URL}/api/v2/publisher/health")"
           printf '%s\n' "${publisher}" | jq .
-          printf '%s' "${publisher}" | jq -e '
+          if ! printf '%s' "${publisher}" | jq -e '
             .status == "ok" and
+            .provider == "modo_native_v2" and
+            .storage == "postgres" and
+            .providers.instagram == true and
             .capabilities.multiBrand == true and
             .capabilities.scheduling == true and
+            .capabilities.retries == true and
+            .capabilities.idempotency == true and
+            .capabilities.analytics == true and
+            .capabilities.learning == true and
+            .capabilities.qualityGate == true and
+            .capabilities.calendar == true and
             .capabilities.directInstagramOAuth == true
-          ' >/dev/null
+          ' >/dev/null; then
+            echo "::error::Publisher V2 não apresentou todas as capacidades obrigatórias."
+            failures=$((failures + 1))
+          fi
 
-          linkedin="$(curl --fail --silent --show-error --max-time 20 "${API_URL}/api/v2/publisher/linkedin/health")"
+          echo "=== LinkedIn direto ==="
+          linkedin="$(fetch_json "${API_URL}/api/v2/publisher/linkedin/health")"
           printf '%s\n' "${linkedin}" | jq .
-          printf '%s' "${linkedin}" | jq -e '.configured == true' >/dev/null
+          if ! printf '%s' "${linkedin}" | jq -e '
+            .status == "ok" and
+            .configured == true
+          ' >/dev/null; then
+            echo "::error::LinkedIn direto não está configurado em produção."
+            failures=$((failures + 1))
+          fi
 
-          echo "API de produção confirmou recuperação de senha e Publisher V2."
+          if (( failures > 0 )); then
+            echo "Smoke da API terminou com ${failures} bloqueio(s)."
+            exit 1
+          fi
+
+          echo "API de produção passou em todas as capacidades obrigatórias."
 
       - name: Wait for Netlify production markers
         if: always()

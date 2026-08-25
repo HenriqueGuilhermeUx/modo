@@ -1,5 +1,5 @@
 import { createHash, randomBytes, randomUUID, scryptSync } from "node:crypto";
-import pg, { type Pool, type PoolClient } from "pg";
+import pg, { type Pool } from "pg";
 
 const { Pool: PgPool } = pg;
 const RESET_MINUTES = 30;
@@ -119,24 +119,26 @@ export class PasswordResetService {
     const token = randomBytes(32).toString("base64url");
     const tokenHash = hashToken(token);
     const expiresAt = new Date(Date.now() + RESET_MINUTES * 60_000);
-
-    await pool.query("BEGIN");
+    const client = await pool.connect();
     try {
-      await pool.query(
+      await client.query("BEGIN");
+      await client.query(
         `UPDATE modo_password_reset_tokens
          SET used_at=COALESCE(used_at,NOW())
          WHERE user_id=$1 AND used_at IS NULL`,
         [user.id],
       );
-      await pool.query(
+      await client.query(
         `INSERT INTO modo_password_reset_tokens(id,token_hash,user_id,expires_at)
          VALUES($1,$2,$3,$4)`,
         [randomUUID(), tokenHash, user.id, expiresAt],
       );
-      await pool.query("COMMIT");
+      await client.query("COMMIT");
     } catch (error) {
-      await pool.query("ROLLBACK");
+      await client.query("ROLLBACK");
       throw error;
+    } finally {
+      client.release();
     }
 
     try {

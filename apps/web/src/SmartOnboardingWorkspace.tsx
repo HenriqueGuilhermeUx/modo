@@ -26,7 +26,10 @@ const objectiveOptions = [
 function splitItems(value: string) {
   return value.split(/\n|,/).map((item) => item.trim()).filter((item) => item.length >= 2);
 }
-
+function normalizeOptionalUrl(value: string) {
+  const trimmed = value.trim();
+  return !trimmed || /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+}
 function objectivesFromScan(priorities: string[]) {
   const text = priorities.join(" ").toLowerCase();
   const values = new Set<string>();
@@ -116,14 +119,13 @@ export default function SmartOnboardingWorkspace() {
   async function saveBrand() {
     setSaving(true); setError("");
     try {
-      const brand = await createBrand({ name: brandName, websiteUrl: brandWebsite, instagramHandle: brandInstagram, niche: brandNiche });
+      const brand = await createBrand({ name: brandName, websiteUrl: normalizeOptionalUrl(brandWebsite), instagramHandle: brandInstagram, niche: brandNiche });
       if (foundation) await saveBrandFoundation({ brandId: brand.id, foundation, status: "draft" });
       const current = await getDashboard(); setDashboard(current); setBrandId(brand.id); setStep(2);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Não foi possível salvar a marca.");
     } finally { setSaving(false); }
   }
-
   async function handleManualBrand(event: FormEvent) { event.preventDefault(); await saveBrand(); }
 
   async function finishOnboarding() {
@@ -138,11 +140,13 @@ export default function SmartOnboardingWorkspace() {
             spokespersons: peopleAvailable.length ? peopleAvailable : foundation.humanPresence.spokespersons,
             cameraAvailability: peopleAvailable.length ? comfortableOnCamera ? "high" : "low" : "none",
             notes: notes || foundation.humanPresence.notes,
-          } },
-          status: "draft",
+          } }, status: "draft",
         });
       }
-      const objectiveTitles = objectives.map((id) => objectiveOptions.find(([key]) => key === id)?.[1]).filter((item): item is string => Boolean(item));
+      const objectiveTitles = objectives.flatMap((id) => {
+        const found = objectiveOptions.find(([key]) => key === id);
+        return found ? [found[1]] : [];
+      });
       await saveCreativeProfile({
         brandId, peopleAvailable, comfortableOnCamera, weeklyMinutesAvailable: weeklyMinutes,
         locations: splitItems(locations), productsOrServicesToShow: splitItems(offers), proofAvailable: splitItems(proof),
@@ -184,7 +188,7 @@ export default function SmartOnboardingWorkspace() {
         {step === 0 && manualMode && <form onSubmit={handleManualBrand} className="onboarding-form">
           <div className="onboarding-heading"><small>CADASTRO MANUAL</small><h2>Sem problema. Começamos pelo essencial.</h2></div>
           <label>Nome<input value={brandName} onChange={(e) => setBrandName(e.target.value)} required /></label>
-          <label>Site <span>(opcional)</span><input value={brandWebsite} onChange={(e) => setBrandWebsite(e.target.value)} placeholder="https://..." /></label>
+          <label>Site <span>(opcional)</span><input value={brandWebsite} onChange={(e) => setBrandWebsite(e.target.value)} placeholder="suaempresa.com.br" /></label>
           <label>Instagram <span>(opcional)</span><input value={brandInstagram} onChange={(e) => setBrandInstagram(e.target.value)} placeholder="@suaempresa" /></label>
           <label>Segmento<select value={brandNiche} onChange={(e) => setBrandNiche(e.target.value as Niche)}>{(Object.keys(nicheLabels) as Niche[]).map((niche) => <option key={niche} value={niche}>{nicheLabels[niche]}</option>)}</select></label>
           <div className="onboarding-actions"><button type="button" className="button button-outline" onClick={() => setManualMode(false)}>Voltar ao scan</button><button className="button button-primary" disabled={saving}>{saving ? "Salvando..." : "Continuar"}</button></div>

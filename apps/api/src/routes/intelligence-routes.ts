@@ -2,6 +2,7 @@ import {
   IntelligenceCallbackSchema,
   IntelligenceMissionCreateSchema,
   intelligencePlaybookCatalog,
+  type IntelligenceMission,
 } from "@modo/contracts/intelligence";
 import { randomUUID } from "node:crypto";
 import type { FastifyInstance, FastifyRequest } from "fastify";
@@ -17,6 +18,7 @@ import {
 } from "../services/intelligence-quota-service.js";
 import { IntelligenceError, type IntelligenceService } from "../services/intelligence-service.js";
 
+const TRIAL_PREVIEW_LIMIT = 5;
 const LeadStatusSchema = z.enum([
   "new",
   "qualified",
@@ -73,6 +75,14 @@ function databaseSsl() {
   );
 }
 
+function trialMissionView(mission: IntelligenceMission, trial: boolean): IntelligenceMission {
+  if (!trial) return mission;
+  return {
+    ...mission,
+    resultPreview: mission.resultPreview.slice(0, TRIAL_PREVIEW_LIMIT),
+  };
+}
+
 export async function registerIntelligenceRoutes(
   app: FastifyInstance,
   auth: AuthService,
@@ -101,7 +111,12 @@ export async function registerIntelligenceRoutes(
 
   app.get("/api/v1/intelligence/missions", async (request) => {
     const context = await auth.authenticate(bearerToken(request));
-    return { missions: await execute(() => intelligence.list(context.organization.id)) };
+    const [missions, usage] = await Promise.all([
+      execute(() => intelligence.list(context.organization.id)),
+      execute(() => quota.usage(context.organization.id)),
+    ]);
+    const trial = usage.plan === "trial";
+    return { missions: missions.map((mission) => trialMissionView(mission, trial)) };
   });
 
   app.post(
@@ -151,19 +166,27 @@ export async function registerIntelligenceRoutes(
   app.get("/api/v1/intelligence/missions/:id", async (request) => {
     const context = await auth.authenticate(bearerToken(request));
     const id = z.string().uuid().parse((request.params as { id: string }).id);
-    return execute(() => intelligence.get(id, context.organization.id));
+    const [mission, usage] = await Promise.all([
+      execute(() => intelligence.get(id, context.organization.id)),
+      execute(() => quota.usage(context.organization.id)),
+    ]);
+    return trialMissionView(mission, usage.plan === "trial");
   });
 
   app.get("/api/v1/intelligence/missions/:id/results", async (request) => {
     const context = await auth.authenticate(bearerToken(request));
     const id = z.string().uuid().parse((request.params as { id: string }).id);
-    const limit = z.coerce.number().int().min(1).max(500).default(100).parse(
+    const requestedLimit = z.coerce.number().int().min(1).max(500).default(100).parse(
       (request.query as { limit?: string }).limit,
     );
+    const usage = await execute(() => quota.usage(context.organization.id));
+    const trial = usage.plan === "trial";
+    const limit = trial ? Math.min(requestedLimit, TRIAL_PREVIEW_LIMIT) : requestedLimit;
     const result = await execute(() => intelligence.results(id, context.organization.id, limit));
+    const mission = trialMissionView(result.mission, trial);
 
     if (result.mission.playbook !== "b2b_prospecting") {
-      return result;
+      return { mission, items: trial ? result.items.slice(0, TRIAL_PREVIEW_LIMIT) : result.items };
     }
 
     const items = await execute(() => leads.syncMissionResults(
@@ -171,7 +194,7 @@ export async function registerIntelligenceRoutes(
       id,
       result.items,
     ));
-    return { mission: result.mission, items };
+    return { mission, items: trial ? items.slice(0, TRIAL_PREVIEW_LIMIT) : items };
   });
 
   app.get("/api/v1/intelligence/leads", async (request) => {
@@ -182,8 +205,12 @@ export async function registerIntelligenceRoutes(
       search: z.string().trim().max(200).optional(),
       limit: z.coerce.number().int().min(1).max(500).default(200),
     }).parse(request.query);
+    const usage = await execute(() => quota.usage(context.organization.id));
+    const safeQuery = usage.plan === "trial"
+      ? { ...query, limit: Math.min(query.limit, TRIAL_PREVIEW_LIMIT) }
+      : query;
     return {
-      leads: await execute(() => leads.list(context.organization.id, query)),
+      leads: await execute(() => leads.list(context.organization.id, safeQuery)),
     };
   });
 

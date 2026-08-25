@@ -1,3 +1,5 @@
+import type { ReactNode } from "react";
+
 const PRIVACY_EMAIL = "henriquecampos66@gmail.com";
 
 function LegalShell({
@@ -9,7 +11,7 @@ function LegalShell({
   eyebrow: string;
   title: string;
   summary: string;
-  children: React.ReactNode;
+  children: ReactNode;
 }) {
   return (
     <div className="legal-shell">
@@ -29,7 +31,7 @@ function LegalShell({
           <span>{eyebrow}</span>
           <h1>{title}</h1>
           <p>{summary}</p>
-          <small>Última atualização: 31 de julho de 2026</small>
+          <small>Última atualização: 25 de agosto de 2026</small>
         </section>
 
         <article className="legal-document">{children}</article>
@@ -79,7 +81,7 @@ export function PrivacyPolicyPage() {
           <li><strong>Dados da marca:</strong> nome comercial, segmento, site, perfis públicos, produtos, serviços, público, objetivos e referências fornecidas pelo usuário.</li>
           <li><strong>Uso da plataforma:</strong> plano, créditos, missões, campanhas, conteúdos, aprovações, revisões, preferências e histórico de ações.</li>
           <li><strong>Diagnósticos e inteligência:</strong> URLs, termos de busca, regiões, concorrentes, produtos e resultados públicos ou autorizados utilizados nas análises.</li>
-          <li><strong>Integração com Instagram:</strong> identificador da conta profissional, nome de usuário, autorizações concedidas, token de acesso protegido, status da conexão, conteúdo aprovado para publicação, identificadores e links das publicações. A MODO não solicita nem armazena a senha do Instagram.</li>
+          <li><strong>Integrações com redes sociais:</strong> quando o usuário conecta Instagram, Facebook, LinkedIn ou Threads, podemos tratar identificadores da conta, Página ou perfil, nome exibido, autorizações concedidas, token de acesso protegido, validade da conexão, conteúdo aprovado para publicação, identificadores e links de publicações e, quando o recurso estiver disponível, métricas de desempenho. A MODO não solicita nem armazena a senha dessas redes sociais.</li>
           <li><strong>Dados técnicos:</strong> endereço IP, navegador, dispositivo, registros de acesso, eventos de segurança, falhas e informações necessárias para prevenir abuso.</li>
           <li><strong>Atendimento e cobrança:</strong> mensagens de suporte, solicitações, informações da assinatura e registros de pagamento processados por fornecedores especializados.</li>
         </ul>
@@ -90,7 +92,8 @@ export function PrivacyPolicyPage() {
         <ul>
           <li>criar, autenticar e administrar contas e organizações;</li>
           <li>prestar os serviços contratados e entregar diagnósticos, conteúdos, campanhas, análises e recomendações;</li>
-          <li>publicar conteúdo somente após ação ou aprovação do usuário, quando houver integração disponível;</li>
+          <li>conectar contas sociais autorizadas e publicar ou agendar conteúdo somente após ação ou aprovação do usuário;</li>
+          <li>consultar status e métricas das publicações quando a plataforma conectada e a autorização concedida permitirem;</li>
           <li>manter memória de marca, histórico, preferências e continuidade operacional;</li>
           <li>processar assinaturas, controlar limites e prevenir uso indevido;</li>
           <li>prestar suporte, responder solicitações e comunicar mudanças relevantes;</li>
@@ -116,7 +119,7 @@ export function PrivacyPolicyPage() {
           <li>provedores de hospedagem, banco de dados, segurança, monitoramento, comunicação e armazenamento;</li>
           <li>fornecedores de inteligência artificial, automação e coleta de fontes públicas ou autorizadas;</li>
           <li>processadores de pagamento e serviços de assinatura;</li>
-          <li>Meta e outras plataformas conectadas, quando o usuário solicitar autenticação, publicação ou outra ação integrada;</li>
+          <li>Meta, LinkedIn e outras plataformas sociais que o próprio usuário conectar, exclusivamente para autenticação, publicação, consulta de métricas ou outra ação integrada solicitada;</li>
           <li>profissionais autorizados da operação MODO, sujeitos a deveres de confidencialidade e acesso limitado;</li>
           <li>autoridades públicas ou terceiros quando houver obrigação legal, ordem válida ou necessidade de proteger direitos.</li>
         </ul>
@@ -228,7 +231,7 @@ export function DataDeletionPage() {
           <strong>Assunto:</strong> Exclusão de dados MODO
           <br />
           <strong>Informe:</strong> nome completo, e-mail da conta, organização ou marca e,
-          quando aplicável, o nome de usuário do Instagram conectado.
+          quando aplicável, a conta ou Página social conectada que deseja remover.
         </div>
       </section>
 
@@ -238,8 +241,8 @@ export function DataDeletionPage() {
         <ul>
           <li>exclusão integral da conta e dos dados associados;</li>
           <li>exclusão de uma marca, organização, conteúdo, campanha ou missão específica;</li>
-          <li>remoção dos dados da integração com Instagram, incluindo identificadores e token de acesso;</li>
-          <li>revogação de autorizações e interrupção de futuras publicações;</li>
+          <li>remoção dos dados de integrações com Instagram, Facebook, LinkedIn ou Threads, incluindo identificadores, autorizações e tokens de acesso sob controle da MODO;</li>
+          <li>revogação de autorizações e interrupção de futuras publicações ou agendamentos;</li>
           <li>eliminação de dados pessoais tratados com consentimento, quando aplicável.</li>
         </ul>
       </section>
@@ -249,7 +252,7 @@ export function DataDeletionPage() {
         <p>
           Antes de realizar a exclusão, poderemos solicitar confirmação por e-mail ou outras
           informações razoáveis para impedir que terceiros removam dados sem autorização.
-          Nunca solicitaremos sua senha do Instagram por e-mail.
+          Nunca solicitaremos por e-mail a senha da MODO nem a senha de uma rede social conectada.
         </p>
       </section>
 
@@ -271,12 +274,17 @@ export function DataDeletionPage() {
       </section>
 
       <section>
-        <h2>5. Dados do Instagram e da Meta</h2>
+        <h2>5. Dados das redes sociais conectadas</h2>
         <p>
           A exclusão realizada pela MODO abrange os dados que estão sob nosso controle. Dados
-          mantidos diretamente pela Meta ou pelo Instagram estão sujeitos às configurações,
-          políticas e ferramentas dessas plataformas. Remover a integração na MODO não exclui
-          automaticamente a conta do Instagram nem publicações já existentes na plataforma.
+          mantidos diretamente por Meta, LinkedIn ou outra rede social continuam sujeitos às
+          configurações, políticas e ferramentas da própria plataforma. Remover uma integração
+          na MODO não exclui a conta social nem publicações que já existam diretamente naquela rede.
+        </p>
+        <p>
+          Quando uma plataforma envia à MODO um callback de desautorização ou exclusão suportado
+          pela integração, validamos a solicitação antes de remover as credenciais e os registros
+          de conexão correspondentes mantidos pela MODO.
         </p>
       </section>
 

@@ -1,0 +1,223 @@
+name: Workspace Isolation Smoke
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  workspace-isolation:
+    name: Business x Agency isolation
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_DB: modo_workspace_ci
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres -d modo_workspace_ci"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    env:
+      DATABASE_URL: postgresql://postgres@127.0.0.1:5432/modo_workspace_ci
+      DATABASE_SSL: "false"
+      PORT: "4012"
+      NODE_ENV: test
+      PUBLIC_API_URL: http://127.0.0.1:4012
+      PUBLIC_WEB_URL: http://127.0.0.1:5173
+      ALLOWED_ORIGINS: http://127.0.0.1:5173
+      INSTAGRAM_CLIENT_ID: ci-instagram-client
+      INSTAGRAM_CLIENT_SECRET: ci-instagram-secret
+      INSTAGRAM_TOKEN_ENCRYPTION_SECRET: ci-instagram-encryption-secret
+      INSTAGRAM_PUBLISHER_REDIRECT_URI: http://127.0.0.1:4012/api/v2/publisher/oauth/instagram/callback
+      LINKEDIN_CLIENT_ID: ci-linkedin-client
+      LINKEDIN_CLIENT_SECRET: ci-linkedin-secret
+      LINKEDIN_TOKEN_ENCRYPTION_SECRET: ci-linkedin-encryption-secret
+      LINKEDIN_PUBLISHER_REDIRECT_URI: http://127.0.0.1:4012/api/v2/publisher/oauth/linkedin/callback
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm install --include=dev
+
+      - name: Build
+        run: npm run build
+
+      - name: Validate Business and Agency isolation
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          LOG_FILE="${RUNNER_TEMP}/modo-workspace-isolation.log"
+          npm run start --workspace=@modo/api >"${LOG_FILE}" 2>&1 &
+          API_PID=$!
+          cleanup() {
+            kill "${API_PID}" 2>/dev/null || true
+          }
+          trap cleanup EXIT
+
+          BASE_URL="http://127.0.0.1:4012"
+
+          for attempt in {1..45}; do
+            if curl --fail --silent "${BASE_URL}/health" >/dev/null; then
+              break
+            fi
+            if ! kill -0 "${API_PID}" 2>/dev/null; then
+              echo "MODO API encerrou durante o smoke de workspaces:"
+              cat "${LOG_FILE}"
+              exit 1
+            fi
+            if [ "${attempt}" = "45" ]; then
+              echo "MODO API não ficou saudável para validar workspaces:"
+              cat "${LOG_FILE}"
+              exit 1
+            fi
+            sleep 1
+          done
+
+          AUTH_HEALTH="$(curl --fail --silent "${BASE_URL}/api/v1/workspace-auth/health")"
+          printf '%s\n' "${AUTH_HEALTH}" | jq .
+          printf '%s' "${AUTH_HEALTH}" | jq -e '
+            .status == "ok" and
+            .configured == true and
+            .separation == "business_vs_agency"
+          ' >/dev/null
+
+          EMAIL="workspace-ci-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}@example.com"
+          PASSWORD="ModoCI123456"
+          WRONG_PASSWORD="ModoCI999999"
+
+          business_payload="$(jq -nc \
+            --arg name "MODO CI User" \
+            --arg email "${EMAIL}" \
+            --arg password "${PASSWORD}" \
+            --arg organizationName "MODO Business CI" \
+            '{name:$name,email:$email,password:$password,organizationName:$organizationName}')"
+
+          agency_payload="$(jq -nc \
+            --arg name "MODO CI User" \
+            --arg email "${EMAIL}" \
+            --arg password "${PASSWORD}" \
+            --arg organizationName "MODO Agency CI" \
+            '{name:$name,email:$email,password:$password,organizationName:$organizationName}')"
+
+          wrong_agency_payload="$(jq -nc \
+            --arg name "MODO CI User" \
+            --arg email "${EMAIL}" \
+            --arg password "${WRONG_PASSWORD}" \
+            --arg organizationName "MODO Agency CI" \
+            '{name:$name,email:$email,password:$password,organizationName:$organizationName}')"
+
+          login_payload="$(jq -nc \
+            --arg email "${EMAIL}" \
+            --arg password "${PASSWORD}" \
+            '{email:$email,password:$password}')"
+
+          business_code="$(curl --silent --show-error --output business-register.json --write-out '%{http_code}' \
+            --request POST "${BASE_URL}/api/v1/auth/business/register" \
+            --header 'Content-Type: application/json' \
+            --data "${business_payload}")"
+          cat business-register.json
+          test "${business_code}" = "201"
+
+          BUSINESS_TOKEN="$(jq -r '.token' business-register.json)"
+          BUSINESS_USER="$(jq -r '.user.id' business-register.json)"
+          BUSINESS_ORG="$(jq -r '.organization.id' business-register.json)"
+          test -n "${BUSINESS_TOKEN}"
+          test -n "${BUSINESS_USER}"
+          test -n "${BUSINESS_ORG}"
+
+          wrong_code="$(curl --silent --show-error --output wrong-agency-register.json --write-out '%{http_code}' \
+            --request POST "${BASE_URL}/api/v1/auth/agency/register" \
+            --header 'Content-Type: application/json' \
+            --data "${wrong_agency_payload}")"
+          cat wrong-agency-register.json
+          test "${wrong_code}" = "401"
+
+          before_agency_login_code="$(curl --silent --show-error --output agency-login-before.json --write-out '%{http_code}' \
+            --request POST "${BASE_URL}/api/v1/auth/agency/login" \
+            --header 'Content-Type: application/json' \
+            --data "${login_payload}")"
+          cat agency-login-before.json
+          test "${before_agency_login_code}" = "404"
+
+          agency_code="$(curl --silent --show-error --output agency-register.json --write-out '%{http_code}' \
+            --request POST "${BASE_URL}/api/v1/auth/agency/register" \
+            --header 'Content-Type: application/json' \
+            --data "${agency_payload}")"
+          cat agency-register.json
+          test "${agency_code}" = "201"
+
+          AGENCY_TOKEN="$(jq -r '.token' agency-register.json)"
+          AGENCY_USER="$(jq -r '.user.id' agency-register.json)"
+          AGENCY_ORG="$(jq -r '.organization.id' agency-register.json)"
+
+          test "${BUSINESS_USER}" = "${AGENCY_USER}"
+          test "${BUSINESS_ORG}" != "${AGENCY_ORG}"
+          test "${BUSINESS_TOKEN}" != "${AGENCY_TOKEN}"
+
+          business_login_code="$(curl --silent --show-error --output business-login.json --write-out '%{http_code}' \
+            --request POST "${BASE_URL}/api/v1/auth/business/login" \
+            --header 'Content-Type: application/json' \
+            --data "${login_payload}")"
+          agency_login_code="$(curl --silent --show-error --output agency-login.json --write-out '%{http_code}' \
+            --request POST "${BASE_URL}/api/v1/auth/agency/login" \
+            --header 'Content-Type: application/json' \
+            --data "${login_payload}")"
+
+          test "${business_login_code}" = "200"
+          test "${agency_login_code}" = "200"
+          test "$(jq -r '.organization.id' business-login.json)" = "${BUSINESS_ORG}"
+          test "$(jq -r '.organization.id' agency-login.json)" = "${AGENCY_ORG}"
+
+          BUSINESS_LOGIN_TOKEN="$(jq -r '.token' business-login.json)"
+          AGENCY_LOGIN_TOKEN="$(jq -r '.token' agency-login.json)"
+
+          curl --fail --silent \
+            --header "Authorization: Bearer ${BUSINESS_LOGIN_TOKEN}" \
+            "${BASE_URL}/api/v1/dashboard" > business-dashboard.json
+          curl --fail --silent \
+            --header "Authorization: Bearer ${AGENCY_LOGIN_TOKEN}" \
+            "${BASE_URL}/api/v1/dashboard" > agency-dashboard.json
+
+          jq -e --arg organizationId "${BUSINESS_ORG}" '
+            .organization.id == $organizationId and .usage.plan == "trial"
+          ' business-dashboard.json >/dev/null
+          jq -e --arg organizationId "${AGENCY_ORG}" '
+            .organization.id == $organizationId and .usage.plan == "trial"
+          ' agency-dashboard.json >/dev/null
+
+          duplicate_business_code="$(curl --silent --show-error --output duplicate-business.json --write-out '%{http_code}' \
+            --request POST "${BASE_URL}/api/v1/auth/business/register" \
+            --header 'Content-Type: application/json' \
+            --data "${business_payload}")"
+          duplicate_agency_code="$(curl --silent --show-error --output duplicate-agency.json --write-out '%{http_code}' \
+            --request POST "${BASE_URL}/api/v1/auth/agency/register" \
+            --header 'Content-Type: application/json' \
+            --data "${agency_payload}")"
+
+          cat duplicate-business.json
+          cat duplicate-agency.json
+          test "${duplicate_business_code}" = "409"
+          test "${duplicate_agency_code}" = "409"
+
+          echo "Business e Agency compartilham a identidade do usuário sem compartilhar workspace, sessão ou organização."

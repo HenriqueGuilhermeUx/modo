@@ -47,7 +47,7 @@ function formatDate(value: string) {
 
 function contactAgencyPro() {
   const subject = encodeURIComponent("Quero conhecer o MODO Agency Pro");
-  const body = encodeURIComponent("Olá, quero conversar sobre uma operação MODO Agency Pro para mais de 40 clientes / white-label.");
+  const body = encodeURIComponent("Olá, quero conversar sobre uma operação MODO Agency Pro para mais de 40 clientes com implantação assistida.");
   window.location.href = `mailto:henriquecampos66@gmail.com?subject=${subject}&body=${body}`;
 }
 

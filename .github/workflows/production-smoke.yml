@@ -1,0 +1,150 @@
+name: Production Smoke
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+  workflow_dispatch:
+
+jobs:
+  smoke:
+    if: >-
+      ${{ github.event_name == 'workflow_dispatch' ||
+          (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      API_URL: https://modo-api-3m10.onrender.com
+      WEB_URL: https://modo1.netlify.app
+      EXPECTED_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
+
+    steps:
+      - name: Wait for Render to serve this commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected="${EXPECTED_SHA:0:12}"
+          echo "Esperando Render publicar ${expected}..."
+
+          for attempt in {1..48}; do
+            body="$(curl --fail --silent --show-error --max-time 15 "${API_URL}/health" 2>/dev/null || true)"
+            build="$(printf '%s' "${body}" | jq -r '.buildCommit // empty' 2>/dev/null || true)"
+            status="$(printf '%s' "${body}" | jq -r '.status // empty' 2>/dev/null || true)"
+
+            if [[ "${status}" == "ok" && "${build}" == "${expected}" ]]; then
+              echo "Render confirmado no commit ${build}."
+              printf '%s\n' "${body}" | jq .
+              exit 0
+            fi
+
+            echo "Tentativa ${attempt}/48: build atual=${build:-indisponível}; esperado=${expected}."
+            sleep 10
+          done
+
+          echo "Render não publicou o commit esperado dentro de 8 minutos."
+          exit 1
+
+      - name: Verify production API capabilities
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          workspace="$(curl --fail --silent --show-error --max-time 20 "${API_URL}/api/v1/workspace-auth/health")"
+          printf '%s\n' "${workspace}" | jq .
+          printf '%s' "${workspace}" | jq -e '
+            .status == "ok" and
+            .separation == "business_vs_agency" and
+            .passwordRecovery == "configured"
+          ' >/dev/null
+
+          publisher="$(curl --fail --silent --show-error --max-time 20 "${API_URL}/api/v2/publisher/health")"
+          printf '%s\n' "${publisher}" | jq .
+          printf '%s' "${publisher}" | jq -e '
+            .status == "ok" and
+            .capabilities.multiBrand == true and
+            .capabilities.scheduling == true and
+            .capabilities.directInstagramOAuth == true
+          ' >/dev/null
+
+          linkedin="$(curl --fail --silent --show-error --max-time 20 "${API_URL}/api/v2/publisher/linkedin/health")"
+          printf '%s\n' "${linkedin}" | jq .
+          printf '%s' "${linkedin}" | jq -e '.configured == true' >/dev/null
+
+          echo "API de produção confirmou recuperação de senha e Publisher V2."
+
+      - name: Wait for Netlify production markers
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import re
+          import sys
+          import time
+          from urllib.parse import urljoin
+          from urllib.request import Request, urlopen
+
+          base = "https://modo1.netlify.app/"
+          markers = [
+              "Um cérebro de marketing para cada cliente da sua agência.",
+              "Recupere sua senha da MODO.",
+              "Última atualização: 25 de agosto de 2026",
+              "implantação assistida",
+          ]
+
+          def fetch(url: str) -> str:
+              request = Request(url, headers={"User-Agent": "modo-production-smoke/1.0"})
+              with urlopen(request, timeout=20) as response:
+                  if response.status != 200:
+                      raise RuntimeError(f"HTTP {response.status} em {url}")
+                  return response.read().decode("utf-8", "replace")
+
+          def collect_javascript() -> str:
+              html = fetch(base)
+              queue = [urljoin(base, item) for item in re.findall(r'<script[^>]+src=["\']([^"\']+\.js)["\']', html)]
+              seen = set()
+              corpus = []
+
+              while queue and len(seen) < 120:
+                  url = queue.pop(0)
+                  if url in seen:
+                      continue
+                  seen.add(url)
+                  body = fetch(url)
+                  corpus.append(body)
+
+                  refs = re.findall(r'["\']((?:\./|/assets/|assets/)[A-Za-z0-9._-]+\.js)["\']', body)
+                  for ref in refs:
+                      if ref.startswith("./"):
+                          child = urljoin(url, ref)
+                      else:
+                          child = urljoin(base, ref.lstrip("/"))
+                      if child not in seen:
+                          queue.append(child)
+
+              print(f"Assets JavaScript inspecionados: {len(seen)}")
+              return "\n".join(corpus)
+
+          last_missing = markers
+          for attempt in range(1, 31):
+              try:
+                  # As rotas SPA precisam existir publicamente, mesmo antes do bundle ser executado.
+                  for route in ("agency", "esqueci-minha-senha", "redefinir-senha", "politica-de-privacidade"):
+                      fetch(urljoin(base, route))
+
+                  bundle = collect_javascript()
+                  missing = [marker for marker in markers if marker not in bundle]
+                  has_old_promise = "white-label" in bundle.lower()
+
+                  if not missing and not has_old_promise:
+                      print("Netlify confirmou Agency, recuperação de senha e política multicanal sem promessa residual de white-label.")
+                      sys.exit(0)
+
+                  last_missing = missing
+                  print(f"Tentativa {attempt}/30: faltando={missing}; white-label residual={has_old_promise}")
+              except Exception as exc:
+                  print(f"Tentativa {attempt}/30 falhou: {exc}")
+              time.sleep(10)
+
+          print(f"Netlify não apresentou os marcadores esperados em 5 minutos. Últimos ausentes: {last_missing}")
+          sys.exit(1)
+          PY

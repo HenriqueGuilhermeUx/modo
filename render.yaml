@@ -102,7 +102,7 @@ services:
       - key: INSTAGRAM_TOKEN_ENCRYPTION_SECRET
         sync: false
       - key: INSTAGRAM_SCOPES
-        value: instagram_business_basic,instagram_business_content_publish,instagram_business_manage_insights,instagram_business_manage_comments
+        value: instagram_business_basic,instagram_business_content_publish,instagram_business_manage_insights
       - key: INSTAGRAM_API_VERSION
         value: v25.0
       - key: INSTAGRAM_GRAPH_BASE_URL

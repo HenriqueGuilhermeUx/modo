@@ -6,6 +6,7 @@ import {
   InstagramError,
   type InstagramService,
 } from "../services/instagram-service.js";
+import { InstagramV2ComplianceService } from "../services/instagram-v2-compliance-service.js";
 
 interface Options {
   auth: AuthService;
@@ -27,6 +28,12 @@ function formSignedRequest(body: unknown) {
   return String((body as { signed_request?: unknown }).signed_request || "").trim();
 }
 
+function databaseSsl() {
+  return ["1", "true", "yes", "on"].includes(
+    String(process.env.DATABASE_SSL || "").trim().toLowerCase(),
+  );
+}
+
 function buildCaption(output: NonNullable<Awaited<ReturnType<ContentService["getForOrganization"]>>["output"]>) {
   const pieces = [
     output.hook,
@@ -44,6 +51,13 @@ function buildCaption(output: NonNullable<Awaited<ReturnType<ContentService["get
 }
 
 export async function registerInstagramRoutes(app: FastifyInstance, options: Options) {
+  const publisherCompliance = new InstagramV2ComplianceService({
+    databaseUrl: process.env.DATABASE_URL,
+    databaseSsl: databaseSsl(),
+    clientSecret: process.env.INSTAGRAM_CLIENT_SECRET,
+  });
+  app.addHook("onClose", async () => publisherCompliance.close());
+
   await app.register(async (scope) => {
     scope.setErrorHandler((error, _request, reply) => {
       if (
@@ -113,7 +127,9 @@ export async function registerInstagramRoutes(app: FastifyInstance, options: Opt
           "A Meta não enviou o signed_request esperado.",
         );
       }
-      return options.instagram.handleDeauthorize(signedRequest);
+      const response = await options.instagram.handleDeauthorize(signedRequest);
+      await publisherCompliance.deleteForSignedRequest(signedRequest);
+      return response;
     });
 
     scope.post("/api/v1/instagram/data-deletion", async (request) => {
@@ -125,7 +141,9 @@ export async function registerInstagramRoutes(app: FastifyInstance, options: Opt
           "A Meta não enviou o signed_request esperado.",
         );
       }
-      return options.instagram.handleDataDeletionRequest(signedRequest);
+      const response = await options.instagram.handleDataDeletionRequest(signedRequest);
+      await publisherCompliance.deleteForSignedRequest(signedRequest);
+      return response;
     });
 
     scope.post(

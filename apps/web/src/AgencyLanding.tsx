@@ -11,10 +11,10 @@ const agencyPlans = [
     slug: "studio",
     name: "Studio",
     price: "499",
-    audience: "Para microagências e times enxutos.",
+    audience: "Para microagências e operações enxutas.",
     clients: "Até 15 clientes",
     featured: true,
-    features: ["Tudo do Professional", "Até 5 membros de equipe", "Clientes separados por workspace", "Fluxos de revisão e aprovação", "Performance por marca", "Gestão central da operação"],
+    features: ["Tudo do Professional", "Até 15 clientes ativos", "Clientes separados por workspace", "Portal externo de aprovação", "Performance por marca", "Gestão central da operação"],
   },
   {
     slug: "agency",
@@ -22,15 +22,15 @@ const agencyPlans = [
     price: "999",
     audience: "Para operações com carteira ativa e escala.",
     clients: "Até 40 clientes",
-    features: ["Tudo do Studio", "Até 15 membros de equipe", "Operação multi-cliente", "Gestão de conexões sociais", "Visão executiva por carteira", "Prioridade de suporte"],
+    features: ["Tudo do Studio", "Até 40 clientes ativos", "Operação multi-cliente", "Gestão de conexões sociais", "Visão executiva por carteira", "Prioridade de suporte"],
   },
   {
     slug: "agency-pro",
     name: "Agency Pro",
     price: "Sob consulta",
-    audience: "Para estruturas maiores, franquias e white-label.",
+    audience: "Para estruturas maiores que precisam de implantação assistida.",
     clients: "40+ clientes",
-    features: ["Capacidade ampliada", "White-label", "Ambiente com marca da agência", "Governança avançada", "Implantação assistida", "Condições personalizadas"],
+    features: ["Capacidade acima de 40 clientes", "Implantação assistida", "Configuração da operação", "Condições comerciais personalizadas", "Prioridade de implantação", "Escopo definido em proposta"],
   },
 ];
 
@@ -135,7 +135,7 @@ export default function AgencyLanding() {
         </section>
 
         <section className="agency-client-experience agency-container">
-          <div className="agency-section-heading"><div className="agency-section-kicker">SEU CLIENTE NÃO PRECISA VER A COMPLEXIDADE</div><h2>Ele entra para <strong>acompanhar, comentar e aprovar.</strong></h2></div>
+          <div className="agency-section-heading"><div className="agency-section-kicker">SEU CLIENTE NÃO PRECISA VER A COMPLEXIDADE</div><h2>Ele entra para <strong>acompanhar, solicitar ajustes e aprovar.</strong></h2></div>
           <div className="agency-approval-card"><div className="agency-approval-top"><div><small>CLÍNICA AURORA</small><strong>3 conteúdos aguardando aprovação</strong></div><span>Portal do cliente</span></div><div className="agency-approval-item"><div><b>Carrossel</b><strong>5 sinais de que sua pele precisa de avaliação</strong></div><div><button type="button">Solicitar ajuste</button><button type="button" className="approve">Aprovar</button></div></div><div className="agency-approval-item"><div><b>Reel</b><strong>Bastidor: como funciona a primeira consulta</strong></div><div><button type="button">Solicitar ajuste</button><button type="button" className="approve">Aprovar</button></div></div></div>
         </section>
 
@@ -143,7 +143,7 @@ export default function AgencyLanding() {
           <div className="agency-container">
             <div className="agency-section-heading centered"><div className="agency-section-kicker">MENSALIDADE QUE ACOMPANHA SUA CARTEIRA</div><h2>Você cobra seus clientes. <strong>A MODO dá escala para a operação.</strong></h2><p>Planos pensados para o tamanho da carteira — não para punir quem publica mais.</p></div>
             <div className="agency-pricing-grid">{agencyPlans.map((plan) => <article className={plan.featured ? "agency-plan featured" : "agency-plan"} key={plan.slug}>{plan.featured && <div className="agency-plan-badge">RECOMENDADO</div>}<div className="agency-plan-head"><h3>MODO {plan.name}</h3><p>{plan.audience}</p></div><strong className="agency-plan-clients">{plan.clients}</strong><div className="agency-plan-price">{plan.price === "Sob consulta" ? <strong>Sob consulta</strong> : <><span>R$</span><strong>{plan.price}</strong><b>/mês</b></>}</div><ul>{plan.features.map((feature) => <li key={feature}>{feature}</li>)}</ul><button className={plan.featured ? "agency-button agency-button-full" : "agency-button agency-button-outline agency-button-full"} type="button" onClick={() => startAgency(plan.slug)}>{plan.price === "Sob consulta" ? "Falar sobre Agency Pro" : `Começar no ${plan.name}`} <span>↗</span></button></article>)}</div>
-            <p className="agency-pricing-note">Valores iniciais de lançamento. White-label e condições especiais entram no Agency Pro.</p>
+            <p className="agency-pricing-note">Valores iniciais de lançamento. Agency Pro tem contratação assistida e escopo definido comercialmente; recursos adicionais só são prometidos quando estiverem disponíveis e contratados.</p>
           </div>
         </section>
 

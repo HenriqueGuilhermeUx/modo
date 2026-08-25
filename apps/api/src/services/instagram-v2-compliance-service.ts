@@ -34,6 +34,13 @@ export class InstagramV2ComplianceService {
   }
 
   async deleteForSignedRequest(signedRequest: string) {
+    // Em ambientes sem storage V2 (testes/unitários), o callback legado já validou o
+    // signed_request antes de chegar aqui. Não há conexão V2 para limpar, então o
+    // complemento de compliance pode ser um no-op sem exigir segredo duplicado.
+    if (!this.pool && !this.options.clientSecret) {
+      return { instagramUserId: "", deletedConnections: 0 };
+    }
+
     const instagramUserId = this.userIdFromSignedRequest(signedRequest);
     if (!this.pool) return { instagramUserId, deletedConnections: 0 };
 

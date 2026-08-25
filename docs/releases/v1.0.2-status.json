@@ -1,0 +1,42 @@
+{
+  "release": "1.0.2",
+  "android": {
+    "package": "br.com.alternativeventures.modo",
+    "versionCode": 4,
+    "buildMode": "github-actions-eas-local",
+    "cloudBuildUsed": false,
+    "workflow": "Build MODO Android",
+    "workflowRunNumber": 17,
+    "workflowRunId": 32524096853,
+    "buildCommit": "637dd4966002c34f5a355d74c507a5b9c9507fc8",
+    "artifact": {
+      "id": 9462089743,
+      "name": "MODO-Android-1.0.2-code-4-17",
+      "archiveSha256": "3ef522ee2359ace386239936a0b87efc51f6feaee6ff198f3c361772c7f0c000",
+      "aab": "MODO-1.0.2-code-4-play-store.aab",
+      "aabSizeBytes": 68515357,
+      "aabSha256": "49df669dc512bfbbcfd90ef5dcecce7b2afe4608215ee38745aea4c05d30c79c",
+      "signed": true,
+      "archiveExpiresAt": "2026-09-20T20:51:52Z"
+    },
+    "validation": {
+      "typecheck": "passed",
+      "expoDoctor": "21/21 passed",
+      "expoExport": "passed",
+      "localAndroidBuild": "passed",
+      "artifactUpload": "passed",
+      "aabArchiveIntegrity": "passed",
+      "aabChecksumMatched": true,
+      "jarSignatureVerified": true
+    },
+    "googlePlay": {
+      "submissionMode": "manual",
+      "automaticSubmit": false,
+      "status": "ready_for_manual_upload"
+    },
+    "currentMainCompatibility": {
+      "checkedAgainstCommit": "2ff4f55d93ef76d7b194fd8e7bccc161d2ad48f0",
+      "mobileFilesChangedSinceBuild": false
+    }
+  }
+}

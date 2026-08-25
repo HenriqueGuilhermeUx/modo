@@ -18,6 +18,7 @@
     "./signal": {"types": "./src/signal.ts", "import": "./dist/signal.js"},
     "./admin": {"types": "./src/admin.ts", "import": "./dist/admin.js"},
     "./source": {"types": "./src/source.ts", "import": "./dist/source.js"},
+    "./brand-scan": {"types": "./src/brand-scan.ts", "import": "./dist/brand-scan.js"},
     "./smartbots": {"types": "./src/smartbots.ts", "import": "./dist/smartbots.js"},
     "./intelligence": {"types": "./src/intelligence.ts", "import": "./dist/intelligence.js"},
     "./strategy-network": {"types": "./src/strategy-network.ts", "import": "./dist/strategy-network.js"},

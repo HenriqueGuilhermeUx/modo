@@ -6,6 +6,7 @@ import { registerAgencyApprovalRoutes } from "./routes/agency-approval-routes.js
 import { registerHumanOperationsRoutes } from "./routes/human-operations-routes.js";
 import { registerNativeLinkedInV2Routes } from "./routes/native-linkedin-v2-routes.js";
 import { registerNativePublisherV2Routes } from "./routes/native-publisher-v2-routes.js";
+import { registerPartnerRoutes } from "./routes/partner-routes.js";
 import { registerStrategyNetworkRoutes } from "./routes/strategy-network-routes.js";
 import { registerWorkspaceAuthRoutes } from "./routes/workspace-auth-routes.js";
 import { NativeSocialTokenLifecycleService } from "./services/native-social-token-lifecycle-service.js";
@@ -156,6 +157,11 @@ await registerStrategyNetworkRoutes(app, {
   humanSupportEmailTo: config.HUMAN_SUPPORT_EMAIL_TO,
   humanSupportNotificationWebhookUrl: config.HUMAN_SUPPORT_NOTIFICATION_WEBHOOK_URL,
   publicWebUrl: config.PUBLIC_WEB_URL,
+});
+
+await registerPartnerRoutes(app, {
+  databaseUrl: config.DATABASE_URL,
+  databaseSsl: config.DATABASE_SSL,
 });
 
 await registerHumanOperationsRoutes(app, {

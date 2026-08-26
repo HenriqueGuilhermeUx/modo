@@ -33,6 +33,7 @@ export default function VideoWorkspace() {
   const [project, setProject] = useState<VideoProject | null>(null);
   const [duration, setDuration] = useState<VideoDurationSeconds>(30);
   const [captions, setCaptions] = useState(true);
+  const [voiceover, setVoiceover] = useState(false);
   const [loading, setLoading] = useState(true);
   const [working, setWorking] = useState(false);
   const [error, setError] = useState("");
@@ -54,6 +55,7 @@ export default function VideoWorkspace() {
         if (currentProject) {
           setDuration(currentProject.durationSeconds);
           setCaptions(currentProject.captions);
+          setVoiceover(currentProject.voiceover);
         }
       })
       .catch((caught) => setError(caught instanceof Error ? caught.message : "Não foi possível abrir o MODO Video."))
@@ -87,6 +89,7 @@ export default function VideoWorkspace() {
         contentRequestId: request.id,
         durationSeconds: duration,
         captions,
+        voiceover,
       });
       setProject(created);
     } catch (caught) {
@@ -154,7 +157,7 @@ export default function VideoWorkspace() {
       <main className="video-main">
         <section className="video-hero">
           <div>
-            <div className="section-kicker">MODO VIDEO · COMPOSER V1</div>
+            <div className="section-kicker">MODO VIDEO · COMPOSER V1.2</div>
             <h1>A estratégia já está pronta. Agora ela vira vídeo.</h1>
             <p>A MODO usa o roteiro, o gancho, o CTA e os visuais que já foram produzidos para montar um short vertical sem começar de uma tela em branco.</p>
           </div>
@@ -183,6 +186,11 @@ export default function VideoWorkspace() {
               <span><strong>Legendas no vídeo</strong><small>Usa a locução já escrita em cada cena do roteiro.</small></span>
             </label>
 
+            <label className="video-toggle">
+              <input type="checkbox" checked={voiceover} disabled={Boolean(project && ["queued", "rendering"].includes(project.status))} onChange={(event) => setVoiceover(event.target.checked)} />
+              <span><strong>Narração PT-BR</strong><small>Transforma a locução do roteiro em uma voz natural e mistura o áudio no MP4.</small></span>
+            </label>
+
             {!project || ["cancelled"].includes(project.status) ? (
               <button className="button button-primary button-full" disabled={working} onClick={() => void generate()}>{working ? "Preparando..." : "Gerar vídeo"}</button>
             ) : project.status === "failed" ? (
@@ -191,7 +199,7 @@ export default function VideoWorkspace() {
               <button className="button button-outline button-full" disabled={working} onClick={() => void cancel()}>Cancelar fila</button>
             ) : null}
 
-            <div className="video-runtime-note"><strong>Sem GPU nesta versão.</strong><p>A montagem é programática e determinística. Voz clonada, avatar e B-roll generativo entram como camadas opcionais depois.</p></div>
+            <div className="video-runtime-note"><strong>Sem GPU nesta versão.</strong><p>A montagem continua programática. A narração é um provider opcional; clonagem de voz, avatar e B-roll generativo permanecem camadas futuras.</p></div>
           </section>
 
           <section className="video-preview-card">
@@ -204,11 +212,12 @@ export default function VideoWorkspace() {
                   <a className="button button-primary" href={project.outputUrl} target="_blank" rel="noreferrer">Abrir MP4</a>
                   <a className="button button-outline" href="/app/content">Voltar para revisão</a>
                 </div>
+                {project.voiceover && <small>Narração PT-BR incluída · provider {project.voiceProvider || "gerenciado"}</small>}
               </div>
             ) : project && ["queued", "rendering"].includes(project.status) ? (
               <div className="video-rendering-state">
                 <div className="video-render-orbit"><span /><i /></div>
-                <strong>{project.status === "queued" ? "Aguardando o renderer" : "Montando cenas, tipografia e legendas"}</strong>
+                <strong>{project.status === "queued" ? "Aguardando o renderer" : project.voiceover ? "Gerando voz e montando o vídeo" : "Montando cenas, tipografia e legendas"}</strong>
                 <p>O processamento continua no servidor. Esta tela atualiza automaticamente.</p>
               </div>
             ) : project?.status === "failed" ? (

@@ -21,6 +21,7 @@ import "./smart-onboarding.css";
 import "./marketing-clarity.css";
 import "./quick-start.css";
 import "./studio.css";
+import "./video.css";
 import "./week.css";
 import "./consumer-enhancements.css";
 import "./diagnostic-impact.css";

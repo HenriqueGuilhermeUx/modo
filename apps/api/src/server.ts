@@ -8,6 +8,7 @@ import { registerNativeLinkedInV2Routes } from "./routes/native-linkedin-v2-rout
 import { registerNativePublisherV2Routes } from "./routes/native-publisher-v2-routes.js";
 import { registerPartnerRoutes } from "./routes/partner-routes.js";
 import { registerStrategyNetworkRoutes } from "./routes/strategy-network-routes.js";
+import { registerVideoRoutes } from "./routes/video-routes.js";
 import { registerWorkspaceAuthRoutes } from "./routes/workspace-auth-routes.js";
 import { NativeSocialTokenLifecycleService } from "./services/native-social-token-lifecycle-service.js";
 
@@ -182,6 +183,14 @@ await app.register(async (scope) => {
     openAiApiKey: config.OPENAI_API_KEY,
     openAiTextModel: config.OPENAI_TEXT_MODEL,
     openAiImageModel: config.OPENAI_IMAGE_MODEL,
+  });
+});
+
+await app.register(async (scope) => {
+  await registerVideoRoutes(scope, {
+    databaseUrl: config.DATABASE_URL,
+    databaseSsl: config.DATABASE_SSL,
+    publicApiUrl: config.PUBLIC_API_URL,
   });
 });
 

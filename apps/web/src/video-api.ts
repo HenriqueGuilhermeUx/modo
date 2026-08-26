@@ -54,6 +54,22 @@ export async function regenerateVideoScene(id: string, sceneIndex: number): Prom
   return VideoProjectSchema.parse(payload.project);
 }
 
+export async function approveVideoScene(id: string, sceneIndex: number): Promise<VideoProject> {
+  const payload = await request<{ project: unknown }>(
+    `/api/v1/video-projects/${encodeURIComponent(id)}/scenes/${sceneIndex}/approve`,
+    { method: "POST" },
+  );
+  return VideoProjectSchema.parse(payload.project);
+}
+
+export async function approveVideoProject(id: string): Promise<VideoProject> {
+  const payload = await request<{ project: unknown }>(
+    `/api/v1/video-projects/${encodeURIComponent(id)}/approve`,
+    { method: "POST" },
+  );
+  return VideoProjectSchema.parse(payload.project);
+}
+
 export async function retryVideoProject(id: string): Promise<VideoProject> {
   const payload = await request<{ project: unknown }>(`/api/v1/video-projects/${encodeURIComponent(id)}/retry`, {
     method: "POST",

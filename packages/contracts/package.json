@@ -8,6 +8,7 @@
   "exports": {
     ".": {"types": "./src/index.ts", "import": "./dist/index.js"},
     "./content": {"types": "./src/content.ts", "import": "./dist/content.js"},
+    "./video": {"types": "./src/video.ts", "import": "./dist/video.js"},
     "./payment": {"types": "./src/payment.ts", "import": "./dist/payment.js"},
     "./linkedin": {"types": "./src/linkedin.ts", "import": "./dist/linkedin.js"},
     "./instagram": {"types": "./src/instagram.ts", "import": "./dist/instagram.js"},

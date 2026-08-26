@@ -40,6 +40,7 @@ const ConfigSchema = z
     OPENAI_IMAGE_MODEL: z.preprocess(emptyToUndefined, z.string().default("gpt-image-1")),
     VIDEO_IMAGE_MODEL: z.preprocess(emptyToUndefined, z.string().default("gpt-image-2")),
     VIDEO_IMAGE_QUALITY: z.enum(["low", "medium", "high"]).default("low"),
+    PEXELS_API_KEY: optionalTrimmedString,
     INTELLIGENCE_PROVIDER: z.enum(["queue", "apify", "n8n"]).default("queue"),
     APIFY_API_BASE_URL: z.preprocess(
       emptyToUndefined,
@@ -226,6 +227,7 @@ export const config = {
   N8N_WEBHOOK_SECRET: parsed.N8N_WEBHOOK_SECRET ?? "",
   N8N_CONTENT_SECRET: parsed.N8N_CONTENT_SECRET ?? "",
   OPENAI_API_KEY: parsed.OPENAI_API_KEY ?? "",
+  PEXELS_API_KEY: parsed.PEXELS_API_KEY ?? "",
   APIFY_API_TOKEN: parsed.APIFY_API_TOKEN ?? "",
   N8N_INTELLIGENCE_SECRET: parsed.N8N_INTELLIGENCE_SECRET ?? "",
   INTELLIGENCE_CALLBACK_SECRET: parsed.INTELLIGENCE_CALLBACK_SECRET ?? "",

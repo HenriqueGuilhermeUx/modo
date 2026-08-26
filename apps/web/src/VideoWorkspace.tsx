@@ -3,6 +3,7 @@ import type { ContentRequest } from "@modo/contracts/content";
 import type { VideoDurationSeconds, VideoProject } from "@modo/contracts/video";
 import { useEffect, useMemo, useState } from "react";
 import { getContentRequest, getDashboard, getSessionToken } from "./api";
+import NativePublisherApprovalAction from "./NativePublisherApprovalAction";
 import {
   cancelVideoProject,
   createVideoProject,
@@ -202,7 +203,6 @@ export default function VideoWorkspace() {
                 <div className="video-ready-actions">
                   <a className="button button-primary" href={project.outputUrl} target="_blank" rel="noreferrer">Abrir MP4</a>
                   <a className="button button-outline" href="/app/content">Voltar para revisão</a>
-                  {request.status === "approved" && <a className="button button-outline" href="/app/publisher">Ir ao Publisher</a>}
                 </div>
               </div>
             ) : project && ["queued", "rendering"].includes(project.status) ? (
@@ -224,6 +224,28 @@ export default function VideoWorkspace() {
             )}
           </section>
         </div>
+
+        {project?.status === "ready" && project.outputUrl && request.status === "approved" && (
+          <section className="video-publisher-card">
+            <div className="video-section-heading">
+              <small>DISTRIBUIÇÃO</small>
+              <h2>MP4 pronto. Publique sem sair do fluxo.</h2>
+              <p>O Publisher V2 recebe o projeto renderizado, persiste a mídia da publicação e usa o mesmo MP4 em publicação imediata, agendamento e retry.</p>
+            </div>
+            <NativePublisherApprovalAction request={request} videoProjectId={project.id} />
+          </section>
+        )}
+
+        {project?.status === "ready" && project.outputUrl && request.status !== "approved" && (
+          <section className="video-publisher-card">
+            <div className="video-section-heading">
+              <small>APROVAÇÃO</small>
+              <h2>O vídeo está pronto; falta aprovar a peça.</h2>
+              <p>A publicação continua humana por decisão. Aprove o conteúdo e volte aqui para publicar agora ou agendar o MP4.</p>
+              <a className="button button-primary" href="/app/content">Revisar e aprovar</a>
+            </div>
+          </section>
+        )}
 
         <section className="video-storyboard">
           <div className="video-section-heading"><small>STORYBOARD</small><h2>{project ? `${project.scenes.length} cenas · ${project.durationSeconds}s` : `${Math.min(sourceScenes.length, duration === 15 ? 3 : duration === 30 ? 5 : 6)} cenas planejadas`}</h2><p>O texto vem do roteiro já criado. A composição decide ritmo e hierarquia, não muda a estratégia.</p></div>

@@ -6,6 +6,9 @@ export type NativePublisherProvider = z.infer<typeof NativePublisherProviderSche
 export const NativePublisherModeSchema = z.enum(["now", "schedule", "draft"]);
 export type NativePublisherMode = z.infer<typeof NativePublisherModeSchema>;
 
+export const NativePublicationMediaTypeSchema = z.enum(["none", "image", "video"]);
+export type NativePublicationMediaType = z.infer<typeof NativePublicationMediaTypeSchema>;
+
 export const NativeConnectionSchema = z.object({
   id: z.string().uuid(),
   provider: NativePublisherProviderSchema,
@@ -41,6 +44,7 @@ export const NativePublicationCreateSchema = z.object({
   provider: NativePublisherProviderSchema,
   brandId: z.string().uuid(),
   connectionId: z.string().uuid().optional(),
+  videoProjectId: z.string().uuid().optional(),
   mode: NativePublisherModeSchema.default("now"),
   scheduledFor: z.string().datetime().optional(),
   idempotencyKey: z.string().min(8).max(240).optional(),
@@ -55,6 +59,9 @@ export const NativePublicationSchema = z.object({
   provider: NativePublisherProviderSchema,
   connectionId: z.string().uuid(),
   status: NativePublicationStatusSchema,
+  mediaType: NativePublicationMediaTypeSchema.default("none"),
+  mediaUrl: z.string().url().nullable().default(null),
+  videoProjectId: z.string().uuid().nullable().default(null),
   scheduledFor: z.string().datetime().nullable(),
   publishedAt: z.string().datetime().nullable(),
   providerPostId: z.string().nullable(),

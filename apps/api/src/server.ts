@@ -191,6 +191,7 @@ await app.register(async (scope) => {
     databaseUrl: config.DATABASE_URL,
     databaseSsl: config.DATABASE_SSL,
     publicApiUrl: config.PUBLIC_API_URL,
+    openAiApiKey: config.OPENAI_API_KEY,
   });
 });
 

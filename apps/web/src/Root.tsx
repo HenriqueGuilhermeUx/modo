@@ -18,6 +18,7 @@ const PrivacyPolicyPage=lazy(()=>import("./LegalPages").then(m=>({default:m.Priv
 const DataDeletionPage=lazy(()=>import("./LegalPages").then(m=>({default:m.DataDeletionPage})));
 const LinkedInWorkspace=lazy(()=>import("./LinkedInWorkspace"));
 const OnboardingWorkspace=lazy(()=>import("./OnboardingWorkspace"));
+const PartnerAgencyEntryAddon=lazy(()=>import("./PartnerAgencyEntryAddon"));
 const PartnerLanding=lazy(()=>import("./PartnerLanding"));
 const PasswordRecoveryEntry=lazy(()=>import("./PasswordRecoveryEntry"));
 const Portal=lazy(()=>import("./Portal"));
@@ -47,7 +48,7 @@ export default function Root(){
  if(path==="/esqueci-minha-senha"||path==="/forgot-password")return suspended(<ForgotPasswordPage/>);
  if(path==="/redefinir-senha"||path==="/reset-password")return suspended(<ResetPasswordPage/>);
  if(path.startsWith("/approve/"))return suspended(<AgencyApprovalPortal/>);
- if(path==="/agency"||path==="/modo-agency")return suspended(<AgencyLanding/>);
+ if(path==="/agency"||path==="/modo-agency")return suspended(<><AgencyLanding/><PartnerAgencyEntryAddon/></>);
  if(path==="/partners"||path==="/partner"||path==="/modo-partner")return suspended(<PartnerLanding/>);
  if(path==="/smartbots.html"||path==="/smartbots")return suspended(<SmartBotsPage/>);
  if(path==="/onboarding-smartbots.html"||path==="/app/smartbots")return suspended(<SmartBotsOnboarding/>);

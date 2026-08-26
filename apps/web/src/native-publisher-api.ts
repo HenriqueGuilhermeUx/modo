@@ -33,6 +33,7 @@ export type PublisherHealth = {
   storage: string;
   providers: Record<NativePublisherProvider, boolean>;
   capabilities: Record<string, boolean>;
+  videoProviders?: Partial<Record<NativePublisherProvider, boolean>>;
   callbacks: { instagram: string | null; facebook: string | null; threads: string | null };
 };
 
@@ -96,6 +97,7 @@ export async function createNativePublication(input: {
   brandId: string;
   provider: NativePublisherProvider;
   connectionId?: string;
+  videoProjectId?: string;
   mode: NativePublisherMode;
   scheduledFor?: string;
   idempotencyKey?: string;

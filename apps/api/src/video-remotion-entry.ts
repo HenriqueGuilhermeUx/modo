@@ -51,9 +51,9 @@ function SceneCard({ scene, brandName, accentColor, captions }: {
   accentColor: string;
   captions: boolean;
 }) {
-  const frame = useCurrentFrame();
+  // Dentro de <Sequence>, useCurrentFrame() já é relativo ao início da cena.
+  const localFrame = useCurrentFrame();
   const duration = Math.max(1, scene.endFrame - scene.startFrame);
-  const localFrame = Math.max(0, frame - scene.startFrame);
   const opacity = interpolate(localFrame, [0, 12, Math.max(13, duration - 12), duration], [0, 1, 1, 0], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",

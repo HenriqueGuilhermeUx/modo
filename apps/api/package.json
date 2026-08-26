@@ -9,6 +9,7 @@
     "start": "node dist/server.js",
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit",
+    "smoke:video": "tsx src/scripts/video-render-smoke.ts",
     "seed:meta-reviewer": "tsx src/scripts/seed-meta-reviewer.ts"
   },
   "dependencies": {

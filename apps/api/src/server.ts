@@ -186,10 +186,12 @@ await app.register(async (scope) => {
   });
 });
 
-await registerVideoRoutes(app, {
-  databaseUrl: config.DATABASE_URL,
-  databaseSsl: config.DATABASE_SSL,
-  publicApiUrl: config.PUBLIC_API_URL,
+await app.register(async (scope) => {
+  await registerVideoRoutes(scope, {
+    databaseUrl: config.DATABASE_URL,
+    databaseSsl: config.DATABASE_SSL,
+    publicApiUrl: config.PUBLIC_API_URL,
+  });
 });
 
 try {

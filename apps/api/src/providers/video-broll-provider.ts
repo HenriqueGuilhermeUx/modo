@@ -125,7 +125,7 @@ export class PexelsVideoBrollProvider implements VideoBrollProvider {
 
     if (!candidates.length) throw new Error("Nenhum B-roll vertical compatível foi encontrado para esta cena.");
 
-    const selected = candidates[Math.abs(input.revision) % candidates.length];
+    const selected = candidates[Math.abs(input.revision + input.sceneIndex - 1) % candidates.length];
     const clipUrl = selected.file.link!;
     const clip = await this.fetchImpl(clipUrl, { signal: AbortSignal.timeout(30_000) });
     if (!clip.ok) throw new Error(`Não foi possível baixar o B-roll selecionado (${clip.status}).`);

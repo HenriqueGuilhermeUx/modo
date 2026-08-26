@@ -44,6 +44,9 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: MODO Video render smoke
+        run: npm run smoke:video --workspace=@modo/api
+
       - name: API startup smoke
         shell: bash
         run: |

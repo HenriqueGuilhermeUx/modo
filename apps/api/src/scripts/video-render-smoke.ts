@@ -34,7 +34,6 @@ const inputProps = {
   title: "MODO Video render smoke",
   accentColor: "#2ED19A",
   captions: true,
-  audioUrl: silentWavDataUrl(),
   scenes: [
     {
       index: 1,
@@ -44,6 +43,7 @@ const inputProps = {
       visual: "Composição programática MODO sem dependência de mídia externa.",
       caption: "Smoke real do renderer Remotion em H.264 com trilha de áudio.",
       imageUrl: null,
+      audioUrl: silentWavDataUrl(),
     },
   ],
 };
@@ -73,7 +73,7 @@ async function main() {
       inputProps,
     });
 
-    console.log(`[MODO Video] Renderizando ${SMOKE_FRAMES} frames reais em H.264 com áudio...`);
+    console.log(`[MODO Video] Renderizando ${SMOKE_FRAMES} frames reais em H.264 com áudio por cena...`);
     await renderMedia({
       composition,
       serveUrl,
@@ -88,7 +88,7 @@ async function main() {
 
     const data = await readFile(outputLocation);
     assertMp4(data);
-    console.log(`[MODO Video] Smoke OK: MP4 H.264 válido com áudio (${data.length} bytes).`);
+    console.log(`[MODO Video] Smoke OK: MP4 H.264 válido com áudio sincronizado por cena (${data.length} bytes).`);
   } finally {
     await rm(workdir, { recursive: true, force: true }).catch(() => undefined);
   }

@@ -115,6 +115,7 @@ export class PexelsVideoBrollProvider implements VideoBrollProvider {
 
     const payload = await search.json() as PexelsSearchResponse;
     const candidates = (payload.videos || [])
+      .filter((video) => video.duration === undefined || video.duration >= 8)
       .map((video) => {
         const file = (video.video_files || [])
           .filter((item) => item.file_type === "video/mp4" && item.link)
@@ -123,7 +124,7 @@ export class PexelsVideoBrollProvider implements VideoBrollProvider {
       })
       .filter((item): item is { video: PexelsVideo; file: PexelsVideoFile } => Boolean(item));
 
-    if (!candidates.length) throw new Error("Nenhum B-roll vertical compatível foi encontrado para esta cena.");
+    if (!candidates.length) throw new Error("Nenhum B-roll vertical compatível e com duração suficiente foi encontrado para esta cena.");
 
     const selected = candidates[Math.abs(input.revision + input.sceneIndex - 1) % candidates.length];
     const clipUrl = selected.file.link!;

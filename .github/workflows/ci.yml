@@ -109,10 +109,38 @@ jobs:
               PUBLISHER_HEALTH="$(curl --fail --silent "http://127.0.0.1:4011/api/v2/publisher/health" || true)"
               LINKEDIN_HEALTH="$(curl --fail --silent "http://127.0.0.1:4011/api/v2/publisher/linkedin/health" || true)"
               if printf '%s' "${PUBLISHER_HEALTH}" | grep -q '"directInstagramOAuth":true' && \
+                 printf '%s' "${PUBLISHER_HEALTH}" | grep -q '"durableMediaSnapshot":true' && \
+                 printf '%s' "${PUBLISHER_HEALTH}" | grep -q '"videoPublishing":true' && \
+                 printf '%s' "${PUBLISHER_HEALTH}" | grep -q '"videoProviders":{"instagram":true,"facebook":true,"threads":true,"linkedin":false}' && \
                  printf '%s' "${PUBLISHER_HEALTH}" | grep -q 'api/v2/publisher/oauth/instagram/callback' && \
                  printf '%s' "${LINKEDIN_HEALTH}" | grep -q '"configured":true' && \
                  printf '%s' "${LINKEDIN_HEALTH}" | grep -q 'api/v2/publisher/oauth/linkedin/callback'; then
-                echo "MODO Publisher V2 iniciou com PostgreSQL e OAuth direto de Instagram/LinkedIn registrado."
+                node <<'NODE'
+          const { Client } = require("pg");
+          (async () => {
+            const client = new Client({ connectionString: process.env.DATABASE_URL });
+            await client.connect();
+            try {
+              const result = await client.query(`
+                SELECT column_name
+                FROM information_schema.columns
+                WHERE table_name='modo_native_social_publications'
+                  AND column_name IN ('media_type','media_url','video_project_id')
+              `);
+              const columns = new Set(result.rows.map((row) => row.column_name));
+              for (const required of ['media_type','media_url','video_project_id']) {
+                if (!columns.has(required)) throw new Error(`Coluna ausente no Publisher V2: ${required}`);
+              }
+              console.log("Publisher V2 persistiu o schema de mídia/vídeo esperado.");
+            } finally {
+              await client.end();
+            }
+          })().catch((error) => {
+            console.error(error);
+            process.exit(1);
+          });
+          NODE
+                echo "MODO Publisher V2 iniciou com PostgreSQL, vídeo durável e OAuth social registrado."
                 exit 0
               fi
             fi
@@ -124,6 +152,6 @@ jobs:
             sleep 1
           done
 
-          echo "MODO Publisher V2 não ficou saudável com PostgreSQL/OAuth social:"
+          echo "MODO Publisher V2 não ficou saudável com PostgreSQL/OAuth social/vídeo:"
           cat "${LOG_FILE}"
           exit 1

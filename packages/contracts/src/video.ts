@@ -101,7 +101,7 @@ export const VideoProjectSchema = z.object({
   voiceProvider: z.enum(["openai"]).nullable().default(null),
   visualProvider: z.enum(["openai"]).nullable().default(null),
   status: VideoRenderStatusSchema,
-  review: VideoProjectReviewSchema.default({ approvalStatus: "pending", approvedAt: null, scenes: [] }),
+  review: VideoProjectReviewSchema.optional(),
   renderer: z.literal("remotion"),
   scenes: z.array(VideoSceneSchema).min(1).max(12),
   outputUrl: z.string().url().nullable(),

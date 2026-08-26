@@ -12,6 +12,7 @@ import {
   regenerateVideoScene,
   retryVideoProject,
 } from "./video-api";
+import "./video-v13.css";
 
 const durations: VideoDurationSeconds[] = [15, 30, 45];
 

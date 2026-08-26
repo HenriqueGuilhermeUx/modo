@@ -18,6 +18,7 @@ const PrivacyPolicyPage=lazy(()=>import("./LegalPages").then(m=>({default:m.Priv
 const DataDeletionPage=lazy(()=>import("./LegalPages").then(m=>({default:m.DataDeletionPage})));
 const LinkedInWorkspace=lazy(()=>import("./LinkedInWorkspace"));
 const OnboardingWorkspace=lazy(()=>import("./OnboardingWorkspace"));
+const PartnerAdminWorkspace=lazy(()=>import("./PartnerAdminWorkspace"));
 const PartnerAgencyEntryAddon=lazy(()=>import("./PartnerAgencyEntryAddon"));
 const PartnerLanding=lazy(()=>import("./PartnerLanding"));
 const PasswordRecoveryEntry=lazy(()=>import("./PasswordRecoveryEntry"));
@@ -55,8 +56,9 @@ export default function Root(){
  if(path==="/rede-modo/convite")return suspended(<SpecialistApplicationPage/>);
  if(path==="/especialistas"||path==="/rede-modo"){window.location.replace("/");return null}
  if(path==="/admin/smartbots")return suspended(<SmartBotsAdminWorkspace/>);
+ if(path==="/admin/partners")return suspended(<PartnerAdminWorkspace/>);
  if(path==="/admin/rede")return suspended(<HumanOperationsAdminWorkspace/>);
- if(path.startsWith("/admin"))return suspended(<><AdminWorkspace/><div style={{position:"fixed",right:22,bottom:22,zIndex:1000,display:"flex",gap:8}}><a href="/admin/rede" style={{background:"#1F5EFF",color:"#fff",borderRadius:999,padding:"12px 17px",fontSize:11,fontWeight:900,boxShadow:"0 15px 40px rgba(13,27,62,.2)",textDecoration:"none"}}>Time Modo</a><a href="/admin/smartbots" style={{background:"#2ED19A",color:"#0D1B3E",borderRadius:999,padding:"12px 17px",fontSize:11,fontWeight:900,boxShadow:"0 15px 40px rgba(13,27,62,.2)",textDecoration:"none"}}>SmartBots</a></div></>);
+ if(path.startsWith("/admin"))return suspended(<><AdminWorkspace/><div style={{position:"fixed",right:22,bottom:22,zIndex:1000,display:"flex",gap:8,flexWrap:"wrap",justifyContent:"flex-end"}}><a href="/admin/partners" style={{background:"#0D1B3E",color:"#fff",borderRadius:999,padding:"12px 17px",fontSize:11,fontWeight:900,boxShadow:"0 15px 40px rgba(13,27,62,.2)",textDecoration:"none"}}>Partners</a><a href="/admin/rede" style={{background:"#1F5EFF",color:"#fff",borderRadius:999,padding:"12px 17px",fontSize:11,fontWeight:900,boxShadow:"0 15px 40px rgba(13,27,62,.2)",textDecoration:"none"}}>Time Modo</a><a href="/admin/smartbots" style={{background:"#2ED19A",color:"#0D1B3E",borderRadius:999,padding:"12px 17px",fontSize:11,fontWeight:900,boxShadow:"0 15px 40px rgba(13,27,62,.2)",textDecoration:"none"}}>SmartBots</a></div></>);
  if(path.startsWith("/convite/"))return suspended(<InvitationWorkspace/>);
  if(path==="/app/agency"||(path==="/app"&&agencyMode))return suspended(<><AgencyWorkspace/><PasswordRecoveryEntry mode="agency"/></>);
  if(path.startsWith("/app/onboarding"))return suspended(<OnboardingWorkspace/>);

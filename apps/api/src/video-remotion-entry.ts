@@ -1,6 +1,7 @@
 import React from "react";
 import {
   AbsoluteFill,
+  Audio,
   Composition,
   Img,
   Sequence,
@@ -24,6 +25,7 @@ type RenderProps = {
   title: string;
   accentColor: string;
   captions: boolean;
+  audioUrl: string | null;
   scenes: RenderScene[];
 };
 
@@ -32,6 +34,7 @@ const defaultProps: RenderProps = {
   title: "Conteúdo MODO",
   accentColor: "#2ED19A",
   captions: true,
+  audioUrl: null,
   scenes: [
     {
       index: 1,
@@ -116,6 +119,7 @@ function ModoVideo(props: RenderProps) {
   return React.createElement(
     AbsoluteFill,
     { style: { backgroundColor: "#0D1B3E" } },
+    props.audioUrl ? React.createElement(Audio, { src: props.audioUrl, volume: 1 }) : null,
     ...props.scenes.map((scene) =>
       React.createElement(
         Sequence,

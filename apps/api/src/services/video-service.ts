@@ -6,6 +6,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import pg, { type Pool } from "pg";
+import { OpenAiVideoVoiceProvider, type VideoVoiceProvider, type VideoVoiceProviderName } from "../providers/video-voice-provider.js";
 
 const { Pool: PgPool } = pg;
 
@@ -13,6 +14,10 @@ interface VideoServiceOptions {
   databaseUrl?: string;
   databaseSsl?: boolean;
   publicApiUrl?: string;
+  openAiApiKey?: string;
+  voiceModel?: string;
+  voiceName?: string;
+  voiceProvider?: VideoVoiceProvider;
 }
 
 type VideoRow = {
@@ -23,6 +28,8 @@ type VideoRow = {
   content_request_id: string;
   duration_seconds: number;
   captions: boolean;
+  voiceover: boolean;
+  voice_provider: VideoVoiceProviderName | null;
   status: VideoProject["status"];
   scenes: VideoScene[];
   output_data: Buffer | null;
@@ -80,6 +87,13 @@ export function planVideoScenes(output: GeneratedContent, durationSeconds: Video
   });
 }
 
+function narrationText(scenes: VideoScene[]) {
+  return scenes
+    .map((scene) => scene.caption.replace(/\s+/g, " ").trim())
+    .filter(Boolean)
+    .join("\n\n");
+}
+
 function mapProject(row: VideoRow, publicApiUrl: string): VideoProject {
   return {
     id: row.id,
@@ -90,6 +104,8 @@ function mapProject(row: VideoRow, publicApiUrl: string): VideoProject {
     aspectRatio: "9:16",
     fps: 30,
     captions: row.captions,
+    voiceover: Boolean(row.voiceover),
+    voiceProvider: row.voice_provider || null,
     status: row.status,
     renderer: "remotion",
     scenes: row.scenes,
@@ -105,6 +121,7 @@ export class VideoService {
   private readonly pool?: Pool;
   private readonly memory = new Map<string, MemoryVideo>();
   private readonly publicApiUrl: string;
+  private readonly voiceProvider?: VideoVoiceProvider;
   private bundlePromise?: Promise<string>;
   private renderQueue: Promise<void> = Promise.resolve();
 
@@ -117,10 +134,20 @@ export class VideoService {
       });
     }
     this.publicApiUrl = (options.publicApiUrl || "http://localhost:4000").replace(/\/$/, "");
+    this.voiceProvider = options.voiceProvider || (options.openAiApiKey
+      ? new OpenAiVideoVoiceProvider(options.openAiApiKey, options.voiceModel, options.voiceName)
+      : undefined);
   }
 
   get storage(): "memory" | "postgres" {
     return this.pool ? "postgres" : "memory";
+  }
+
+  get voice() {
+    return {
+      available: Boolean(this.voiceProvider),
+      provider: this.voiceProvider?.name || null,
+    };
   }
 
   async initialize() {
@@ -134,6 +161,8 @@ export class VideoService {
         content_request_id TEXT NOT NULL REFERENCES modo_content_requests(id) ON DELETE CASCADE,
         duration_seconds INTEGER NOT NULL,
         captions BOOLEAN NOT NULL DEFAULT TRUE,
+        voiceover BOOLEAN NOT NULL DEFAULT FALSE,
+        voice_provider TEXT,
         status TEXT NOT NULL DEFAULT 'queued',
         scenes JSONB NOT NULL DEFAULT '[]'::jsonb,
         output_data BYTEA,
@@ -141,6 +170,8 @@ export class VideoService {
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
         updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       );
+      ALTER TABLE modo_video_renders ADD COLUMN IF NOT EXISTS voiceover BOOLEAN NOT NULL DEFAULT FALSE;
+      ALTER TABLE modo_video_renders ADD COLUMN IF NOT EXISTS voice_provider TEXT;
       CREATE INDEX IF NOT EXISTS modo_video_renders_content_idx
         ON modo_video_renders(organization_id, content_request_id, created_at DESC);
       CREATE INDEX IF NOT EXISTS modo_video_renders_status_idx
@@ -160,6 +191,7 @@ export class VideoService {
     content: ContentRequest;
     durationSeconds: VideoDurationSeconds;
     captions: boolean;
+    voiceover?: boolean;
   }) {
     if (input.content.organizationId !== input.organizationId) {
       throw new VideoError("VIDEO_CONTENT_NOT_FOUND", 404, "Conteúdo não encontrado nesta organização.");
@@ -169,6 +201,13 @@ export class VideoService {
     }
     if (!input.content.output || !["ready", "approved"].includes(input.content.status)) {
       throw new VideoError("VIDEO_CONTENT_NOT_READY", 409, "Finalize o roteiro antes de gerar o vídeo.");
+    }
+    if (input.voiceover && !this.voiceProvider) {
+      throw new VideoError(
+        "VIDEO_VOICE_UNAVAILABLE",
+        503,
+        "A narração PT-BR ainda não está disponível neste ambiente. Gere sem voz ou configure o provider de áudio.",
+      );
     }
 
     const scenes = planVideoScenes(input.content.output, input.durationSeconds);
@@ -181,6 +220,8 @@ export class VideoService {
       content_request_id: input.content.id,
       duration_seconds: input.durationSeconds,
       captions: input.captions,
+      voiceover: Boolean(input.voiceover),
+      voice_provider: input.voiceover ? this.voiceProvider?.name || null : null,
       status: "queued",
       scenes,
       output_data: null,
@@ -193,10 +234,21 @@ export class VideoService {
       const result = await this.pool.query<VideoRow>(
         `INSERT INTO modo_video_renders(
           id, public_token, organization_id, brand_id, content_request_id,
-          duration_seconds, captions, status, scenes
-        ) VALUES($1,$2,$3,$4,$5,$6,$7,'queued',$8::jsonb)
+          duration_seconds, captions, voiceover, voice_provider, status, scenes
+        ) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,'queued',$10::jsonb)
         RETURNING *`,
-        [row.id, row.public_token, row.organization_id, row.brand_id, row.content_request_id, row.duration_seconds, row.captions, JSON.stringify(row.scenes)],
+        [
+          row.id,
+          row.public_token,
+          row.organization_id,
+          row.brand_id,
+          row.content_request_id,
+          row.duration_seconds,
+          row.captions,
+          row.voiceover,
+          row.voice_provider,
+          JSON.stringify(row.scenes),
+        ],
       );
       return mapProject(result.rows[0], this.publicApiUrl);
     }
@@ -271,6 +323,9 @@ export class VideoService {
     if (row.status !== "failed") {
       throw new VideoError("VIDEO_PROJECT_NOT_RETRYABLE", 409, "Somente renders com falha podem ser tentados novamente.");
     }
+    if (row.voiceover && !this.voiceProvider) {
+      throw new VideoError("VIDEO_VOICE_UNAVAILABLE", 503, "O provider de narração não está disponível para repetir este render.");
+    }
     await this.updateStatus(input.id, input.organizationId, "queued", null);
     void this.enqueueRender(input);
     return this.getForOrganization(input.id, input.organizationId);
@@ -338,6 +393,17 @@ export class VideoService {
     const workdir = await mkdtemp(join(tmpdir(), "modo-video-"));
     const outputLocation = join(workdir, `${input.id}.mp4`);
     try {
+      let audioUrl: string | null = null;
+      if (row.voiceover) {
+        if (!this.voiceProvider) throw new Error("Provider de narração indisponível.");
+        const audio = await this.voiceProvider.synthesize({
+          text: narrationText(row.scenes),
+          targetDurationSeconds: row.duration_seconds,
+          language: "pt-BR",
+        });
+        audioUrl = `data:${audio.mimeType};base64,${audio.data.toString("base64")}`;
+      }
+
       const serveUrl = await this.remotionBundle();
       const { selectComposition, renderMedia } = await import("@remotion/renderer");
       const inputProps = {
@@ -345,6 +411,7 @@ export class VideoService {
         title: input.title || "Conteúdo MODO",
         accentColor: "#2ED19A",
         captions: row.captions,
+        audioUrl,
         scenes: row.scenes,
       };
       const composition = await selectComposition({

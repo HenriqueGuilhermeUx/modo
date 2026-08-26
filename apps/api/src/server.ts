@@ -162,6 +162,10 @@ await registerStrategyNetworkRoutes(app, {
 await registerPartnerRoutes(app, {
   databaseUrl: config.DATABASE_URL,
   databaseSsl: config.DATABASE_SSL,
+  resendApiKey: config.RESEND_API_KEY,
+  emailFrom: config.HUMAN_SUPPORT_EMAIL_FROM,
+  emailTo: config.HUMAN_SUPPORT_EMAIL_TO,
+  publicWebUrl: config.PUBLIC_WEB_URL,
 });
 
 await registerHumanOperationsRoutes(app, {

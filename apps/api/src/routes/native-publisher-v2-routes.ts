@@ -13,6 +13,7 @@ import { CreativeIntelligenceService } from "../services/creative-intelligence-s
 import { DistributionQualityService } from "../services/distribution-quality-service.js";
 import { NativeInstagramOAuthError, NativeInstagramOAuthService } from "../services/native-instagram-oauth-service.js";
 import { NativePublisherV2Error, NativePublisherV2Service } from "../services/native-publisher-v2-service.js";
+import { VideoError, VideoService } from "../services/video-service.js";
 
 const { Pool: PgPool } = pg;
 
@@ -50,6 +51,7 @@ export async function registerNativePublisherV2Routes(app: FastifyInstance, opti
   const auth = new AuthService({ databaseUrl: options.databaseUrl, databaseSsl: options.databaseSsl });
   const content = new ContentService({ databaseUrl: options.databaseUrl, databaseSsl: options.databaseSsl });
   const assets = new ContentAssetService({ databaseUrl: options.databaseUrl, databaseSsl: options.databaseSsl, publicApiUrl: options.publicApiUrl });
+  const videos = new VideoService({ databaseUrl: options.databaseUrl, databaseSsl: options.databaseSsl, publicApiUrl: options.publicApiUrl });
   const creative = new CreativeIntelligenceService({ databaseUrl: options.databaseUrl, databaseSsl: options.databaseSsl });
   const quality = new DistributionQualityService();
   const publisher = new NativePublisherV2Service(options);
@@ -68,7 +70,7 @@ export async function registerNativePublisherV2Routes(app: FastifyInstance, opti
     ? new PgPool({ connectionString: options.databaseUrl, ssl: options.databaseSsl ? { rejectUnauthorized: false } : undefined, max: 2 })
     : undefined;
 
-  await Promise.all([auth.initialize(), content.initialize(), assets.initialize(), creative.initialize(), publisher.initialize()]);
+  await Promise.all([auth.initialize(), content.initialize(), assets.initialize(), videos.initialize(), creative.initialize(), publisher.initialize()]);
   if (learningPool) {
     await learningPool.query(`
       CREATE TABLE IF NOT EXISTS modo_native_social_learning_events (
@@ -86,11 +88,11 @@ export async function registerNativePublisherV2Routes(app: FastifyInstance, opti
   learningTimer.unref?.();
   app.addHook("onClose", async () => {
     clearInterval(learningTimer);
-    await Promise.all([auth.close(), content.close(), assets.close(), creative.close(), publisher.close(), instagramOAuth.close(), learningPool?.end()]);
+    await Promise.all([auth.close(), content.close(), assets.close(), videos.close(), creative.close(), publisher.close(), instagramOAuth.close(), learningPool?.end()]);
   });
 
   app.setErrorHandler((error, request, reply) => {
-    if (error instanceof NativePublisherV2Error || error instanceof NativeInstagramOAuthError || error instanceof AuthError) {
+    if (error instanceof NativePublisherV2Error || error instanceof NativeInstagramOAuthError || error instanceof AuthError || error instanceof VideoError) {
       return reply.code(error.statusCode).send({ code: error.code, message: error.message });
     }
     request.log.error({ error }, "Publisher V2 error");
@@ -174,6 +176,14 @@ export async function registerNativePublisherV2Routes(app: FastifyInstance, opti
       qualityGate: true,
       calendar: true,
       directInstagramOAuth: true,
+      durableMediaSnapshot: true,
+      videoPublishing: true,
+    },
+    videoProviders: {
+      instagram: true,
+      facebook: true,
+      threads: true,
+      linkedin: false,
     },
     callbacks: {
       instagram: options.instagramRedirectUri || null,
@@ -272,9 +282,34 @@ export async function registerNativePublisherV2Routes(app: FastifyInstance, opti
     const { current } = await requireBrand(request, input.brandId);
     const { request: contentRequest, report } = await qualityFor(current.organization.id, input.brandId, input.contentRequestId);
     if (!report.publishAllowed) throw new NativePublisherV2Error("QUALITY_GATE_BLOCKED", 409, report.blockers[0] || "A peça foi bloqueada pelo Quality Gate.");
-    const imageUrl = contentRequest.output
-      ? await assets.getPublicUrlForRequest(current.organization.id, contentRequest.id, contentRequest.output.imageUrl)
-      : null;
+
+    let mediaType: "none" | "image" | "video" = "none";
+    let mediaUrl: string | null = null;
+    let videoProjectId: string | null = null;
+
+    if (input.videoProjectId) {
+      if (input.provider === "linkedin") {
+        throw new NativePublisherV2Error(
+          "VIDEO_PROVIDER_UNSUPPORTED",
+          409,
+          "Vídeo no LinkedIn entra na próxima camada do Publisher. Nesta versão, publique o vídeo em Instagram, Facebook ou Threads.",
+        );
+      }
+      const video = await videos.getForOrganization(input.videoProjectId, current.organization.id);
+      if (video.brandId !== input.brandId || video.contentRequestId !== contentRequest.id) {
+        throw new NativePublisherV2Error("VIDEO_CONTENT_MISMATCH", 409, "O vídeo selecionado não pertence a este conteúdo e marca.");
+      }
+      if (video.status !== "ready" || !video.outputUrl) {
+        throw new NativePublisherV2Error("VIDEO_NOT_READY", 409, "Finalize o render do vídeo antes de publicar ou agendar.");
+      }
+      mediaType = "video";
+      mediaUrl = video.outputUrl;
+      videoProjectId = video.id;
+    } else if (contentRequest.output) {
+      mediaUrl = await assets.getPublicUrlForRequest(current.organization.id, contentRequest.id, contentRequest.output.imageUrl);
+      mediaType = mediaUrl ? "image" : "none";
+    }
+
     const publication = await publisher.createPublication({
       organizationId: current.organization.id,
       brandId: input.brandId,
@@ -285,7 +320,9 @@ export async function registerNativePublisherV2Routes(app: FastifyInstance, opti
       scheduledFor: input.scheduledFor,
       idempotencyKey: input.idempotencyKey,
       qualityScore: report.score,
-      imageUrl,
+      mediaType,
+      mediaUrl,
+      videoProjectId,
     });
     if (publication.status === "published") {
       await creative.recordFeedback(current.organization.id, input.brandId, {

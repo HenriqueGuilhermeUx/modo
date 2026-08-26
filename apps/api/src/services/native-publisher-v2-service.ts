@@ -5,6 +5,7 @@ import type {
   NativeCalendarItem,
   NativeConnection,
   NativePublication,
+  NativePublicationMediaType,
   NativePublisherProvider,
 } from "@modo/contracts/native-publisher";
 import { createCipheriv, createDecipheriv, createHash, randomBytes, randomUUID } from "node:crypto";
@@ -58,6 +59,9 @@ interface PublicationRow {
   provider: NativePublisherProvider;
   connection_id: string;
   status: NativePublication["status"];
+  media_type: NativePublicationMediaType;
+  media_url: string | null;
+  video_project_id: string | null;
   scheduled_for: Date | null;
   published_at: Date | null;
   provider_post_id: string | null;
@@ -98,6 +102,10 @@ function metricValue(value: unknown): number {
   return Number.isFinite(number) ? Math.max(0, number) : 0;
 }
 
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 function mapConnection(row: ConnectionRow): NativeConnection {
   const expired = Boolean(row.token_expires_at && row.token_expires_at <= new Date());
   const scopes = row.scopes || [];
@@ -135,6 +143,9 @@ function mapPublication(row: PublicationRow): NativePublication {
     provider: row.provider,
     connectionId: row.connection_id,
     status: row.status,
+    mediaType: row.media_type || "none",
+    mediaUrl: row.media_url || null,
+    videoProjectId: row.video_project_id || null,
     scheduledFor: row.scheduled_for?.toISOString() ?? null,
     publishedAt: row.published_at?.toISOString() ?? null,
     providerPostId: row.provider_post_id,
@@ -229,6 +240,9 @@ export class NativePublisherV2Service {
         provider TEXT NOT NULL,
         connection_id UUID NOT NULL REFERENCES modo_native_social_connections(id) ON DELETE CASCADE,
         status TEXT NOT NULL,
+        media_type TEXT NOT NULL DEFAULT 'none',
+        media_url TEXT,
+        video_project_id UUID,
         scheduled_for TIMESTAMPTZ,
         published_at TIMESTAMPTZ,
         provider_post_id TEXT,
@@ -243,6 +257,9 @@ export class NativePublisherV2Service {
         updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
         UNIQUE(organization_id,idempotency_key)
       );
+      ALTER TABLE modo_native_social_publications ADD COLUMN IF NOT EXISTS media_type TEXT NOT NULL DEFAULT 'none';
+      ALTER TABLE modo_native_social_publications ADD COLUMN IF NOT EXISTS media_url TEXT;
+      ALTER TABLE modo_native_social_publications ADD COLUMN IF NOT EXISTS video_project_id UUID;
       CREATE INDEX IF NOT EXISTS modo_native_social_publications_due_idx
         ON modo_native_social_publications(status,scheduled_for,next_attempt_at);
       CREATE INDEX IF NOT EXISTS modo_native_social_publications_brand_idx
@@ -549,7 +566,9 @@ export class NativePublisherV2Service {
     scheduledFor?: string;
     idempotencyKey?: string;
     qualityScore: number;
-    imageUrl?: string | null;
+    mediaType?: NativePublicationMediaType;
+    mediaUrl?: string | null;
+    videoProjectId?: string | null;
   }) {
     const pool = this.requirePool();
     const connection = await this.connectionForPublication(
@@ -563,21 +582,32 @@ export class NativePublisherV2Service {
     if (input.mode === "schedule" && (!scheduledFor || Number.isNaN(scheduledFor.getTime()) || scheduledFor <= new Date())) {
       throw new NativePublisherV2Error("INVALID_SCHEDULE", 400, "Informe uma data futura válida para o agendamento.");
     }
+    const mediaType = input.mediaType || (input.mediaUrl ? "image" : "none");
+    const mediaUrl = input.mediaUrl || null;
+    if (mediaType !== "none" && !mediaUrl) {
+      throw new NativePublisherV2Error("PUBLISHER_MEDIA_REQUIRED", 409, "A mídia desta publicação ainda não está pronta.");
+    }
+    if (mediaType === "video" && input.provider === "linkedin") {
+      throw new NativePublisherV2Error("VIDEO_PROVIDER_UNSUPPORTED", 409, "Vídeo no LinkedIn ainda não está disponível nesta versão do Publisher.");
+    }
     const idempotencyKey = input.idempotencyKey || `${input.content.id}:${input.provider}:${connection.id}:${input.mode}:${scheduledFor?.toISOString() || "now"}`;
     const id = randomUUID();
     const status = input.mode === "draft" ? "draft" : input.mode === "schedule" ? "scheduled" : "publishing";
     const result = await pool.query<PublicationRow>(
       `INSERT INTO modo_native_social_publications(
-        id,organization_id,brand_id,content_request_id,provider,connection_id,status,scheduled_for,
-        idempotency_key,quality_score
-      ) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+        id,organization_id,brand_id,content_request_id,provider,connection_id,status,
+        media_type,media_url,video_project_id,scheduled_for,idempotency_key,quality_score
+      ) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
       ON CONFLICT(organization_id,idempotency_key) DO UPDATE SET updated_at=NOW()
       RETURNING *`,
-      [id,input.organizationId,input.brandId,input.content.id,input.provider,connection.id,status,scheduledFor,idempotencyKey,input.qualityScore],
+      [
+        id,input.organizationId,input.brandId,input.content.id,input.provider,connection.id,status,
+        mediaType,mediaUrl,input.videoProjectId || null,scheduledFor,idempotencyKey,input.qualityScore,
+      ],
     );
     let publication = mapPublication(result.rows[0]);
     if (input.mode === "now" && publication.status !== "published") {
-      publication = await this.publish(publication, input.content, input.imageUrl || null);
+      publication = await this.publish(publication, input.content);
     }
     return publication;
   }
@@ -759,17 +789,17 @@ export class NativePublisherV2Service {
     return this.options.linkedinEncryptionSecret;
   }
 
-  private async publish(publication: NativePublication, content: ContentRequest, imageUrl: string | null) {
+  private async publish(publication: NativePublication, content: ContentRequest) {
     const connection = await this.connectionById(publication.connectionId);
     if (!connection) throw new NativePublisherV2Error("SOCIAL_CONNECTION_NOT_FOUND", 409, "Conexão social não encontrada.");
     try {
       const token = this.decrypt(connection.encrypted_access_token, this.secretFor(connection.provider));
       const caption = this.caption(content);
       let result: { postId: string; permalink: string | null };
-      if (publication.provider === "instagram") result = await this.publishInstagram(connection, token, caption, imageUrl);
-      else if (publication.provider === "facebook") result = await this.publishFacebook(connection, token, caption, imageUrl);
-      else if (publication.provider === "threads") result = await this.publishThreads(connection, token, caption, imageUrl);
-      else result = await this.publishLinkedIn(connection, token, caption);
+      if (publication.provider === "instagram") result = await this.publishInstagram(connection, token, caption, publication.mediaType, publication.mediaUrl);
+      else if (publication.provider === "facebook") result = await this.publishFacebook(connection, token, caption, publication.mediaType, publication.mediaUrl);
+      else if (publication.provider === "threads") result = await this.publishThreads(connection, token, caption, publication.mediaType, publication.mediaUrl);
+      else result = await this.publishLinkedIn(connection, token, caption, publication.mediaType);
       const pool = this.requirePool();
       const updated = await pool.query<PublicationRow>(
         `UPDATE modo_native_social_publications SET status='published',published_at=NOW(),provider_post_id=$2,
@@ -792,13 +822,23 @@ export class NativePublisherV2Service {
     return [...new Set(parts)].join("\n\n").slice(0,4500);
   }
 
-  private async publishInstagram(connection: ConnectionRow, token: string, caption: string, imageUrl: string | null) {
-    if (!imageUrl) throw new NativePublisherV2Error("INSTAGRAM_MEDIA_REQUIRED", 409, "Instagram exige imagem pronta neste fluxo.");
+  private async publishInstagram(
+    connection: ConnectionRow,
+    token: string,
+    caption: string,
+    mediaType: NativePublicationMediaType,
+    mediaUrl: string | null,
+  ) {
+    if (!mediaUrl) throw new NativePublisherV2Error("INSTAGRAM_MEDIA_REQUIRED", 409, "Instagram exige mídia pronta neste fluxo.");
     const base = (this.options.instagramGraphBaseUrl || "https://graph.instagram.com").replace(/\/$/,"");
     const version = (this.options.instagramApiVersion || "v25.0").replace(/^([^v])/,"v$1");
-    const media = await this.formPost(`${base}/${version}/${encodeURIComponent(connection.provider_account_id)}/media`, { image_url:imageUrl, caption, access_token:token });
+    const values: Record<string, string> = mediaType === "video"
+      ? { media_type:"REELS", video_url:mediaUrl, caption, share_to_feed:"true", access_token:token }
+      : { image_url:mediaUrl, caption, access_token:token };
+    const media = await this.formPost(`${base}/${version}/${encodeURIComponent(connection.provider_account_id)}/media`, values);
     const creationId = text(media.id);
     if (!creationId) throw new Error("Instagram não retornou creation_id.");
+    if (mediaType === "video") await this.waitForInstagramContainer(base, version, creationId, token);
     const published = await this.formPost(`${base}/${version}/${encodeURIComponent(connection.provider_account_id)}/media_publish`, { creation_id:creationId, access_token:token });
     const postId = text(published.id);
     if (!postId) throw new Error("Instagram não retornou post_id.");
@@ -808,26 +848,65 @@ export class NativePublisherV2Service {
     return { postId, permalink: text(info.permalink) || null };
   }
 
-  private async publishFacebook(connection: ConnectionRow, token: string, caption: string, imageUrl: string | null) {
+  private async waitForInstagramContainer(base: string, version: string, creationId: string, token: string) {
+    for (let attempt = 0; attempt < 24; attempt += 1) {
+      const url = new URL(`${base}/${version}/${encodeURIComponent(creationId)}`);
+      url.searchParams.set("fields", "status_code");
+      url.searchParams.set("access_token", token);
+      const response = await fetch(url, { signal: AbortSignal.timeout(15_000) });
+      const payload = await response.json().catch(() => ({})) as any;
+      const status = text(payload.status_code).toUpperCase();
+      if (response.ok && status === "FINISHED") return;
+      if (["ERROR", "EXPIRED"].includes(status)) {
+        throw new Error(text(payload.error?.message) || `Instagram não processou o vídeo (${status}).`);
+      }
+      await sleep(2_500);
+    }
+    throw new Error("Instagram não concluiu o processamento do vídeo no tempo esperado.");
+  }
+
+  private async publishFacebook(
+    connection: ConnectionRow,
+    token: string,
+    caption: string,
+    mediaType: NativePublicationMediaType,
+    mediaUrl: string | null,
+  ) {
     const version = this.options.facebookApiVersion || "v25.0";
     const base = `https://graph.facebook.com/${version}/${encodeURIComponent(connection.provider_account_id)}`;
-    const payload = imageUrl
-      ? await this.formPost(`${base}/photos`, { url:imageUrl,caption,access_token:token,published:"true" })
-      : await this.formPost(`${base}/feed`, { message:caption,access_token:token });
+    const payload = mediaType === "video" && mediaUrl
+      ? await this.formPost(`${base}/videos`, { file_url:mediaUrl,description:caption,access_token:token,published:"true" })
+      : mediaUrl
+        ? await this.formPost(`${base}/photos`, { url:mediaUrl,caption,access_token:token,published:"true" })
+        : await this.formPost(`${base}/feed`, { message:caption,access_token:token });
     const postId = text(payload.post_id) || text(payload.id);
     if (!postId) throw new Error("Facebook não retornou o ID da publicação.");
     return { postId, permalink: null };
   }
 
-  private async publishThreads(_connection: ConnectionRow, token: string, caption: string, imageUrl: string | null) {
+  private async publishThreads(
+    _connection: ConnectionRow,
+    token: string,
+    caption: string,
+    mediaType: NativePublicationMediaType,
+    mediaUrl: string | null,
+  ) {
     const createUrl = new URL("https://graph.threads.net/me/threads");
     createUrl.searchParams.set("text",caption.slice(0,500));
-    createUrl.searchParams.set("media_type",imageUrl ? "IMAGE" : "TEXT");
-    if (imageUrl) createUrl.searchParams.set("image_url",imageUrl);
+    if (mediaType === "video" && mediaUrl) {
+      createUrl.searchParams.set("media_type","VIDEO");
+      createUrl.searchParams.set("video_url",mediaUrl);
+    } else if (mediaUrl) {
+      createUrl.searchParams.set("media_type","IMAGE");
+      createUrl.searchParams.set("image_url",mediaUrl);
+    } else {
+      createUrl.searchParams.set("media_type","TEXT");
+    }
     createUrl.searchParams.set("access_token",token);
     const createdResponse = await fetch(createUrl,{method:"POST",signal:AbortSignal.timeout(30000)});
     const created = await createdResponse.json() as any;
     if (!createdResponse.ok || !created.id) throw new Error(text(created.error?.message) || "Threads não criou o container.");
+    if (mediaType === "video") await this.waitForThreadsContainer(String(created.id), token);
     const publishUrl = new URL("https://graph.threads.net/me/threads_publish");
     publishUrl.searchParams.set("creation_id",String(created.id)); publishUrl.searchParams.set("access_token",token);
     const publishedResponse = await fetch(publishUrl,{method:"POST",signal:AbortSignal.timeout(30000)});
@@ -840,7 +919,32 @@ export class NativePublisherV2Service {
     return { postId, permalink:text(info.permalink)||null };
   }
 
-  private async publishLinkedIn(connection: ConnectionRow, token: string, caption: string) {
+  private async waitForThreadsContainer(creationId: string, token: string) {
+    for (let attempt = 0; attempt < 24; attempt += 1) {
+      const url = new URL(`https://graph.threads.net/${encodeURIComponent(creationId)}`);
+      url.searchParams.set("fields", "status,error_message");
+      url.searchParams.set("access_token", token);
+      const response = await fetch(url, { signal: AbortSignal.timeout(15_000) });
+      const payload = await response.json().catch(() => ({})) as any;
+      const status = text(payload.status).toUpperCase();
+      if (response.ok && ["FINISHED", "PUBLISHED"].includes(status)) return;
+      if (["ERROR", "EXPIRED"].includes(status)) {
+        throw new Error(text(payload.error_message) || `Threads não processou o vídeo (${status}).`);
+      }
+      await sleep(2_500);
+    }
+    throw new Error("Threads não concluiu o processamento do vídeo no tempo esperado.");
+  }
+
+  private async publishLinkedIn(
+    connection: ConnectionRow,
+    token: string,
+    caption: string,
+    mediaType: NativePublicationMediaType,
+  ) {
+    if (mediaType === "video") {
+      throw new NativePublisherV2Error("VIDEO_PROVIDER_UNSUPPORTED", 409, "Vídeo no LinkedIn entra na próxima camada do Publisher.");
+    }
     const response = await fetch("https://api.linkedin.com/rest/posts",{
       method:"POST",
       headers:{
@@ -896,7 +1000,7 @@ export class NativePublisherV2Service {
     for (const raw of due.rows) {
       await this.pool.query(`UPDATE modo_native_social_publications SET status='publishing',updated_at=NOW() WHERE id=$1 AND status IN ('scheduled','retrying')`,[raw.publication_id]);
       const publicationResult = await this.pool.query<PublicationRow>(`SELECT * FROM modo_native_social_publications WHERE id=$1`,[raw.publication_id]);
-      const publication = mapPublication(publicationResult.rows[0]);
+      let publication = mapPublication(publicationResult.rows[0]);
       const content: ContentRequest = {
         id:raw.publication_content_id,organizationId:raw.organization_id,brandId:raw.brand_id,
         contentType:raw.content_type,objective:raw.objective,brief:raw.brief,channel:raw.channel,status:raw.status,
@@ -904,8 +1008,11 @@ export class NativePublisherV2Service {
         revisionInstructions:raw.revision_instructions,output:raw.output,error:raw.error,providerRunId:raw.provider_run_id,
         approvedAt:raw.approved_at?.toISOString?.() ?? raw.approved_at ?? null,createdAt:raw.created_at.toISOString(),updatedAt:raw.updated_at.toISOString(),
       } as ContentRequest;
-      const imageUrl = text(content.output?.imageUrl) || null;
-      await this.publish(publication,content,imageUrl).catch(()=>undefined);
+      // Compatibilidade para agendamentos antigos, criados antes do snapshot de mídia.
+      if (publication.mediaType === "none" && text(content.output?.imageUrl)) {
+        publication = { ...publication, mediaType: "image", mediaUrl: text(content.output?.imageUrl) };
+      }
+      await this.publish(publication,content).catch(()=>undefined);
     }
   }
 

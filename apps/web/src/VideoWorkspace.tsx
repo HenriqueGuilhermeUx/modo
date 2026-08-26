@@ -188,7 +188,7 @@ export default function VideoWorkspace() {
 
             <label className="video-toggle">
               <input type="checkbox" checked={voiceover} disabled={Boolean(project && ["queued", "rendering"].includes(project.status))} onChange={(event) => setVoiceover(event.target.checked)} />
-              <span><strong>Narração PT-BR</strong><small>Transforma a locução do roteiro em uma voz natural e mistura o áudio no MP4.</small></span>
+              <span><strong>Narração PT-BR</strong><small>Gera voz por IA para cada cena, sincronizada com a legenda e a duração daquela cena.</small></span>
             </label>
 
             {!project || ["cancelled"].includes(project.status) ? (
@@ -199,7 +199,7 @@ export default function VideoWorkspace() {
               <button className="button button-outline button-full" disabled={working} onClick={() => void cancel()}>Cancelar fila</button>
             ) : null}
 
-            <div className="video-runtime-note"><strong>Sem GPU nesta versão.</strong><p>A montagem continua programática. A narração é um provider opcional; clonagem de voz, avatar e B-roll generativo permanecem camadas futuras.</p></div>
+            <div className="video-runtime-note"><strong>Sem GPU nesta versão.</strong><p>A montagem continua programática. A narração é uma voz sintética gerada por IA; clonagem de voz, avatar e B-roll generativo permanecem camadas futuras.</p></div>
           </section>
 
           <section className="video-preview-card">
@@ -212,12 +212,12 @@ export default function VideoWorkspace() {
                   <a className="button button-primary" href={project.outputUrl} target="_blank" rel="noreferrer">Abrir MP4</a>
                   <a className="button button-outline" href="/app/content">Voltar para revisão</a>
                 </div>
-                {project.voiceover && <small>Narração PT-BR incluída · provider {project.voiceProvider || "gerenciado"}</small>}
+                {project.voiceover && <small>Narração por IA incluída · sincronizada por cena · provider {project.voiceProvider || "gerenciado"}</small>}
               </div>
             ) : project && ["queued", "rendering"].includes(project.status) ? (
               <div className="video-rendering-state">
                 <div className="video-render-orbit"><span /><i /></div>
-                <strong>{project.status === "queued" ? "Aguardando o renderer" : project.voiceover ? "Gerando voz e montando o vídeo" : "Montando cenas, tipografia e legendas"}</strong>
+                <strong>{project.status === "queued" ? "Aguardando o renderer" : project.voiceover ? "Gerando voz por cena e montando o vídeo" : "Montando cenas, tipografia e legendas"}</strong>
                 <p>O processamento continua no servidor. Esta tela atualiza automaticamente.</p>
               </div>
             ) : project?.status === "failed" ? (

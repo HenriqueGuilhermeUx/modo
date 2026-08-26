@@ -84,11 +84,46 @@ describe("MODO Video", () => {
     expect(project.status).toBe("queued");
     expect(project.aspectRatio).toBe("9:16");
     expect(project.renderer).toBe("remotion");
+    expect(project.voiceover).toBe(false);
+    expect(project.voiceProvider).toBeNull();
     expect((await service.latestForContent("organization-one", project.contentRequestId))?.id).toBe(project.id);
     expect(await service.latestForContent("organization-two", project.contentRequestId)).toBeNull();
 
     const cancelled = await service.cancel(project.id, "organization-one");
     expect(cancelled.status).toBe("cancelled");
+  });
+
+  it("persiste a escolha de narração quando existe provider configurado", async () => {
+    const service = new VideoService({
+      voiceProvider: {
+        name: "openai",
+        async synthesize() {
+          return { provider: "openai", mimeType: "audio/mpeg", data: Buffer.from("audio") };
+        },
+      },
+    });
+    const project = await service.createProject({
+      organizationId: "organization-one",
+      content: contentRequest(),
+      durationSeconds: 30,
+      captions: true,
+      voiceover: true,
+    });
+
+    expect(service.voice).toEqual({ available: true, provider: "openai" });
+    expect(project.voiceover).toBe(true);
+    expect(project.voiceProvider).toBe("openai");
+  });
+
+  it("não aceita narração quando o ambiente não possui provider", async () => {
+    const service = new VideoService();
+    await expect(service.createProject({
+      organizationId: "organization-one",
+      content: contentRequest(),
+      durationSeconds: 30,
+      captions: true,
+      voiceover: true,
+    })).rejects.toMatchObject<Partial<VideoError>>({ code: "VIDEO_VOICE_UNAVAILABLE" });
   });
 
   it("recusa tipos de conteúdo que não são roteiro de vídeo", async () => {

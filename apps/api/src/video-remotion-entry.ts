@@ -132,7 +132,11 @@ function ModoVideo(props: RenderProps) {
 }
 
 function Root() {
-  const composition = (id: string, durationInFrames: number) => React.createElement(Composition<RenderProps>, {
+  // Composition é um componente genérico. React.createElement não aceita aplicar
+  // o parâmetro de tipo diretamente (Composition<RenderProps>), então fixamos
+  // somente a borda do componente aqui e mantemos RenderProps tipado no resto do renderer.
+  const VideoComposition = Composition as React.ComponentType<Record<string, unknown>>;
+  const composition = (id: string, durationInFrames: number) => React.createElement(VideoComposition, {
     id,
     component: ModoVideo,
     width: 720,

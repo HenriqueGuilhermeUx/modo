@@ -51,6 +51,18 @@ function contentRequest(overrides: Partial<ContentRequest> = {}): ContentRequest
   };
 }
 
+function humanOutput(): GeneratedContent {
+  return {
+    ...output,
+    imageUrl: null,
+    imageStatus: "not_requested",
+    script: [
+      { scene: "Abertura", visual: "Empresária brasileira conversando com um cliente em uma cafeteria.", voiceover: "Estratégia começa entendendo pessoas." },
+      { scene: "CTA", visual: "Marca e chamada final.", voiceover: "Planeje com direção." },
+    ],
+  };
+}
+
 describe("MODO Video", () => {
   it("monta um vídeo de 30s com no máximo cinco cenas e 900 frames", () => {
     const scenes = planVideoScenes(output, 30);
@@ -85,17 +97,15 @@ describe("MODO Video", () => {
     });
   });
 
-  it("classifica uma cena humana/editorial sem asset como imagem gerada", () => {
-    const editorial = planVideoScenes({
-      ...output,
+  it("classifica uma cena humana/editorial sem asset como B-roll controlado", () => {
+    const editorial = planVideoScenes(humanOutput(), 15);
+    expect(editorial[0]).toMatchObject({
+      visualType: "broll_video",
+      assetSource: "stock",
       imageUrl: null,
-      imageStatus: "not_requested",
-      script: [
-        { scene: "Abertura", visual: "Empresária brasileira conversando com um cliente em uma cafeteria.", voiceover: "Estratégia começa entendendo pessoas." },
-        { scene: "CTA", visual: "Marca e chamada final.", voiceover: "Planeje com direção." },
-      ],
-    }, 15);
-    expect(editorial[0]).toMatchObject({ visualType: "generated_image", assetSource: "generated", imageUrl: null });
+      videoUrl: null,
+    });
+    expect(editorial[0].stockQuery).toContain("Empresária brasileira");
     expect(editorial[1].visualType).toBe("kinetic_text");
   });
 
@@ -124,6 +134,7 @@ describe("MODO Video", () => {
     expect(project.voiceover).toBe(false);
     expect(project.voiceProvider).toBeNull();
     expect(project.visualProvider).toBeNull();
+    expect(project.brollProvider).toBeNull();
     expect((await service.latestForContent("organization-one", project.contentRequestId))?.id).toBe(project.id);
     expect(await service.latestForContent("organization-two", project.contentRequestId)).toBeNull();
 
@@ -180,6 +191,124 @@ describe("MODO Video", () => {
     expect(second.scenes.map((scene: any) => scene.audioUrl)).toEqual(first.scenes.map((scene: any) => scene.audioUrl));
   });
 
+  it("ao editar a locução, invalida somente o áudio daquela cena", async () => {
+    const synthesize = vi.fn(async ({ text }: { text: string }) => ({
+      provider: "openai" as const,
+      mimeType: "audio/mpeg" as const,
+      data: Buffer.from(`audio:${text}`),
+    }));
+    const service = new VideoService({ voiceProvider: { name: "openai", synthesize } });
+    const project = await service.createProject({
+      organizationId: "organization-one",
+      content: contentRequest(),
+      durationSeconds: 30,
+      captions: true,
+      voiceover: true,
+    });
+    const initialRow = (service as any).memory.get(project.id);
+    await (service as any).renderScenes(initialRow, "MODO");
+    expect(synthesize).toHaveBeenCalledTimes(project.scenes.length);
+
+    await service.cancel(project.id, "organization-one");
+    const edited = await service.updateScene({
+      id: project.id,
+      organizationId: "organization-one",
+      sceneIndex: 2,
+      patch: { caption: "Uma locução revisada somente para esta cena." },
+    });
+    expect(edited.scenes[1].caption).toBe("Uma locução revisada somente para esta cena.");
+
+    const editedRow = (service as any).memory.get(project.id);
+    await (service as any).renderScenes(editedRow, "MODO");
+    expect(synthesize).toHaveBeenCalledTimes(project.scenes.length + 1);
+    expect(synthesize.mock.calls.at(-1)?.[0]).toMatchObject({
+      text: "Uma locução revisada somente para esta cena.",
+    });
+  });
+
+  it("enriquece cena humana com B-roll, persiste asset e crédito", async () => {
+    const fetchClip = vi.fn(async () => ({
+      provider: "pexels" as const,
+      mimeType: "video/mp4" as const,
+      data: Buffer.from("stock-video"),
+      credit: {
+        provider: "pexels" as const,
+        authorName: "Ana Criadora",
+        authorUrl: "https://www.pexels.com/@ana",
+        sourceUrl: "https://www.pexels.com/video/42/",
+      },
+    }));
+    const service = new VideoService({
+      publicApiUrl: "https://modo.example.com",
+      brollProvider: { name: "pexels", fetchClip },
+    });
+    const project = await service.createProject({
+      organizationId: "organization-one",
+      content: contentRequest({ output: humanOutput() }),
+      durationSeconds: 15,
+      captions: true,
+    });
+    const row = (service as any).memory.get(project.id);
+    const prepared = await (service as any).prepareVisualScenes(row, "MODO");
+
+    expect(fetchClip).toHaveBeenCalledTimes(1);
+    expect(prepared.row.broll_provider).toBe("pexels");
+    expect(prepared.scenes[0]).toMatchObject({
+      visualType: "broll_video",
+      assetSource: "stock",
+      stockCredit: {
+        provider: "pexels",
+        authorName: "Ana Criadora",
+      },
+    });
+    expect(prepared.scenes[0].videoUrl).toMatch(/^https:\/\/modo\.example\.com\/api\/v1\/public\/video-scene-assets\//);
+  });
+
+  it("regenera somente o B-roll escolhido e preserva as demais cenas", async () => {
+    const fetchClip = vi.fn(async ({ revision }: { revision: number }) => ({
+      provider: "pexels" as const,
+      mimeType: "video/mp4" as const,
+      data: Buffer.from(`stock-video:${revision}`),
+      credit: {
+        provider: "pexels" as const,
+        authorName: `Criador ${revision}`,
+        authorUrl: "https://www.pexels.com/@criador",
+        sourceUrl: `https://www.pexels.com/video/${revision + 1}/`,
+      },
+    }));
+    const service = new VideoService({
+      publicApiUrl: "https://modo.example.com",
+      brollProvider: { name: "pexels", fetchClip },
+    });
+    const created = await service.createProject({
+      organizationId: "organization-one",
+      content: contentRequest({ output: humanOutput() }),
+      durationSeconds: 15,
+      captions: true,
+    });
+    const before = structuredClone(created.scenes);
+    await service.cancel(created.id, "organization-one");
+
+    const updated = await service.regenerateScene({
+      id: created.id,
+      organizationId: "organization-one",
+      sceneIndex: 1,
+      brandName: "MODO",
+    });
+
+    expect(fetchClip).toHaveBeenCalledTimes(1);
+    expect(updated.status).toBe("queued");
+    expect(updated.brollProvider).toBe("pexels");
+    expect(updated.scenes[0]).toMatchObject({
+      visualType: "broll_video",
+      assetSource: "stock",
+      assetRevision: 1,
+      stockCredit: { authorName: "Criador 1" },
+    });
+    expect(updated.scenes[0].videoUrl).toMatch(/^https:\/\/modo\.example\.com\/api\/v1\/public\/video-scene-assets\//);
+    expect(updated.scenes.slice(1)).toEqual(before.slice(1));
+  });
+
   it("regenera somente o visual escolhido e preserva as demais cenas", async () => {
     const generate = vi.fn(async ({ sceneIndex, revision }: { sceneIndex: number; revision: number }) => ({
       provider: "openai" as const,
@@ -221,6 +350,34 @@ describe("MODO Video", () => {
     expect(updated.scenes.slice(2)).toEqual(before.slice(2));
   });
 
+  it("faz fallback de B-roll para imagem gerada quando Pexels não está configurado", async () => {
+    const generate = vi.fn(async () => ({
+      provider: "openai" as const,
+      mimeType: "image/png" as const,
+      data: Buffer.from("fallback-image"),
+    }));
+    const service = new VideoService({
+      publicApiUrl: "https://modo.example.com",
+      visualProvider: { name: "openai", generate },
+    });
+    const project = await service.createProject({
+      organizationId: "organization-one",
+      content: contentRequest({ output: humanOutput() }),
+      durationSeconds: 15,
+      captions: true,
+    });
+    const row = (service as any).memory.get(project.id);
+    const prepared = await (service as any).prepareVisualScenes(row, "MODO");
+
+    expect(generate).toHaveBeenCalledTimes(1);
+    expect(prepared.scenes[0]).toMatchObject({
+      visualType: "generated_image",
+      assetSource: "generated",
+      videoUrl: null,
+    });
+    expect(prepared.scenes[0].imageUrl).toContain("/api/v1/public/video-scene-assets/");
+  });
+
   it("não promete regeneração visual quando o ambiente não possui provider", async () => {
     const service = new VideoService();
     const created = await service.createProject({
@@ -236,6 +393,23 @@ describe("MODO Video", () => {
       sceneIndex: 2,
       brandName: "MODO",
     })).rejects.toMatchObject<Partial<VideoError>>({ code: "VIDEO_VISUAL_UNAVAILABLE" });
+  });
+
+  it("não promete troca de B-roll quando o ambiente não possui Pexels", async () => {
+    const service = new VideoService();
+    const created = await service.createProject({
+      organizationId: "organization-one",
+      content: contentRequest({ output: humanOutput() }),
+      durationSeconds: 15,
+      captions: true,
+    });
+    await service.cancel(created.id, "organization-one");
+    await expect(service.regenerateScene({
+      id: created.id,
+      organizationId: "organization-one",
+      sceneIndex: 1,
+      brandName: "MODO",
+    })).rejects.toMatchObject<Partial<VideoError>>({ code: "VIDEO_BROLL_UNAVAILABLE" });
   });
 
   it("não aceita narração quando o ambiente não possui provider", async () => {

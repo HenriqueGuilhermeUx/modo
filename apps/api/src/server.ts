@@ -215,6 +215,7 @@ await app.register(async (scope) => {
     openAiApiKey: config.OPENAI_API_KEY,
     videoImageModel: config.VIDEO_IMAGE_MODEL,
     videoImageQuality: config.VIDEO_IMAGE_QUALITY,
+    pexelsApiKey: config.PEXELS_API_KEY,
   });
 });
 

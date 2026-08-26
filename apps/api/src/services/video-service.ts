@@ -40,6 +40,8 @@ type VideoRow = {
 
 type MemoryVideo = VideoRow;
 
+type RenderScene = VideoScene & { audioUrl?: string | null };
+
 export class VideoError extends Error {
   constructor(public readonly code: string, public readonly statusCode: number, message: string) {
     super(message);
@@ -85,13 +87,6 @@ export function planVideoScenes(output: GeneratedContent, durationSeconds: Video
       imageUrl: visualAsset?.imageUrl || output.imageUrl || null,
     };
   });
-}
-
-function narrationText(scenes: VideoScene[]) {
-  return scenes
-    .map((scene) => scene.caption.replace(/\s+/g, " ").trim())
-    .filter(Boolean)
-    .join("\n\n");
 }
 
 function mapProject(row: VideoRow, publicApiUrl: string): VideoProject {
@@ -386,6 +381,24 @@ export class VideoService {
     return mapProject(updated, this.publicApiUrl);
   }
 
+  private async renderScenes(row: VideoRow): Promise<RenderScene[]> {
+    if (!row.voiceover) return row.scenes.map((scene) => ({ ...scene, audioUrl: null }));
+    if (!this.voiceProvider) throw new Error("Provider de narração indisponível.");
+
+    return Promise.all(row.scenes.map(async (scene) => {
+      const targetDurationSeconds = Math.max(1, (scene.endFrame - scene.startFrame) / 30);
+      const audio = await this.voiceProvider!.synthesize({
+        text: scene.caption,
+        targetDurationSeconds,
+        language: "pt-BR",
+      });
+      return {
+        ...scene,
+        audioUrl: `data:${audio.mimeType};base64,${audio.data.toString("base64")}`,
+      };
+    }));
+  }
+
   private async render(input: { id: string; organizationId: string; brandName: string; title: string }) {
     const row = await this.rowForOrganization(input.id, input.organizationId);
     if (!row || row.status === "cancelled") return;
@@ -393,17 +406,7 @@ export class VideoService {
     const workdir = await mkdtemp(join(tmpdir(), "modo-video-"));
     const outputLocation = join(workdir, `${input.id}.mp4`);
     try {
-      let audioUrl: string | null = null;
-      if (row.voiceover) {
-        if (!this.voiceProvider) throw new Error("Provider de narração indisponível.");
-        const audio = await this.voiceProvider.synthesize({
-          text: narrationText(row.scenes),
-          targetDurationSeconds: row.duration_seconds,
-          language: "pt-BR",
-        });
-        audioUrl = `data:${audio.mimeType};base64,${audio.data.toString("base64")}`;
-      }
-
+      const scenes = await this.renderScenes(row);
       const serveUrl = await this.remotionBundle();
       const { selectComposition, renderMedia } = await import("@remotion/renderer");
       const inputProps = {
@@ -411,8 +414,7 @@ export class VideoService {
         title: input.title || "Conteúdo MODO",
         accentColor: "#2ED19A",
         captions: row.captions,
-        audioUrl,
-        scenes: row.scenes,
+        scenes,
       };
       const composition = await selectComposition({
         serveUrl,

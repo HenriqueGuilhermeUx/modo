@@ -19,6 +19,26 @@ export const VideoRenderStatusSchema = z.enum([
 ]);
 export type VideoRenderStatus = z.infer<typeof VideoRenderStatusSchema>;
 
+export const VideoApprovalStatusSchema = z.enum(["pending", "approved"]);
+export type VideoApprovalStatus = z.infer<typeof VideoApprovalStatusSchema>;
+
+export const VideoSceneReviewStatusSchema = z.enum(["pending", "approved"]);
+export type VideoSceneReviewStatus = z.infer<typeof VideoSceneReviewStatusSchema>;
+
+export const VideoSceneReviewSchema = z.object({
+  sceneIndex: z.number().int().min(1).max(12),
+  status: VideoSceneReviewStatusSchema,
+  reviewedAt: z.string().datetime().nullable(),
+});
+export type VideoSceneReview = z.infer<typeof VideoSceneReviewSchema>;
+
+export const VideoProjectReviewSchema = z.object({
+  approvalStatus: VideoApprovalStatusSchema,
+  approvedAt: z.string().datetime().nullable(),
+  scenes: z.array(VideoSceneReviewSchema).max(12),
+});
+export type VideoProjectReview = z.infer<typeof VideoProjectReviewSchema>;
+
 export const VideoSceneVisualTypeSchema = z.enum([
   "brand_asset",
   "generated_image",
@@ -81,6 +101,7 @@ export const VideoProjectSchema = z.object({
   voiceProvider: z.enum(["openai"]).nullable().default(null),
   visualProvider: z.enum(["openai"]).nullable().default(null),
   status: VideoRenderStatusSchema,
+  review: VideoProjectReviewSchema.optional(),
   renderer: z.literal("remotion"),
   scenes: z.array(VideoSceneSchema).min(1).max(12),
   outputUrl: z.string().url().nullable(),

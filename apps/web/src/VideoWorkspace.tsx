@@ -5,6 +5,8 @@ import { useEffect, useMemo, useState } from "react";
 import { getContentRequest, getDashboard, getSessionToken } from "./api";
 import NativePublisherApprovalAction from "./NativePublisherApprovalAction";
 import {
+  approveVideoProject,
+  approveVideoScene,
   cancelVideoProject,
   createVideoProject,
   getLatestVideoProject,
@@ -13,6 +15,7 @@ import {
   retryVideoProject,
 } from "./video-api";
 import "./video-v13.css";
+import "./video-v14.css";
 
 const durations: VideoDurationSeconds[] = [15, 30, 45];
 
@@ -90,6 +93,9 @@ export default function VideoWorkspace() {
 
   const sourceScenes = request?.output?.script || [];
   const valid = request?.contentType === "short_video_script" && sourceScenes.length > 0;
+  const approvedSceneCount = project?.review?.scenes.filter((item) => item.status === "approved").length || 0;
+  const allScenesApproved = Boolean(project && project.scenes.length > 0 && approvedSceneCount === project.scenes.length);
+  const finalVideoApproved = project?.review?.approvalStatus === "approved";
 
   async function generate() {
     if (!request) return;
@@ -120,6 +126,32 @@ export default function VideoWorkspace() {
       setError(caught instanceof Error ? caught.message : "Não foi possível regenerar esta cena.");
     } finally {
       setWorkingScene(null);
+    }
+  }
+
+  async function approveScene(sceneIndex: number) {
+    if (!project) return;
+    setWorkingScene(sceneIndex);
+    setError("");
+    try {
+      setProject(await approveVideoScene(project.id, sceneIndex));
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Não foi possível aprovar esta cena.");
+    } finally {
+      setWorkingScene(null);
+    }
+  }
+
+  async function approveFinalVideo() {
+    if (!project) return;
+    setWorking(true);
+    setError("");
+    try {
+      setProject(await approveVideoProject(project.id));
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Não foi possível aprovar o vídeo final.");
+    } finally {
+      setWorking(false);
     }
   }
 
@@ -201,12 +233,12 @@ export default function VideoWorkspace() {
       <main className="video-main">
         <section className="video-hero">
           <div>
-            <div className="section-kicker">MODO VIDEO · COMPOSER V1.3</div>
-            <h1>A estratégia já está pronta. Agora cada cena ganha direção.</h1>
-            <p>A MODO escolhe o tratamento visual cena a cena: usa assets existentes, desenha interfaces e dados nativamente ou gera imagem editorial quando isso realmente melhora o vídeo.</p>
+            <div className="section-kicker">MODO VIDEO · COMPOSER V1.4</div>
+            <h1>Direção por cena. Aprovação sem refazer o que já está bom.</h1>
+            <p>Revise o MP4 cena por cena. Aprove o que funcionou, regenere somente o visual que precisa mudar e libere o vídeo final quando todas as cenas estiverem certas.</p>
           </div>
           <div className="video-hero-meta">
-            <span>{request.status === "approved" ? "Conteúdo aprovado" : "Pronto para revisão"}</span>
+            <span>{finalVideoApproved ? "Vídeo aprovado" : request.status === "approved" ? "Conteúdo aprovado" : "Pronto para revisão"}</span>
             <strong>{request.output?.title}</strong>
           </div>
         </section>
@@ -243,7 +275,7 @@ export default function VideoWorkspace() {
               <button className="button button-outline button-full" disabled={working} onClick={() => void cancel()}>Cancelar fila</button>
             ) : null}
 
-            <div className="video-runtime-note"><strong>Direção híbrida, sem GPU.</strong><p>Interfaces, data cards e kinetic text são nativos. Imagem generativa entra só quando acrescenta contexto. A voz de cada cena é cacheada para não ser refeita ao trocar apenas um visual.</p></div>
+            <div className="video-runtime-note"><strong>Review granular, sem retrabalho.</strong><p>Aprovação fica separada do renderer. Trocar uma cena preserva as demais aprovações, os assets já bons e a locução cacheada.</p></div>
           </section>
 
           <section className="video-preview-card">
@@ -254,7 +286,7 @@ export default function VideoWorkspace() {
                 <video src={project.outputUrl} controls playsInline preload="metadata" />
                 <div className="video-ready-actions">
                   <a className="button button-primary" href={project.outputUrl} target="_blank" rel="noreferrer">Abrir MP4</a>
-                  <a className="button button-outline" href="/app/content">Voltar para revisão</a>
+                  <a className="button button-outline" href="#video-storyboard-review">Revisar cenas</a>
                 </div>
                 {project.voiceover && <small>Narração por IA incluída · sincronizada e cacheada por cena · provider {project.voiceProvider || "gerenciado"}</small>}
                 {project.visualProvider && <small>Direção visual híbrida · imagens geradas por {project.visualProvider}</small>}
@@ -279,48 +311,84 @@ export default function VideoWorkspace() {
           </section>
         </div>
 
-        {project?.status === "ready" && project.outputUrl && request.status === "approved" && (
+        {project?.status === "ready" && project.outputUrl && (
+          <section className={`video-review-card ${finalVideoApproved ? "approved" : ""}`}>
+            <div className="video-section-heading">
+              <small>APROVAÇÃO DO VÍDEO</small>
+              <h2>{finalVideoApproved ? "Vídeo final aprovado." : "Feche o vídeo cena por cena."}</h2>
+              <p>{finalVideoApproved ? "Este MP4 está liberado para distribuição. Se você regenerar qualquer cena, só aquela revisão será reaberta." : "Aprovar uma cena preserva essa decisão. Regenerar um visual reabre somente a cena alterada."}</p>
+            </div>
+            {finalVideoApproved ? (
+              <div className="video-final-approved"><span>✓</span><div><strong>Review concluído</strong><small>{project.review?.approvedAt ? `Aprovado em ${new Date(project.review.approvedAt).toLocaleString("pt-BR")}.` : "Todas as cenas e o MP4 final foram aprovados."}</small></div></div>
+            ) : (
+              <>
+                <div className="video-review-progress">
+                  <div><span style={{ width: `${project.scenes.length ? (approvedSceneCount / project.scenes.length) * 100 : 0}%` }} /></div>
+                  <strong>{approvedSceneCount}/{project.scenes.length} cenas aprovadas</strong>
+                </div>
+                <div className="video-review-actions">
+                  <a className="button button-outline" href="#video-storyboard-review">Revisar storyboard</a>
+                  <button className="button button-primary" disabled={!allScenesApproved || working} onClick={() => void approveFinalVideo()}>{working ? "Aprovando..." : allScenesApproved ? "Aprovar vídeo final" : "Aprove todas as cenas"}</button>
+                </div>
+              </>
+            )}
+          </section>
+        )}
+
+        {project?.status === "ready" && project.outputUrl && request.status === "approved" && finalVideoApproved && (
           <section className="video-publisher-card">
             <div className="video-section-heading">
               <small>DISTRIBUIÇÃO</small>
-              <h2>MP4 pronto. Publique sem sair do fluxo.</h2>
-              <p>O Publisher V2 recebe o projeto renderizado, persiste a mídia da publicação e usa o mesmo MP4 em publicação imediata, agendamento e retry.</p>
+              <h2>MP4 aprovado. Publique sem sair do fluxo.</h2>
+              <p>O Publisher V2 recebe o projeto revisado, persiste a mídia da publicação e usa o mesmo MP4 em publicação imediata, agendamento e retry.</p>
             </div>
             <NativePublisherApprovalAction request={request} videoProjectId={project.id} />
           </section>
         )}
 
-        {project?.status === "ready" && project.outputUrl && request.status !== "approved" && (
+        {project?.status === "ready" && project.outputUrl && finalVideoApproved && request.status !== "approved" && (
           <section className="video-publisher-card">
             <div className="video-section-heading">
-              <small>APROVAÇÃO</small>
-              <h2>O vídeo está pronto; falta aprovar a peça.</h2>
+              <small>APROVAÇÃO DO CONTEÚDO</small>
+              <h2>O vídeo está aprovado; falta aprovar a peça estratégica.</h2>
               <p>A publicação continua humana por decisão. Aprove o conteúdo e volte aqui para publicar agora ou agendar o MP4.</p>
-              <a className="button button-primary" href="/app/content">Revisar e aprovar</a>
+              <a className="button button-primary" href="/app/content">Revisar e aprovar conteúdo</a>
             </div>
           </section>
         )}
 
-        <section className="video-storyboard">
-          <div className="video-section-heading"><small>STORYBOARD INTELIGENTE</small><h2>{project ? `${project.scenes.length} cenas · ${project.durationSeconds}s` : `${storyboardScenes.length} cenas planejadas`}</h2><p>A MODO escolhe o tipo de visual e o movimento por cena. Se uma cena não ficou boa, troque só ela — roteiro, locução e demais cenas permanecem intactos.</p></div>
+        <section className="video-storyboard" id="video-storyboard-review">
+          <div className="video-section-heading"><small>STORYBOARD · REVIEW GRANULAR</small><h2>{project ? `${project.scenes.length} cenas · ${project.durationSeconds}s` : `${storyboardScenes.length} cenas planejadas`}</h2><p>Aprove o que está certo. Se uma cena não ficou boa, troque só o visual dela — roteiro, locução, assets e aprovações das outras cenas permanecem intactos.</p></div>
           <div className="video-scene-list video-scene-list-rich">
-            {storyboardScenes.map((scene) => (
-              <article key={scene.index}>
-                <div className="video-scene-number"><strong>{String(scene.index).padStart(2, "0")}</strong><span>{seconds(scene.startFrame)}—{seconds(scene.endFrame)}</span></div>
-                {scene.imageUrl && <img className="video-scene-thumb" src={scene.imageUrl} alt="" />}
-                <div className="video-scene-copy">
-                  <div className="video-scene-tags"><span>{visualLabel(scene.visualType)}</span><span>{scene.motion.replaceAll("_", " ")}</span>{scene.assetRevision > 0 && <span>variação {scene.assetRevision + 1}</span>}</div>
-                  <h3>{scene.headline}</h3>
-                  <p><b>Direção:</b> {scene.visual}</p>
-                  <p><b>Locução:</b> {scene.caption}</p>
-                  {project?.status === "ready" && (
-                    <button className="button button-outline video-scene-regenerate" disabled={workingScene !== null} onClick={() => void regenerateScene(scene.index)}>
-                      {workingScene === scene.index ? "Criando nova variação..." : "Regenerar só este visual"}
-                    </button>
-                  )}
-                </div>
-              </article>
-            ))}
+            {storyboardScenes.map((scene) => {
+              const sceneReview = project?.review?.scenes.find((item) => item.sceneIndex === scene.index);
+              const sceneApproved = sceneReview?.status === "approved";
+              return (
+                <article key={scene.index}>
+                  <div className="video-scene-number"><strong>{String(scene.index).padStart(2, "0")}</strong><span>{seconds(scene.startFrame)}—{seconds(scene.endFrame)}</span></div>
+                  {scene.imageUrl && <img className="video-scene-thumb" src={scene.imageUrl} alt="" />}
+                  <div className="video-scene-copy">
+                    <div className="video-scene-tags"><span>{visualLabel(scene.visualType)}</span><span>{scene.motion.replaceAll("_", " ")}</span>{scene.assetRevision > 0 && <span>variação {scene.assetRevision + 1}</span>}</div>
+                    <h3>{scene.headline}</h3>
+                    <p><b>Direção:</b> {scene.visual}</p>
+                    <p><b>Locução:</b> {scene.caption}</p>
+                    {project?.status === "ready" && (
+                      <div className="video-scene-review">
+                        <span className={`video-scene-review-badge ${sceneApproved ? "approved" : ""}`}>{sceneApproved ? "✓ Cena aprovada" : "Aguardando aprovação"}</span>
+                        {!sceneApproved && (
+                          <button className="button button-outline video-scene-approve" disabled={workingScene !== null} onClick={() => void approveScene(scene.index)}>
+                            {workingScene === scene.index ? "Salvando..." : "Aprovar cena"}
+                          </button>
+                        )}
+                        <button className="button button-outline video-scene-regenerate" disabled={workingScene !== null} onClick={() => void regenerateScene(scene.index)}>
+                          {workingScene === scene.index ? "Processando..." : sceneApproved ? "Trocar visual e reabrir cena" : "Regenerar só este visual"}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </article>
+              );
+            })}
           </div>
         </section>
       </main>

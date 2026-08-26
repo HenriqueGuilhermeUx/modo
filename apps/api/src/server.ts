@@ -11,6 +11,7 @@ import { registerStrategyNetworkRoutes } from "./routes/strategy-network-routes.
 import { registerVideoRoutes } from "./routes/video-routes.js";
 import { registerWorkspaceAuthRoutes } from "./routes/workspace-auth-routes.js";
 import { NativeSocialTokenLifecycleService } from "./services/native-social-token-lifecycle-service.js";
+import { VideoApprovalPublisherGuard } from "./services/video-approval-publisher-guard.js";
 
 function createProvider() {
   if (config.DIAGNOSTIC_PROVIDER === "n8n") {
@@ -20,6 +21,10 @@ function createProvider() {
     return new N8nDiagnosticProvider(config.N8N_DIAGNOSTIC_WEBHOOK_URL, config.N8N_WEBHOOK_SECRET);
   }
   return new DemoDiagnosticProvider(config.DEMO_DIAGNOSTIC_DELAY_MS);
+}
+
+function looksLikeUuid(value: unknown): value is string {
+  return typeof value === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 }
 
 if (config.NODE_ENV === "production" && !config.DATABASE_URL) {
@@ -70,6 +75,22 @@ await app.register(async (scope) => {
     sessionDays: config.AUTH_SESSION_DAYS,
   });
 });
+
+const videoApprovalPublisherGuard = new VideoApprovalPublisherGuard({
+  databaseUrl: config.DATABASE_URL,
+  databaseSsl: config.DATABASE_SSL,
+});
+app.addHook("preHandler", async (request, reply) => {
+  if (request.method !== "POST" || request.routeOptions.url !== "/api/v2/publisher/publications") return;
+  const videoProjectId = (request.body as { videoProjectId?: unknown } | null)?.videoProjectId;
+  if (!looksLikeUuid(videoProjectId)) return;
+  if (await videoApprovalPublisherGuard.canPublish(videoProjectId)) return;
+  return reply.code(409).send({
+    code: "VIDEO_APPROVAL_REQUIRED",
+    message: "Aprove as cenas e o vídeo final antes de publicar ou agendar este MP4.",
+  });
+});
+app.addHook("onClose", async () => videoApprovalPublisherGuard.close());
 
 // LinkedIn e Postiz V1 são registrados uma única vez pelo core em
 // registerCreativeIntelligenceRoutes(). O Publisher V2 é encapsulado em plugin próprio.

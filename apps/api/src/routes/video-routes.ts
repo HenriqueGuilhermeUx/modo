@@ -1,4 +1,8 @@
-import { VideoProjectCreateSchema, type VideoProject } from "@modo/contracts/video";
+import {
+  VideoProjectCreateSchema,
+  VideoSceneUpdateSchema,
+  type VideoProject,
+} from "@modo/contracts/video";
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import { z } from "zod";
 import { AuthError, AuthService } from "../services/auth-service.js";
@@ -13,6 +17,7 @@ interface Options {
   openAiApiKey?: string;
   videoImageModel?: string;
   videoImageQuality?: "low" | "medium" | "high";
+  pexelsApiKey?: string;
 }
 
 function bearerToken(request: FastifyRequest) {
@@ -58,6 +63,7 @@ export async function registerVideoRoutes(app: FastifyInstance, options: Options
     openAiApiKey: options.openAiApiKey,
     videoImageModel: options.videoImageModel,
     videoImageQuality: options.videoImageQuality,
+    pexelsApiKey: options.pexelsApiKey,
   });
   const approvals = new VideoApprovalService({
     databaseUrl: options.databaseUrl,
@@ -138,12 +144,24 @@ export async function registerVideoRoutes(app: FastifyInstance, options: Options
     const token = z.string().uuid().parse((request.params as { token: string }).token);
     const asset = await video.getPublicSceneAsset(token);
     if (!asset) return reply.code(404).send({ message: "Asset visual não encontrado." });
-    return reply
-      .header("content-type", asset.mimeType)
-      .header("content-length", String(asset.data.length))
-      .header("cache-control", "public, max-age=31536000, immutable")
-      .header("cross-origin-resource-policy", "cross-origin")
-      .send(asset.data);
+
+    const range = asset.mimeType.startsWith("video/") ? parseRange(request.headers.range, asset.data.length) : null;
+    reply.header("content-type", asset.mimeType);
+    reply.header("content-length", String(asset.data.length));
+    reply.header("cache-control", "public, max-age=31536000, immutable");
+    reply.header("cross-origin-resource-policy", "cross-origin");
+    if (asset.mimeType.startsWith("video/")) reply.header("accept-ranges", "bytes");
+
+    if (range) {
+      const chunk = asset.data.subarray(range.start, range.end + 1);
+      return reply
+        .code(206)
+        .header("content-range", `bytes ${range.start}-${range.end}/${asset.data.length}`)
+        .header("content-length", String(chunk.length))
+        .send(chunk);
+    }
+
+    return reply.send(asset.data);
   });
 
   app.get("/api/v1/video/health", async () => ({
@@ -152,6 +170,7 @@ export async function registerVideoRoutes(app: FastifyInstance, options: Options
     storage: video.storage,
     approvalStorage: approvals.storage,
     granularApproval: true,
+    sceneEditing: true,
     gpuRequired: false,
     output: "video/mp4",
     aspectRatio: "9:16",
@@ -159,6 +178,7 @@ export async function registerVideoRoutes(app: FastifyInstance, options: Options
     fps: 30,
     voice: video.voice,
     visuals: video.visuals,
+    broll: video.broll,
   }));
 
   app.get("/api/v1/video-projects", async (request) => {
@@ -214,6 +234,33 @@ export async function registerVideoRoutes(app: FastifyInstance, options: Options
         title: contentRequest.output?.title || contentRequest.output?.hook || "Conteúdo MODO",
       });
       return reply.code(202).send({ project });
+    },
+  );
+
+  app.patch(
+    "/api/v1/video-projects/:id/scenes/:sceneIndex",
+    { config: { rateLimit: { max: 20, timeWindow: "30 minutes" } } },
+    async (request, reply) => {
+      const id = z.string().uuid().parse((request.params as { id: string; sceneIndex: string }).id);
+      const sceneIndex = z.coerce.number().int().min(1).max(12).parse(
+        (request.params as { id: string; sceneIndex: string }).sceneIndex,
+      );
+      const patch = VideoSceneUpdateSchema.parse(request.body);
+      const found = await renderContext(request, id);
+      const rawProject = await video.updateScene({
+        id,
+        organizationId: found.current.organization.id,
+        sceneIndex,
+        patch,
+      });
+      const review = await approvals.resetScene(rawProject, sceneIndex);
+      void video.enqueueRender({
+        id,
+        organizationId: found.current.organization.id,
+        brandName: found.brand.name,
+        title: found.title,
+      });
+      return reply.code(202).send({ project: { ...rawProject, review } });
     },
   );
 

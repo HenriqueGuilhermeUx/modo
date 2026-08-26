@@ -1,6 +1,6 @@
 [build]
   base = "."
-  command = "npm run build --workspace=@modo/contracts && npm run build --workspace=@modo/web"
+  command = "npm run build --workspace=@modo/contracts && npm run build --workspace=@modo/api && npm run build --workspace=@modo/web"
   publish = "apps/web/dist"
 
 [build.environment]

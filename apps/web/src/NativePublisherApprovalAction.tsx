@@ -16,6 +16,8 @@ const providerLabels: Record<NativePublisherProvider, string> = {
   linkedin: "LinkedIn",
 };
 
+const videoProviders = new Set<NativePublisherProvider>(["instagram", "facebook", "threads"]);
+
 function defaultScheduleValue() {
   const date = new Date(Date.now() + 24 * 60 * 60_000);
   date.setMinutes(Math.ceil(date.getMinutes() / 15) * 15, 0, 0);
@@ -23,7 +25,14 @@ function defaultScheduleValue() {
   return local.toISOString().slice(0, 16);
 }
 
-export default function NativePublisherApprovalAction({ request }: { request: ContentRequest }) {
+export default function NativePublisherApprovalAction({
+  request,
+  videoProjectId,
+}: {
+  request: ContentRequest;
+  videoProjectId?: string;
+}) {
+  const isVideo = Boolean(videoProjectId);
   const [connections, setConnections] = useState<NativeConnection[]>([]);
   const [quality, setQuality] = useState<Awaited<ReturnType<typeof getNativeQuality>> | null>(null);
   const [provider, setProvider] = useState<NativePublisherProvider>("instagram");
@@ -48,7 +57,7 @@ export default function NativePublisherApprovalAction({ request }: { request: Co
         // A marca pode ainda não ter Instagram conectado no fluxo V1.
       }
     }
-    if (!updated.some((item) => item.provider === "linkedin")) {
+    if (!isVideo && !updated.some((item) => item.provider === "linkedin")) {
       try {
         await importLinkedInConnection(request.brandId);
         updated = await listNativeConnections(request.brandId);
@@ -58,7 +67,7 @@ export default function NativePublisherApprovalAction({ request }: { request: Co
     }
     setQuality(qualityResult);
     setConnections(updated);
-    const firstConnected = updated.find((item) => item.connected && item.canPublish);
+    const firstConnected = updated.find((item) => item.connected && item.canPublish && (!isVideo || videoProviders.has(item.provider)));
     if (firstConnected) {
       setProvider(firstConnected.provider);
       setConnectionId(firstConnected.id);
@@ -67,23 +76,32 @@ export default function NativePublisherApprovalAction({ request }: { request: Co
 
   useEffect(() => {
     void load().catch((caught) => setError(caught instanceof Error ? caught.message : "Não foi possível preparar o Publisher."));
-  }, [request.id, request.brandId]);
+  }, [request.id, request.brandId, videoProjectId]);
 
   const availableProviders = useMemo(
-    () => [...new Set(connections.filter((item) => item.connected && item.canPublish).map((item) => item.provider))],
-    [connections],
+    () => [...new Set(
+      connections
+        .filter((item) => item.connected && item.canPublish && (!isVideo || videoProviders.has(item.provider)))
+        .map((item) => item.provider),
+    )],
+    [connections, isVideo],
   );
 
   const providerConnections = useMemo(
-    () => connections.filter((item) => item.provider === provider && item.connected && item.canPublish),
-    [connections, provider],
+    () => connections.filter((item) => item.provider === provider && item.connected && item.canPublish && (!isVideo || videoProviders.has(item.provider))),
+    [connections, provider, isVideo],
   );
 
   useEffect(() => {
+    if (!availableProviders.includes(provider) && availableProviders[0]) {
+      setProvider(availableProviders[0]);
+      setConnectionId("");
+      return;
+    }
     if (!providerConnections.some((item) => item.id === connectionId)) {
       setConnectionId(providerConnections[0]?.id || "");
     }
-  }, [providerConnections, connectionId]);
+  }, [availableProviders, providerConnections, connectionId, provider]);
 
   const selectedConnection = useMemo(
     () => providerConnections.find((item) => item.id === connectionId) || null,
@@ -106,15 +124,16 @@ export default function NativePublisherApprovalAction({ request }: { request: Co
         provider,
         connectionId,
         mode,
+        ...(videoProjectId ? { videoProjectId } : {}),
         ...(scheduledIso ? { scheduledFor: scheduledIso } : {}),
-        idempotencyKey: `${request.id}:${provider}:${connectionId}:${mode}:${scheduledIso || "now"}`,
+        idempotencyKey: `${request.id}:${videoProjectId || "content"}:${provider}:${connectionId}:${mode}:${scheduledIso || "now"}`,
       });
       const destination = selectedConnection?.displayName || providerLabels[provider];
       setMessage(
         result.publication.status === "published"
-          ? `Publicado com sucesso em ${destination}.`
+          ? `${isVideo ? "Vídeo publicado" : "Publicado"} com sucesso em ${destination}.`
           : result.publication.status === "scheduled"
-            ? `Agendado em ${destination} para ${new Date(result.publication.scheduledFor!).toLocaleString("pt-BR")}.`
+            ? `${isVideo ? "Vídeo agendado" : "Agendado"} em ${destination} para ${new Date(result.publication.scheduledFor!).toLocaleString("pt-BR")}.`
             : `Rascunho salvo para ${destination}.`,
       );
     } catch (caught) {
@@ -128,11 +147,18 @@ export default function NativePublisherApprovalAction({ request }: { request: Co
     <div className="native-publisher-action">
       <div className="native-publisher-action-head">
         <div>
-          <small>MODO PUBLISHER V2</small>
-          <strong>Publicar, agendar ou guardar</strong>
+          <small>MODO PUBLISHER V2{isVideo ? " · VIDEO" : ""}</small>
+          <strong>{isVideo ? "Publicar ou agendar o MP4 pronto" : "Publicar, agendar ou guardar"}</strong>
         </div>
         {quality && <span className={`quality-pill ${quality.status}`}>{quality.score}/100</span>}
       </div>
+
+      {isVideo && (
+        <div className="quality-summary">
+          <span><strong>Vídeo persistido</strong> · Instagram Reels, Facebook e Threads</span>
+          <small>O Publisher guarda a mídia no agendamento e no retry; não depende de refazer o render.</small>
+        </div>
+      )}
 
       {quality && (
         <div className="quality-summary">
@@ -176,11 +202,12 @@ export default function NativePublisherApprovalAction({ request }: { request: Co
         </>
       ) : (
         <div className="publisher-empty-connections">
-          <p>Esta marca ainda não possui um canal importado no Publisher V2.</p>
+          <p>{isVideo ? "Esta marca ainda não possui Instagram, Facebook ou Threads disponível para vídeo." : "Esta marca ainda não possui um canal importado no Publisher V2."}</p>
           <a className="button button-secondary" href={`/app/publisher?brand=${encodeURIComponent(request.brandId)}`}>Conectar canais</a>
         </div>
       )}
 
+      {isVideo && <small>LinkedIn vídeo exige o fluxo de upload de ativos da plataforma e fica fora desta V1, sem afetar publicações atuais de texto.</small>}
       {message && <div className="workspace-success">{message}</div>}
       {error && <div className="portal-error">{error}</div>}
     </div>

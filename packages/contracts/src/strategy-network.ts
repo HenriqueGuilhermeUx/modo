@@ -183,6 +183,40 @@ export const SpecialistApplicationSchema = SpecialistApplicationCreateSchema.ext
   updatedAt: z.string().datetime(),
 });
 
+export const PartnerBusinessTypeSchema = z.enum([
+  "agency",
+  "social_media",
+  "paid_media",
+  "consultancy",
+  "production_company",
+  "freelancer",
+  "other",
+]);
+
+export const PartnerApplicationCreateSchema = z.object({
+  name: z.string().trim().min(2).max(120),
+  email: z.string().trim().toLowerCase().email().max(180),
+  whatsapp: z.string().trim().min(8).max(40),
+  companyName: z.string().trim().min(2).max(160),
+  city: z.string().trim().max(120).default(""),
+  websiteUrl: z.string().url().max(500).optional().or(z.literal("")),
+  instagramUrl: z.string().url().max(500).optional().or(z.literal("")),
+  businessType: PartnerBusinessTypeSchema,
+  activeClients: z.number().int().min(0).max(10000),
+  monthlyServiceRevenueCents: z.number().int().nonnegative().nullable().default(null),
+  currentServices: z.array(z.string().trim().min(2).max(120)).min(1).max(12),
+  whyPartner: z.string().trim().min(40).max(4000),
+  targetClientsWithModo: z.number().int().min(1).max(1000),
+  consent: z.literal(true),
+});
+
+export const PartnerApplicationSchema = PartnerApplicationCreateSchema.extend({
+  id: z.string().uuid(),
+  status: z.enum(["received", "under_review", "interview", "approved", "waitlist", "declined"]),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime(),
+});
+
 export type BrandFoundation = z.infer<typeof BrandFoundationSchema>;
 export type BrandFoundationUpsert = z.infer<typeof BrandFoundationUpsertSchema>;
 export type BrandFoundationProfile = z.infer<typeof BrandFoundationProfileSchema>;
@@ -197,3 +231,6 @@ export type HumanSupportRequest = z.infer<typeof HumanSupportRequestSchema>;
 export type SpecialistRole = z.infer<typeof SpecialistRoleSchema>;
 export type SpecialistApplicationCreate = z.infer<typeof SpecialistApplicationCreateSchema>;
 export type SpecialistApplication = z.infer<typeof SpecialistApplicationSchema>;
+export type PartnerBusinessType = z.infer<typeof PartnerBusinessTypeSchema>;
+export type PartnerApplicationCreate = z.infer<typeof PartnerApplicationCreateSchema>;
+export type PartnerApplication = z.infer<typeof PartnerApplicationSchema>;

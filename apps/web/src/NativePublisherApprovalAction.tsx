@@ -129,6 +129,17 @@ export default function NativePublisherApprovalAction({
         idempotencyKey: `${request.id}:${videoProjectId || "content"}:${provider}:${connectionId}:${mode}:${scheduledIso || "now"}`,
       });
       const destination = selectedConnection?.displayName || providerLabels[provider];
+      if (result.publication.status === "retrying") {
+        const nextAttempt = result.publication.nextAttemptAt
+          ? ` Nova tentativa prevista para ${new Date(result.publication.nextAttemptAt).toLocaleString("pt-BR")}.`
+          : " A MODO fará uma nova tentativa automaticamente.";
+        setError(`A publicação em ${destination} ainda não foi concluída.${nextAttempt}${result.publication.lastError ? ` Motivo: ${result.publication.lastError}` : ""}`);
+        return;
+      }
+      if (result.publication.status === "failed") {
+        setError(`A publicação em ${destination} falhou.${result.publication.lastError ? ` Motivo: ${result.publication.lastError}` : ""}`);
+        return;
+      }
       setMessage(
         result.publication.status === "published"
           ? `${isVideo ? "Vídeo publicado" : "Publicado"} com sucesso em ${destination}.`

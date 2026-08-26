@@ -1,6 +1,6 @@
 import type { Dashboard } from "@modo/contracts";
 import type { ContentRequest } from "@modo/contracts/content";
-import type { VideoDurationSeconds, VideoProject } from "@modo/contracts/video";
+import type { VideoDurationSeconds, VideoProject, VideoSceneVisualType } from "@modo/contracts/video";
 import { useEffect, useMemo, useState } from "react";
 import { getContentRequest, getDashboard, getSessionToken } from "./api";
 import NativePublisherApprovalAction from "./NativePublisherApprovalAction";
@@ -9,8 +9,10 @@ import {
   createVideoProject,
   getLatestVideoProject,
   getVideoProject,
+  regenerateVideoScene,
   retryVideoProject,
 } from "./video-api";
+import "./video-v13.css";
 
 const durations: VideoDurationSeconds[] = [15, 30, 45];
 
@@ -26,6 +28,14 @@ function seconds(frame: number) {
   return `${(frame / 30).toFixed(frame % 30 === 0 ? 0 : 1)}s`;
 }
 
+function visualLabel(type: VideoSceneVisualType) {
+  if (type === "brand_asset") return "Asset da marca";
+  if (type === "generated_image") return "Imagem editorial";
+  if (type === "interface") return "Interface nativa";
+  if (type === "data_card") return "Data card";
+  return "Kinetic text";
+}
+
 export default function VideoWorkspace() {
   const contentRequestId = window.location.pathname.split("/").filter(Boolean).pop() || "";
   const [dashboard, setDashboard] = useState<Dashboard | null>(null);
@@ -36,6 +46,7 @@ export default function VideoWorkspace() {
   const [voiceover, setVoiceover] = useState(false);
   const [loading, setLoading] = useState(true);
   const [working, setWorking] = useState(false);
+  const [workingScene, setWorkingScene] = useState<number | null>(null);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -99,6 +110,19 @@ export default function VideoWorkspace() {
     }
   }
 
+  async function regenerateScene(sceneIndex: number) {
+    if (!project) return;
+    setWorkingScene(sceneIndex);
+    setError("");
+    try {
+      setProject(await regenerateVideoScene(project.id, sceneIndex));
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Não foi possível regenerar esta cena.");
+    } finally {
+      setWorkingScene(null);
+    }
+  }
+
   async function retry() {
     if (!project) return;
     setWorking(true);
@@ -146,6 +170,26 @@ export default function VideoWorkspace() {
     );
   }
 
+  const storyboardScenes = project?.scenes || sourceScenes.slice(0, duration === 15 ? 3 : duration === 30 ? 5 : 6).map((scene, index, list) => {
+    const totalFrames = duration * 30;
+    const chunk = Math.floor(totalFrames / list.length);
+    const imageUrl = index === 0 ? request.output!.imageUrl : null;
+    return {
+      index: index + 1,
+      startFrame: index * chunk,
+      endFrame: index === list.length - 1 ? totalFrames : (index + 1) * chunk,
+      headline: index === 0 ? request.output!.hook : index === list.length - 1 ? request.output!.cta : scene.scene,
+      visual: scene.visual,
+      caption: scene.voiceover,
+      imageUrl,
+      visualType: (imageUrl ? "brand_asset" : index === list.length - 1 ? "kinetic_text" : "generated_image") as VideoSceneVisualType,
+      motion: "push_in" as const,
+      assetSource: imageUrl ? "content" as const : "native" as const,
+      assetRevision: 0,
+      visualPrompt: scene.visual,
+    };
+  });
+
   return (
     <div className="video-workspace">
       <header className="workspace-header">
@@ -157,9 +201,9 @@ export default function VideoWorkspace() {
       <main className="video-main">
         <section className="video-hero">
           <div>
-            <div className="section-kicker">MODO VIDEO · COMPOSER V1.2</div>
-            <h1>A estratégia já está pronta. Agora ela vira vídeo.</h1>
-            <p>A MODO usa o roteiro, o gancho, o CTA e os visuais que já foram produzidos para montar um short vertical sem começar de uma tela em branco.</p>
+            <div className="section-kicker">MODO VIDEO · COMPOSER V1.3</div>
+            <h1>A estratégia já está pronta. Agora cada cena ganha direção.</h1>
+            <p>A MODO escolhe o tratamento visual cena a cena: usa assets existentes, desenha interfaces e dados nativamente ou gera imagem editorial quando isso realmente melhora o vídeo.</p>
           </div>
           <div className="video-hero-meta">
             <span>{request.status === "approved" ? "Conteúdo aprovado" : "Pronto para revisão"}</span>
@@ -199,7 +243,7 @@ export default function VideoWorkspace() {
               <button className="button button-outline button-full" disabled={working} onClick={() => void cancel()}>Cancelar fila</button>
             ) : null}
 
-            <div className="video-runtime-note"><strong>Sem GPU nesta versão.</strong><p>A montagem continua programática. A narração é uma voz sintética gerada por IA; clonagem de voz, avatar e B-roll generativo permanecem camadas futuras.</p></div>
+            <div className="video-runtime-note"><strong>Direção híbrida, sem GPU.</strong><p>Interfaces, data cards e kinetic text são nativos. Imagem generativa entra só quando acrescenta contexto. A voz de cada cena é cacheada para não ser refeita ao trocar apenas um visual.</p></div>
           </section>
 
           <section className="video-preview-card">
@@ -212,12 +256,13 @@ export default function VideoWorkspace() {
                   <a className="button button-primary" href={project.outputUrl} target="_blank" rel="noreferrer">Abrir MP4</a>
                   <a className="button button-outline" href="/app/content">Voltar para revisão</a>
                 </div>
-                {project.voiceover && <small>Narração por IA incluída · sincronizada por cena · provider {project.voiceProvider || "gerenciado"}</small>}
+                {project.voiceover && <small>Narração por IA incluída · sincronizada e cacheada por cena · provider {project.voiceProvider || "gerenciado"}</small>}
+                {project.visualProvider && <small>Direção visual híbrida · imagens geradas por {project.visualProvider}</small>}
               </div>
             ) : project && ["queued", "rendering"].includes(project.status) ? (
               <div className="video-rendering-state">
                 <div className="video-render-orbit"><span /><i /></div>
-                <strong>{project.status === "queued" ? "Aguardando o renderer" : project.voiceover ? "Gerando voz por cena e montando o vídeo" : "Montando cenas, tipografia e legendas"}</strong>
+                <strong>{project.status === "queued" ? "Aguardando o renderer" : project.voiceover ? "Montando cenas e reaproveitando a locução" : "Montando direção visual, tipografia e legendas"}</strong>
                 <p>O processamento continua no servidor. Esta tela atualiza automaticamente.</p>
               </div>
             ) : project?.status === "failed" ? (
@@ -257,24 +302,23 @@ export default function VideoWorkspace() {
         )}
 
         <section className="video-storyboard">
-          <div className="video-section-heading"><small>STORYBOARD</small><h2>{project ? `${project.scenes.length} cenas · ${project.durationSeconds}s` : `${Math.min(sourceScenes.length, duration === 15 ? 3 : duration === 30 ? 5 : 6)} cenas planejadas`}</h2><p>O texto vem do roteiro já criado. A composição decide ritmo e hierarquia, não muda a estratégia.</p></div>
-          <div className="video-scene-list">
-            {(project?.scenes || sourceScenes.slice(0, duration === 15 ? 3 : duration === 30 ? 5 : 6).map((scene, index, list) => {
-              const totalFrames = duration * 30;
-              const chunk = Math.floor(totalFrames / list.length);
-              return {
-                index: index + 1,
-                startFrame: index * chunk,
-                endFrame: index === list.length - 1 ? totalFrames : (index + 1) * chunk,
-                headline: index === 0 ? request.output!.hook : index === list.length - 1 ? request.output!.cta : scene.scene,
-                visual: scene.visual,
-                caption: scene.voiceover,
-                imageUrl: request.output!.imageUrl,
-              };
-            })).map((scene) => (
+          <div className="video-section-heading"><small>STORYBOARD INTELIGENTE</small><h2>{project ? `${project.scenes.length} cenas · ${project.durationSeconds}s` : `${storyboardScenes.length} cenas planejadas`}</h2><p>A MODO escolhe o tipo de visual e o movimento por cena. Se uma cena não ficou boa, troque só ela — roteiro, locução e demais cenas permanecem intactos.</p></div>
+          <div className="video-scene-list video-scene-list-rich">
+            {storyboardScenes.map((scene) => (
               <article key={scene.index}>
                 <div className="video-scene-number"><strong>{String(scene.index).padStart(2, "0")}</strong><span>{seconds(scene.startFrame)}—{seconds(scene.endFrame)}</span></div>
-                <div><h3>{scene.headline}</h3><p><b>Visual:</b> {scene.visual}</p><p><b>Legenda:</b> {scene.caption}</p></div>
+                {scene.imageUrl && <img className="video-scene-thumb" src={scene.imageUrl} alt="" />}
+                <div className="video-scene-copy">
+                  <div className="video-scene-tags"><span>{visualLabel(scene.visualType)}</span><span>{scene.motion.replaceAll("_", " ")}</span>{scene.assetRevision > 0 && <span>variação {scene.assetRevision + 1}</span>}</div>
+                  <h3>{scene.headline}</h3>
+                  <p><b>Direção:</b> {scene.visual}</p>
+                  <p><b>Locução:</b> {scene.caption}</p>
+                  {project?.status === "ready" && (
+                    <button className="button button-outline video-scene-regenerate" disabled={workingScene !== null} onClick={() => void regenerateScene(scene.index)}>
+                      {workingScene === scene.index ? "Criando nova variação..." : "Regenerar só este visual"}
+                    </button>
+                  )}
+                </div>
               </article>
             ))}
           </div>

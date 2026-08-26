@@ -10,6 +10,8 @@ interface Options {
   databaseSsl?: boolean;
   publicApiUrl?: string;
   openAiApiKey?: string;
+  videoImageModel?: string;
+  videoImageQuality?: "low" | "medium" | "high";
 }
 
 function bearerToken(request: FastifyRequest) {
@@ -53,6 +55,8 @@ export async function registerVideoRoutes(app: FastifyInstance, options: Options
     databaseSsl: options.databaseSsl,
     publicApiUrl: options.publicApiUrl,
     openAiApiKey: options.openAiApiKey,
+    videoImageModel: options.videoImageModel,
+    videoImageQuality: options.videoImageQuality,
   });
 
   await Promise.all([auth.initialize(), content.initialize(), video.initialize()]);
@@ -114,6 +118,18 @@ export async function registerVideoRoutes(app: FastifyInstance, options: Options
     return reply.header("content-length", String(data.length)).send(data);
   });
 
+  app.get("/api/v1/public/video-scene-assets/:token", async (request, reply) => {
+    const token = z.string().uuid().parse((request.params as { token: string }).token);
+    const asset = await video.getPublicSceneAsset(token);
+    if (!asset) return reply.code(404).send({ message: "Asset visual não encontrado." });
+    return reply
+      .header("content-type", asset.mimeType)
+      .header("content-length", String(asset.data.length))
+      .header("cache-control", "public, max-age=31536000, immutable")
+      .header("cross-origin-resource-policy", "cross-origin")
+      .send(asset.data);
+  });
+
   app.get("/api/v1/video/health", async () => ({
     status: "ok",
     renderer: "remotion",
@@ -124,6 +140,7 @@ export async function registerVideoRoutes(app: FastifyInstance, options: Options
     durations: [15, 30, 45],
     fps: 30,
     voice: video.voice,
+    visuals: video.visuals,
   }));
 
   app.get("/api/v1/video-projects", async (request) => {
@@ -174,6 +191,31 @@ export async function registerVideoRoutes(app: FastifyInstance, options: Options
         organizationId: current.organization.id,
         brandName: brand.name,
         title: contentRequest.output?.title || contentRequest.output?.hook || "Conteúdo MODO",
+      });
+      return reply.code(202).send({ project });
+    },
+  );
+
+  app.post(
+    "/api/v1/video-projects/:id/scenes/:sceneIndex/regenerate",
+    { config: { rateLimit: { max: 12, timeWindow: "30 minutes" } } },
+    async (request, reply) => {
+      const id = z.string().uuid().parse((request.params as { id: string; sceneIndex: string }).id);
+      const sceneIndex = z.coerce.number().int().min(1).max(12).parse(
+        (request.params as { id: string; sceneIndex: string }).sceneIndex,
+      );
+      const found = await renderContext(request, id);
+      const project = await video.regenerateScene({
+        id,
+        organizationId: found.current.organization.id,
+        sceneIndex,
+        brandName: found.brand.name,
+      });
+      void video.enqueueRender({
+        id,
+        organizationId: found.current.organization.id,
+        brandName: found.brand.name,
+        title: found.title,
       });
       return reply.code(202).send({ project });
     },

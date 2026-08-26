@@ -46,6 +46,14 @@ export async function getVideoProject(id: string): Promise<VideoProject> {
   return VideoProjectSchema.parse(payload.project);
 }
 
+export async function regenerateVideoScene(id: string, sceneIndex: number): Promise<VideoProject> {
+  const payload = await request<{ project: unknown }>(
+    `/api/v1/video-projects/${encodeURIComponent(id)}/scenes/${sceneIndex}/regenerate`,
+    { method: "POST" },
+  );
+  return VideoProjectSchema.parse(payload.project);
+}
+
 export async function retryVideoProject(id: string): Promise<VideoProject> {
   const payload = await request<{ project: unknown }>(`/api/v1/video-projects/${encodeURIComponent(id)}/retry`, {
     method: "POST",

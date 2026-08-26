@@ -1,12 +1,27 @@
 import type { ContentRequest, GeneratedContent } from "@modo/contracts/content";
-import type { VideoDurationSeconds, VideoProject, VideoScene } from "@modo/contracts/video";
+import type {
+  VideoDurationSeconds,
+  VideoProject,
+  VideoScene,
+  VideoSceneMotion,
+  VideoSceneVisualType,
+} from "@modo/contracts/video";
 import { randomUUID } from "node:crypto";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import pg, { type Pool } from "pg";
-import { OpenAiVideoVoiceProvider, type VideoVoiceProvider, type VideoVoiceProviderName } from "../providers/video-voice-provider.js";
+import {
+  OpenAiVideoVisualProvider,
+  type VideoVisualProvider,
+  type VideoVisualProviderName,
+} from "../providers/video-visual-provider.js";
+import {
+  OpenAiVideoVoiceProvider,
+  type VideoVoiceProvider,
+  type VideoVoiceProviderName,
+} from "../providers/video-voice-provider.js";
 
 const { Pool: PgPool } = pg;
 
@@ -18,6 +33,9 @@ interface VideoServiceOptions {
   voiceModel?: string;
   voiceName?: string;
   voiceProvider?: VideoVoiceProvider;
+  videoImageModel?: string;
+  videoImageQuality?: "low" | "medium" | "high";
+  visualProvider?: VideoVisualProvider;
 }
 
 type VideoRow = {
@@ -30,6 +48,7 @@ type VideoRow = {
   captions: boolean;
   voiceover: boolean;
   voice_provider: VideoVoiceProviderName | null;
+  visual_provider: VideoVisualProviderName | null;
   status: VideoProject["status"];
   scenes: VideoScene[];
   output_data: Buffer | null;
@@ -38,8 +57,37 @@ type VideoRow = {
   updated_at: Date;
 };
 
-type MemoryVideo = VideoRow;
+type SceneAssetKind = "image" | "audio";
 
+type SceneAssetRow = {
+  id: string;
+  public_token: string;
+  video_project_id: string;
+  organization_id: string;
+  scene_index: number;
+  kind: SceneAssetKind;
+  mime_type: string;
+  data: Buffer;
+  provider: string;
+  revision: number;
+  created_at: Date;
+};
+
+type MemorySceneAsset = {
+  id: string;
+  publicToken: string;
+  videoProjectId: string;
+  organizationId: string;
+  sceneIndex: number;
+  kind: SceneAssetKind;
+  mimeType: string;
+  data: Buffer;
+  provider: string;
+  revision: number;
+  createdAt: Date;
+};
+
+type MemoryVideo = VideoRow;
 type RenderScene = VideoScene & { audioUrl?: string | null };
 
 export class VideoError extends Error {
@@ -53,6 +101,52 @@ function sceneLimit(duration: VideoDurationSeconds) {
   if (duration === 15) return 3;
   if (duration === 30) return 5;
   return 6;
+}
+
+function motionForIndex(index: number): VideoSceneMotion {
+  const motions: VideoSceneMotion[] = ["push_in", "pan_right", "zoom_out", "pan_left", "push_in", "static"];
+  return motions[(index - 1) % motions.length];
+}
+
+function visualTypeFor(input: {
+  visual: string;
+  scene: string;
+  hasAsset: boolean;
+  isLast: boolean;
+}): VideoSceneVisualType {
+  if (input.hasAsset) return "brand_asset";
+  const value = `${input.scene} ${input.visual}`.toLocaleLowerCase("pt-BR");
+  if (input.isLast || /(logo|cta|chamada final|assinatura|encerramento|marca aparece)/i.test(value)) {
+    return "kinetic_text";
+  }
+  if (/(gr[aá]fico|dados|m[eé]trica|indicador|percentual|porcentagem|estat[ií]stica|kpi|\d+%)/i.test(value)) {
+    return "data_card";
+  }
+  if (/(tela|dashboard|interface|aplicativo|\bapp\b|software|plataforma|site|agenda|cards?|abas?|painel|celular|smartphone)/i.test(value)) {
+    return "interface";
+  }
+  if (/(tipografia|palavras?|texto|frase|headline|lista|passos? aparecem|checklist)/i.test(value)) {
+    return "kinetic_text";
+  }
+  return "generated_image";
+}
+
+function normalizeScene(scene: Partial<VideoScene> & Pick<VideoScene, "index" | "startFrame" | "endFrame" | "headline" | "visual" | "caption">): VideoScene {
+  const imageUrl = scene.imageUrl || null;
+  return {
+    index: scene.index,
+    startFrame: scene.startFrame,
+    endFrame: scene.endFrame,
+    headline: scene.headline,
+    visual: scene.visual,
+    caption: scene.caption,
+    imageUrl,
+    visualType: scene.visualType || (imageUrl ? "brand_asset" : "kinetic_text"),
+    motion: scene.motion || motionForIndex(scene.index),
+    assetSource: scene.assetSource || (imageUrl ? "content" : "native"),
+    assetRevision: Number.isInteger(scene.assetRevision) ? Number(scene.assetRevision) : 0,
+    visualPrompt: scene.visualPrompt || scene.visual || null,
+  };
 }
 
 export function planVideoScenes(output: GeneratedContent, durationSeconds: VideoDurationSeconds): VideoScene[] {
@@ -73,18 +167,31 @@ export function planVideoScenes(output: GeneratedContent, durationSeconds: Video
   return source.map((scene, index) => {
     const isFirst = index === 0;
     const isLast = index === source.length - 1;
+    const sceneIndex = index + 1;
     const startFrame = cursor;
     const endFrame = isLast ? totalFrames : cursor + baseFrames;
     cursor = endFrame;
-    const visualAsset = output.visualAssets.find((asset) => asset.index === index + 1 && asset.imageUrl);
+    const visualAsset = output.visualAssets.find((asset) => asset.index === sceneIndex && asset.imageUrl);
+    const imageUrl = visualAsset?.imageUrl || (isFirst ? output.imageUrl : null) || null;
+    const visualType = visualTypeFor({
+      visual: scene.visual,
+      scene: scene.scene,
+      hasAsset: Boolean(imageUrl),
+      isLast,
+    });
     return {
-      index: index + 1,
+      index: sceneIndex,
       startFrame,
       endFrame,
       headline: (isFirst ? output.hook : isLast ? output.cta : scene.scene).slice(0, 300),
       visual: scene.visual.slice(0, 800),
       caption: scene.voiceover.slice(0, 900),
-      imageUrl: visualAsset?.imageUrl || output.imageUrl || null,
+      imageUrl,
+      visualType,
+      motion: motionForIndex(sceneIndex),
+      assetSource: imageUrl ? "content" : visualType === "generated_image" ? "generated" : "native",
+      assetRevision: 0,
+      visualPrompt: scene.visual.slice(0, 1600),
     };
   });
 }
@@ -101,9 +208,10 @@ function mapProject(row: VideoRow, publicApiUrl: string): VideoProject {
     captions: row.captions,
     voiceover: Boolean(row.voiceover),
     voiceProvider: row.voice_provider || null,
+    visualProvider: row.visual_provider || null,
     status: row.status,
     renderer: "remotion",
-    scenes: row.scenes,
+    scenes: row.scenes.map((scene) => normalizeScene(scene)),
     outputUrl: row.output_data ? `${publicApiUrl}/api/v1/public/videos/${row.public_token}` : null,
     mimeType: row.output_data ? "video/mp4" : null,
     error: row.error,
@@ -115,8 +223,10 @@ function mapProject(row: VideoRow, publicApiUrl: string): VideoProject {
 export class VideoService {
   private readonly pool?: Pool;
   private readonly memory = new Map<string, MemoryVideo>();
+  private readonly memorySceneAssets = new Map<string, MemorySceneAsset>();
   private readonly publicApiUrl: string;
   private readonly voiceProvider?: VideoVoiceProvider;
+  private readonly visualProvider?: VideoVisualProvider;
   private bundlePromise?: Promise<string>;
   private renderQueue: Promise<void> = Promise.resolve();
 
@@ -132,6 +242,13 @@ export class VideoService {
     this.voiceProvider = options.voiceProvider || (options.openAiApiKey
       ? new OpenAiVideoVoiceProvider(options.openAiApiKey, options.voiceModel, options.voiceName)
       : undefined);
+    this.visualProvider = options.visualProvider || (options.openAiApiKey
+      ? new OpenAiVideoVisualProvider(
+          options.openAiApiKey,
+          options.videoImageModel || "gpt-image-2",
+          options.videoImageQuality || "low",
+        )
+      : undefined);
   }
 
   get storage(): "memory" | "postgres" {
@@ -142,6 +259,14 @@ export class VideoService {
     return {
       available: Boolean(this.voiceProvider),
       provider: this.voiceProvider?.name || null,
+    };
+  }
+
+  get visuals() {
+    return {
+      available: Boolean(this.visualProvider),
+      provider: this.visualProvider?.name || null,
+      strategy: "hybrid",
     };
   }
 
@@ -158,6 +283,7 @@ export class VideoService {
         captions BOOLEAN NOT NULL DEFAULT TRUE,
         voiceover BOOLEAN NOT NULL DEFAULT FALSE,
         voice_provider TEXT,
+        visual_provider TEXT,
         status TEXT NOT NULL DEFAULT 'queued',
         scenes JSONB NOT NULL DEFAULT '[]'::jsonb,
         output_data BYTEA,
@@ -167,10 +293,30 @@ export class VideoService {
       );
       ALTER TABLE modo_video_renders ADD COLUMN IF NOT EXISTS voiceover BOOLEAN NOT NULL DEFAULT FALSE;
       ALTER TABLE modo_video_renders ADD COLUMN IF NOT EXISTS voice_provider TEXT;
+      ALTER TABLE modo_video_renders ADD COLUMN IF NOT EXISTS visual_provider TEXT;
       CREATE INDEX IF NOT EXISTS modo_video_renders_content_idx
         ON modo_video_renders(organization_id, content_request_id, created_at DESC);
       CREATE INDEX IF NOT EXISTS modo_video_renders_status_idx
         ON modo_video_renders(status, updated_at ASC);
+
+      CREATE TABLE IF NOT EXISTS modo_video_scene_assets (
+        id UUID PRIMARY KEY,
+        public_token UUID NOT NULL UNIQUE,
+        video_project_id UUID NOT NULL REFERENCES modo_video_renders(id) ON DELETE CASCADE,
+        organization_id TEXT NOT NULL REFERENCES modo_organizations(id) ON DELETE CASCADE,
+        scene_index INTEGER NOT NULL,
+        kind TEXT NOT NULL,
+        mime_type TEXT NOT NULL,
+        data BYTEA NOT NULL,
+        provider TEXT NOT NULL,
+        revision INTEGER NOT NULL DEFAULT 0,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS modo_video_scene_assets_project_idx
+        ON modo_video_scene_assets(video_project_id, scene_index, kind, revision DESC, created_at DESC);
+      CREATE INDEX IF NOT EXISTS modo_video_scene_assets_public_idx
+        ON modo_video_scene_assets(public_token);
+
       UPDATE modo_video_renders
         SET status='failed', error='Render interrompido por reinicialização do serviço.', updated_at=NOW()
         WHERE status='rendering';
@@ -217,6 +363,7 @@ export class VideoService {
       captions: input.captions,
       voiceover: Boolean(input.voiceover),
       voice_provider: input.voiceover ? this.voiceProvider?.name || null : null,
+      visual_provider: null,
       status: "queued",
       scenes,
       output_data: null,
@@ -229,8 +376,8 @@ export class VideoService {
       const result = await this.pool.query<VideoRow>(
         `INSERT INTO modo_video_renders(
           id, public_token, organization_id, brand_id, content_request_id,
-          duration_seconds, captions, voiceover, voice_provider, status, scenes
-        ) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,'queued',$10::jsonb)
+          duration_seconds, captions, voiceover, voice_provider, visual_provider, status, scenes
+        ) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'queued',$11::jsonb)
         RETURNING *`,
         [
           row.id,
@@ -242,6 +389,7 @@ export class VideoService {
           row.captions,
           row.voiceover,
           row.voice_provider,
+          row.visual_provider,
           JSON.stringify(row.scenes),
         ],
       );
@@ -326,6 +474,63 @@ export class VideoService {
     return this.getForOrganization(input.id, input.organizationId);
   }
 
+  async regenerateScene(input: {
+    id: string;
+    organizationId: string;
+    sceneIndex: number;
+    brandName: string;
+  }) {
+    const row = await this.rowForOrganization(input.id, input.organizationId);
+    if (!row) throw new VideoError("VIDEO_PROJECT_NOT_FOUND", 404, "Projeto de vídeo não encontrado.");
+    if (["queued", "rendering"].includes(row.status)) {
+      throw new VideoError("VIDEO_SCENE_BUSY", 409, "Aguarde o render atual terminar antes de trocar uma cena.");
+    }
+    if (!this.visualProvider) {
+      throw new VideoError("VIDEO_VISUAL_UNAVAILABLE", 503, "A geração visual por cena ainda não está disponível neste ambiente.");
+    }
+
+    const scenes = row.scenes.map((scene) => normalizeScene(scene));
+    const position = scenes.findIndex((scene) => scene.index === input.sceneIndex);
+    if (position < 0) throw new VideoError("VIDEO_SCENE_NOT_FOUND", 404, "Cena de vídeo não encontrada.");
+    const current = scenes[position];
+    const nextRevision = current.assetRevision + 1;
+
+    let generated;
+    try {
+      generated = await this.visualProvider.generate({
+        brandName: input.brandName || "MODO",
+        headline: current.headline,
+        visualDirection: current.visualPrompt || current.visual,
+        sceneIndex: current.index,
+        revision: nextRevision,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Falha ao gerar a nova cena.";
+      throw new VideoError("VIDEO_SCENE_REGENERATION_FAILED", 502, message);
+    }
+
+    const asset = await this.saveSceneAsset({
+      videoProjectId: row.id,
+      organizationId: row.organization_id,
+      sceneIndex: current.index,
+      kind: "image",
+      mimeType: generated.mimeType,
+      data: generated.data,
+      provider: generated.provider,
+      revision: nextRevision,
+    });
+    scenes[position] = {
+      ...current,
+      imageUrl: this.sceneAssetUrl(asset.publicToken),
+      visualType: "generated_image",
+      assetSource: "generated",
+      assetRevision: nextRevision,
+      motion: motionForIndex(current.index + nextRevision),
+    };
+
+    return this.replaceScenesAndQueue(row, scenes, generated.provider);
+  }
+
   async getPublic(publicToken: string) {
     if (this.pool) {
       const result = await this.pool.query<Pick<VideoRow, "output_data">>(
@@ -337,6 +542,20 @@ export class VideoService {
     }
     const row = [...this.memory.values()].find((item) => item.public_token === publicToken && item.status === "ready");
     return row?.output_data || null;
+  }
+
+  async getPublicSceneAsset(publicToken: string) {
+    if (this.pool) {
+      const result = await this.pool.query<Pick<SceneAssetRow, "kind" | "mime_type" | "data">>(
+        `SELECT kind,mime_type,data FROM modo_video_scene_assets
+         WHERE public_token=$1 AND kind='image' LIMIT 1`,
+        [publicToken],
+      );
+      const row = result.rows[0];
+      return row ? { mimeType: row.mime_type, data: row.data } : null;
+    }
+    const asset = this.memorySceneAssets.get(publicToken);
+    return asset?.kind === "image" ? { mimeType: asset.mimeType, data: asset.data } : null;
   }
 
   private async rowForOrganization(id: string, organizationId: string): Promise<VideoRow | null> {
@@ -381,22 +600,225 @@ export class VideoService {
     return mapProject(updated, this.publicApiUrl);
   }
 
-  private async renderScenes(row: VideoRow): Promise<RenderScene[]> {
-    if (!row.voiceover) return row.scenes.map((scene) => ({ ...scene, audioUrl: null }));
-    if (!this.voiceProvider) throw new Error("Provider de narração indisponível.");
+  private async replaceScenesAndQueue(
+    row: VideoRow,
+    scenes: VideoScene[],
+    visualProvider: VideoVisualProviderName | null,
+  ) {
+    if (this.pool) {
+      const result = await this.pool.query<VideoRow>(
+        `UPDATE modo_video_renders
+         SET scenes=$3::jsonb,status='queued',error=NULL,output_data=NULL,
+             visual_provider=COALESCE($4,visual_provider),updated_at=NOW()
+         WHERE id=$1 AND organization_id=$2 RETURNING *`,
+        [row.id, row.organization_id, JSON.stringify(scenes), visualProvider],
+      );
+      if (!result.rows[0]) throw new VideoError("VIDEO_PROJECT_NOT_FOUND", 404, "Projeto de vídeo não encontrado.");
+      return mapProject(result.rows[0], this.publicApiUrl);
+    }
 
-    return Promise.all(row.scenes.map(async (scene) => {
-      const targetDurationSeconds = Math.max(1, (scene.endFrame - scene.startFrame) / 30);
-      const audio = await this.voiceProvider!.synthesize({
-        text: scene.caption,
-        targetDurationSeconds,
-        language: "pt-BR",
+    const updated: MemoryVideo = {
+      ...row,
+      scenes,
+      status: "queued",
+      error: null,
+      output_data: null,
+      visual_provider: visualProvider || row.visual_provider,
+      updated_at: new Date(),
+    };
+    this.memory.set(row.id, updated);
+    return mapProject(updated, this.publicApiUrl);
+  }
+
+  private sceneAssetUrl(publicToken: string) {
+    return `${this.publicApiUrl}/api/v1/public/video-scene-assets/${publicToken}`;
+  }
+
+  private async saveSceneAsset(input: {
+    videoProjectId: string;
+    organizationId: string;
+    sceneIndex: number;
+    kind: SceneAssetKind;
+    mimeType: string;
+    data: Buffer;
+    provider: string;
+    revision: number;
+  }) {
+    const id = randomUUID();
+    const publicToken = randomUUID();
+    if (this.pool) {
+      await this.pool.query(
+        `INSERT INTO modo_video_scene_assets(
+          id,public_token,video_project_id,organization_id,scene_index,kind,mime_type,data,provider,revision
+        ) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+        [
+          id,
+          publicToken,
+          input.videoProjectId,
+          input.organizationId,
+          input.sceneIndex,
+          input.kind,
+          input.mimeType,
+          input.data,
+          input.provider,
+          input.revision,
+        ],
+      );
+    } else {
+      this.memorySceneAssets.set(publicToken, {
+        id,
+        publicToken,
+        ...input,
+        createdAt: new Date(),
       });
-      return {
-        ...scene,
-        audioUrl: `data:${audio.mimeType};base64,${audio.data.toString("base64")}`,
-      };
-    }));
+    }
+    return { id, publicToken };
+  }
+
+  private async latestSceneAsset(
+    videoProjectId: string,
+    organizationId: string,
+    sceneIndex: number,
+    kind: SceneAssetKind,
+  ): Promise<{ mimeType: string; data: Buffer; revision: number } | null> {
+    if (this.pool) {
+      const result = await this.pool.query<Pick<SceneAssetRow, "mime_type" | "data" | "revision">>(
+        `SELECT mime_type,data,revision FROM modo_video_scene_assets
+         WHERE video_project_id=$1 AND organization_id=$2 AND scene_index=$3 AND kind=$4
+         ORDER BY revision DESC,created_at DESC LIMIT 1`,
+        [videoProjectId, organizationId, sceneIndex, kind],
+      );
+      const row = result.rows[0];
+      return row ? { mimeType: row.mime_type, data: row.data, revision: Number(row.revision || 0) } : null;
+    }
+
+    const assets = [...this.memorySceneAssets.values()]
+      .filter((asset) =>
+        asset.videoProjectId === videoProjectId &&
+        asset.organizationId === organizationId &&
+        asset.sceneIndex === sceneIndex &&
+        asset.kind === kind,
+      )
+      .sort((a, b) => b.revision - a.revision || b.createdAt.getTime() - a.createdAt.getTime());
+    const asset = assets[0];
+    return asset ? { mimeType: asset.mimeType, data: asset.data, revision: asset.revision } : null;
+  }
+
+  private async persistPreparedScenes(row: VideoRow, scenes: VideoScene[], provider: VideoVisualProviderName | null) {
+    if (this.pool) {
+      const result = await this.pool.query<VideoRow>(
+        `UPDATE modo_video_renders
+         SET scenes=$3::jsonb,visual_provider=COALESCE($4,visual_provider),updated_at=NOW()
+         WHERE id=$1 AND organization_id=$2 RETURNING *`,
+        [row.id, row.organization_id, JSON.stringify(scenes), provider],
+      );
+      return result.rows[0] || row;
+    }
+    const updated: MemoryVideo = {
+      ...row,
+      scenes,
+      visual_provider: provider || row.visual_provider,
+      updated_at: new Date(),
+    };
+    this.memory.set(row.id, updated);
+    return updated;
+  }
+
+  private async prepareVisualScenes(row: VideoRow, brandName: string) {
+    const scenes = row.scenes.map((scene) => normalizeScene(scene));
+    if (!this.visualProvider) return { row: { ...row, scenes }, scenes };
+
+    let changed = false;
+    let generatedAny = false;
+    for (let index = 0; index < scenes.length; index += 1) {
+      const scene = scenes[index];
+      if (scene.visualType !== "generated_image" || scene.imageUrl) continue;
+      try {
+        const generated = await this.visualProvider.generate({
+          brandName: brandName || "MODO",
+          headline: scene.headline,
+          visualDirection: scene.visualPrompt || scene.visual,
+          sceneIndex: scene.index,
+          revision: scene.assetRevision,
+        });
+        const asset = await this.saveSceneAsset({
+          videoProjectId: row.id,
+          organizationId: row.organization_id,
+          sceneIndex: scene.index,
+          kind: "image",
+          mimeType: generated.mimeType,
+          data: generated.data,
+          provider: generated.provider,
+          revision: scene.assetRevision,
+        });
+        scenes[index] = {
+          ...scene,
+          imageUrl: this.sceneAssetUrl(asset.publicToken),
+          visualType: "generated_image",
+          assetSource: "generated",
+        };
+        changed = true;
+        generatedAny = true;
+      } catch {
+        scenes[index] = {
+          ...scene,
+          visualType: "kinetic_text",
+          assetSource: "native",
+          imageUrl: null,
+        };
+        changed = true;
+      }
+    }
+
+    if (!changed) return { row: { ...row, scenes }, scenes };
+    const persisted = await this.persistPreparedScenes(
+      row,
+      scenes,
+      generatedAny ? this.visualProvider.name : null,
+    );
+    return { row: persisted, scenes };
+  }
+
+  private async renderScenes(row: VideoRow, brandName: string): Promise<{ row: VideoRow; scenes: RenderScene[] }> {
+    const prepared = await this.prepareVisualScenes(row, brandName);
+    const scenes: RenderScene[] = [];
+
+    for (const scene of prepared.scenes) {
+      let audioUrl: string | null = null;
+      if (prepared.row.voiceover) {
+        if (!this.voiceProvider) throw new Error("Provider de narração indisponível.");
+        const cached = await this.latestSceneAsset(
+          prepared.row.id,
+          prepared.row.organization_id,
+          scene.index,
+          "audio",
+        );
+        if (cached) {
+          audioUrl = `data:${cached.mimeType};base64,${cached.data.toString("base64")}`;
+        } else {
+          const targetDurationSeconds = Math.max(1, (scene.endFrame - scene.startFrame) / 30);
+          const audio = await this.voiceProvider.synthesize({
+            text: scene.caption,
+            targetDurationSeconds,
+            language: "pt-BR",
+          });
+          await this.saveSceneAsset({
+            videoProjectId: prepared.row.id,
+            organizationId: prepared.row.organization_id,
+            sceneIndex: scene.index,
+            kind: "audio",
+            mimeType: audio.mimeType,
+            data: audio.data,
+            provider: audio.provider,
+            revision: 0,
+          });
+          audioUrl = `data:${audio.mimeType};base64,${audio.data.toString("base64")}`;
+        }
+      }
+      scenes.push({ ...scene, audioUrl });
+    }
+
+    return { row: prepared.row, scenes };
   }
 
   private async render(input: { id: string; organizationId: string; brandName: string; title: string }) {
@@ -406,19 +828,19 @@ export class VideoService {
     const workdir = await mkdtemp(join(tmpdir(), "modo-video-"));
     const outputLocation = join(workdir, `${input.id}.mp4`);
     try {
-      const scenes = await this.renderScenes(row);
+      const prepared = await this.renderScenes(row, input.brandName);
       const serveUrl = await this.remotionBundle();
       const { selectComposition, renderMedia } = await import("@remotion/renderer");
       const inputProps = {
         brandName: input.brandName || "MODO",
         title: input.title || "Conteúdo MODO",
         accentColor: "#2ED19A",
-        captions: row.captions,
-        scenes,
+        captions: prepared.row.captions,
+        scenes: prepared.scenes,
       };
       const composition = await selectComposition({
         serveUrl,
-        id: `ModoVideo${row.duration_seconds}`,
+        id: `ModoVideo${prepared.row.duration_seconds}`,
         inputProps,
       });
       await renderMedia({

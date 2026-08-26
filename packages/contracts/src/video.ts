@@ -19,6 +19,31 @@ export const VideoRenderStatusSchema = z.enum([
 ]);
 export type VideoRenderStatus = z.infer<typeof VideoRenderStatusSchema>;
 
+export const VideoSceneVisualTypeSchema = z.enum([
+  "brand_asset",
+  "generated_image",
+  "interface",
+  "data_card",
+  "kinetic_text",
+]);
+export type VideoSceneVisualType = z.infer<typeof VideoSceneVisualTypeSchema>;
+
+export const VideoSceneMotionSchema = z.enum([
+  "push_in",
+  "zoom_out",
+  "pan_left",
+  "pan_right",
+  "static",
+]);
+export type VideoSceneMotion = z.infer<typeof VideoSceneMotionSchema>;
+
+export const VideoSceneAssetSourceSchema = z.enum([
+  "content",
+  "generated",
+  "native",
+]);
+export type VideoSceneAssetSource = z.infer<typeof VideoSceneAssetSourceSchema>;
+
 export const VideoSceneSchema = z.object({
   index: z.number().int().min(1).max(12),
   startFrame: z.number().int().nonnegative(),
@@ -27,6 +52,11 @@ export const VideoSceneSchema = z.object({
   visual: z.string().trim().min(1).max(800),
   caption: z.string().trim().min(1).max(900),
   imageUrl: z.string().url().max(2000).nullable(),
+  visualType: VideoSceneVisualTypeSchema.default("kinetic_text"),
+  motion: VideoSceneMotionSchema.default("push_in"),
+  assetSource: VideoSceneAssetSourceSchema.default("native"),
+  assetRevision: z.number().int().nonnegative().default(0),
+  visualPrompt: z.string().trim().max(1600).nullable().default(null),
 });
 export type VideoScene = z.infer<typeof VideoSceneSchema>;
 
@@ -49,6 +79,7 @@ export const VideoProjectSchema = z.object({
   captions: z.boolean(),
   voiceover: z.boolean().default(false),
   voiceProvider: z.enum(["openai"]).nullable().default(null),
+  visualProvider: z.enum(["openai"]).nullable().default(null),
   status: VideoRenderStatusSchema,
   renderer: z.literal("remotion"),
   scenes: z.array(VideoSceneSchema).min(1).max(12),

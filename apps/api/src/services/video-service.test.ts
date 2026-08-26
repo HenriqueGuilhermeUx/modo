@@ -1,5 +1,5 @@
 import type { ContentRequest, GeneratedContent } from "@modo/contracts/content";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { planVideoScenes, VideoError, VideoService } from "./video-service.js";
 
 const output: GeneratedContent = {
@@ -62,6 +62,43 @@ describe("MODO Video", () => {
     expect(scenes[0].caption).toBe(output.script[0].voiceover);
   });
 
+  it("escolhe tratamento visual por cena sem gerar imagem para tudo", () => {
+    const scenes = planVideoScenes(output, 30);
+    expect(scenes[0]).toMatchObject({
+      visualType: "brand_asset",
+      assetSource: "content",
+      imageUrl: output.imageUrl,
+    });
+    expect(scenes[1]).toMatchObject({
+      visualType: "interface",
+      assetSource: "native",
+      imageUrl: null,
+    });
+    expect(scenes[3]).toMatchObject({
+      visualType: "interface",
+      assetSource: "native",
+    });
+    expect(scenes.at(-1)).toMatchObject({
+      visualType: "kinetic_text",
+      assetSource: "native",
+      imageUrl: null,
+    });
+  });
+
+  it("classifica uma cena humana/editorial sem asset como imagem gerada", () => {
+    const editorial = planVideoScenes({
+      ...output,
+      imageUrl: null,
+      imageStatus: "not_requested",
+      script: [
+        { scene: "Abertura", visual: "Empresária brasileira conversando com um cliente em uma cafeteria.", voiceover: "Estratégia começa entendendo pessoas." },
+        { scene: "CTA", visual: "Marca e chamada final.", voiceover: "Planeje com direção." },
+      ],
+    }, 15);
+    expect(editorial[0]).toMatchObject({ visualType: "generated_image", assetSource: "generated", imageUrl: null });
+    expect(editorial[1].visualType).toBe("kinetic_text");
+  });
+
   it("reduz o storyboard para três cenas em 15 segundos", () => {
     const scenes = planVideoScenes(output, 15);
     expect(scenes).toHaveLength(3);
@@ -86,6 +123,7 @@ describe("MODO Video", () => {
     expect(project.renderer).toBe("remotion");
     expect(project.voiceover).toBe(false);
     expect(project.voiceProvider).toBeNull();
+    expect(project.visualProvider).toBeNull();
     expect((await service.latestForContent("organization-one", project.contentRequestId))?.id).toBe(project.id);
     expect(await service.latestForContent("organization-two", project.contentRequestId)).toBeNull();
 
@@ -113,6 +151,91 @@ describe("MODO Video", () => {
     expect(service.voice).toEqual({ available: true, provider: "openai" });
     expect(project.voiceover).toBe(true);
     expect(project.voiceProvider).toBe("openai");
+  });
+
+  it("cacheia a locução por cena e não chama TTS de novo num rerender visual", async () => {
+    const synthesize = vi.fn(async ({ text }: { text: string }) => ({
+      provider: "openai" as const,
+      mimeType: "audio/mpeg" as const,
+      data: Buffer.from(`audio:${text}`),
+    }));
+    const service = new VideoService({
+      voiceProvider: { name: "openai", synthesize },
+    });
+    const project = await service.createProject({
+      organizationId: "organization-one",
+      content: contentRequest(),
+      durationSeconds: 30,
+      captions: true,
+      voiceover: true,
+    });
+    const row = (service as any).memory.get(project.id);
+
+    const first = await (service as any).renderScenes(row, "MODO");
+    expect(synthesize).toHaveBeenCalledTimes(project.scenes.length);
+    expect(first.scenes.every((scene: any) => typeof scene.audioUrl === "string" && scene.audioUrl.startsWith("data:audio/mpeg;base64,"))).toBe(true);
+
+    const second = await (service as any).renderScenes(row, "MODO");
+    expect(synthesize).toHaveBeenCalledTimes(project.scenes.length);
+    expect(second.scenes.map((scene: any) => scene.audioUrl)).toEqual(first.scenes.map((scene: any) => scene.audioUrl));
+  });
+
+  it("regenera somente o visual escolhido e preserva as demais cenas", async () => {
+    const generate = vi.fn(async ({ sceneIndex, revision }: { sceneIndex: number; revision: number }) => ({
+      provider: "openai" as const,
+      mimeType: "image/png" as const,
+      data: Buffer.from(`image:${sceneIndex}:${revision}`),
+    }));
+    const service = new VideoService({
+      publicApiUrl: "https://modo.example.com",
+      visualProvider: { name: "openai", generate },
+    });
+    const created = await service.createProject({
+      organizationId: "organization-one",
+      content: contentRequest(),
+      durationSeconds: 30,
+      captions: true,
+    });
+    const before = structuredClone(created.scenes);
+    await service.cancel(created.id, "organization-one");
+
+    const updated = await service.regenerateScene({
+      id: created.id,
+      organizationId: "organization-one",
+      sceneIndex: 2,
+      brandName: "MODO",
+    });
+
+    expect(generate).toHaveBeenCalledTimes(1);
+    expect(updated.status).toBe("queued");
+    expect(updated.outputUrl).toBeNull();
+    expect(updated.visualProvider).toBe("openai");
+    expect(updated.scenes[1]).toMatchObject({
+      index: 2,
+      visualType: "generated_image",
+      assetSource: "generated",
+      assetRevision: 1,
+    });
+    expect(updated.scenes[1].imageUrl).toMatch(/^https:\/\/modo\.example\.com\/api\/v1\/public\/video-scene-assets\//);
+    expect(updated.scenes[0]).toEqual(before[0]);
+    expect(updated.scenes.slice(2)).toEqual(before.slice(2));
+  });
+
+  it("não promete regeneração visual quando o ambiente não possui provider", async () => {
+    const service = new VideoService();
+    const created = await service.createProject({
+      organizationId: "organization-one",
+      content: contentRequest(),
+      durationSeconds: 30,
+      captions: true,
+    });
+    await service.cancel(created.id, "organization-one");
+    await expect(service.regenerateScene({
+      id: created.id,
+      organizationId: "organization-one",
+      sceneIndex: 2,
+      brandName: "MODO",
+    })).rejects.toMatchObject<Partial<VideoError>>({ code: "VIDEO_VISUAL_UNAVAILABLE" });
   });
 
   it("não aceita narração quando o ambiente não possui provider", async () => {

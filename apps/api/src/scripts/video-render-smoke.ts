@@ -40,9 +40,14 @@ const inputProps = {
       startFrame: 0,
       endFrame: 450,
       headline: "A estratégia vira vídeo.",
-      visual: "Composição programática MODO sem dependência de mídia externa.",
-      caption: "Smoke real do renderer Remotion em H.264 com trilha de áudio.",
+      visual: "Interface nativa desenhada pelo compositor MODO.",
+      caption: "Smoke real do renderer Remotion em H.264 com direção visual e áudio.",
       imageUrl: null,
+      visualType: "interface",
+      motion: "pan_right",
+      assetSource: "native",
+      assetRevision: 0,
+      visualPrompt: "Dashboard editorial de marketing.",
       audioUrl: silentWavDataUrl(),
     },
   ],
@@ -73,7 +78,7 @@ async function main() {
       inputProps,
     });
 
-    console.log(`[MODO Video] Renderizando ${SMOKE_FRAMES} frames reais em H.264 com áudio por cena...`);
+    console.log(`[MODO Video] Renderizando ${SMOKE_FRAMES} frames reais em H.264 com áudio e direção visual nativa...`);
     await renderMedia({
       composition,
       serveUrl,
@@ -88,7 +93,7 @@ async function main() {
 
     const data = await readFile(outputLocation);
     assertMp4(data);
-    console.log(`[MODO Video] Smoke OK: MP4 H.264 válido com áudio sincronizado por cena (${data.length} bytes).`);
+    console.log(`[MODO Video] Smoke OK: MP4 H.264 válido com áudio e cena inteligente (${data.length} bytes).`);
   } finally {
     await rm(workdir, { recursive: true, force: true }).catch(() => undefined);
   }

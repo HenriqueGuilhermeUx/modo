@@ -9,6 +9,7 @@ interface Options {
   databaseUrl?: string;
   databaseSsl?: boolean;
   publicApiUrl?: string;
+  openAiApiKey?: string;
 }
 
 function bearerToken(request: FastifyRequest) {
@@ -51,6 +52,7 @@ export async function registerVideoRoutes(app: FastifyInstance, options: Options
     databaseUrl: options.databaseUrl,
     databaseSsl: options.databaseSsl,
     publicApiUrl: options.publicApiUrl,
+    openAiApiKey: options.openAiApiKey,
   });
 
   await Promise.all([auth.initialize(), content.initialize(), video.initialize()]);
@@ -121,6 +123,7 @@ export async function registerVideoRoutes(app: FastifyInstance, options: Options
     aspectRatio: "9:16",
     durations: [15, 30, 45],
     fps: 30,
+    voice: video.voice,
   }));
 
   app.get("/api/v1/video-projects", async (request) => {
@@ -164,6 +167,7 @@ export async function registerVideoRoutes(app: FastifyInstance, options: Options
         content: contentRequest,
         durationSeconds: input.durationSeconds,
         captions: input.captions,
+        voiceover: input.voiceover,
       });
       void video.enqueueRender({
         id: project.id,

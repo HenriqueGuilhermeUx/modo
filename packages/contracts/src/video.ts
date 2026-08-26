@@ -34,6 +34,7 @@ export const VideoProjectCreateSchema = z.object({
   contentRequestId: z.string().uuid(),
   durationSeconds: VideoDurationSecondsSchema.default(30),
   captions: z.boolean().default(true),
+  voiceover: z.boolean().default(false),
 });
 export type VideoProjectCreate = z.infer<typeof VideoProjectCreateSchema>;
 
@@ -46,6 +47,8 @@ export const VideoProjectSchema = z.object({
   aspectRatio: VideoAspectRatioSchema,
   fps: z.literal(30),
   captions: z.boolean(),
+  voiceover: z.boolean().default(false),
+  voiceProvider: z.enum(["openai"]).nullable().default(null),
   status: VideoRenderStatusSchema,
   renderer: z.literal("remotion"),
   scenes: z.array(VideoSceneSchema).min(1).max(12),

@@ -1,6 +1,7 @@
 import React from "react";
 import {
   AbsoluteFill,
+  Audio,
   Composition,
   Img,
   Sequence,
@@ -17,6 +18,7 @@ type RenderScene = {
   visual: string;
   caption: string;
   imageUrl: string | null;
+  audioUrl?: string | null;
 };
 
 type RenderProps = {
@@ -41,6 +43,7 @@ const defaultProps: RenderProps = {
       visual: "Composição editorial MODO",
       caption: "A MODO transforma estratégia em presença.",
       imageUrl: null,
+      audioUrl: null,
     },
   ],
 };
@@ -120,12 +123,17 @@ function ModoVideo(props: RenderProps) {
       React.createElement(
         Sequence,
         { key: scene.index, from: scene.startFrame, durationInFrames: Math.max(1, scene.endFrame - scene.startFrame), premountFor: 15 },
-        React.createElement(SceneCard, {
-          scene,
-          brandName: props.brandName,
-          accentColor: props.accentColor,
-          captions: props.captions,
-        }),
+        React.createElement(
+          React.Fragment,
+          null,
+          scene.audioUrl ? React.createElement(Audio, { src: scene.audioUrl, volume: 1 }) : null,
+          React.createElement(SceneCard, {
+            scene,
+            brandName: props.brandName,
+            accentColor: props.accentColor,
+            captions: props.captions,
+          }),
+        ),
       ),
     ),
   );

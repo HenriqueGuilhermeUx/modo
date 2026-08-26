@@ -1,8 +1,10 @@
 import {
   VideoProjectCreateSchema,
   VideoProjectSchema,
+  VideoSceneUpdateSchema,
   type VideoProject,
   type VideoProjectCreate,
+  type VideoSceneUpdate,
 } from "@modo/contracts/video";
 import { clearSessionToken, getSessionToken } from "./api";
 
@@ -43,6 +45,17 @@ export async function getLatestVideoProject(contentRequestId: string): Promise<V
 
 export async function getVideoProject(id: string): Promise<VideoProject> {
   const payload = await request<{ project: unknown }>(`/api/v1/video-projects/${encodeURIComponent(id)}`);
+  return VideoProjectSchema.parse(payload.project);
+}
+
+export async function updateVideoScene(id: string, sceneIndex: number, input: VideoSceneUpdate): Promise<VideoProject> {
+  const payload = await request<{ project: unknown }>(
+    `/api/v1/video-projects/${encodeURIComponent(id)}/scenes/${sceneIndex}`,
+    {
+      method: "PATCH",
+      body: JSON.stringify(VideoSceneUpdateSchema.parse(input)),
+    },
+  );
   return VideoProjectSchema.parse(payload.project);
 }
 

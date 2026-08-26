@@ -832,7 +832,7 @@ export class NativePublisherV2Service {
     if (!mediaUrl) throw new NativePublisherV2Error("INSTAGRAM_MEDIA_REQUIRED", 409, "Instagram exige mídia pronta neste fluxo.");
     const base = (this.options.instagramGraphBaseUrl || "https://graph.instagram.com").replace(/\/$/,"");
     const version = (this.options.instagramApiVersion || "v25.0").replace(/^([^v])/,"v$1");
-    const values = mediaType === "video"
+    const values: Record<string, string> = mediaType === "video"
       ? { media_type:"REELS", video_url:mediaUrl, caption, share_to_feed:"true", access_token:token }
       : { image_url:mediaUrl, caption, access_token:token };
     const media = await this.formPost(`${base}/${version}/${encodeURIComponent(connection.provider_account_id)}/media`, values);

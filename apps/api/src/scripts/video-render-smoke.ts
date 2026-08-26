@@ -8,11 +8,33 @@ import { fileURLToPath } from "node:url";
 const FPS = 30;
 const SMOKE_FRAMES = FPS;
 
+function silentWavDataUrl(seconds = 1, sampleRate = 8000) {
+  const samples = Math.max(1, Math.round(seconds * sampleRate));
+  const bytesPerSample = 2;
+  const dataSize = samples * bytesPerSample;
+  const wav = Buffer.alloc(44 + dataSize);
+  wav.write("RIFF", 0);
+  wav.writeUInt32LE(36 + dataSize, 4);
+  wav.write("WAVE", 8);
+  wav.write("fmt ", 12);
+  wav.writeUInt32LE(16, 16);
+  wav.writeUInt16LE(1, 20);
+  wav.writeUInt16LE(1, 22);
+  wav.writeUInt32LE(sampleRate, 24);
+  wav.writeUInt32LE(sampleRate * bytesPerSample, 28);
+  wav.writeUInt16LE(bytesPerSample, 32);
+  wav.writeUInt16LE(16, 34);
+  wav.write("data", 36);
+  wav.writeUInt32LE(dataSize, 40);
+  return `data:audio/wav;base64,${wav.toString("base64")}`;
+}
+
 const inputProps = {
   brandName: "MODO CI",
   title: "MODO Video render smoke",
   accentColor: "#2ED19A",
   captions: true,
+  audioUrl: silentWavDataUrl(),
   scenes: [
     {
       index: 1,
@@ -20,7 +42,7 @@ const inputProps = {
       endFrame: 450,
       headline: "A estratégia vira vídeo.",
       visual: "Composição programática MODO sem dependência de mídia externa.",
-      caption: "Smoke real do renderer Remotion em H.264.",
+      caption: "Smoke real do renderer Remotion em H.264 com trilha de áudio.",
       imageUrl: null,
     },
   ],
@@ -51,7 +73,7 @@ async function main() {
       inputProps,
     });
 
-    console.log(`[MODO Video] Renderizando ${SMOKE_FRAMES} frames reais em H.264...`);
+    console.log(`[MODO Video] Renderizando ${SMOKE_FRAMES} frames reais em H.264 com áudio...`);
     await renderMedia({
       composition,
       serveUrl,
@@ -66,7 +88,7 @@ async function main() {
 
     const data = await readFile(outputLocation);
     assertMp4(data);
-    console.log(`[MODO Video] Smoke OK: MP4 H.264 válido (${data.length} bytes).`);
+    console.log(`[MODO Video] Smoke OK: MP4 H.264 válido com áudio (${data.length} bytes).`);
   } finally {
     await rm(workdir, { recursive: true, force: true }).catch(() => undefined);
   }

@@ -8,6 +8,7 @@ import {
 const SupportStatusSchema = z.enum(["requested", "triage", "proposal", "in_progress", "completed", "declined"]);
 const PricingStatusSchema = z.enum(["under_review", "proposal_required", "included", "not_available"]);
 const ApplicationStatusSchema = z.enum(["received", "under_review", "approved", "talent_pool", "declined"]);
+const PartnerApplicationStatusSchema = z.enum(["received", "under_review", "interview", "approved", "waitlist", "declined"]);
 
 function bearer(request: FastifyRequest) {
   const value = request.headers.authorization;
@@ -66,6 +67,21 @@ export async function registerHumanOperationsRoutes(app: FastifyInstance, option
       internalNotes: z.string().trim().max(5000).optional(),
     }).parse(request.body);
     return operations.updateApplication(id, input);
+  });
+
+  app.get("/api/v1/admin/human-operations/partner-applications", async (request) => {
+    await authenticate(request);
+    return { applications: await operations.listPartnerApplications() };
+  });
+
+  app.patch("/api/v1/admin/human-operations/partner-applications/:id", async (request) => {
+    await authenticate(request);
+    const id = z.string().uuid().parse((request.params as { id: string }).id);
+    const input = z.object({
+      status: PartnerApplicationStatusSchema.optional(),
+      internalNotes: z.string().trim().max(5000).optional(),
+    }).parse(request.body);
+    return operations.updatePartnerApplication(id, input);
   });
 
   app.setErrorHandler((error, _request, reply) => {

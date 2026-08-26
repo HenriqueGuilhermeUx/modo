@@ -3,7 +3,7 @@ import { PexelsVideoBrollProvider } from "./video-broll-provider.js";
 
 describe("PexelsVideoBrollProvider", () => {
   it("busca vídeo vertical em pt-BR, escolhe MP4 e preserva crédito", async () => {
-    const fetchImpl = vi.fn(async (input: string | URL | Request) => {
+    const fetchImpl = vi.fn(async (input: string | URL | Request, _init?: RequestInit) => {
       const url = String(input);
       if (url.startsWith("https://api.pexels.com/v1/videos/search")) {
         return new Response(JSON.stringify({
@@ -20,7 +20,7 @@ describe("PexelsVideoBrollProvider", () => {
           ],
         }), { status: 200, headers: { "content-type": "application/json" } });
       }
-      return new Response(Buffer.from("fake-mp4"), {
+      return new Response(new Uint8Array(Buffer.from("fake-mp4")), {
         status: 200,
         headers: { "content-type": "video/mp4", "content-length": "8" },
       });
@@ -50,7 +50,7 @@ describe("PexelsVideoBrollProvider", () => {
   });
 
   it("recusa download acima do limite configurado", async () => {
-    const fetchImpl = vi.fn(async (input: string | URL | Request) => {
+    const fetchImpl = vi.fn(async (input: string | URL | Request, _init?: RequestInit) => {
       const url = String(input);
       if (url.startsWith("https://api.pexels.com/v1/videos/search")) {
         return new Response(JSON.stringify({
@@ -62,7 +62,7 @@ describe("PexelsVideoBrollProvider", () => {
           }],
         }), { status: 200 });
       }
-      return new Response(Buffer.from("123456789"), {
+      return new Response(new Uint8Array(Buffer.from("123456789")), {
         status: 200,
         headers: { "content-type": "video/mp4", "content-length": "9" },
       });

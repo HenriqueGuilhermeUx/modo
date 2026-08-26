@@ -35,6 +35,7 @@ const SpecialistApplicationPage=lazy(()=>import("./SpecialistApplicationPage"));
 const SpecialistSupportWorkspace=lazy(()=>import("./SpecialistSupportWorkspace"));
 const StrategyWorkspace=lazy(()=>import("./StrategyWorkspace"));
 const StudioWorkspace=lazy(()=>import("./StudioWorkspace"));
+const VideoWorkspace=lazy(()=>import("./VideoWorkspace"));
 const WeekWorkspace=lazy(()=>import("./WeekWorkspace"));
 
 function RouteLoading(){return <main className="portal-loading" aria-live="polite" aria-busy="true"><img src="/logo.svg" alt="MODO"/><div className="portal-spinner"/><p>Preparando sua experiência...</p></main>}
@@ -63,6 +64,7 @@ export default function Root(){
  if(path==="/app/agency"||(path==="/app"&&agencyMode))return suspended(<><AgencyWorkspace/><PasswordRecoveryEntry mode="agency"/></>);
  if(path.startsWith("/app/onboarding"))return suspended(<OnboardingWorkspace/>);
  if(path.startsWith("/app/studio/"))return suspended(<StudioWorkspace/>);
+ if(path.startsWith("/app/video/"))return suspended(<VideoWorkspace/>);
  if(path.startsWith("/app/base"))return suspended(<StrategyWorkspace/>);
  if(path.startsWith("/app/especialista"))return suspended(<SpecialistSupportWorkspace/>);
  if(path.startsWith("/app/week"))return suspended(<WeekWorkspace/>);

@@ -30,6 +30,7 @@ import "./agency.css";
 import "./agency-workspace.css";
 import "./agency-workspace-additions.css";
 import "./agency-approval.css";
+import "./partner.css";
 import "./smartbots.css";
 import "./campaign.css";
 import "./activation.css";

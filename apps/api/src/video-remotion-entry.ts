@@ -158,7 +158,6 @@ function BackgroundVisual({ scene, accentColor, localFrame, duration }: {
     return React.createElement(OffthreadVideo, {
       src: scene.videoUrl,
       muted: true,
-      loop: true,
       style: { width: "100%", height: "100%", objectFit: "cover", transform: imageTransform(scene, localFrame, duration) },
     });
   }
@@ -183,7 +182,6 @@ function SceneCard({ scene, brandName, accentColor, captions }: {
   accentColor: string;
   captions: boolean;
 }) {
-  // Dentro de <Sequence>, useCurrentFrame() já é relativo ao início da cena.
   const localFrame = useCurrentFrame();
   const duration = Math.max(1, scene.endFrame - scene.startFrame);
   const opacity = interpolate(localFrame, [0, 12, Math.max(13, duration - 12), duration], [0, 1, 1, 0], {

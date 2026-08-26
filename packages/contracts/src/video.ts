@@ -42,6 +42,7 @@ export type VideoProjectReview = z.infer<typeof VideoProjectReviewSchema>;
 export const VideoSceneVisualTypeSchema = z.enum([
   "brand_asset",
   "generated_image",
+  "broll_video",
   "interface",
   "data_card",
   "kinetic_text",
@@ -60,9 +61,18 @@ export type VideoSceneMotion = z.infer<typeof VideoSceneMotionSchema>;
 export const VideoSceneAssetSourceSchema = z.enum([
   "content",
   "generated",
+  "stock",
   "native",
 ]);
 export type VideoSceneAssetSource = z.infer<typeof VideoSceneAssetSourceSchema>;
+
+export const VideoSceneStockCreditSchema = z.object({
+  provider: z.literal("pexels"),
+  authorName: z.string().trim().min(1).max(160),
+  authorUrl: z.string().url().max(2000),
+  sourceUrl: z.string().url().max(2000),
+});
+export type VideoSceneStockCredit = z.infer<typeof VideoSceneStockCreditSchema>;
 
 export const VideoSceneSchema = z.object({
   index: z.number().int().min(1).max(12),
@@ -72,13 +82,40 @@ export const VideoSceneSchema = z.object({
   visual: z.string().trim().min(1).max(800),
   caption: z.string().trim().min(1).max(900),
   imageUrl: z.string().url().max(2000).nullable(),
+  videoUrl: z.string().url().max(2000).nullable().default(null),
   visualType: VideoSceneVisualTypeSchema.default("kinetic_text"),
   motion: VideoSceneMotionSchema.default("push_in"),
   assetSource: VideoSceneAssetSourceSchema.default("native"),
   assetRevision: z.number().int().nonnegative().default(0),
   visualPrompt: z.string().trim().max(1600).nullable().default(null),
+  stockQuery: z.string().trim().max(240).nullable().default(null),
+  stockCredit: VideoSceneStockCreditSchema.nullable().default(null),
 });
 export type VideoScene = z.infer<typeof VideoSceneSchema>;
+
+export const VideoSceneModeSchema = z.enum([
+  "auto",
+  "generated_image",
+  "broll_video",
+  "interface",
+  "data_card",
+  "kinetic_text",
+]);
+export type VideoSceneMode = z.infer<typeof VideoSceneModeSchema>;
+
+export const VideoSceneUpdateSchema = z
+  .object({
+    headline: z.string().trim().min(1).max(300).optional(),
+    visual: z.string().trim().min(1).max(800).optional(),
+    caption: z.string().trim().min(1).max(900).optional(),
+    visualPrompt: z.string().trim().min(1).max(1600).optional(),
+    stockQuery: z.string().trim().min(1).max(240).optional(),
+    visualMode: VideoSceneModeSchema.optional(),
+  })
+  .refine((value) => Object.values(value).some((item) => item !== undefined), {
+    message: "Informe ao menos uma alteração para a cena.",
+  });
+export type VideoSceneUpdate = z.infer<typeof VideoSceneUpdateSchema>;
 
 export const VideoProjectCreateSchema = z.object({
   contentRequestId: z.string().uuid(),
@@ -100,6 +137,7 @@ export const VideoProjectSchema = z.object({
   voiceover: z.boolean().default(false),
   voiceProvider: z.enum(["openai"]).nullable().default(null),
   visualProvider: z.enum(["openai"]).nullable().default(null),
+  brollProvider: z.enum(["pexels"]).nullable().default(null),
   status: VideoRenderStatusSchema,
   review: VideoProjectReviewSchema.optional(),
   renderer: z.literal("remotion"),

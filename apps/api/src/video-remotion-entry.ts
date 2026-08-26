@@ -18,6 +18,7 @@ type RenderScene = {
   visual: string;
   caption: string;
   imageUrl: string | null;
+  audioUrl?: string | null;
 };
 
 type RenderProps = {
@@ -25,7 +26,6 @@ type RenderProps = {
   title: string;
   accentColor: string;
   captions: boolean;
-  audioUrl: string | null;
   scenes: RenderScene[];
 };
 
@@ -34,7 +34,6 @@ const defaultProps: RenderProps = {
   title: "Conteúdo MODO",
   accentColor: "#2ED19A",
   captions: true,
-  audioUrl: null,
   scenes: [
     {
       index: 1,
@@ -44,6 +43,7 @@ const defaultProps: RenderProps = {
       visual: "Composição editorial MODO",
       caption: "A MODO transforma estratégia em presença.",
       imageUrl: null,
+      audioUrl: null,
     },
   ],
 };
@@ -119,17 +119,21 @@ function ModoVideo(props: RenderProps) {
   return React.createElement(
     AbsoluteFill,
     { style: { backgroundColor: "#0D1B3E" } },
-    props.audioUrl ? React.createElement(Audio, { src: props.audioUrl, volume: 1 }) : null,
     ...props.scenes.map((scene) =>
       React.createElement(
         Sequence,
         { key: scene.index, from: scene.startFrame, durationInFrames: Math.max(1, scene.endFrame - scene.startFrame), premountFor: 15 },
-        React.createElement(SceneCard, {
-          scene,
-          brandName: props.brandName,
-          accentColor: props.accentColor,
-          captions: props.captions,
-        }),
+        React.createElement(
+          React.Fragment,
+          null,
+          scene.audioUrl ? React.createElement(Audio, { src: scene.audioUrl, volume: 1 }) : null,
+          React.createElement(SceneCard, {
+            scene,
+            brandName: props.brandName,
+            accentColor: props.accentColor,
+            captions: props.captions,
+          }),
+        ),
       ),
     ),
   );

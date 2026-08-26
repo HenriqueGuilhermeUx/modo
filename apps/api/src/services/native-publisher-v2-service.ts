@@ -874,11 +874,39 @@ export class NativePublisherV2Service {
   ) {
     const version = this.options.facebookApiVersion || "v25.0";
     const base = `https://graph.facebook.com/${version}/${encodeURIComponent(connection.provider_account_id)}`;
-    const payload = mediaType === "video" && mediaUrl
-      ? await this.formPost(`${base}/videos`, { file_url:mediaUrl,description:caption,access_token:token,published:"true" })
-      : mediaUrl
-        ? await this.formPost(`${base}/photos`, { url:mediaUrl,caption,access_token:token,published:"true" })
-        : await this.formPost(`${base}/feed`, { message:caption,access_token:token });
+    if (mediaType === "video" && mediaUrl) {
+      const started = await this.formPost(`${base}/video_reels`, {
+        upload_phase: "start",
+        access_token: token,
+      });
+      const videoId = text(started.video_id);
+      if (!videoId) throw new Error("Facebook não retornou video_id para o Reel.");
+      const uploadUrl = text(started.upload_url) || `https://rupload.facebook.com/video-upload/${version}/${encodeURIComponent(videoId)}`;
+      const uploadResponse = await fetch(uploadUrl, {
+        method: "POST",
+        headers: {
+          authorization: `OAuth ${token}`,
+          file_url: mediaUrl,
+        },
+        signal: AbortSignal.timeout(60_000),
+      });
+      const uploadPayload = await uploadResponse.json().catch(() => ({})) as any;
+      if (!uploadResponse.ok || uploadPayload.success === false) {
+        throw new Error(text(uploadPayload.error?.message) || `Facebook não recebeu o MP4 do Reel (${uploadResponse.status}).`);
+      }
+      const finished = await this.formPost(`${base}/video_reels`, {
+        upload_phase: "finish",
+        video_id: videoId,
+        video_state: "PUBLISHED",
+        description: caption,
+        access_token: token,
+      });
+      const postId = text(finished.post_id) || text(finished.video_id) || videoId;
+      return { postId, permalink: null };
+    }
+    const payload = mediaUrl
+      ? await this.formPost(`${base}/photos`, { url:mediaUrl,caption,access_token:token,published:"true" })
+      : await this.formPost(`${base}/feed`, { message:caption,access_token:token });
     const postId = text(payload.post_id) || text(payload.id);
     if (!postId) throw new Error("Facebook não retornou o ID da publicação.");
     return { postId, permalink: null };

@@ -192,6 +192,8 @@ await app.register(async (scope) => {
     databaseSsl: config.DATABASE_SSL,
     publicApiUrl: config.PUBLIC_API_URL,
     openAiApiKey: config.OPENAI_API_KEY,
+    videoImageModel: config.VIDEO_IMAGE_MODEL,
+    videoImageQuality: config.VIDEO_IMAGE_QUALITY,
   });
 });
 

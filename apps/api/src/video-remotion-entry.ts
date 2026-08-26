@@ -18,6 +18,8 @@ type RenderScene = {
   visual: string;
   caption: string;
   imageUrl: string | null;
+  visualType?: "brand_asset" | "generated_image" | "interface" | "data_card" | "kinetic_text";
+  motion?: "push_in" | "zoom_out" | "pan_left" | "pan_right" | "static";
   audioUrl?: string | null;
 };
 
@@ -43,10 +45,126 @@ const defaultProps: RenderProps = {
       visual: "Composição editorial MODO",
       caption: "A MODO transforma estratégia em presença.",
       imageUrl: null,
+      visualType: "kinetic_text",
+      motion: "push_in",
       audioUrl: null,
     },
   ],
 };
+
+function imageTransform(scene: RenderScene, localFrame: number, duration: number) {
+  const progress = interpolate(localFrame, [0, duration], [0, 1], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+  const motion = scene.motion || "push_in";
+  const scale = motion === "zoom_out" ? 1.12 - progress * 0.08 : motion === "static" ? 1.06 : 1.04 + progress * 0.08;
+  const x = motion === "pan_left" ? 22 - progress * 44 : motion === "pan_right" ? -22 + progress * 44 : 0;
+  return `translateX(${x}px) scale(${scale})`;
+}
+
+function InterfaceVisual({ accentColor, localFrame, duration }: { accentColor: string; localFrame: number; duration: number }) {
+  const rise = interpolate(localFrame, [0, Math.min(30, duration)], [80, 0], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+  const pulse = interpolate(localFrame % 60, [0, 30, 60], [.68, 1, .68]);
+  return React.createElement(
+    AbsoluteFill,
+    { style: { background: "linear-gradient(145deg,#08142f,#102c5f 58%,#071226)", overflow: "hidden" } },
+    React.createElement("div", {
+      style: {
+        position: "absolute", left: 82, right: 82, top: 180, height: 620,
+        borderRadius: 34, border: "1px solid rgba(255,255,255,.18)", background: "rgba(9,20,48,.82)",
+        boxShadow: "0 40px 100px rgba(0,0,0,.38)", transform: `translateY(${rise}px) rotate(-1.2deg)`, overflow: "hidden",
+      },
+    },
+      React.createElement("div", { style: { height: 68, borderBottom: "1px solid rgba(255,255,255,.1)", display: "flex", alignItems: "center", gap: 12, padding: "0 24px" } },
+        React.createElement("i", { style: { width: 12, height: 12, borderRadius: 99, background: accentColor } }),
+        React.createElement("i", { style: { width: 12, height: 12, borderRadius: 99, background: "rgba(255,255,255,.28)" } }),
+        React.createElement("i", { style: { width: 12, height: 12, borderRadius: 99, background: "rgba(255,255,255,.14)" } }),
+      ),
+      React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, padding: 28 } },
+        ...[0,1,2,3].map((item) => React.createElement("div", {
+          key: item,
+          style: { height: item < 2 ? 138 : 178, borderRadius: 22, background: item === 0 ? `${accentColor}24` : "rgba(255,255,255,.07)", border: "1px solid rgba(255,255,255,.08)", padding: 20 },
+        },
+          React.createElement("div", { style: { width: item === 0 ? "68%" : "44%", height: 10, borderRadius: 99, background: item === 0 ? accentColor : "rgba(255,255,255,.25)", opacity: item === 0 ? pulse : 1 } }),
+          React.createElement("div", { style: { marginTop: 18, width: "84%", height: 8, borderRadius: 99, background: "rgba(255,255,255,.12)" } }),
+          React.createElement("div", { style: { marginTop: 10, width: "58%", height: 8, borderRadius: 99, background: "rgba(255,255,255,.09)" } }),
+        )),
+      ),
+    ),
+  );
+}
+
+function DataCardVisual({ accentColor, localFrame, duration }: { accentColor: string; localFrame: number; duration: number }) {
+  const progress = interpolate(localFrame, [0, Math.min(48, duration)], [0, 1], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+  const heights = [44, 70, 56, 88, 76];
+  return React.createElement(
+    AbsoluteFill,
+    { style: { background: `radial-gradient(circle at 25% 18%,${accentColor}35,transparent 38%),linear-gradient(150deg,#07142e,#122c59 58%,#081228)` } },
+    React.createElement("div", {
+      style: { position: "absolute", left: 86, right: 86, top: 210, height: 510, borderRadius: 38, background: "rgba(5,14,36,.7)", border: "1px solid rgba(255,255,255,.14)", padding: 42, boxShadow: "0 35px 100px rgba(0,0,0,.34)" },
+    },
+      React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "flex-start" } },
+        React.createElement("div", null,
+          React.createElement("div", { style: { width: 126, height: 10, borderRadius: 99, background: "rgba(255,255,255,.22)" } }),
+          React.createElement("div", { style: { marginTop: 18, width: 220, height: 34, borderRadius: 12, background: accentColor, transform: `scaleX(${.5 + progress * .5})`, transformOrigin: "left" } }),
+        ),
+        React.createElement("div", { style: { width: 74, height: 74, borderRadius: 22, background: `${accentColor}22`, border: `1px solid ${accentColor}55` } }),
+      ),
+      React.createElement("div", { style: { position: "absolute", left: 42, right: 42, bottom: 44, height: 240, display: "flex", alignItems: "flex-end", gap: 22 } },
+        ...heights.map((height, index) => React.createElement("div", {
+          key: index,
+          style: { flex: 1, height: `${Math.max(6, height * progress)}%`, borderRadius: "18px 18px 8px 8px", background: index === 3 ? accentColor : "rgba(255,255,255,.16)", boxShadow: index === 3 ? `0 0 36px ${accentColor}33` : "none" },
+        })),
+      ),
+    ),
+  );
+}
+
+function KineticVisual({ scene, accentColor, localFrame, duration }: { scene: RenderScene; accentColor: string; localFrame: number; duration: number }) {
+  const drift = interpolate(localFrame, [0, duration], [-30, 30], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+  const scale = interpolate(localFrame, [0, duration], [.94, 1.06], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+  return React.createElement(
+    AbsoluteFill,
+    { style: { background: `radial-gradient(circle at 75% 20%,${accentColor}55 0,transparent 34%),linear-gradient(145deg,#0D1B3E,#17376F 58%,#0A1127)`, overflow: "hidden" } },
+    React.createElement("div", { style: { position: "absolute", right: -34, top: 90 + drift, fontSize: 310, lineHeight: 1, fontWeight: 950, color: "rgba(255,255,255,.035)", transform: `scale(${scale})` } }, String(scene.index).padStart(2, "0")),
+    React.createElement("div", { style: { position: "absolute", width: 390, height: 390, borderRadius: 999, left: -190 + drift, top: 370, border: `2px solid ${accentColor}22` } }),
+    React.createElement("div", { style: { position: "absolute", width: 250, height: 250, borderRadius: 999, left: -110 + drift, top: 440, border: `1px solid ${accentColor}33` } }),
+  );
+}
+
+function BackgroundVisual({ scene, accentColor, localFrame, duration }: {
+  scene: RenderScene;
+  accentColor: string;
+  localFrame: number;
+  duration: number;
+}) {
+  if (scene.imageUrl) {
+    return React.createElement(Img, {
+      src: scene.imageUrl,
+      style: { width: "100%", height: "100%", objectFit: "cover", transform: imageTransform(scene, localFrame, duration) },
+    });
+  }
+  if (scene.visualType === "interface") {
+    return React.createElement(InterfaceVisual, { accentColor, localFrame, duration });
+  }
+  if (scene.visualType === "data_card") {
+    return React.createElement(DataCardVisual, { accentColor, localFrame, duration });
+  }
+  return React.createElement(KineticVisual, { scene, accentColor, localFrame, duration });
+}
 
 function SceneCard({ scene, brandName, accentColor, captions }: {
   scene: RenderScene;
@@ -61,10 +179,6 @@ function SceneCard({ scene, brandName, accentColor, captions }: {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
-  const scale = interpolate(localFrame, [0, duration], [1.04, 1.11], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
-  });
   const rise = interpolate(localFrame, [0, 20], [28, 0], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
@@ -73,19 +187,12 @@ function SceneCard({ scene, brandName, accentColor, captions }: {
   return React.createElement(
     AbsoluteFill,
     { style: { backgroundColor: "#0D1B3E", color: "#fff", opacity, overflow: "hidden", fontFamily: "Arial, sans-serif" } },
-    scene.imageUrl
-      ? React.createElement(Img, {
-          src: scene.imageUrl,
-          style: { width: "100%", height: "100%", objectFit: "cover", transform: `scale(${scale})` },
-        })
-      : React.createElement(AbsoluteFill, {
-          style: {
-            background: `radial-gradient(circle at 78% 18%, ${accentColor}55 0, transparent 34%), linear-gradient(145deg,#0D1B3E,#17376F 58%,#0A1127)`,
-          },
-        }),
+    React.createElement(BackgroundVisual, { scene, accentColor, localFrame, duration }),
     React.createElement(AbsoluteFill, {
       style: {
-        background: "linear-gradient(180deg,rgba(5,10,25,.08) 0%,rgba(5,10,25,.35) 45%,rgba(5,10,25,.94) 100%)",
+        background: scene.imageUrl
+          ? "linear-gradient(180deg,rgba(5,10,25,.08) 0%,rgba(5,10,25,.35) 45%,rgba(5,10,25,.94) 100%)"
+          : "linear-gradient(180deg,rgba(5,10,25,.04) 0%,rgba(5,10,25,.16) 45%,rgba(5,10,25,.82) 100%)",
       },
     }),
     React.createElement(
@@ -140,9 +247,6 @@ function ModoVideo(props: RenderProps) {
 }
 
 function Root() {
-  // Composition é um componente genérico. React.createElement não aceita aplicar
-  // o parâmetro de tipo diretamente (Composition<RenderProps>), então fixamos
-  // somente a borda do componente aqui e mantemos RenderProps tipado no resto do renderer.
   const VideoComposition = Composition as React.ComponentType<Record<string, unknown>>;
   const composition = (id: string, durationInFrames: number) => React.createElement(VideoComposition, {
     id,

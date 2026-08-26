@@ -1,8 +1,9 @@
-import { VideoProjectCreateSchema } from "@modo/contracts/video";
+import { VideoProjectCreateSchema, type VideoProject } from "@modo/contracts/video";
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import { z } from "zod";
 import { AuthError, AuthService } from "../services/auth-service.js";
 import { ContentError, ContentService } from "../services/content-service.js";
+import { VideoApprovalError, VideoApprovalService } from "../services/video-approval-service.js";
 import { VideoError, VideoService } from "../services/video-service.js";
 
 interface Options {
@@ -58,14 +59,24 @@ export async function registerVideoRoutes(app: FastifyInstance, options: Options
     videoImageModel: options.videoImageModel,
     videoImageQuality: options.videoImageQuality,
   });
+  const approvals = new VideoApprovalService({
+    databaseUrl: options.databaseUrl,
+    databaseSsl: options.databaseSsl,
+  });
 
   await Promise.all([auth.initialize(), content.initialize(), video.initialize()]);
+  await approvals.initialize();
   app.addHook("onClose", async () => {
-    await Promise.all([auth.close(), content.close(), video.close()]);
+    await Promise.all([auth.close(), content.close(), video.close(), approvals.close()]);
   });
 
   app.setErrorHandler((error, request, reply) => {
-    if (error instanceof VideoError || error instanceof AuthError || error instanceof ContentError) {
+    if (
+      error instanceof VideoError ||
+      error instanceof VideoApprovalError ||
+      error instanceof AuthError ||
+      error instanceof ContentError
+    ) {
       return reply.code(error.statusCode).send({ code: error.code, message: error.message });
     }
     if (error instanceof z.ZodError) {
@@ -77,6 +88,11 @@ export async function registerVideoRoutes(app: FastifyInstance, options: Options
 
   async function context(request: FastifyRequest) {
     return auth.authenticate(bearerToken(request));
+  }
+
+  async function decorate(project: VideoProject | null, initialStatus?: "pending" | "approved") {
+    if (!project) return null;
+    return approvals.decorate(project, initialStatus);
   }
 
   async function renderContext(request: FastifyRequest, projectId: string) {
@@ -134,6 +150,8 @@ export async function registerVideoRoutes(app: FastifyInstance, options: Options
     status: "ok",
     renderer: "remotion",
     storage: video.storage,
+    approvalStorage: approvals.storage,
+    granularApproval: true,
     gpuRequired: false,
     output: "video/mp4",
     aspectRatio: "9:16",
@@ -152,20 +170,22 @@ export async function registerVideoRoutes(app: FastifyInstance, options: Options
         throw new AuthError("BRAND_NOT_FOUND", 404, "Marca não encontrada nesta organização.");
       }
     }
-    return { projects: await video.list(current.organization.id, brandId) };
+    const projects = await video.list(current.organization.id, brandId);
+    return { projects: await Promise.all(projects.map((project) => decorate(project))) };
   });
 
   app.get("/api/v1/video-projects/by-content/:contentRequestId", async (request) => {
     const current = await context(request);
     const contentRequestId = z.string().uuid().parse((request.params as { contentRequestId: string }).contentRequestId);
     await content.getForOrganization(contentRequestId, current.organization.id);
-    return { project: await video.latestForContent(current.organization.id, contentRequestId) };
+    const project = await video.latestForContent(current.organization.id, contentRequestId);
+    return { project: await decorate(project) };
   });
 
   app.get("/api/v1/video-projects/:id", async (request) => {
     const current = await context(request);
     const id = z.string().uuid().parse((request.params as { id: string }).id);
-    return { project: await video.getForOrganization(id, current.organization.id) };
+    return { project: await decorate(await video.getForOrganization(id, current.organization.id)) };
   });
 
   app.post(
@@ -179,15 +199,16 @@ export async function registerVideoRoutes(app: FastifyInstance, options: Options
       const brand = brands.find((item) => item.id === contentRequest.brandId);
       if (!brand) throw new AuthError("BRAND_NOT_FOUND", 404, "Marca não encontrada nesta organização.");
 
-      const project = await video.createProject({
+      const rawProject = await video.createProject({
         organizationId: current.organization.id,
         content: contentRequest,
         durationSeconds: input.durationSeconds,
         captions: input.captions,
         voiceover: input.voiceover,
       });
+      const project = await decorate(rawProject, "pending");
       void video.enqueueRender({
-        id: project.id,
+        id: rawProject.id,
         organizationId: current.organization.id,
         brandName: brand.name,
         title: contentRequest.output?.title || contentRequest.output?.hook || "Conteúdo MODO",
@@ -205,37 +226,56 @@ export async function registerVideoRoutes(app: FastifyInstance, options: Options
         (request.params as { id: string; sceneIndex: string }).sceneIndex,
       );
       const found = await renderContext(request, id);
-      const project = await video.regenerateScene({
+      const rawProject = await video.regenerateScene({
         id,
         organizationId: found.current.organization.id,
         sceneIndex,
         brandName: found.brand.name,
       });
+      const review = await approvals.resetScene(rawProject, sceneIndex);
       void video.enqueueRender({
         id,
         organizationId: found.current.organization.id,
         brandName: found.brand.name,
         title: found.title,
       });
-      return reply.code(202).send({ project });
+      return reply.code(202).send({ project: { ...rawProject, review } });
     },
   );
+
+  app.post("/api/v1/video-projects/:id/scenes/:sceneIndex/approve", async (request) => {
+    const id = z.string().uuid().parse((request.params as { id: string; sceneIndex: string }).id);
+    const sceneIndex = z.coerce.number().int().min(1).max(12).parse(
+      (request.params as { id: string; sceneIndex: string }).sceneIndex,
+    );
+    const found = await renderContext(request, id);
+    const review = await approvals.approveScene(found.project, sceneIndex);
+    return { project: { ...found.project, review } };
+  });
+
+  app.post("/api/v1/video-projects/:id/approve", async (request) => {
+    const id = z.string().uuid().parse((request.params as { id: string }).id);
+    const found = await renderContext(request, id);
+    const review = await approvals.approveProject(found.project);
+    return { project: { ...found.project, review } };
+  });
 
   app.post("/api/v1/video-projects/:id/retry", async (request) => {
     const id = z.string().uuid().parse((request.params as { id: string }).id);
     const found = await renderContext(request, id);
-    const project = await video.retry({
+    const rawProject = await video.retry({
       id,
       organizationId: found.current.organization.id,
       brandName: found.brand.name,
       title: found.title,
     });
-    return { project };
+    return { project: await decorate(rawProject) };
   });
 
   app.post("/api/v1/video-projects/:id/cancel", async (request) => {
     const current = await context(request);
     const id = z.string().uuid().parse((request.params as { id: string }).id);
-    return { project: await video.cancel(id, current.organization.id) };
+    const rawProject = await video.cancel(id, current.organization.id);
+    return { project: await decorate(rawProject) };
   });
 }

@@ -125,6 +125,14 @@ function FormatStructure({ request }: { request: ContentRequest }) {
             </article>
           ))}
         </div>
+        <div className="delivery-video-cta">
+          <div>
+            <small>MODO VIDEO</small>
+            <strong>Transforme este roteiro em um MP4 vertical.</strong>
+            <p>15, 30 ou 45 segundos · montagem automática · legendas · 9:16</p>
+          </div>
+          <a className="button button-primary" href={`/app/video/${request.id}`}>Montar vídeo</a>
+        </div>
       </section>
     );
   }

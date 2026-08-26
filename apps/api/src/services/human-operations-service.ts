@@ -50,6 +50,11 @@ export class HumanOperationsService {
         ADD COLUMN IF NOT EXISTS internal_notes TEXT NOT NULL DEFAULT '';
       ALTER TABLE modo_specialist_applications
         ADD COLUMN IF NOT EXISTS reviewed_at TIMESTAMPTZ;
+
+      ALTER TABLE modo_partner_applications
+        ADD COLUMN IF NOT EXISTS internal_notes TEXT NOT NULL DEFAULT '';
+      ALTER TABLE modo_partner_applications
+        ADD COLUMN IF NOT EXISTS reviewed_at TIMESTAMPTZ;
     `);
   }
 
@@ -69,18 +74,22 @@ export class HumanOperationsService {
   }
 
   async overview() {
-    if (!this.pool) return { support: {}, talent: {} };
-    const [support, talent] = await Promise.all([
+    if (!this.pool) return { support: {}, talent: {}, partners: {} };
+    const [support, talent, partners] = await Promise.all([
       this.pool.query<{ status: string; count: number }>(
         `SELECT status,COUNT(*)::int AS count FROM modo_human_support_requests GROUP BY status`,
       ),
       this.pool.query<{ status: string; count: number }>(
         `SELECT status,COUNT(*)::int AS count FROM modo_specialist_applications GROUP BY status`,
       ),
+      this.pool.query<{ status: string; count: number }>(
+        `SELECT status,COUNT(*)::int AS count FROM modo_partner_applications GROUP BY status`,
+      ),
     ]);
     return {
       support: Object.fromEntries(support.rows.map((row) => [row.status, Number(row.count)])),
       talent: Object.fromEntries(talent.rows.map((row) => [row.status, Number(row.count)])),
+      partners: Object.fromEntries(partners.rows.map((row) => [row.status, Number(row.count)])),
     };
   }
 
@@ -200,6 +209,60 @@ export class HumanOperationsService {
     );
     if (!result.rowCount) throw new HumanOperationsError("APPLICATION_NOT_FOUND", 404, "Candidatura não encontrada.");
     await this.audit("specialist_application.updated", "specialist_application", id, input);
+    return result.rows[0];
+  }
+
+  async listPartnerApplications() {
+    if (!this.pool) return [];
+    const result = await this.pool.query(
+      `SELECT * FROM modo_partner_applications
+       ORDER BY
+         CASE status
+           WHEN 'received' THEN 0
+           WHEN 'under_review' THEN 1
+           WHEN 'interview' THEN 2
+           WHEN 'approved' THEN 3
+           WHEN 'waitlist' THEN 4
+           ELSE 5
+         END,
+         created_at ASC
+       LIMIT 500`,
+    );
+    return result.rows.map((row) => ({
+      id: row.id,
+      name: row.name,
+      email: row.email,
+      whatsapp: row.whatsapp,
+      companyName: row.company_name,
+      city: row.city,
+      websiteUrl: row.website_url,
+      instagramUrl: row.instagram_url,
+      businessType: row.business_type,
+      activeClients: Number(row.active_clients),
+      monthlyServiceRevenueCents: row.monthly_service_revenue_cents === null ? null : Number(row.monthly_service_revenue_cents),
+      currentServices: row.current_services || [],
+      whyPartner: row.why_partner,
+      targetClientsWithModo: Number(row.target_clients_with_modo),
+      status: row.status,
+      internalNotes: row.internal_notes || "",
+      createdAt: row.created_at.toISOString(),
+      updatedAt: row.updated_at.toISOString(),
+    }));
+  }
+
+  async updatePartnerApplication(id: string, input: { status?: string; internalNotes?: string }) {
+    if (!this.pool) throw new HumanOperationsError("DATABASE_REQUIRED", 503, "A operação humana exige PostgreSQL.");
+    const result = await this.pool.query(
+      `UPDATE modo_partner_applications SET
+        status=COALESCE($2,status),
+        internal_notes=COALESCE($3,internal_notes),
+        reviewed_at=CASE WHEN COALESCE($2,status)<>'received' THEN COALESCE(reviewed_at,NOW()) ELSE reviewed_at END,
+        updated_at=NOW()
+       WHERE id=$1 RETURNING id,status,internal_notes,updated_at`,
+      [id,input.status || null,input.internalNotes ?? null],
+    );
+    if (!result.rowCount) throw new HumanOperationsError("PARTNER_APPLICATION_NOT_FOUND", 404, "Candidatura de Partner não encontrada.");
+    await this.audit("partner_application.updated", "partner_application", id, input);
     return result.rows[0];
   }
 

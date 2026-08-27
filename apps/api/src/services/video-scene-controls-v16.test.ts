@@ -64,7 +64,7 @@ describe("MODO Video V1.6 scene controls", () => {
   it("planeja ritmo e transição sem remover a direção visual existente", () => {
     const scenes = planVideoScenes(baseOutput, 15);
     expect(scenes[0]).toMatchObject({ pace: "steady", transition: "cut" });
-    expect(scenes[1]).toMatchObject({ visualType: "interface", pace: "calm", transition: "fade" });
+    expect(scenes[1]).toMatchObject({ visualType: "data_card", pace: "calm", transition: "fade" });
     expect(scenes[2]).toMatchObject({ visualType: "kinetic_text", pace: "dynamic", transition: "slide" });
   });
 

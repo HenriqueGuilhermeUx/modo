@@ -173,7 +173,7 @@ export default function VideoScreen() {
       });
       setRequest(result.request);
       setProject(null);
-      updateDashboard({ ...dashboard, usage: result.usage });
+      updateDashboard({ ...dashboard!, usage: result.usage });
       setMessage("A MODO está transformando seu objetivo em roteiro e direção visual.");
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Não foi possível iniciar o vídeo.");

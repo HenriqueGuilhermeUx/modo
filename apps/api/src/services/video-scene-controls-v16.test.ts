@@ -169,7 +169,7 @@ describe("MODO Video V1.6 scene controls", () => {
       id: created.id,
       organizationId: "organization-two",
       sceneIndex: 1,
-      token: "550e8400-e29b-41d4-a716-446655440099",
+      token: "test-take-not-owned",
     })).rejects.toMatchObject<Partial<VideoError>>({ code: "VIDEO_PROJECT_NOT_FOUND" });
   });
 });

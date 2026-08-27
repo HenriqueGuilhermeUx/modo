@@ -64,7 +64,7 @@ async function startSmokeAssetServer() {
 function createInputProps(imageUrl: string) {
   return {
     brandName: "MODO CI",
-    title: "MODO Video render smoke",
+    title: "MODO Video First Cut V1.8 smoke",
     accentColor: "#2ED19A",
     captions: true,
     scenes: [
@@ -73,17 +73,17 @@ function createInputProps(imageUrl: string) {
         startFrame: 0,
         endFrame: 450,
         headline: "A estratégia vira vídeo.",
-        visual: "Asset enquadrado pelo Media Lab sem perder a direção MODO.",
-        caption: "Smoke real do renderer Remotion em H.264 com enquadramento, direção visual e áudio.",
+        visual: "Asset enquadrado pelo Media Lab dentro da direção dinâmica V1.8.",
+        caption: "Smoke real do renderer Remotion em H.264 com First Cut, enquadramento, direção visual e áudio.",
         imageUrl,
         videoUrl: null,
         visualType: "generated_image",
-        motion: "pan_right",
-        pace: "steady",
-        transition: "cut",
+        motion: "push_in",
+        pace: "dynamic",
+        transition: "fade",
         assetSource: "upload",
         assetRevision: 1,
-        visualPrompt: "Composição editorial de marketing.",
+        visualPrompt: "Composição dinâmica de marketing.",
         audioUrl: silentWavDataUrl(),
       },
     ],
@@ -109,7 +109,7 @@ async function main() {
   const inputProps = createInputProps(imageUrl);
 
   try {
-    console.log("[MODO Video] Empacotando composição Remotion...");
+    console.log("[MODO Video] Empacotando composição Remotion First Cut V1.8...");
     const serveUrl = await bundle({
       entryPoint,
       webpackOverride: (config) => ({
@@ -129,7 +129,7 @@ async function main() {
       inputProps,
     });
 
-    console.log(`[MODO Video] Renderizando ${SMOKE_FRAMES} frames reais em H.264 com áudio, soundtrack e Media Lab...`);
+    console.log(`[MODO Video] Renderizando ${SMOKE_FRAMES} frames reais em H.264 com First Cut, áudio, soundtrack e Media Lab...`);
     await renderMedia({
       composition,
       serveUrl,
@@ -144,7 +144,7 @@ async function main() {
 
     const data = await readFile(outputLocation);
     assertMp4(data);
-    console.log(`[MODO Video] Smoke OK: MP4 H.264 válido com locução, soundtrack e enquadramento Media Lab (${data.length} bytes).`);
+    console.log(`[MODO Video] Smoke OK: MP4 H.264 V1.8 válido com perfil dinâmico, locução, soundtrack e Media Lab (${data.length} bytes).`);
   } finally {
     await new Promise<void>((resolve) => server.close(() => resolve())).catch(() => undefined);
     await rm(workdir, { recursive: true, force: true }).catch(() => undefined);
@@ -152,7 +152,7 @@ async function main() {
 }
 
 main().catch((error) => {
-  console.error("[MODO Video] Smoke de render falhou.");
+  console.error("[MODO Video] Smoke de render V1.8 falhou.");
   console.error(error);
   process.exit(1);
 });

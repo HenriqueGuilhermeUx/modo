@@ -1,10 +1,14 @@
 import {
   VideoProjectCreateSchema,
   VideoProjectSchema,
+  VideoSceneMediaUpdateSchema,
+  VideoSceneMediaUploadSchema,
   VideoSceneTakeListSchema,
   VideoSceneUpdateSchema,
   type VideoProject,
   type VideoProjectCreate,
+  type VideoSceneMediaUpdate,
+  type VideoSceneMediaUpload,
   type VideoSceneTake,
   type VideoSceneUpdate,
 } from "@modo/contracts/video";
@@ -56,6 +60,28 @@ export async function updateVideoScene(id: string, sceneIndex: number, input: Vi
     {
       method: "PATCH",
       body: JSON.stringify(VideoSceneUpdateSchema.parse(input)),
+    },
+  );
+  return VideoProjectSchema.parse(payload.project);
+}
+
+export async function uploadVideoSceneMedia(id: string, sceneIndex: number, input: VideoSceneMediaUpload): Promise<VideoProject> {
+  const payload = await request<{ project: unknown }>(
+    `/api/v1/video-projects/${encodeURIComponent(id)}/scenes/${sceneIndex}/media/upload`,
+    {
+      method: "POST",
+      body: JSON.stringify(VideoSceneMediaUploadSchema.parse(input)),
+    },
+  );
+  return VideoProjectSchema.parse(payload.project);
+}
+
+export async function updateVideoSceneMedia(id: string, sceneIndex: number, input: VideoSceneMediaUpdate): Promise<VideoProject> {
+  const payload = await request<{ project: unknown }>(
+    `/api/v1/video-projects/${encodeURIComponent(id)}/scenes/${sceneIndex}/media`,
+    {
+      method: "PATCH",
+      body: JSON.stringify(VideoSceneMediaUpdateSchema.parse(input)),
     },
   );
   return VideoProjectSchema.parse(payload.project);

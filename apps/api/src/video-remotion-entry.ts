@@ -44,6 +44,13 @@ type RenderProps = {
   scenes: RenderScene[];
 };
 
+type MediaState = {
+  focalX: number;
+  focalY: number;
+  zoom: number;
+  trimStartSeconds: number;
+};
+
 const defaultProps: RenderProps = {
   brandName: "MODO",
   title: "Conteúdo MODO",
@@ -91,6 +98,27 @@ function paceMultiplier(scene: RenderScene) {
   return 1;
 }
 
+function numericParam(url: URL, key: string, fallback: number) {
+  const value = Number(url.searchParams.get(key));
+  return Number.isFinite(value) ? value : fallback;
+}
+
+function mediaState(scene: RenderScene): MediaState {
+  const source = scene.videoUrl || scene.imageUrl;
+  if (!source) return { focalX: 50, focalY: 50, zoom: 1, trimStartSeconds: 0 };
+  try {
+    const url = new URL(source);
+    return {
+      focalX: Math.min(100, Math.max(0, numericParam(url, "mlfx", 50))),
+      focalY: Math.min(100, Math.max(0, numericParam(url, "mlfy", 50))),
+      zoom: Math.min(2.5, Math.max(1, numericParam(url, "mlz", 1))),
+      trimStartSeconds: Math.min(120, Math.max(0, numericParam(url, "mltrim", 0))),
+    };
+  } catch {
+    return { focalX: 50, focalY: 50, zoom: 1, trimStartSeconds: 0 };
+  }
+}
+
 function imageTransform(scene: RenderScene, localFrame: number, duration: number) {
   const progress = interpolate(localFrame, [0, duration], [0, 1], {
     extrapolateLeft: "clamp",
@@ -98,15 +126,30 @@ function imageTransform(scene: RenderScene, localFrame: number, duration: number
   });
   const pace = paceMultiplier(scene);
   const motion = scene.motion || "push_in";
+  const state = mediaState(scene);
   const travel = 0.08 * pace;
-  const scale = motion === "zoom_out"
+  const motionScale = motion === "zoom_out"
     ? 1.12 - progress * travel
     : motion === "static"
       ? 1.055
       : 1.035 + progress * travel;
+  const scale = motionScale * state.zoom;
   const pan = 42 * pace;
   const x = motion === "pan_left" ? pan / 2 - progress * pan : motion === "pan_right" ? -pan / 2 + progress * pan : 0;
   return `translateX(${x}px) scale(${scale})`;
+}
+
+function mediaStyle(scene: RenderScene, localFrame: number, duration: number): React.CSSProperties {
+  const state = mediaState(scene);
+  return {
+    width: "100%",
+    height: "100%",
+    objectFit: "cover",
+    objectPosition: `${state.focalX}% ${state.focalY}%`,
+    transformOrigin: `${state.focalX}% ${state.focalY}%`,
+    transform: imageTransform(scene, localFrame, duration),
+    filter: mediaFilter(scene),
+  };
 }
 
 function transitionStyle(scene: RenderScene, localFrame: number, duration: number, isLast: boolean): React.CSSProperties {
@@ -230,16 +273,18 @@ function BackgroundVisual({ scene, accentColor, localFrame, duration }: {
   duration: number;
 }) {
   if (scene.videoUrl) {
+    const state = mediaState(scene);
     return React.createElement(OffthreadVideo, {
       src: scene.videoUrl,
       muted: true,
-      style: { width: "100%", height: "100%", objectFit: "cover", transform: imageTransform(scene, localFrame, duration), filter: mediaFilter(scene) },
+      trimBefore: Math.round(state.trimStartSeconds * 30),
+      style: mediaStyle(scene, localFrame, duration),
     });
   }
   if (scene.imageUrl) {
     return React.createElement(Img, {
       src: scene.imageUrl,
-      style: { width: "100%", height: "100%", objectFit: "cover", transform: imageTransform(scene, localFrame, duration), filter: mediaFilter(scene) },
+      style: mediaStyle(scene, localFrame, duration),
     });
   }
   if (scene.visualType === "interface") {

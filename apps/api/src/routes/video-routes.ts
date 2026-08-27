@@ -171,6 +171,11 @@ export async function registerVideoRoutes(app: FastifyInstance, options: Options
     approvalStorage: approvals.storage,
     granularApproval: true,
     sceneEditing: true,
+    scenePacing: true,
+    sceneTransitions: true,
+    takeLibrary: true,
+    soundtrack: "native_procedural",
+    soundtrackDucking: true,
     gpuRequired: false,
     output: "video/mp4",
     aspectRatio: "9:16",
@@ -207,6 +212,41 @@ export async function registerVideoRoutes(app: FastifyInstance, options: Options
     const id = z.string().uuid().parse((request.params as { id: string }).id);
     return { project: await decorate(await video.getForOrganization(id, current.organization.id)) };
   });
+
+  app.get("/api/v1/video-projects/:id/scenes/:sceneIndex/takes", async (request) => {
+    const current = await context(request);
+    const params = request.params as { id: string; sceneIndex: string };
+    const id = z.string().uuid().parse(params.id);
+    const sceneIndex = z.coerce.number().int().min(1).max(12).parse(params.sceneIndex);
+    const takes = await video.listSceneTakes(id, current.organization.id, sceneIndex);
+    return { takes };
+  });
+
+  app.post(
+    "/api/v1/video-projects/:id/scenes/:sceneIndex/takes/:token/select",
+    { config: { rateLimit: { max: 20, timeWindow: "30 minutes" } } },
+    async (request, reply) => {
+      const params = request.params as { id: string; sceneIndex: string; token: string };
+      const id = z.string().uuid().parse(params.id);
+      const sceneIndex = z.coerce.number().int().min(1).max(12).parse(params.sceneIndex);
+      const token = z.string().uuid().parse(params.token);
+      const found = await renderContext(request, id);
+      const rawProject = await video.selectSceneTake({
+        id,
+        organizationId: found.current.organization.id,
+        sceneIndex,
+        token,
+      });
+      const review = await approvals.resetScene(rawProject, sceneIndex);
+      void video.enqueueRender({
+        id,
+        organizationId: found.current.organization.id,
+        brandName: found.brand.name,
+        title: found.title,
+      });
+      return reply.code(202).send({ project: { ...rawProject, review } });
+    },
+  );
 
   app.post(
     "/api/v1/video-projects",

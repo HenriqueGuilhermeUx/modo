@@ -71,14 +71,26 @@ async function main() {
 
   try {
     console.log("[MODO Video] Empacotando composição Remotion...");
-    const serveUrl = await bundle({ entryPoint });
+    const serveUrl = await bundle({
+      entryPoint,
+      webpackOverride: (config) => ({
+        ...config,
+        resolve: {
+          ...config.resolve,
+          extensionAlias: {
+            ...config.resolve?.extensionAlias,
+            ".js": [".ts", ".tsx", ".js"],
+          },
+        },
+      }),
+    });
     const composition = await selectComposition({
       serveUrl,
       id: "ModoVideo15",
       inputProps,
     });
 
-    console.log(`[MODO Video] Renderizando ${SMOKE_FRAMES} frames reais em H.264 com áudio e direção visual nativa...`);
+    console.log(`[MODO Video] Renderizando ${SMOKE_FRAMES} frames reais em H.264 com áudio, soundtrack e direção visual...`);
     await renderMedia({
       composition,
       serveUrl,
@@ -93,7 +105,7 @@ async function main() {
 
     const data = await readFile(outputLocation);
     assertMp4(data);
-    console.log(`[MODO Video] Smoke OK: MP4 H.264 válido com áudio e cena inteligente (${data.length} bytes).`);
+    console.log(`[MODO Video] Smoke OK: MP4 H.264 válido com locução, soundtrack e cena inteligente (${data.length} bytes).`);
   } finally {
     await rm(workdir, { recursive: true, force: true }).catch(() => undefined);
   }

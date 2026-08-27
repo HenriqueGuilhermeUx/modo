@@ -6,6 +6,7 @@ import { colors } from "../../src/theme";
 const icons: Record<string, string> = {
   index: "⌂",
   create: "+",
+  video: "▶",
   agenda: "✓",
   account: "●",
 };
@@ -30,6 +31,7 @@ export default function TabsLayout() {
     >
       <Tabs.Screen name="index" options={{ title: "Início" }} />
       <Tabs.Screen name="create" options={{ title: "Criar" }} />
+      <Tabs.Screen name="video" options={{ title: "Vídeo" }} />
       <Tabs.Screen name="agenda" options={{ title: "Agenda" }} />
       <Tabs.Screen name="account" options={{ title: "Conta" }} />
     </Tabs>
@@ -38,7 +40,7 @@ export default function TabsLayout() {
 
 const styles = StyleSheet.create({
   bar: { height: 72, paddingTop: 7, paddingBottom: 9, backgroundColor: colors.surface, borderTopColor: colors.border },
-  label: { fontSize: 11, fontWeight: "800" },
-  icon: { fontSize: 21, fontWeight: "800", height: 26 },
+  label: { fontSize: 10, fontWeight: "800" },
+  icon: { fontSize: 19, fontWeight: "800", height: 24 },
   iconActive: { transform: [{ scale: 1.08 }] },
 });

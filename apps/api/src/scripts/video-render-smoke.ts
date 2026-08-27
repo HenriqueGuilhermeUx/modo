@@ -29,6 +29,11 @@ function silentWavDataUrl(seconds = 1, sampleRate = 8000) {
   return `data:audio/wav;base64,${wav.toString("base64")}`;
 }
 
+function smokeImageDataUrl() {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="720" height="1280"><rect width="720" height="1280" fill="#102c5f"/><circle cx="540" cy="280" r="180" fill="#2ED19A"/><rect x="120" y="720" width="480" height="180" rx="36" fill="#ffffff" opacity=".18"/></svg>`;
+  return `data:image/svg+xml;base64,${Buffer.from(svg).toString("base64")}?mlfx=72&mlfy=28&mlz=1.2&mltrim=0`;
+}
+
 const inputProps = {
   brandName: "MODO CI",
   title: "MODO Video render smoke",
@@ -40,14 +45,17 @@ const inputProps = {
       startFrame: 0,
       endFrame: 450,
       headline: "A estratégia vira vídeo.",
-      visual: "Interface nativa desenhada pelo compositor MODO.",
-      caption: "Smoke real do renderer Remotion em H.264 com direção visual e áudio.",
-      imageUrl: null,
-      visualType: "interface",
+      visual: "Asset enquadrado pelo Media Lab sem perder a direção MODO.",
+      caption: "Smoke real do renderer Remotion em H.264 com enquadramento, direção visual e áudio.",
+      imageUrl: smokeImageDataUrl(),
+      videoUrl: null,
+      visualType: "generated_image",
       motion: "pan_right",
-      assetSource: "native",
-      assetRevision: 0,
-      visualPrompt: "Dashboard editorial de marketing.",
+      pace: "steady",
+      transition: "cut",
+      assetSource: "upload",
+      assetRevision: 1,
+      visualPrompt: "Composição editorial de marketing.",
       audioUrl: silentWavDataUrl(),
     },
   ],
@@ -90,7 +98,7 @@ async function main() {
       inputProps,
     });
 
-    console.log(`[MODO Video] Renderizando ${SMOKE_FRAMES} frames reais em H.264 com áudio, soundtrack e direção visual...`);
+    console.log(`[MODO Video] Renderizando ${SMOKE_FRAMES} frames reais em H.264 com áudio, soundtrack e Media Lab...`);
     await renderMedia({
       composition,
       serveUrl,
@@ -105,7 +113,7 @@ async function main() {
 
     const data = await readFile(outputLocation);
     assertMp4(data);
-    console.log(`[MODO Video] Smoke OK: MP4 H.264 válido com locução, soundtrack e cena inteligente (${data.length} bytes).`);
+    console.log(`[MODO Video] Smoke OK: MP4 H.264 válido com locução, soundtrack e enquadramento Media Lab (${data.length} bytes).`);
   } finally {
     await rm(workdir, { recursive: true, force: true }).catch(() => undefined);
   }

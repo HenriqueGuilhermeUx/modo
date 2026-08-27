@@ -175,7 +175,7 @@ describe("MODO Video Media Lab V1.7", () => {
       organizationId: "organization-one",
       sceneIndex: 1,
       upload: {
-        fileName: "capa.webp",
+        fileName: "capa.png",
         mimeType: "image/png",
         dataBase64: tinyPng.toString("base64"),
         durationSeconds: null,
@@ -230,7 +230,7 @@ describe("MODO Video Media Lab V1.7", () => {
     })).rejects.toMatchObject<Partial<VideoError>>({ code: "VIDEO_MEDIA_TRIM_OUT_OF_RANGE" });
   });
 
-  it("mantém isolamento por organização", async () => {
+  it("mantém isolamento por organização antes de persistir o arquivo", async () => {
     const video = new VideoService({ publicApiUrl: "https://modo.example.com" });
     const mediaLab = new VideoMediaLabService(video, "https://modo.example.com");
     const project = await editableProject(video);
@@ -245,6 +245,7 @@ describe("MODO Video Media Lab V1.7", () => {
         dataBase64: tinyPng.toString("base64"),
         durationSeconds: null,
       },
-    })).rejects.toMatchObject<Partial<VideoError>>({ code: "VIDEO_SCENE_TAKE_NOT_FOUND" });
+    })).rejects.toMatchObject<Partial<VideoError>>({ code: "VIDEO_PROJECT_NOT_FOUND" });
+    expect((mediaLab as any).runtime.memorySceneAssets?.size || 0).toBe(0);
   });
 });

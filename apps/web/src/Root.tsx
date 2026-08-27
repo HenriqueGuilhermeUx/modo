@@ -35,7 +35,7 @@ const SpecialistApplicationPage=lazy(()=>import("./SpecialistApplicationPage"));
 const SpecialistSupportWorkspace=lazy(()=>import("./SpecialistSupportWorkspace"));
 const StrategyWorkspace=lazy(()=>import("./StrategyWorkspace"));
 const StudioWorkspace=lazy(()=>import("./StudioWorkspace"));
-const VideoWorkspace=lazy(()=>import("./VideoWorkspace"));
+const VideoWorkspace=lazy(()=>import("./VideoWorkspaceV18"));
 const WeekWorkspace=lazy(()=>import("./WeekWorkspace"));
 
 function RouteLoading(){return <main className="portal-loading" aria-live="polite" aria-busy="true"><img src="/logo.svg" alt="MODO"/><div className="portal-spinner"/><p>Preparando sua experiência...</p></main>}

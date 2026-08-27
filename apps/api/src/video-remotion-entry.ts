@@ -10,6 +10,11 @@ import {
   registerRoot,
   useCurrentFrame,
 } from "remotion";
+import {
+  chooseVideoSoundtrackProfile,
+  createVideoSoundtrackDataUri,
+  soundtrackVolumeAtFrame,
+} from "./video-audio-engine.js";
 
 type RenderScene = {
   index: number;
@@ -22,6 +27,7 @@ type RenderScene = {
   videoUrl?: string | null;
   visualType?: "brand_asset" | "generated_image" | "broll_video" | "interface" | "data_card" | "kinetic_text";
   motion?: "push_in" | "zoom_out" | "pan_left" | "pan_right" | "static";
+  assetRevision?: number;
   audioUrl?: string | null;
 };
 
@@ -32,6 +38,9 @@ type RenderProps = {
   captions: boolean;
   scenes: RenderScene[];
 };
+
+type ScenePace = "calm" | "steady" | "dynamic";
+type SceneTransition = "cut" | "fade" | "slide" | "zoom" | "wipe";
 
 const defaultProps: RenderProps = {
   brandName: "MODO",
@@ -50,20 +59,79 @@ const defaultProps: RenderProps = {
       videoUrl: null,
       visualType: "kinetic_text",
       motion: "push_in",
+      assetRevision: 0,
       audioUrl: null,
     },
   ],
 };
+
+function paceForScene(scene: RenderScene): ScenePace {
+  if (scene.visualType === "broll_video" || scene.visualType === "kinetic_text") return "dynamic";
+  if (scene.visualType === "interface" || scene.visualType === "data_card") return "calm";
+  return "steady";
+}
+
+function transitionForScene(scene: RenderScene): SceneTransition {
+  if (scene.index === 1) return "cut";
+  const options: SceneTransition[] = ["fade", "slide", "zoom", "wipe"];
+  const variation = Math.max(0, scene.assetRevision || 0);
+  return options[(scene.index + variation - 2) % options.length];
+}
+
+function paceMultiplier(scene: RenderScene) {
+  const pace = paceForScene(scene);
+  if (pace === "dynamic") return 1.35;
+  if (pace === "calm") return 0.65;
+  return 1;
+}
 
 function imageTransform(scene: RenderScene, localFrame: number, duration: number) {
   const progress = interpolate(localFrame, [0, duration], [0, 1], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
+  const pace = paceMultiplier(scene);
   const motion = scene.motion || "push_in";
-  const scale = motion === "zoom_out" ? 1.12 - progress * 0.08 : motion === "static" ? 1.06 : 1.04 + progress * 0.08;
-  const x = motion === "pan_left" ? 22 - progress * 44 : motion === "pan_right" ? -22 + progress * 44 : 0;
+  const travel = 0.08 * pace;
+  const scale = motion === "zoom_out"
+    ? 1.12 - progress * travel
+    : motion === "static"
+      ? 1.055
+      : 1.035 + progress * travel;
+  const pan = 42 * pace;
+  const x = motion === "pan_left" ? pan / 2 - progress * pan : motion === "pan_right" ? -pan / 2 + progress * pan : 0;
   return `translateX(${x}px) scale(${scale})`;
+}
+
+function transitionStyle(scene: RenderScene, localFrame: number, duration: number, isLast: boolean): React.CSSProperties {
+  const transition = transitionForScene(scene);
+  const pace = paceForScene(scene);
+  const entryFrames = transition === "cut" ? 1 : pace === "dynamic" ? 8 : pace === "calm" ? 16 : 12;
+  const entry = interpolate(localFrame, [0, entryFrames], [0, 1], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+  const outro = isLast
+    ? interpolate(localFrame, [Math.max(0, duration - 12), duration], [1, 0], {
+        extrapolateLeft: "clamp",
+        extrapolateRight: "clamp",
+      })
+    : 1;
+
+  if (transition === "cut") return { opacity: outro };
+  if (transition === "fade") return { opacity: entry * outro };
+  if (transition === "slide") return { opacity: outro, transform: `translateX(${(1 - entry) * 72}px)` };
+  if (transition === "zoom") return { opacity: entry * outro, transform: `scale(${0.94 + entry * 0.06})` };
+  return {
+    opacity: outro,
+    clipPath: `inset(${(1 - entry) * 100}% 0 0 0 round 0px)`,
+  };
+}
+
+function mediaFilter(scene: RenderScene) {
+  if (scene.visualType === "broll_video") return "saturate(1.08) contrast(1.06) brightness(.92)";
+  if (scene.visualType === "generated_image" || scene.visualType === "brand_asset") return "saturate(1.04) contrast(1.04) brightness(.94)";
+  return undefined;
 }
 
 function InterfaceVisual({ accentColor, localFrame, duration }: { accentColor: string; localFrame: number; duration: number }) {
@@ -88,7 +156,7 @@ function InterfaceVisual({ accentColor, localFrame, duration }: { accentColor: s
         React.createElement("i", { style: { width: 12, height: 12, borderRadius: 99, background: "rgba(255,255,255,.14)" } }),
       ),
       React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, padding: 28 } },
-        ...[0,1,2,3].map((item) => React.createElement("div", {
+        ...[0, 1, 2, 3].map((item) => React.createElement("div", {
           key: item,
           style: { height: item < 2 ? 138 : 178, borderRadius: 22, background: item === 0 ? `${accentColor}24` : "rgba(255,255,255,.07)", border: "1px solid rgba(255,255,255,.08)", padding: 20 },
         },
@@ -131,11 +199,12 @@ function DataCardVisual({ accentColor, localFrame, duration }: { accentColor: st
 }
 
 function KineticVisual({ scene, accentColor, localFrame, duration }: { scene: RenderScene; accentColor: string; localFrame: number; duration: number }) {
-  const drift = interpolate(localFrame, [0, duration], [-30, 30], {
+  const pace = paceMultiplier(scene);
+  const drift = interpolate(localFrame, [0, duration], [-30 * pace, 30 * pace], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
-  const scale = interpolate(localFrame, [0, duration], [.94, 1.06], {
+  const scale = interpolate(localFrame, [0, duration], [.94, 1.06 + (pace - 1) * .035], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
@@ -158,13 +227,13 @@ function BackgroundVisual({ scene, accentColor, localFrame, duration }: {
     return React.createElement(OffthreadVideo, {
       src: scene.videoUrl,
       muted: true,
-      style: { width: "100%", height: "100%", objectFit: "cover", transform: imageTransform(scene, localFrame, duration) },
+      style: { width: "100%", height: "100%", objectFit: "cover", transform: imageTransform(scene, localFrame, duration), filter: mediaFilter(scene) },
     });
   }
   if (scene.imageUrl) {
     return React.createElement(Img, {
       src: scene.imageUrl,
-      style: { width: "100%", height: "100%", objectFit: "cover", transform: imageTransform(scene, localFrame, duration) },
+      style: { width: "100%", height: "100%", objectFit: "cover", transform: imageTransform(scene, localFrame, duration), filter: mediaFilter(scene) },
     });
   }
   if (scene.visualType === "interface") {
@@ -176,34 +245,52 @@ function BackgroundVisual({ scene, accentColor, localFrame, duration }: {
   return React.createElement(KineticVisual, { scene, accentColor, localFrame, duration });
 }
 
-function SceneCard({ scene, brandName, accentColor, captions }: {
+function CinematicOverlay({ scene, accentColor, localFrame }: { scene: RenderScene; accentColor: string; localFrame: number }) {
+  const beat = interpolate(localFrame % 45, [0, 9, 45], [.1, .24, .1]);
+  return React.createElement(
+    React.Fragment,
+    null,
+    React.createElement(AbsoluteFill, {
+      style: {
+        background: scene.imageUrl || scene.videoUrl
+          ? "linear-gradient(180deg,rgba(4,8,20,.06) 0%,rgba(4,8,20,.25) 44%,rgba(4,8,20,.94) 100%)"
+          : "linear-gradient(180deg,rgba(4,8,20,.03) 0%,rgba(4,8,20,.14) 44%,rgba(4,8,20,.82) 100%)",
+      },
+    }),
+    React.createElement("div", {
+      style: {
+        position: "absolute", width: 420, height: 420, borderRadius: 999, right: -260, top: 120,
+        background: accentColor, opacity: beat * .18, filter: "blur(80px)",
+      },
+    }),
+    React.createElement(AbsoluteFill, {
+      style: { boxShadow: "inset 0 0 130px rgba(0,0,0,.34)", pointerEvents: "none" },
+    }),
+  );
+}
+
+function SceneCard({ scene, brandName, accentColor, captions, isLast }: {
   scene: RenderScene;
   brandName: string;
   accentColor: string;
   captions: boolean;
+  isLast: boolean;
 }) {
   const localFrame = useCurrentFrame();
   const duration = Math.max(1, scene.endFrame - scene.startFrame);
-  const opacity = interpolate(localFrame, [0, 12, Math.max(13, duration - 12), duration], [0, 1, 1, 0], {
+  const pace = paceForScene(scene);
+  const titleRiseFrames = pace === "dynamic" ? 14 : pace === "calm" ? 28 : 20;
+  const rise = interpolate(localFrame, [0, titleRiseFrames], [pace === "dynamic" ? 38 : 28, 0], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
-  const rise = interpolate(localFrame, [0, 20], [28, 0], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
-  });
+  const sceneStyle = transitionStyle(scene, localFrame, duration, isLast);
 
   return React.createElement(
     AbsoluteFill,
-    { style: { backgroundColor: "#0D1B3E", color: "#fff", opacity, overflow: "hidden", fontFamily: "Arial, sans-serif" } },
+    { style: { backgroundColor: "#0D1B3E", color: "#fff", overflow: "hidden", fontFamily: "Arial, sans-serif", ...sceneStyle } },
     React.createElement(BackgroundVisual, { scene, accentColor, localFrame, duration }),
-    React.createElement(AbsoluteFill, {
-      style: {
-        background: scene.imageUrl || scene.videoUrl
-          ? "linear-gradient(180deg,rgba(5,10,25,.08) 0%,rgba(5,10,25,.35) 45%,rgba(5,10,25,.94) 100%)"
-          : "linear-gradient(180deg,rgba(5,10,25,.04) 0%,rgba(5,10,25,.16) 45%,rgba(5,10,25,.82) 100%)",
-      },
-    }),
+    React.createElement(CinematicOverlay, { scene, accentColor, localFrame }),
     React.createElement(
       "div",
       { style: { position: "absolute", left: 54, right: 54, top: 60, display: "flex", justifyContent: "space-between", alignItems: "center" } },
@@ -232,10 +319,21 @@ function SceneCard({ scene, brandName, accentColor, captions }: {
 }
 
 function ModoVideo(props: RenderProps) {
+  const scenes = props.scenes.length ? props.scenes : defaultProps.scenes;
+  const totalFrames = Math.max(...scenes.map((scene) => scene.endFrame), 1);
+  const soundtrackProfile = chooseVideoSoundtrackProfile(scenes);
+  const soundtrackUrl = createVideoSoundtrackDataUri(soundtrackProfile);
+  const baseVolume = scenes.some((scene) => Boolean(scene.audioUrl)) ? 0.13 : 0.16;
+
   return React.createElement(
     AbsoluteFill,
     { style: { backgroundColor: "#0D1B3E" } },
-    ...props.scenes.map((scene) =>
+    React.createElement(Audio, {
+      src: soundtrackUrl,
+      loop: true,
+      volume: (frame: number) => soundtrackVolumeAtFrame({ frame, totalFrames, scenes, baseVolume }),
+    }),
+    ...scenes.map((scene, index) =>
       React.createElement(
         Sequence,
         { key: scene.index, from: scene.startFrame, durationInFrames: Math.max(1, scene.endFrame - scene.startFrame), premountFor: 15 },
@@ -248,6 +346,7 @@ function ModoVideo(props: RenderProps) {
             brandName: props.brandName,
             accentColor: props.accentColor,
             captions: props.captions,
+            isLast: index === scenes.length - 1,
           }),
         ),
       ),

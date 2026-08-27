@@ -58,6 +58,28 @@ export const VideoSceneMotionSchema = z.enum([
 ]);
 export type VideoSceneMotion = z.infer<typeof VideoSceneMotionSchema>;
 
+export const VideoSceneTransitionSchema = z.enum([
+  "cut",
+  "fade",
+  "slide",
+  "zoom",
+]);
+export type VideoSceneTransition = z.infer<typeof VideoSceneTransitionSchema>;
+
+export const VideoScenePaceSchema = z.enum([
+  "calm",
+  "balanced",
+  "energetic",
+]);
+export type VideoScenePace = z.infer<typeof VideoScenePaceSchema>;
+
+export const VideoSoundtrackStyleSchema = z.enum([
+  "ambient",
+  "pulse",
+  "cinematic",
+]);
+export type VideoSoundtrackStyle = z.infer<typeof VideoSoundtrackStyleSchema>;
+
 export const VideoSceneAssetSourceSchema = z.enum([
   "content",
   "generated",
@@ -85,6 +107,8 @@ export const VideoSceneSchema = z.object({
   videoUrl: z.string().url().max(2000).nullable().default(null),
   visualType: VideoSceneVisualTypeSchema.default("kinetic_text"),
   motion: VideoSceneMotionSchema.default("push_in"),
+  transition: VideoSceneTransitionSchema.default("fade"),
+  pace: VideoScenePaceSchema.default("balanced"),
   assetSource: VideoSceneAssetSourceSchema.default("native"),
   assetRevision: z.number().int().nonnegative().default(0),
   visualPrompt: z.string().trim().max(1600).nullable().default(null),
@@ -111,6 +135,9 @@ export const VideoSceneUpdateSchema = z
     visualPrompt: z.string().trim().min(1).max(1600).optional(),
     stockQuery: z.string().trim().min(1).max(240).optional(),
     visualMode: VideoSceneModeSchema.optional(),
+    motion: VideoSceneMotionSchema.optional(),
+    transition: VideoSceneTransitionSchema.optional(),
+    pace: VideoScenePaceSchema.optional(),
   })
   .refine((value) => Object.values(value).some((item) => item !== undefined), {
     message: "Informe ao menos uma alteração para a cena.",
@@ -122,8 +149,22 @@ export const VideoProjectCreateSchema = z.object({
   durationSeconds: VideoDurationSecondsSchema.default(30),
   captions: z.boolean().default(true),
   voiceover: z.boolean().default(false),
+  soundtrackEnabled: z.boolean().default(true),
+  soundtrackStyle: VideoSoundtrackStyleSchema.default("pulse"),
+  soundtrackVolume: z.number().min(0).max(0.3).default(0.12),
 });
 export type VideoProjectCreate = z.infer<typeof VideoProjectCreateSchema>;
+
+export const VideoProjectAudiovisualUpdateSchema = z
+  .object({
+    soundtrackEnabled: z.boolean().optional(),
+    soundtrackStyle: VideoSoundtrackStyleSchema.optional(),
+    soundtrackVolume: z.number().min(0).max(0.3).optional(),
+  })
+  .refine((value) => Object.values(value).some((item) => item !== undefined), {
+    message: "Informe ao menos um ajuste audiovisual.",
+  });
+export type VideoProjectAudiovisualUpdate = z.infer<typeof VideoProjectAudiovisualUpdateSchema>;
 
 export const VideoProjectSchema = z.object({
   id: z.string().uuid(),
@@ -138,6 +179,9 @@ export const VideoProjectSchema = z.object({
   voiceProvider: z.enum(["openai"]).nullable().default(null),
   visualProvider: z.enum(["openai"]).nullable().default(null),
   brollProvider: z.enum(["pexels"]).nullable().default(null),
+  soundtrackEnabled: z.boolean().default(false),
+  soundtrackStyle: VideoSoundtrackStyleSchema.default("pulse"),
+  soundtrackVolume: z.number().min(0).max(0.3).default(0.12),
   status: VideoRenderStatusSchema,
   review: VideoProjectReviewSchema.optional(),
   renderer: z.literal("remotion"),

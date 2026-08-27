@@ -72,6 +72,7 @@ export async function createPublisherPublication(
     brandId: string;
     provider: NativePublisherProvider;
     connectionId: string;
+    videoProjectId?: string;
     mode: NativePublisherMode;
     scheduledFor?: string | null;
     idempotencyKey?: string;

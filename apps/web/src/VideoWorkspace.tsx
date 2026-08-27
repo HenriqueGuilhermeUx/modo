@@ -14,6 +14,7 @@ import type {
 import { useEffect, useMemo, useState } from "react";
 import { getContentRequest, getDashboard, getSessionToken } from "./api";
 import NativePublisherApprovalAction from "./NativePublisherApprovalAction";
+import VideoMediaLabPanel from "./VideoMediaLabPanel";
 import {
   approveVideoProject,
   approveVideoScene,
@@ -390,9 +391,9 @@ export default function VideoWorkspace() {
       <main className="video-main">
         <section className="video-hero">
           <div>
-            <div className="section-kicker">MODO VIDEO · COMPOSER V1.6</div>
-            <h1>Ritmo, trilha e takes. Sem perder a direção.</h1>
-            <p>A MODO monta ritmo, transições e soundtrack automaticamente. Quando você quiser intervir, pode ajustar uma cena ou recuperar um take anterior sem refazer o restante do vídeo.</p>
+            <div className="section-kicker">MODO VIDEO · MEDIA LAB V1.7</div>
+            <h1>Sua mídia entra na direção — sem virar outro editor.</h1>
+            <p>Envie uma imagem ou MP4 para qualquer cena, ajuste foco e zoom e escolha o início do vídeo próprio. A estratégia continua vindo do Director e cada alteração permanece isolada na cena.</p>
           </div>
           <div className="video-hero-meta">
             <span>{finalVideoApproved ? "Vídeo aprovado" : request.status === "approved" ? "Conteúdo aprovado" : "Pronto para revisão"}</span>
@@ -432,7 +433,7 @@ export default function VideoWorkspace() {
               <button className="button button-outline button-full" disabled={working} onClick={() => void cancel()}>Cancelar fila</button>
             ) : null}
 
-            <div className="video-runtime-note"><strong>V1.6: montagem audiovisual com memória.</strong><p>A soundtrack é nativa da MODO e baixa automaticamente sob a locução. Ritmo e transições nascem automáticos, mas podem ser ajustados por cena. Takes anteriores ficam reutilizáveis sem nova chamada ao provider.</p></div>
+            <div className="video-runtime-note"><strong>V1.7: controle da matéria-prima, não da estratégia.</strong><p>Upload, enquadramento, zoom e trim mudam somente a execução da cena. Soundtrack, voz, ritmo, transições, takes e aprovação granular da V1.6 continuam preservados.</p></div>
           </section>
 
           <section className="video-preview-card">
@@ -453,7 +454,7 @@ export default function VideoWorkspace() {
             ) : project && ["queued", "rendering"].includes(project.status) ? (
               <div className="video-rendering-state">
                 <div className="video-render-orbit"><span /><i /></div>
-                <strong>{project.status === "queued" ? "Aguardando o renderer" : project.voiceover ? "Montando cenas, ritmo, trilha e locução" : "Montando direção visual, B-roll, ritmo, trilha e legendas"}</strong>
+                <strong>{project.status === "queued" ? "Aguardando o renderer" : project.voiceover ? "Montando cenas, mídia, ritmo, trilha e locução" : "Montando mídia, B-roll, ritmo, trilha e legendas"}</strong>
                 <p>O processamento continua no servidor. Esta tela atualiza automaticamente.</p>
               </div>
             ) : project?.status === "failed" ? (
@@ -475,7 +476,7 @@ export default function VideoWorkspace() {
             <div className="video-section-heading">
               <small>APROVAÇÃO DO VÍDEO</small>
               <h2>{finalVideoApproved ? "Vídeo final aprovado." : "Feche o vídeo cena por cena."}</h2>
-              <p>{finalVideoApproved ? "Este MP4 está liberado para distribuição. Se você editar, trocar take ou regenerar qualquer cena, só aquela revisão será reaberta." : "Aprovar uma cena preserva essa decisão. Editar, trocar um take ou regenerar um visual reabre somente a cena alterada."}</p>
+              <p>{finalVideoApproved ? "Este MP4 está liberado para distribuição. Editar, enquadrar, enviar mídia, trocar take ou regenerar uma cena reabre somente aquela revisão." : "Aprovar uma cena preserva essa decisão. Mudanças do Media Lab reabrem apenas a cena alterada e o vídeo final."}</p>
             </div>
             {finalVideoApproved ? (
               <div className="video-final-approved"><span>✓</span><div><strong>Review concluído</strong><small>{project.review?.approvedAt ? `Aprovado em ${new Date(project.review.approvedAt).toLocaleString("pt-BR")}.` : "Todas as cenas e o MP4 final foram aprovados."}</small></div></div>
@@ -517,7 +518,7 @@ export default function VideoWorkspace() {
         )}
 
         <section className="video-storyboard" id="video-storyboard-review">
-          <div className="video-section-heading"><small>STORYBOARD · V1.6</small><h2>{project ? `${project.scenes.length} cenas · ${project.durationSeconds}s` : `${storyboardScenes.length} cenas planejadas`}</h2><p>Aprove o que está certo. Se algo não ficou bom, ajuste texto, visual, ritmo ou transição só naquela cena — ou volte para um take anterior já gerado.</p></div>
+          <div className="video-section-heading"><small>STORYBOARD · MEDIA LAB V1.7</small><h2>{project ? `${project.scenes.length} cenas · ${project.durationSeconds}s` : `${storyboardScenes.length} cenas planejadas`}</h2><p>Ajuste a direção quando necessário ou abra o Media Lab para usar material próprio, enquadrar, ampliar e escolher o início de um MP4 — sempre só naquela cena.</p></div>
           <div className="video-scene-list video-scene-list-rich">
             {storyboardScenes.map((scene) => {
               const sceneReview = project?.review?.scenes.find((item) => item.sceneIndex === scene.index);
@@ -535,7 +536,7 @@ export default function VideoWorkspace() {
                     <img className="video-scene-thumb" src={scene.imageUrl} alt="" />
                   ) : null}
                   <div className="video-scene-copy">
-                    <div className="video-scene-tags"><span>{visualLabel(scene.visualType)}</span><span>{scene.motion.replaceAll("_", " ")}</span><span>{paceLabel(pace)}</span><span>{transitionLabel(transition)}</span>{scene.assetRevision > 0 && <span>variação {scene.assetRevision + 1}</span>}</div>
+                    <div className="video-scene-tags"><span>{visualLabel(scene.visualType)}</span>{scene.assetSource === "upload" && <span className="video-v17-upload-tag">mídia própria</span>}<span>{scene.motion.replaceAll("_", " ")}</span><span>{paceLabel(pace)}</span><span>{transitionLabel(transition)}</span>{scene.assetRevision > 0 && <span>variação {scene.assetRevision + 1}</span>}</div>
                     {scene.stockCredit && (
                       <small className="video-stock-credit">Vídeo por <a href={scene.stockCredit.authorUrl} target="_blank" rel="noreferrer">{scene.stockCredit.authorName}</a> · <a href={scene.stockCredit.sourceUrl} target="_blank" rel="noreferrer">Pexels</a></small>
                     )}
@@ -578,9 +579,23 @@ export default function VideoWorkspace() {
                       </div>
                     )}
 
+                    {project?.status === "ready" && !isEditing && (
+                      <VideoMediaLabPanel
+                        projectId={project.id}
+                        scene={scene}
+                        disabled={workingScene !== null}
+                        onProject={(updated) => {
+                          setProject(updated);
+                          setTakesScene(null);
+                          setSceneTakes([]);
+                        }}
+                        onError={setError}
+                      />
+                    )}
+
                     {project?.status === "ready" && showTakes && !isEditing && (
                       <div className="video-v16-takes-panel">
-                        <div className="video-v16-takes-heading"><div><strong>Histórico de takes</strong><small>Reutilize material já gerado sem nova chamada ao provider.</small></div><span>{loadingTakes ? "carregando…" : `${sceneTakes.length} take${sceneTakes.length === 1 ? "" : "s"}`}</span></div>
+                        <div className="video-v16-takes-heading"><div><strong>Histórico de takes</strong><small>Reutilize material já gerado ou enviado sem nova chamada ao provider.</small></div><span>{loadingTakes ? "carregando…" : `${sceneTakes.length} take${sceneTakes.length === 1 ? "" : "s"}`}</span></div>
                         {!loadingTakes && sceneTakes.length === 0 && <div className="video-v16-takes-empty">Ainda não há variações visuais salvas para esta cena.</div>}
                         <div className="video-v16-takes-grid">
                           {sceneTakes.map((take) => (
@@ -589,7 +604,7 @@ export default function VideoWorkspace() {
                                 {take.kind === "video" ? <video src={take.url} muted loop playsInline preload="metadata" /> : <img src={take.url} alt="" />}
                                 {take.active && <span>Atual</span>}
                               </div>
-                              <div className="video-v16-take-meta"><strong>Variação {take.revision + 1}</strong><small>{take.provider}</small></div>
+                              <div className="video-v16-take-meta"><strong>{take.originalFileName || `Variação ${take.revision + 1}`}</strong><small>{take.provider === "upload" ? "arquivo próprio" : take.provider}</small></div>
                               {take.stockCredit && <small className="video-stock-credit">por {take.stockCredit.authorName} · Pexels</small>}
                               {!take.active && take.selectable && <button className="button button-outline" disabled={workingScene !== null} onClick={() => void selectTake(scene.index, take.token)}>Usar este take</button>}
                               {!take.active && !take.selectable && <small className="video-v16-take-warning">Take legado sem crédito restaurável.</small>}

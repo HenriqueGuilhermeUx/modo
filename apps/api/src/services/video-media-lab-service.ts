@@ -18,7 +18,7 @@ type UploadMetadata = {
   durationSeconds?: number | null;
 };
 
-type RuntimeVideoService = VideoService & {
+type RuntimeVideoService = {
   pool?: { query: (sql: string, values?: unknown[]) => Promise<{ rows: any[] }> };
   memory?: Map<string, any>;
   memorySceneAssets?: Map<string, any>;
@@ -105,7 +105,7 @@ export class VideoMediaLabService {
   private readonly runtime: RuntimeVideoService;
 
   constructor(private readonly video: VideoService, private readonly publicApiUrl: string) {
-    this.runtime = video as RuntimeVideoService;
+    this.runtime = video as unknown as RuntimeVideoService;
   }
 
   get capabilities() {
@@ -120,11 +120,18 @@ export class VideoMediaLabService {
     };
   }
 
+  private assertOrganization(project: VideoProject, organizationId: string) {
+    if (project.organizationId !== organizationId) {
+      throw new VideoError("VIDEO_PROJECT_NOT_FOUND", 404, "Projeto de vídeo não encontrado.");
+    }
+  }
+
   private sceneAssetUrl(token: string) {
     return `${this.publicApiUrl.replace(/\/$/, "")}/api/v1/public/video-scene-assets/${token}`;
   }
 
   private async persistScenes(project: VideoProject, organizationId: string, scenes: VideoScene[]) {
+    this.assertOrganization(project, organizationId);
     if (this.runtime.pool) {
       await this.runtime.pool.query(
         `UPDATE modo_video_renders
@@ -155,6 +162,7 @@ export class VideoMediaLabService {
     sceneIndex: number;
     patch: VideoSceneMediaUpdate;
   }) {
+    this.assertOrganization(input.project, input.organizationId);
     if (["queued", "rendering"].includes(input.project.status)) {
       throw new VideoError("VIDEO_SCENE_BUSY", 409, "Aguarde o render atual terminar antes de ajustar a mídia.");
     }
@@ -209,6 +217,7 @@ export class VideoMediaLabService {
     sceneIndex: number;
     upload: VideoSceneMediaUpload;
   }) {
+    this.assertOrganization(input.project, input.organizationId);
     if (["queued", "rendering"].includes(input.project.status)) {
       throw new VideoError("VIDEO_SCENE_BUSY", 409, "Aguarde o render atual terminar antes de enviar outra mídia.");
     }
@@ -323,6 +332,7 @@ export class VideoMediaLabService {
   }
 
   async listSceneTakes(project: VideoProject, organizationId: string, sceneIndex: number): Promise<VideoSceneTake[]> {
+    this.assertOrganization(project, organizationId);
     const takes = await this.video.listSceneTakes(project.id, organizationId, sceneIndex);
     const metadata = await this.metadataForTokens(project.id, organizationId, takes.map((take) => take.token));
     const scene = project.scenes.find((item) => item.index === sceneIndex);
@@ -347,6 +357,7 @@ export class VideoMediaLabService {
     sceneIndex: number;
     token: string;
   }) {
+    this.assertOrganization(input.project, input.organizationId);
     const metadata = await this.metadataForTokens(input.project.id, input.organizationId, [input.token]);
     const info = metadata.get(input.token);
     const selected = await this.video.selectSceneTake({

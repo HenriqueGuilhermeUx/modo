@@ -68,6 +68,7 @@ export const VideoSceneAssetSourceSchema = z.enum([
   "content",
   "generated",
   "stock",
+  "upload",
   "native",
 ]);
 export type VideoSceneAssetSource = z.infer<typeof VideoSceneAssetSourceSchema>;
@@ -79,6 +80,32 @@ export const VideoSceneStockCreditSchema = z.object({
   sourceUrl: z.string().url().max(2000),
 });
 export type VideoSceneStockCredit = z.infer<typeof VideoSceneStockCreditSchema>;
+
+export const VideoSceneMediaTransformSchema = z.object({
+  focalX: z.number().min(0).max(100).default(50),
+  focalY: z.number().min(0).max(100).default(50),
+  zoom: z.number().min(1).max(2.5).default(1),
+  trimStartSeconds: z.number().min(0).max(120).default(0),
+});
+export type VideoSceneMediaTransform = z.infer<typeof VideoSceneMediaTransformSchema>;
+
+export const VideoSceneMediaUpdateSchema = VideoSceneMediaTransformSchema.partial().refine(
+  (value) => Object.values(value).some((item) => item !== undefined),
+  { message: "Informe ao menos um ajuste de mídia." },
+);
+export type VideoSceneMediaUpdate = z.infer<typeof VideoSceneMediaUpdateSchema>;
+
+export const VideoSceneMediaUploadSchema = z.object({
+  fileName: z.string().trim().min(1).max(240),
+  mimeType: z.enum(["image/png", "image/jpeg", "image/webp", "video/mp4"]),
+  dataBase64: z.string().min(4).max(36_000_000),
+  durationSeconds: z.number().positive().max(600).nullable().optional(),
+}).superRefine((value, ctx) => {
+  if (value.mimeType === "video/mp4" && !value.durationSeconds) {
+    ctx.addIssue({ code: "custom", path: ["durationSeconds"], message: "Informe a duração do vídeo enviado." });
+  }
+});
+export type VideoSceneMediaUpload = z.infer<typeof VideoSceneMediaUploadSchema>;
 
 export const VideoSceneSchema = z.object({
   index: z.number().int().min(1).max(12),
@@ -140,6 +167,8 @@ export const VideoSceneTakeSchema = z.object({
   active: z.boolean(),
   selectable: z.boolean(),
   stockCredit: VideoSceneStockCreditSchema.nullable(),
+  originalFileName: z.string().trim().max(240).nullable().optional(),
+  durationSeconds: z.number().positive().nullable().optional(),
 });
 export type VideoSceneTake = z.infer<typeof VideoSceneTakeSchema>;
 

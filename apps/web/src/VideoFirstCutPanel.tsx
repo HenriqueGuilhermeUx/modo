@@ -49,9 +49,9 @@ export default function VideoFirstCutPanel({
       const signature = choice === "auto" ? videoAutoSceneSignature(first) : videoCreativeProfileSignature(choice);
       const updated = await updateVideoScene(project.id, first.index, signature);
       onProject(updated);
+      window.setTimeout(() => window.location.reload(), 120);
     } catch (caught) {
       onError(caught instanceof Error ? caught.message : "Não foi possível trocar a direção estética.");
-    } finally {
       setWorking(false);
     }
   }

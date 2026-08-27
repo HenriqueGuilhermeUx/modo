@@ -4,6 +4,7 @@ import {
   Audio,
   Composition,
   Img,
+  OffthreadVideo,
   Sequence,
   interpolate,
   registerRoot,
@@ -18,7 +19,8 @@ type RenderScene = {
   visual: string;
   caption: string;
   imageUrl: string | null;
-  visualType?: "brand_asset" | "generated_image" | "interface" | "data_card" | "kinetic_text";
+  videoUrl?: string | null;
+  visualType?: "brand_asset" | "generated_image" | "broll_video" | "interface" | "data_card" | "kinetic_text";
   motion?: "push_in" | "zoom_out" | "pan_left" | "pan_right" | "static";
   audioUrl?: string | null;
 };
@@ -45,6 +47,7 @@ const defaultProps: RenderProps = {
       visual: "Composição editorial MODO",
       caption: "A MODO transforma estratégia em presença.",
       imageUrl: null,
+      videoUrl: null,
       visualType: "kinetic_text",
       motion: "push_in",
       audioUrl: null,
@@ -151,6 +154,13 @@ function BackgroundVisual({ scene, accentColor, localFrame, duration }: {
   localFrame: number;
   duration: number;
 }) {
+  if (scene.videoUrl) {
+    return React.createElement(OffthreadVideo, {
+      src: scene.videoUrl,
+      muted: true,
+      style: { width: "100%", height: "100%", objectFit: "cover", transform: imageTransform(scene, localFrame, duration) },
+    });
+  }
   if (scene.imageUrl) {
     return React.createElement(Img, {
       src: scene.imageUrl,
@@ -172,7 +182,6 @@ function SceneCard({ scene, brandName, accentColor, captions }: {
   accentColor: string;
   captions: boolean;
 }) {
-  // Dentro de <Sequence>, useCurrentFrame() já é relativo ao início da cena.
   const localFrame = useCurrentFrame();
   const duration = Math.max(1, scene.endFrame - scene.startFrame);
   const opacity = interpolate(localFrame, [0, 12, Math.max(13, duration - 12), duration], [0, 1, 1, 0], {
@@ -190,7 +199,7 @@ function SceneCard({ scene, brandName, accentColor, captions }: {
     React.createElement(BackgroundVisual, { scene, accentColor, localFrame, duration }),
     React.createElement(AbsoluteFill, {
       style: {
-        background: scene.imageUrl
+        background: scene.imageUrl || scene.videoUrl
           ? "linear-gradient(180deg,rgba(5,10,25,.08) 0%,rgba(5,10,25,.35) 45%,rgba(5,10,25,.94) 100%)"
           : "linear-gradient(180deg,rgba(5,10,25,.04) 0%,rgba(5,10,25,.16) 45%,rgba(5,10,25,.82) 100%)",
       },

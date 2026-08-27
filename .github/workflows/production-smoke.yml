@@ -157,6 +157,8 @@ jobs:
               "implantação assistida",
               "MODO PARTNER · FOUNDING COHORT",
               "Quero ser Founding Partner",
+              "MODO VIDEO · DO OBJETIVO AO REEL",
+              "O primeiro corte já chega montado.",
           ]
 
           def fetch(url: str) -> str:
@@ -203,7 +205,7 @@ jobs:
                   has_old_promise = "white-label" in bundle.lower()
 
                   if not missing and not has_old_promise:
-                      print("Netlify confirmou Agency, MODO Partner, recuperação de senha e política multicanal sem promessa residual de white-label.")
+                      print("Netlify confirmou Agency, MODO Partner, recuperação de senha, política multicanal e a comunicação First Cut do MODO Video sem promessa residual de white-label.")
                       sys.exit(0)
 
                   last_missing = missing

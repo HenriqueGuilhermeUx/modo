@@ -1,5 +1,7 @@
 import {
   VideoProjectCreateSchema,
+  VideoSceneMediaUpdateSchema,
+  VideoSceneMediaUploadSchema,
   VideoSceneUpdateSchema,
   type VideoProject,
 } from "@modo/contracts/video";
@@ -8,6 +10,7 @@ import { z } from "zod";
 import { AuthError, AuthService } from "../services/auth-service.js";
 import { ContentError, ContentService } from "../services/content-service.js";
 import { VideoApprovalError, VideoApprovalService } from "../services/video-approval-service.js";
+import { VideoMediaLabService } from "../services/video-media-lab-service.js";
 import { VideoError, VideoService } from "../services/video-service.js";
 
 interface Options {
@@ -65,6 +68,7 @@ export async function registerVideoRoutes(app: FastifyInstance, options: Options
     videoImageQuality: options.videoImageQuality,
     pexelsApiKey: options.pexelsApiKey,
   });
+  const mediaLab = new VideoMediaLabService(video, options.publicApiUrl || "http://localhost:4000");
   const approvals = new VideoApprovalService({
     databaseUrl: options.databaseUrl,
     databaseSsl: options.databaseSsl,
@@ -174,6 +178,7 @@ export async function registerVideoRoutes(app: FastifyInstance, options: Options
     scenePacing: true,
     sceneTransitions: true,
     takeLibrary: true,
+    mediaLab: mediaLab.capabilities,
     soundtrack: "native_procedural",
     soundtrackDucking: true,
     gpuRequired: false,
@@ -218,7 +223,8 @@ export async function registerVideoRoutes(app: FastifyInstance, options: Options
     const params = request.params as { id: string; sceneIndex: string };
     const id = z.string().uuid().parse(params.id);
     const sceneIndex = z.coerce.number().int().min(1).max(12).parse(params.sceneIndex);
-    const takes = await video.listSceneTakes(id, current.organization.id, sceneIndex);
+    const project = await video.getForOrganization(id, current.organization.id);
+    const takes = await mediaLab.listSceneTakes(project, current.organization.id, sceneIndex);
     return { takes };
   });
 
@@ -231,11 +237,66 @@ export async function registerVideoRoutes(app: FastifyInstance, options: Options
       const sceneIndex = z.coerce.number().int().min(1).max(12).parse(params.sceneIndex);
       const token = z.string().uuid().parse(params.token);
       const found = await renderContext(request, id);
-      const rawProject = await video.selectSceneTake({
-        id,
+      const rawProject = await mediaLab.selectTake({
+        project: found.project,
         organizationId: found.current.organization.id,
         sceneIndex,
         token,
+      });
+      const review = await approvals.resetScene(rawProject, sceneIndex);
+      void video.enqueueRender({
+        id,
+        organizationId: found.current.organization.id,
+        brandName: found.brand.name,
+        title: found.title,
+      });
+      return reply.code(202).send({ project: { ...rawProject, review } });
+    },
+  );
+
+  app.post(
+    "/api/v1/video-projects/:id/scenes/:sceneIndex/media/upload",
+    {
+      bodyLimit: 38_000_000,
+      config: { rateLimit: { max: 12, timeWindow: "30 minutes" } },
+    },
+    async (request, reply) => {
+      const params = request.params as { id: string; sceneIndex: string };
+      const id = z.string().uuid().parse(params.id);
+      const sceneIndex = z.coerce.number().int().min(1).max(12).parse(params.sceneIndex);
+      const upload = VideoSceneMediaUploadSchema.parse(request.body);
+      const found = await renderContext(request, id);
+      const rawProject = await mediaLab.uploadAndAttach({
+        project: found.project,
+        organizationId: found.current.organization.id,
+        sceneIndex,
+        upload,
+      });
+      const review = await approvals.resetScene(rawProject, sceneIndex);
+      void video.enqueueRender({
+        id,
+        organizationId: found.current.organization.id,
+        brandName: found.brand.name,
+        title: found.title,
+      });
+      return reply.code(202).send({ project: { ...rawProject, review } });
+    },
+  );
+
+  app.patch(
+    "/api/v1/video-projects/:id/scenes/:sceneIndex/media",
+    { config: { rateLimit: { max: 30, timeWindow: "30 minutes" } } },
+    async (request, reply) => {
+      const params = request.params as { id: string; sceneIndex: string };
+      const id = z.string().uuid().parse(params.id);
+      const sceneIndex = z.coerce.number().int().min(1).max(12).parse(params.sceneIndex);
+      const patch = VideoSceneMediaUpdateSchema.parse(request.body);
+      const found = await renderContext(request, id);
+      const rawProject = await mediaLab.updateTransform({
+        project: found.project,
+        organizationId: found.current.organization.id,
+        sceneIndex,
+        patch,
       });
       const review = await approvals.resetScene(rawProject, sceneIndex);
       void video.enqueueRender({

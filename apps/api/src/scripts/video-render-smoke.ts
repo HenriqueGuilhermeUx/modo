@@ -1,5 +1,6 @@
 import { bundle } from "@remotion/bundler";
 import { renderMedia, selectComposition } from "@remotion/renderer";
+import { createServer } from "node:http";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -29,37 +30,65 @@ function silentWavDataUrl(seconds = 1, sampleRate = 8000) {
   return `data:audio/wav;base64,${wav.toString("base64")}`;
 }
 
-function smokeImageDataUrl() {
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="720" height="1280"><rect width="720" height="1280" fill="#102c5f"/><circle cx="540" cy="280" r="180" fill="#2ED19A"/><rect x="120" y="720" width="480" height="180" rx="36" fill="#ffffff" opacity=".18"/></svg>`;
-  return `data:image/svg+xml;base64,${Buffer.from(svg).toString("base64")}?mlfx=72&mlfy=28&mlz=1.2&mltrim=0`;
+const smokeSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="720" height="1280"><rect width="720" height="1280" fill="#102c5f"/><circle cx="540" cy="280" r="180" fill="#2ED19A"/><rect x="120" y="720" width="480" height="180" rx="36" fill="#ffffff" opacity=".18"/></svg>`;
+
+async function startSmokeAssetServer() {
+  const server = createServer((request, response) => {
+    const url = new URL(request.url || "/", "http://127.0.0.1");
+    if (url.pathname !== "/smoke.svg") {
+      response.writeHead(404).end();
+      return;
+    }
+    response.writeHead(200, {
+      "Content-Type": "image/svg+xml; charset=utf-8",
+      "Cache-Control": "no-store",
+    });
+    response.end(smokeSvg);
+  });
+
+  await new Promise<void>((resolve, reject) => {
+    server.once("error", reject);
+    server.listen(0, "127.0.0.1", () => resolve());
+  });
+
+  const address = server.address();
+  if (!address || typeof address === "string") {
+    server.close();
+    throw new Error("Não foi possível abrir o servidor local do asset do smoke.");
+  }
+
+  const imageUrl = `http://127.0.0.1:${address.port}/smoke.svg?mlfx=72&mlfy=28&mlz=1.2&mltrim=0`;
+  return { server, imageUrl };
 }
 
-const inputProps = {
-  brandName: "MODO CI",
-  title: "MODO Video render smoke",
-  accentColor: "#2ED19A",
-  captions: true,
-  scenes: [
-    {
-      index: 1,
-      startFrame: 0,
-      endFrame: 450,
-      headline: "A estratégia vira vídeo.",
-      visual: "Asset enquadrado pelo Media Lab sem perder a direção MODO.",
-      caption: "Smoke real do renderer Remotion em H.264 com enquadramento, direção visual e áudio.",
-      imageUrl: smokeImageDataUrl(),
-      videoUrl: null,
-      visualType: "generated_image",
-      motion: "pan_right",
-      pace: "steady",
-      transition: "cut",
-      assetSource: "upload",
-      assetRevision: 1,
-      visualPrompt: "Composição editorial de marketing.",
-      audioUrl: silentWavDataUrl(),
-    },
-  ],
-};
+function createInputProps(imageUrl: string) {
+  return {
+    brandName: "MODO CI",
+    title: "MODO Video render smoke",
+    accentColor: "#2ED19A",
+    captions: true,
+    scenes: [
+      {
+        index: 1,
+        startFrame: 0,
+        endFrame: 450,
+        headline: "A estratégia vira vídeo.",
+        visual: "Asset enquadrado pelo Media Lab sem perder a direção MODO.",
+        caption: "Smoke real do renderer Remotion em H.264 com enquadramento, direção visual e áudio.",
+        imageUrl,
+        videoUrl: null,
+        visualType: "generated_image",
+        motion: "pan_right",
+        pace: "steady",
+        transition: "cut",
+        assetSource: "upload",
+        assetRevision: 1,
+        visualPrompt: "Composição editorial de marketing.",
+        audioUrl: silentWavDataUrl(),
+      },
+    ],
+  };
+}
 
 function assertMp4(data: Buffer) {
   if (data.length < 1024) {
@@ -76,6 +105,8 @@ async function main() {
   const workdir = await mkdtemp(join(tmpdir(), "modo-video-smoke-"));
   const outputLocation = join(workdir, "modo-video-smoke.mp4");
   const entryPoint = fileURLToPath(new URL("../video-remotion-entry.ts", import.meta.url));
+  const { server, imageUrl } = await startSmokeAssetServer();
+  const inputProps = createInputProps(imageUrl);
 
   try {
     console.log("[MODO Video] Empacotando composição Remotion...");
@@ -115,6 +146,7 @@ async function main() {
     assertMp4(data);
     console.log(`[MODO Video] Smoke OK: MP4 H.264 válido com locução, soundtrack e enquadramento Media Lab (${data.length} bytes).`);
   } finally {
+    await new Promise<void>((resolve) => server.close(() => resolve())).catch(() => undefined);
     await rm(workdir, { recursive: true, force: true }).catch(() => undefined);
   }
 }

@@ -5,6 +5,10 @@ import type {
   VideoProject,
   VideoScene,
   VideoSceneMode,
+  VideoSceneMotion,
+  VideoScenePace,
+  VideoSceneTake,
+  VideoSceneTransition,
   VideoSceneVisualType,
 } from "@modo/contracts/video";
 import { useEffect, useMemo, useState } from "react";
@@ -17,13 +21,16 @@ import {
   createVideoProject,
   getLatestVideoProject,
   getVideoProject,
+  getVideoSceneTakes,
   regenerateVideoScene,
   retryVideoProject,
+  selectVideoSceneTake,
   updateVideoScene,
 } from "./video-api";
 import "./video-v13.css";
 import "./video-v14.css";
 import "./video-v15.css";
+import "./video-v16.css";
 
 const durations: VideoDurationSeconds[] = [15, 30, 45];
 
@@ -53,6 +60,34 @@ function editModeFor(scene: VideoScene): VideoSceneMode {
   return scene.visualType;
 }
 
+function paceForScene(scene: VideoScene): VideoScenePace {
+  if (scene.pace) return scene.pace;
+  if (scene.visualType === "broll_video" || scene.visualType === "kinetic_text") return "dynamic";
+  if (scene.visualType === "interface" || scene.visualType === "data_card") return "calm";
+  return "steady";
+}
+
+function transitionForScene(scene: VideoScene): VideoSceneTransition {
+  if (scene.transition) return scene.transition;
+  if (scene.index === 1) return "cut";
+  const options: VideoSceneTransition[] = ["fade", "slide", "zoom", "wipe"];
+  return options[(scene.index + Math.max(0, scene.assetRevision) - 2) % options.length];
+}
+
+function paceLabel(pace: VideoScenePace) {
+  if (pace === "calm") return "ritmo calmo";
+  if (pace === "dynamic") return "ritmo dinâmico";
+  return "ritmo equilibrado";
+}
+
+function transitionLabel(transition: VideoSceneTransition) {
+  if (transition === "cut") return "corte seco";
+  if (transition === "fade") return "fade";
+  if (transition === "slide") return "slide";
+  if (transition === "zoom") return "zoom";
+  return "wipe";
+}
+
 export default function VideoWorkspace() {
   const contentRequestId = window.location.pathname.split("/").filter(Boolean).pop() || "";
   const [dashboard, setDashboard] = useState<Dashboard | null>(null);
@@ -70,6 +105,12 @@ export default function VideoWorkspace() {
   const [editCaption, setEditCaption] = useState("");
   const [editMode, setEditMode] = useState<VideoSceneMode>("auto");
   const [editStockQuery, setEditStockQuery] = useState("");
+  const [editMotion, setEditMotion] = useState<VideoSceneMotion>("push_in");
+  const [editPace, setEditPace] = useState<VideoScenePace>("steady");
+  const [editTransition, setEditTransition] = useState<VideoSceneTransition>("fade");
+  const [takesScene, setTakesScene] = useState<number | null>(null);
+  const [sceneTakes, setSceneTakes] = useState<VideoSceneTake[]>([]);
+  const [loadingTakes, setLoadingTakes] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -138,11 +179,16 @@ export default function VideoWorkspace() {
 
   function startEditing(scene: VideoScene) {
     setEditingScene(scene.index);
+    setTakesScene(null);
+    setSceneTakes([]);
     setEditHeadline(scene.headline);
     setEditVisual(scene.visual);
     setEditCaption(scene.caption);
     setEditMode(editModeFor(scene));
     setEditStockQuery(scene.stockQuery || scene.visual);
+    setEditMotion(scene.motion);
+    setEditPace(paceForScene(scene));
+    setEditTransition(transitionForScene(scene));
     setError("");
   }
 
@@ -153,6 +199,9 @@ export default function VideoWorkspace() {
     setEditCaption("");
     setEditMode("auto");
     setEditStockQuery("");
+    setEditMotion("push_in");
+    setEditPace("steady");
+    setEditTransition("fade");
   }
 
   async function saveSceneEdit(sceneIndex: number) {
@@ -166,6 +215,9 @@ export default function VideoWorkspace() {
         caption: editCaption,
         visualPrompt: editVisual,
         visualMode: editMode,
+        motion: editMotion,
+        pace: editPace,
+        transition: editTransition,
         ...(editMode === "broll_video" ? { stockQuery: editStockQuery || editVisual } : {}),
       });
       setProject(updated);
@@ -177,12 +229,50 @@ export default function VideoWorkspace() {
     }
   }
 
+  async function openTakes(sceneIndex: number) {
+    if (!project) return;
+    if (takesScene === sceneIndex) {
+      setTakesScene(null);
+      setSceneTakes([]);
+      return;
+    }
+    setTakesScene(sceneIndex);
+    setSceneTakes([]);
+    setLoadingTakes(true);
+    setError("");
+    try {
+      setSceneTakes(await getVideoSceneTakes(project.id, sceneIndex));
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Não foi possível carregar os takes desta cena.");
+    } finally {
+      setLoadingTakes(false);
+    }
+  }
+
+  async function selectTake(sceneIndex: number, token: string) {
+    if (!project) return;
+    setWorkingScene(sceneIndex);
+    setError("");
+    try {
+      const updated = await selectVideoSceneTake(project.id, sceneIndex, token);
+      setProject(updated);
+      setSceneTakes([]);
+      setTakesScene(null);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Não foi possível restaurar este take.");
+    } finally {
+      setWorkingScene(null);
+    }
+  }
+
   async function regenerateScene(sceneIndex: number) {
     if (!project) return;
     setWorkingScene(sceneIndex);
     setError("");
     try {
       setProject(await regenerateVideoScene(project.id, sceneIndex));
+      setTakesScene(null);
+      setSceneTakes([]);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Não foi possível regenerar esta cena.");
     } finally {
@@ -267,6 +357,7 @@ export default function VideoWorkspace() {
     const totalFrames = duration * 30;
     const chunk = Math.floor(totalFrames / list.length);
     const imageUrl = index === 0 ? request.output!.imageUrl : null;
+    const visualType = (imageUrl ? "brand_asset" : index === list.length - 1 ? "kinetic_text" : "generated_image") as VideoSceneVisualType;
     return {
       index: index + 1,
       startFrame: index * chunk,
@@ -276,8 +367,10 @@ export default function VideoWorkspace() {
       caption: scene.voiceover,
       imageUrl,
       videoUrl: null,
-      visualType: (imageUrl ? "brand_asset" : index === list.length - 1 ? "kinetic_text" : "generated_image") as VideoSceneVisualType,
+      visualType,
       motion: "push_in",
+      pace: visualType === "kinetic_text" ? "dynamic" : "steady",
+      transition: index === 0 ? "cut" : "fade",
       assetSource: imageUrl ? "content" : "native",
       assetRevision: 0,
       visualPrompt: scene.visual,
@@ -297,9 +390,9 @@ export default function VideoWorkspace() {
       <main className="video-main">
         <section className="video-hero">
           <div>
-            <div className="section-kicker">MODO VIDEO · COMPOSER V1.5</div>
-            <h1>Direção viva por cena. B-roll quando ajuda, controle quando importa.</h1>
-            <p>A MODO escolhe entre asset da marca, imagem editorial, B-roll vertical, interface, dados e motion. Você pode corrigir uma cena sem reescrever a estratégia nem perder o que já ficou bom.</p>
+            <div className="section-kicker">MODO VIDEO · COMPOSER V1.6</div>
+            <h1>Ritmo, trilha e takes. Sem perder a direção.</h1>
+            <p>A MODO monta ritmo, transições e soundtrack automaticamente. Quando você quiser intervir, pode ajustar uma cena ou recuperar um take anterior sem refazer o restante do vídeo.</p>
           </div>
           <div className="video-hero-meta">
             <span>{finalVideoApproved ? "Vídeo aprovado" : request.status === "approved" ? "Conteúdo aprovado" : "Pronto para revisão"}</span>
@@ -339,7 +432,7 @@ export default function VideoWorkspace() {
               <button className="button button-outline button-full" disabled={working} onClick={() => void cancel()}>Cancelar fila</button>
             ) : null}
 
-            <div className="video-runtime-note"><strong>V1.5: matéria-prima visual, não um segundo cérebro.</strong><p>B-roll e imagens enriquecem a cena. Director, memória, roteiro e aprovação continuam mandando. Editar uma cena preserva o restante e só invalida a locução daquela cena quando o texto falado muda.</p></div>
+            <div className="video-runtime-note"><strong>V1.6: montagem audiovisual com memória.</strong><p>A soundtrack é nativa da MODO e baixa automaticamente sob a locução. Ritmo e transições nascem automáticos, mas podem ser ajustados por cena. Takes anteriores ficam reutilizáveis sem nova chamada ao provider.</p></div>
           </section>
 
           <section className="video-preview-card">
@@ -352,6 +445,7 @@ export default function VideoWorkspace() {
                   <a className="button button-primary" href={project.outputUrl} target="_blank" rel="noreferrer">Abrir MP4</a>
                   <a className="button button-outline" href="#video-storyboard-review">Revisar cenas</a>
                 </div>
+                <small>Soundtrack nativa MODO · mix automático e ducking sob a locução</small>
                 {project.voiceover && <small>Narração por IA incluída · sincronizada e cacheada por cena · provider {project.voiceProvider || "gerenciado"}</small>}
                 {project.visualProvider && <small>Direção visual híbrida · imagens geradas por {project.visualProvider}</small>}
                 {project.brollProvider && <small>B-roll vertical incluído · provider {project.brollProvider}</small>}
@@ -359,7 +453,7 @@ export default function VideoWorkspace() {
             ) : project && ["queued", "rendering"].includes(project.status) ? (
               <div className="video-rendering-state">
                 <div className="video-render-orbit"><span /><i /></div>
-                <strong>{project.status === "queued" ? "Aguardando o renderer" : project.voiceover ? "Montando cenas e reaproveitando a locução" : "Montando direção visual, B-roll, tipografia e legendas"}</strong>
+                <strong>{project.status === "queued" ? "Aguardando o renderer" : project.voiceover ? "Montando cenas, ritmo, trilha e locução" : "Montando direção visual, B-roll, ritmo, trilha e legendas"}</strong>
                 <p>O processamento continua no servidor. Esta tela atualiza automaticamente.</p>
               </div>
             ) : project?.status === "failed" ? (
@@ -381,7 +475,7 @@ export default function VideoWorkspace() {
             <div className="video-section-heading">
               <small>APROVAÇÃO DO VÍDEO</small>
               <h2>{finalVideoApproved ? "Vídeo final aprovado." : "Feche o vídeo cena por cena."}</h2>
-              <p>{finalVideoApproved ? "Este MP4 está liberado para distribuição. Se você editar ou regenerar qualquer cena, só aquela revisão será reaberta." : "Aprovar uma cena preserva essa decisão. Editar ou regenerar um visual reabre somente a cena alterada."}</p>
+              <p>{finalVideoApproved ? "Este MP4 está liberado para distribuição. Se você editar, trocar take ou regenerar qualquer cena, só aquela revisão será reaberta." : "Aprovar uma cena preserva essa decisão. Editar, trocar um take ou regenerar um visual reabre somente a cena alterada."}</p>
             </div>
             {finalVideoApproved ? (
               <div className="video-final-approved"><span>✓</span><div><strong>Review concluído</strong><small>{project.review?.approvedAt ? `Aprovado em ${new Date(project.review.approvedAt).toLocaleString("pt-BR")}.` : "Todas as cenas e o MP4 final foram aprovados."}</small></div></div>
@@ -423,12 +517,15 @@ export default function VideoWorkspace() {
         )}
 
         <section className="video-storyboard" id="video-storyboard-review">
-          <div className="video-section-heading"><small>STORYBOARD · REVIEW + EDIÇÃO GRANULAR</small><h2>{project ? `${project.scenes.length} cenas · ${project.durationSeconds}s` : `${storyboardScenes.length} cenas planejadas`}</h2><p>Aprove o que está certo. Se algo não ficou bom, ajuste só aquela cena: texto, direção visual, locução ou tipo de asset. As outras cenas permanecem intactas.</p></div>
+          <div className="video-section-heading"><small>STORYBOARD · V1.6</small><h2>{project ? `${project.scenes.length} cenas · ${project.durationSeconds}s` : `${storyboardScenes.length} cenas planejadas`}</h2><p>Aprove o que está certo. Se algo não ficou bom, ajuste texto, visual, ritmo ou transição só naquela cena — ou volte para um take anterior já gerado.</p></div>
           <div className="video-scene-list video-scene-list-rich">
             {storyboardScenes.map((scene) => {
               const sceneReview = project?.review?.scenes.find((item) => item.sceneIndex === scene.index);
               const sceneApproved = sceneReview?.status === "approved";
               const isEditing = editingScene === scene.index;
+              const showTakes = takesScene === scene.index;
+              const pace = paceForScene(scene);
+              const transition = transitionForScene(scene);
               return (
                 <article key={scene.index} className={isEditing ? "editing" : ""}>
                   <div className="video-scene-number"><strong>{String(scene.index).padStart(2, "0")}</strong><span>{seconds(scene.startFrame)}—{seconds(scene.endFrame)}</span></div>
@@ -438,7 +535,7 @@ export default function VideoWorkspace() {
                     <img className="video-scene-thumb" src={scene.imageUrl} alt="" />
                   ) : null}
                   <div className="video-scene-copy">
-                    <div className="video-scene-tags"><span>{visualLabel(scene.visualType)}</span><span>{scene.motion.replaceAll("_", " ")}</span>{scene.assetRevision > 0 && <span>variação {scene.assetRevision + 1}</span>}</div>
+                    <div className="video-scene-tags"><span>{visualLabel(scene.visualType)}</span><span>{scene.motion.replaceAll("_", " ")}</span><span>{paceLabel(pace)}</span><span>{transitionLabel(transition)}</span>{scene.assetRevision > 0 && <span>variação {scene.assetRevision + 1}</span>}</div>
                     {scene.stockCredit && (
                       <small className="video-stock-credit">Vídeo por <a href={scene.stockCredit.authorUrl} target="_blank" rel="noreferrer">{scene.stockCredit.authorName}</a> · <a href={scene.stockCredit.sourceUrl} target="_blank" rel="noreferrer">Pexels</a></small>
                     )}
@@ -455,6 +552,12 @@ export default function VideoWorkspace() {
                         <label><span>Direção da cena</span><textarea value={editVisual} maxLength={800} rows={3} onChange={(event) => setEditVisual(event.target.value)} /></label>
                         <label><span>Locução / legenda</span><textarea value={editCaption} maxLength={900} rows={3} onChange={(event) => setEditCaption(event.target.value)} /></label>
                         {editMode === "broll_video" && <label><span>Busca do B-roll</span><input value={editStockQuery} maxLength={240} placeholder="Ex.: equipe brasileira em reunião no escritório" onChange={(event) => setEditStockQuery(event.target.value)} /><small>A MODO busca vídeo vertical compatível. Se o provider falhar, o render usa o fallback visual.</small></label>}
+                        <div className="video-v16-controls-grid">
+                          <label><span>Movimento</span><select value={editMotion} onChange={(event) => setEditMotion(event.target.value as VideoSceneMotion)}><option value="push_in">Aproximar</option><option value="zoom_out">Afastar</option><option value="pan_left">Pan esquerda</option><option value="pan_right">Pan direita</option><option value="static">Estático</option></select></label>
+                          <label><span>Ritmo</span><select value={editPace} onChange={(event) => setEditPace(event.target.value as VideoScenePace)}><option value="calm">Calmo</option><option value="steady">Equilibrado</option><option value="dynamic">Dinâmico</option></select></label>
+                          <label><span>Transição</span><select value={editTransition} onChange={(event) => setEditTransition(event.target.value as VideoSceneTransition)}><option value="cut">Corte seco</option><option value="fade">Fade</option><option value="slide">Slide</option><option value="zoom">Zoom</option><option value="wipe">Wipe</option></select></label>
+                        </div>
+                        <small className="video-v16-control-note">Alterar apenas movimento, ritmo ou transição não gera uma nova imagem nem baixa outro B-roll.</small>
                         <div className="video-scene-editor-actions"><button className="button button-primary" disabled={workingScene !== null || !editHeadline.trim() || !editVisual.trim() || !editCaption.trim()} onClick={() => void saveSceneEdit(scene.index)}>{workingScene === scene.index ? "Salvando e renderizando..." : "Salvar esta cena"}</button><button className="button button-outline" disabled={workingScene !== null} onClick={stopEditing}>Cancelar edição</button></div>
                       </div>
                     )}
@@ -467,10 +570,32 @@ export default function VideoWorkspace() {
                             {workingScene === scene.index ? "Salvando..." : "Aprovar cena"}
                           </button>
                         )}
-                        <button className="button button-outline video-scene-edit" disabled={workingScene !== null} onClick={() => startEditing(scene)}>Editar direção da cena</button>
+                        <button className="button button-outline video-scene-edit" disabled={workingScene !== null} onClick={() => startEditing(scene)}>Editar cena</button>
+                        <button className="button button-outline video-v16-takes-button" disabled={workingScene !== null} onClick={() => void openTakes(scene.index)}>{showTakes ? "Fechar takes" : "Takes desta cena"}</button>
                         <button className="button button-outline video-scene-regenerate" disabled={workingScene !== null} onClick={() => void regenerateScene(scene.index)}>
                           {workingScene === scene.index ? "Processando..." : scene.visualType === "broll_video" ? "Buscar outro B-roll" : sceneApproved ? "Trocar visual e reabrir cena" : "Regenerar só este visual"}
                         </button>
+                      </div>
+                    )}
+
+                    {project?.status === "ready" && showTakes && !isEditing && (
+                      <div className="video-v16-takes-panel">
+                        <div className="video-v16-takes-heading"><div><strong>Histórico de takes</strong><small>Reutilize material já gerado sem nova chamada ao provider.</small></div><span>{loadingTakes ? "carregando…" : `${sceneTakes.length} take${sceneTakes.length === 1 ? "" : "s"}`}</span></div>
+                        {!loadingTakes && sceneTakes.length === 0 && <div className="video-v16-takes-empty">Ainda não há variações visuais salvas para esta cena.</div>}
+                        <div className="video-v16-takes-grid">
+                          {sceneTakes.map((take) => (
+                            <div key={take.token} className={`video-v16-take ${take.active ? "active" : ""}`}>
+                              <div className="video-v16-take-preview">
+                                {take.kind === "video" ? <video src={take.url} muted loop playsInline preload="metadata" /> : <img src={take.url} alt="" />}
+                                {take.active && <span>Atual</span>}
+                              </div>
+                              <div className="video-v16-take-meta"><strong>Variação {take.revision + 1}</strong><small>{take.provider}</small></div>
+                              {take.stockCredit && <small className="video-stock-credit">por {take.stockCredit.authorName} · Pexels</small>}
+                              {!take.active && take.selectable && <button className="button button-outline" disabled={workingScene !== null} onClick={() => void selectTake(scene.index, take.token)}>Usar este take</button>}
+                              {!take.active && !take.selectable && <small className="video-v16-take-warning">Take legado sem crédito restaurável.</small>}
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     )}
                   </div>

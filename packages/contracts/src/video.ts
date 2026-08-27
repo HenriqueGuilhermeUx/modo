@@ -58,6 +58,12 @@ export const VideoSceneMotionSchema = z.enum([
 ]);
 export type VideoSceneMotion = z.infer<typeof VideoSceneMotionSchema>;
 
+export const VideoScenePaceSchema = z.enum(["calm", "steady", "dynamic"]);
+export type VideoScenePace = z.infer<typeof VideoScenePaceSchema>;
+
+export const VideoSceneTransitionSchema = z.enum(["cut", "fade", "slide", "zoom", "wipe"]);
+export type VideoSceneTransition = z.infer<typeof VideoSceneTransitionSchema>;
+
 export const VideoSceneAssetSourceSchema = z.enum([
   "content",
   "generated",
@@ -85,6 +91,8 @@ export const VideoSceneSchema = z.object({
   videoUrl: z.string().url().max(2000).nullable().default(null),
   visualType: VideoSceneVisualTypeSchema.default("kinetic_text"),
   motion: VideoSceneMotionSchema.default("push_in"),
+  pace: VideoScenePaceSchema.optional(),
+  transition: VideoSceneTransitionSchema.optional(),
   assetSource: VideoSceneAssetSourceSchema.default("native"),
   assetRevision: z.number().int().nonnegative().default(0),
   visualPrompt: z.string().trim().max(1600).nullable().default(null),
@@ -111,11 +119,34 @@ export const VideoSceneUpdateSchema = z
     visualPrompt: z.string().trim().min(1).max(1600).optional(),
     stockQuery: z.string().trim().min(1).max(240).optional(),
     visualMode: VideoSceneModeSchema.optional(),
+    motion: VideoSceneMotionSchema.optional(),
+    pace: VideoScenePaceSchema.optional(),
+    transition: VideoSceneTransitionSchema.optional(),
   })
   .refine((value) => Object.values(value).some((item) => item !== undefined), {
     message: "Informe ao menos uma alteração para a cena.",
   });
 export type VideoSceneUpdate = z.infer<typeof VideoSceneUpdateSchema>;
+
+export const VideoSceneTakeSchema = z.object({
+  token: z.string().uuid(),
+  sceneIndex: z.number().int().min(1).max(12),
+  kind: z.enum(["image", "video"]),
+  mimeType: z.string().trim().min(1).max(120),
+  provider: z.string().trim().min(1).max(80),
+  revision: z.number().int().nonnegative(),
+  createdAt: z.string().datetime(),
+  url: z.string().url(),
+  active: z.boolean(),
+  selectable: z.boolean(),
+  stockCredit: VideoSceneStockCreditSchema.nullable(),
+});
+export type VideoSceneTake = z.infer<typeof VideoSceneTakeSchema>;
+
+export const VideoSceneTakeListSchema = z.object({
+  takes: z.array(VideoSceneTakeSchema).max(100),
+});
+export type VideoSceneTakeList = z.infer<typeof VideoSceneTakeListSchema>;
 
 export const VideoProjectCreateSchema = z.object({
   contentRequestId: z.string().uuid(),

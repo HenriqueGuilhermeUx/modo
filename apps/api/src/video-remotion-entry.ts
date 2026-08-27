@@ -16,6 +16,9 @@ import {
   soundtrackVolumeAtFrame,
 } from "./video-audio-engine.js";
 
+type ScenePace = "calm" | "steady" | "dynamic";
+type SceneTransition = "cut" | "fade" | "slide" | "zoom" | "wipe";
+
 type RenderScene = {
   index: number;
   startFrame: number;
@@ -27,6 +30,8 @@ type RenderScene = {
   videoUrl?: string | null;
   visualType?: "brand_asset" | "generated_image" | "broll_video" | "interface" | "data_card" | "kinetic_text";
   motion?: "push_in" | "zoom_out" | "pan_left" | "pan_right" | "static";
+  pace?: ScenePace;
+  transition?: SceneTransition;
   assetRevision?: number;
   audioUrl?: string | null;
 };
@@ -38,9 +43,6 @@ type RenderProps = {
   captions: boolean;
   scenes: RenderScene[];
 };
-
-type ScenePace = "calm" | "steady" | "dynamic";
-type SceneTransition = "cut" | "fade" | "slide" | "zoom" | "wipe";
 
 const defaultProps: RenderProps = {
   brandName: "MODO",
@@ -59,6 +61,8 @@ const defaultProps: RenderProps = {
       videoUrl: null,
       visualType: "kinetic_text",
       motion: "push_in",
+      pace: "dynamic",
+      transition: "cut",
       assetRevision: 0,
       audioUrl: null,
     },
@@ -66,12 +70,14 @@ const defaultProps: RenderProps = {
 };
 
 function paceForScene(scene: RenderScene): ScenePace {
+  if (scene.pace) return scene.pace;
   if (scene.visualType === "broll_video" || scene.visualType === "kinetic_text") return "dynamic";
   if (scene.visualType === "interface" || scene.visualType === "data_card") return "calm";
   return "steady";
 }
 
 function transitionForScene(scene: RenderScene): SceneTransition {
+  if (scene.transition) return scene.transition;
   if (scene.index === 1) return "cut";
   const options: SceneTransition[] = ["fade", "slide", "zoom", "wipe"];
   const variation = Math.max(0, scene.assetRevision || 0);

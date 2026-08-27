@@ -4,6 +4,9 @@ import type {
   VideoProject,
   VideoScene,
   VideoSceneMotion,
+  VideoScenePace,
+  VideoSceneTake,
+  VideoSceneTransition,
   VideoSceneUpdate,
   VideoSceneVisualType,
 } from "@modo/contracts/video";
@@ -67,6 +70,9 @@ type VideoRow = {
 };
 
 type SceneAssetKind = "image" | "audio" | "video";
+type SceneAssetMetadata = {
+  stockCredit?: VideoScene["stockCredit"];
+};
 
 type SceneAssetRow = {
   id: string;
@@ -79,6 +85,7 @@ type SceneAssetRow = {
   data: Buffer;
   provider: string;
   revision: number;
+  metadata: SceneAssetMetadata | null;
   created_at: Date;
 };
 
@@ -93,6 +100,7 @@ type MemorySceneAsset = {
   data: Buffer;
   provider: string;
   revision: number;
+  metadata: SceneAssetMetadata | null;
   createdAt: Date;
 };
 
@@ -115,6 +123,18 @@ function sceneLimit(duration: VideoDurationSeconds) {
 function motionForIndex(index: number): VideoSceneMotion {
   const motions: VideoSceneMotion[] = ["push_in", "pan_right", "zoom_out", "pan_left", "push_in", "static"];
   return motions[(index - 1) % motions.length];
+}
+
+function paceForVisualType(visualType: VideoSceneVisualType): VideoScenePace {
+  if (visualType === "broll_video" || visualType === "kinetic_text") return "dynamic";
+  if (visualType === "interface" || visualType === "data_card") return "calm";
+  return "steady";
+}
+
+function transitionForIndex(index: number, revision = 0): VideoSceneTransition {
+  if (index === 1) return "cut";
+  const transitions: VideoSceneTransition[] = ["fade", "slide", "zoom", "wipe"];
+  return transitions[(index + Math.max(0, revision) - 2) % transitions.length];
 }
 
 function visualTypeFor(input: {
@@ -146,6 +166,8 @@ function visualTypeFor(input: {
 function normalizeScene(scene: Partial<VideoScene> & Pick<VideoScene, "index" | "startFrame" | "endFrame" | "headline" | "visual" | "caption">): VideoScene {
   const imageUrl = scene.imageUrl || null;
   const videoUrl = scene.videoUrl || null;
+  const visualType = scene.visualType || (videoUrl ? "broll_video" : imageUrl ? "brand_asset" : "kinetic_text");
+  const assetRevision = Number.isInteger(scene.assetRevision) ? Number(scene.assetRevision) : 0;
   return {
     index: scene.index,
     startFrame: scene.startFrame,
@@ -155,10 +177,12 @@ function normalizeScene(scene: Partial<VideoScene> & Pick<VideoScene, "index" | 
     caption: scene.caption,
     imageUrl,
     videoUrl,
-    visualType: scene.visualType || (videoUrl ? "broll_video" : imageUrl ? "brand_asset" : "kinetic_text"),
+    visualType,
     motion: scene.motion || motionForIndex(scene.index),
+    pace: scene.pace || paceForVisualType(visualType),
+    transition: scene.transition || transitionForIndex(scene.index, assetRevision),
     assetSource: scene.assetSource || (videoUrl ? "stock" : imageUrl ? "content" : "native"),
-    assetRevision: Number.isInteger(scene.assetRevision) ? Number(scene.assetRevision) : 0,
+    assetRevision,
     visualPrompt: scene.visualPrompt || scene.visual || null,
     stockQuery: scene.stockQuery || null,
     stockCredit: scene.stockCredit || null,
@@ -206,6 +230,8 @@ export function planVideoScenes(output: GeneratedContent, durationSeconds: Video
       videoUrl: null,
       visualType,
       motion: motionForIndex(sceneIndex),
+      pace: paceForVisualType(visualType),
+      transition: transitionForIndex(sceneIndex),
       assetSource: imageUrl
         ? "content"
         : visualType === "generated_image"
@@ -350,8 +376,10 @@ export class VideoService {
         data BYTEA NOT NULL,
         provider TEXT NOT NULL,
         revision INTEGER NOT NULL DEFAULT 0,
+        metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       );
+      ALTER TABLE modo_video_scene_assets ADD COLUMN IF NOT EXISTS metadata JSONB NOT NULL DEFAULT '{}'::jsonb;
       CREATE INDEX IF NOT EXISTS modo_video_scene_assets_project_idx
         ON modo_video_scene_assets(video_project_id, scene_index, kind, revision DESC, created_at DESC);
       CREATE INDEX IF NOT EXISTS modo_video_scene_assets_public_idx
@@ -537,7 +565,7 @@ export class VideoService {
     const visual = input.patch.visual ?? current.visual;
     const caption = input.patch.caption ?? current.caption;
     const captionChanged = input.patch.caption !== undefined && caption !== current.caption;
-    const visualChanged =
+    const assetChanged =
       input.patch.visual !== undefined ||
       input.patch.visualPrompt !== undefined ||
       input.patch.stockQuery !== undefined ||
@@ -560,7 +588,7 @@ export class VideoService {
     let assetSource = current.assetSource;
     let stockCredit = current.stockCredit;
 
-    if (visualChanged && visualType !== "brand_asset") {
+    if (assetChanged && visualType !== "brand_asset") {
       imageUrl = null;
       videoUrl = null;
       stockCredit = null;
@@ -574,6 +602,7 @@ export class VideoService {
     const stockQuery = visualType === "broll_video"
       ? (input.patch.stockQuery ?? current.stockQuery ?? `${headline}. ${visual}`).slice(0, 240)
       : null;
+    const nextRevision = assetChanged ? current.assetRevision + 1 : current.assetRevision;
 
     scenes[position] = {
       ...current,
@@ -587,8 +616,10 @@ export class VideoService {
       imageUrl,
       videoUrl,
       assetSource,
-      assetRevision: visualChanged ? current.assetRevision + 1 : current.assetRevision,
-      motion: visualChanged ? motionForIndex(current.index + current.assetRevision + 1) : current.motion,
+      assetRevision: nextRevision,
+      motion: input.patch.motion ?? (assetChanged ? motionForIndex(current.index + nextRevision) : current.motion),
+      pace: input.patch.pace ?? (assetChanged ? paceForVisualType(visualType) : current.pace),
+      transition: input.patch.transition ?? (assetChanged ? transitionForIndex(current.index, nextRevision) : current.transition),
     };
 
     if (captionChanged && row.voiceover) {
@@ -635,6 +666,7 @@ export class VideoService {
           data: clip.data,
           provider: clip.provider,
           revision: nextRevision,
+          metadata: { stockCredit: clip.credit },
         });
         scenes[position] = {
           ...current,
@@ -645,6 +677,7 @@ export class VideoService {
           assetRevision: nextRevision,
           stockCredit: clip.credit,
           motion: motionForIndex(current.index + nextRevision),
+          transition: transitionForIndex(current.index, nextRevision),
         };
         return this.replaceScenesAndQueue(row, scenes, null, clip.provider);
       } catch (error) {
@@ -691,9 +724,167 @@ export class VideoService {
       stockCredit: null,
       stockQuery: null,
       motion: motionForIndex(current.index + nextRevision),
+      transition: transitionForIndex(current.index, nextRevision),
     };
 
     return this.replaceScenesAndQueue(row, scenes, generated.provider, null);
+  }
+
+  async listSceneTakes(id: string, organizationId: string, sceneIndex: number): Promise<VideoSceneTake[]> {
+    const row = await this.rowForOrganization(id, organizationId);
+    if (!row) throw new VideoError("VIDEO_PROJECT_NOT_FOUND", 404, "Projeto de vídeo não encontrado.");
+    const scene = row.scenes.map((item) => normalizeScene(item)).find((item) => item.index === sceneIndex);
+    if (!scene) throw new VideoError("VIDEO_SCENE_NOT_FOUND", 404, "Cena de vídeo não encontrada.");
+
+    const activeUrl = scene.videoUrl || scene.imageUrl;
+    const mapTake = (asset: {
+      publicToken: string;
+      kind: SceneAssetKind;
+      mimeType: string;
+      provider: string;
+      revision: number;
+      metadata: SceneAssetMetadata | null;
+      createdAt: Date;
+    }): VideoSceneTake | null => {
+      if (asset.kind !== "image" && asset.kind !== "video") return null;
+      const url = this.sceneAssetUrl(asset.publicToken);
+      const active = url === activeUrl;
+      const stockCredit = asset.kind === "video"
+        ? (asset.metadata?.stockCredit || (active ? scene.stockCredit : null) || null)
+        : null;
+      return {
+        token: asset.publicToken,
+        sceneIndex,
+        kind: asset.kind,
+        mimeType: asset.mimeType,
+        provider: asset.provider,
+        revision: asset.revision,
+        createdAt: asset.createdAt.toISOString(),
+        url,
+        active,
+        selectable: asset.kind === "image" || Boolean(stockCredit),
+        stockCredit,
+      };
+    };
+
+    if (this.pool) {
+      const result = await this.pool.query<Pick<SceneAssetRow,
+        "public_token" | "scene_index" | "kind" | "mime_type" | "provider" | "revision" | "metadata" | "created_at"
+      >>(
+        `SELECT public_token,scene_index,kind,mime_type,provider,revision,metadata,created_at
+         FROM modo_video_scene_assets
+         WHERE video_project_id=$1 AND organization_id=$2 AND scene_index=$3 AND kind IN ('image','video')
+         ORDER BY revision DESC,created_at DESC LIMIT 100`,
+        [id, organizationId, sceneIndex],
+      );
+      return result.rows
+        .map((asset) => mapTake({
+          publicToken: asset.public_token,
+          kind: asset.kind,
+          mimeType: asset.mime_type,
+          provider: asset.provider,
+          revision: Number(asset.revision || 0),
+          metadata: asset.metadata || null,
+          createdAt: asset.created_at,
+        }))
+        .filter((take): take is VideoSceneTake => Boolean(take));
+    }
+
+    return [...this.memorySceneAssets.values()]
+      .filter((asset) => asset.videoProjectId === id && asset.organizationId === organizationId && asset.sceneIndex === sceneIndex)
+      .sort((a, b) => b.revision - a.revision || b.createdAt.getTime() - a.createdAt.getTime())
+      .map((asset) => mapTake(asset))
+      .filter((take): take is VideoSceneTake => Boolean(take));
+  }
+
+  async selectSceneTake(input: {
+    id: string;
+    organizationId: string;
+    sceneIndex: number;
+    token: string;
+  }) {
+    const row = await this.rowForOrganization(input.id, input.organizationId);
+    if (!row) throw new VideoError("VIDEO_PROJECT_NOT_FOUND", 404, "Projeto de vídeo não encontrado.");
+    if (["queued", "rendering"].includes(row.status)) {
+      throw new VideoError("VIDEO_SCENE_BUSY", 409, "Aguarde o render atual terminar antes de trocar o take.");
+    }
+
+    const scenes = row.scenes.map((scene) => normalizeScene(scene));
+    const position = scenes.findIndex((scene) => scene.index === input.sceneIndex);
+    if (position < 0) throw new VideoError("VIDEO_SCENE_NOT_FOUND", 404, "Cena de vídeo não encontrada.");
+    const current = scenes[position];
+
+    let asset: {
+      publicToken: string;
+      kind: SceneAssetKind;
+      provider: string;
+      revision: number;
+      metadata: SceneAssetMetadata | null;
+    } | null = null;
+
+    if (this.pool) {
+      const result = await this.pool.query<Pick<SceneAssetRow,
+        "public_token" | "kind" | "provider" | "revision" | "metadata"
+      >>(
+        `SELECT public_token,kind,provider,revision,metadata FROM modo_video_scene_assets
+         WHERE public_token=$1 AND video_project_id=$2 AND organization_id=$3 AND scene_index=$4
+           AND kind IN ('image','video') LIMIT 1`,
+        [input.token, input.id, input.organizationId, input.sceneIndex],
+      );
+      const found = result.rows[0];
+      if (found) {
+        asset = {
+          publicToken: found.public_token,
+          kind: found.kind,
+          provider: found.provider,
+          revision: Number(found.revision || 0),
+          metadata: found.metadata || null,
+        };
+      }
+    } else {
+      const found = this.memorySceneAssets.get(input.token);
+      if (
+        found &&
+        found.videoProjectId === input.id &&
+        found.organizationId === input.organizationId &&
+        found.sceneIndex === input.sceneIndex &&
+        (found.kind === "image" || found.kind === "video")
+      ) {
+        asset = {
+          publicToken: found.publicToken,
+          kind: found.kind,
+          provider: found.provider,
+          revision: found.revision,
+          metadata: found.metadata,
+        };
+      }
+    }
+
+    if (!asset) throw new VideoError("VIDEO_SCENE_TAKE_NOT_FOUND", 404, "Take não encontrado nesta cena.");
+    const url = this.sceneAssetUrl(asset.publicToken);
+    const stockCredit = asset.kind === "video"
+      ? (asset.metadata?.stockCredit || (current.videoUrl === url ? current.stockCredit : null) || null)
+      : null;
+    if (asset.kind === "video" && asset.provider === "pexels" && !stockCredit) {
+      throw new VideoError(
+        "VIDEO_SCENE_TAKE_CREDIT_REQUIRED",
+        409,
+        "Este B-roll antigo não possui metadados de crédito suficientes para ser restaurado com segurança.",
+      );
+    }
+
+    scenes[position] = {
+      ...current,
+      imageUrl: asset.kind === "image" ? url : null,
+      videoUrl: asset.kind === "video" ? url : null,
+      visualType: asset.kind === "video" ? "broll_video" : "generated_image",
+      assetSource: asset.kind === "video" ? "stock" : "generated",
+      assetRevision: Math.max(current.assetRevision, asset.revision),
+      stockCredit,
+      stockQuery: asset.kind === "video" ? current.stockQuery : null,
+    };
+
+    return this.replaceScenesAndQueue(row, scenes, null, asset.kind === "video" && asset.provider === "pexels" ? "pexels" : null);
   }
 
   async getPublic(publicToken: string) {
@@ -813,14 +1004,16 @@ export class VideoService {
     data: Buffer;
     provider: string;
     revision: number;
+    metadata?: SceneAssetMetadata;
   }) {
     const id = randomUUID();
     const publicToken = randomUUID();
+    const metadata = input.metadata || null;
     if (this.pool) {
       await this.pool.query(
         `INSERT INTO modo_video_scene_assets(
-          id,public_token,video_project_id,organization_id,scene_index,kind,mime_type,data,provider,revision
-        ) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+          id,public_token,video_project_id,organization_id,scene_index,kind,mime_type,data,provider,revision,metadata
+        ) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11::jsonb)`,
         [
           id,
           publicToken,
@@ -832,13 +1025,22 @@ export class VideoService {
           input.data,
           input.provider,
           input.revision,
+          JSON.stringify(metadata || {}),
         ],
       );
     } else {
       this.memorySceneAssets.set(publicToken, {
         id,
         publicToken,
-        ...input,
+        videoProjectId: input.videoProjectId,
+        organizationId: input.organizationId,
+        sceneIndex: input.sceneIndex,
+        kind: input.kind,
+        mimeType: input.mimeType,
+        data: input.data,
+        provider: input.provider,
+        revision: input.revision,
+        metadata,
         createdAt: new Date(),
       });
     }
@@ -954,6 +1156,7 @@ export class VideoService {
               data: clip.data,
               provider: clip.provider,
               revision: scene.assetRevision,
+              metadata: { stockCredit: clip.credit },
             });
             scenes[index] = {
               ...scene,
@@ -977,6 +1180,7 @@ export class VideoService {
           assetSource: this.visualProvider ? "generated" : "native",
           videoUrl: null,
           stockCredit: null,
+          pace: this.visualProvider ? "steady" : "dynamic",
         };
         scenes[index] = scene;
         changed = true;
@@ -990,6 +1194,7 @@ export class VideoService {
           assetSource: "native",
           imageUrl: null,
           videoUrl: null,
+          pace: "dynamic",
         };
         changed = true;
         continue;
@@ -1029,6 +1234,7 @@ export class VideoService {
           assetSource: "native",
           imageUrl: null,
           videoUrl: null,
+          pace: "dynamic",
         };
         changed = true;
       }

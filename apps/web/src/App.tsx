@@ -42,7 +42,7 @@ const pricingPlans: PricingPlan[] = [
     price: "49",
     audience: "Para sair da tela em branco.",
     description: "Direção, criação e uma rotina simples para começar a divulgar seu trabalho.",
-    limits: ["4 créditos por mês", "1 marca e até 2 canais", "Posts, stories e 1 carrossel", "1 roteiro de vídeo curto", "Studio e exportação", "1 ciclo de revisão"],
+    limits: ["4 créditos por mês", "1 marca e até 2 canais", "Posts, stories e 1 carrossel", "1 Reel curto com MODO Video", "Studio e exportação", "1 ciclo de revisão"],
     cta: "Começar por R$ 49",
   },
   {
@@ -51,7 +51,7 @@ const pricingPlans: PricingPlan[] = [
     price: "99",
     audience: "Para publicar toda semana.",
     description: "O plano principal para transformar divulgação em uma rotina que cabe na agenda.",
-    limits: ["10 créditos por mês", "1 marca e até 3 canais", "Posts, carrosséis e roteiros", "Minha Semana e agendamento", "Direção para vídeos com rosto", "2 ciclos de revisão", "Signal e aprendizado"],
+    limits: ["10 créditos por mês", "1 marca e até 3 canais", "Posts, carrosséis e roteiros", "Minha Semana e agendamento", "2 Reels curtos com First Cut", "2 ciclos de revisão", "Signal e aprendizado"],
     cta: "Ativar MODO Presença",
     featured: true,
   },
@@ -61,7 +61,7 @@ const pricingPlans: PricingPlan[] = [
     price: "199",
     audience: "Para quem já vende e quer avançar.",
     description: "Mais campanhas, formatos e capacidade para gerar demanda com consistência.",
-    limits: ["24 créditos por mês", "Até 2 marcas e 4 canais", "Campanhas coordenadas", "Mais carrosséis e roteiros", "Agenda e publicação", "3 ciclos de revisão", "Insights orientados a resultado"],
+    limits: ["24 créditos por mês", "Até 2 marcas e 4 canais", "Campanhas coordenadas", "Mais carrosséis e até 5 Reels", "Agenda e publicação", "3 ciclos de revisão", "Insights orientados a resultado"],
     cta: "Escolher MODO Crescer",
   },
 ];
@@ -76,7 +76,7 @@ const startingPoints = [
 const valuePillars = [
   ["01", "Diz o que publicar", "Analisa a marca, escolhe objetivos, temas, formatos e canais. Você não precisa escrever prompts."],
   ["02", "Cria texto e design", "Entrega posts, carrosséis, stories, documentos para LinkedIn, legendas, roteiros e arquivos para publicar."],
-  ["03", "Dirige vídeos e histórias", "Explica quem aparece, o que falar, como enquadrar, quais cenas gravar e oferece uma alternativa sem rosto."],
+  ["03", "Monta Reels e vídeos curtos", "Cria roteiro, primeiro corte, cenas com B-roll ou mídia própria, legendas, narração opcional, ritmo e transições. Você aprova cena por cena."],
   ["04", "Organiza sua semana", "Mostra o que aprovar, gravar, publicar e medir, com tempo estimado e próximo passo claro."],
   ["05", "Aprende o que funciona", "Usa revisões, conversas, leads, vendas e desempenho para melhorar o próximo plano."],
 ];
@@ -166,7 +166,7 @@ export default function App() {
           <div className="fishing-hero-copy">
             <div className="eyebrow"><span /> Direção, criação e rotina para vender nas redes</div>
             <h1>Você sabe o que vende. <strong>A MODO mostra o que publicar.</strong></h1>
-            <p>Conte o que você faz. A MODO decide os melhores conteúdos, cria o texto e o design, orienta vídeos, organiza sua semana e aprende com os resultados.</p>
+            <p>Conte o que você faz. A MODO decide os melhores conteúdos, cria texto e design, monta o primeiro corte dos seus Reels, organiza sua semana e aprende com os resultados.</p>
             <div className="hero-actions">
               <a className="button button-primary" href="/app">Testar grátis por 7 dias <span>↗</span></a>
               <a className="text-link" href="#diagnostico">Analisar minha marca primeiro ↓</a>
@@ -181,7 +181,7 @@ export default function App() {
             <div className="fishing-arrow">↓</div>
             <div className="fishing-output-card">
               <div><span>HOJE</span><strong>Post de autoridade</strong><small>Pronto para aprovar</small></div>
-              <div><span>AMANHÃ</span><strong>Vídeo de 45 segundos</strong><small>Roteiro + direção</small></div>
+              <div><span>AMANHÃ</span><strong>Reel de 45 segundos</strong><small>Primeiro corte pronto para revisar</small></div>
               <div><span>SEXTA</span><strong>Oferta para WhatsApp</strong><small>CTA pronto</small></div>
             </div>
             <p>Você não recebe um painel vazio. Recebe o próximo passo.</p>

@@ -41,10 +41,9 @@ import "./human-operations-admin.css";
 import "./curation-discreet.css";
 import "./product-path-guide.css";
 import "./publisher-v2.css";
+import "./prospector.css";
 import "./legal.css";
 
 createRoot(document.getElementById("root")!).render(
-  <StrictMode>
-    <Root />
-  </StrictMode>,
+  <StrictMode><Root /></StrictMode>,
 );

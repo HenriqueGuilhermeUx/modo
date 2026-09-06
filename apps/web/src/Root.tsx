@@ -35,6 +35,7 @@ const SpecialistApplicationPage=lazy(()=>import("./SpecialistApplicationPage"));
 const SpecialistSupportWorkspace=lazy(()=>import("./SpecialistSupportWorkspace"));
 const StrategyWorkspace=lazy(()=>import("./StrategyWorkspace"));
 const StudioWorkspace=lazy(()=>import("./StudioWorkspace"));
+const VideoHub=lazy(()=>import("./VideoHub"));
 const VideoWorkspace=lazy(()=>import("./VideoWorkspaceV18"));
 const WeekWorkspace=lazy(()=>import("./WeekWorkspace"));
 
@@ -64,6 +65,7 @@ export default function Root(){
  if(path==="/app/agency"||(path==="/app"&&agencyMode))return suspended(<><AgencyWorkspace/><PasswordRecoveryEntry mode="agency"/></>);
  if(path.startsWith("/app/onboarding"))return suspended(<OnboardingWorkspace/>);
  if(path.startsWith("/app/studio/"))return suspended(<StudioWorkspace/>);
+ if(path==="/app/video")return suspended(<VideoHub/>);
  if(path.startsWith("/app/video/"))return suspended(<VideoWorkspace/>);
  if(path.startsWith("/app/base"))return suspended(<StrategyWorkspace/>);
  if(path.startsWith("/app/especialista"))return suspended(<SpecialistSupportWorkspace/>);
@@ -77,6 +79,6 @@ export default function Root(){
  if(path.startsWith("/app/inteligencia"))return suspended(<IntelligenceWorkspace/>);
  if(path.startsWith("/app/signal"))return suspended(<SignalWorkspace/>);
  if(path.startsWith("/app/content"))return suspended(<ContentWorkspace/>);
- if(path.startsWith("/app"))return suspended(<><Portal/><PasswordRecoveryEntry mode="business"/><PortalWelcomeGuide/><ProductPathGuideAddon mode="portal"/><div className="portal-floating-actions"><a className="portal-plan-entry" href="/app/onboarding">Primeiros passos</a><a className="portal-plan-entry" href="/app/base">Base estratégica</a><a className="portal-plan-entry" href="/app/week">Minha semana</a><a className="portal-plan-entry" href="/app/director">Meu próximo movimento</a><a className="portal-plan-entry" href="/app/campanhas">Campanhas</a><a className="portal-plan-entry" href="/app/publisher">Publisher</a><a className="portal-plan-entry" href="/app/linkedin">LinkedIn</a><a className="portal-plan-entry" href="/app/settings/integrations">Integrações</a><a className="portal-plan-entry" href="/app/inteligencia">Inteligência</a><a className="portal-plan-entry" href="/onboarding-smartbots.html">SmartBots</a><a className="portal-plan-entry" href="/app/signal">Signal</a><a className="portal-workspace-entry" href="/app/content">Quick Start e criar ↗</a></div></>);
+ if(path.startsWith("/app"))return suspended(<><Portal/><PasswordRecoveryEntry mode="business"/><PortalWelcomeGuide/><ProductPathGuideAddon mode="portal"/><div className="portal-floating-actions"><a className="portal-plan-entry" href="/app/onboarding">Primeiros passos</a><a className="portal-plan-entry" href="/app/base">Base estratégica</a><a className="portal-plan-entry" href="/app/week">Minha semana</a><a className="portal-plan-entry" href="/app/director">Meu próximo movimento</a><a className="portal-plan-entry" href="/app/campanhas">Campanhas</a><a className="portal-plan-entry" href="/app/video">MODO Video</a><a className="portal-plan-entry" href="/app/publisher">Publisher</a><a className="portal-plan-entry" href="/app/linkedin">LinkedIn</a><a className="portal-plan-entry" href="/app/settings/integrations">Integrações</a><a className="portal-plan-entry" href="/app/inteligencia">Inteligência</a><a className="portal-plan-entry" href="/onboarding-smartbots.html">SmartBots</a><a className="portal-plan-entry" href="/app/signal">Signal</a><a className="portal-workspace-entry" href="/app/content">Quick Start e criar ↗</a></div></>);
  return suspended(<ImpactLanding/>);
 }

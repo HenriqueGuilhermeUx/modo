@@ -35,7 +35,7 @@ const outcomeOptions: Array<{ id: QuickStartOutcome; title: string; copy: string
   { id: "decide", title: "A MODO decide", copy: "Formato e canal recomendados automaticamente." },
   { id: "post", title: "Uma publicação", copy: "Post completo para revisar e publicar." },
   { id: "carousel", title: "Um carrossel", copy: "Narrativa em páginas com direção visual." },
-  { id: "video", title: "Um vídeo", copy: "Roteiro, abertura, cenas e orientação de gravação." },
+  { id: "video", title: "Um Reel", copy: "Roteiro + primeiro corte com cenas, mídia, legendas e direção automática." },
   { id: "linkedin", title: "Conteúdo para LinkedIn", copy: "Autoridade profissional ou empresarial." },
   { id: "week", title: "Minha semana", copy: "Plano com ações pequenas e executáveis." },
   { id: "campaign", title: "Uma campanha", copy: "Movimentos coordenados para um objetivo." },
@@ -236,7 +236,7 @@ export default function QuickStart({ dashboard, brandId, onPrepared }: Props) {
       <div className="quick-start-step"><strong>3. Qual resultado importa mais?</strong><div className="quick-objectives">{objectiveOptions.map((item) => <button type="button" className={objective === item.id ? "selected" : ""} key={item.id} onClick={() => setObjective(item.id)}>{item.label}</button>)}</div></div>
 
       {error && <div className="portal-error">{error}</div>}
-      <button type="button" className="button button-primary button-full" disabled={loading || !brandId} onClick={() => void prepare()}>{loading ? "A MODO está organizando..." : ["week", "campaign"].includes(outcome) ? "Criar plano com a MODO" : "Preparar meu conteúdo"}</button>
+      <button type="button" className="button button-primary button-full" disabled={loading || !brandId} onClick={() => void prepare()}>{loading ? "A MODO está organizando..." : ["week", "campaign"].includes(outcome) ? "Criar plano com a MODO" : outcome === "video" ? "Preparar meu Reel" : "Preparar meu conteúdo"}</button>
       <small className="quick-start-note">Links: artigos, blogs, notícias e páginas públicas. Para áudio ou vídeo, use o ditado ou cole uma transcrição nesta versão.</small>
     </section>
   );

@@ -28,7 +28,7 @@ const formatLabels: Record<ContentUnitType, string> = {
   static_post: "Post estático",
   story: "Story",
   carousel: "Carrossel",
-  short_video_script: "Roteiro de vídeo curto",
+  short_video_script: "Roteiro para Reel",
   channel_adaptation: "Adaptação de canal",
 };
 
@@ -68,7 +68,9 @@ function derivativeBrief(source: ContentRequest, target: ContentUnitType) {
     ? "Crie um carrossel completo de 5 a 7 slides, com uma arte visual individual e consistente para cada slide."
     : target === "story"
       ? "Crie uma sequência de exatamente 3 Stories, com uma arte visual vertical individual e consistente para cada frame."
-      : "Adapte a peça para um novo contexto de canal, preservando fatos, oferta, público e posicionamento.";
+      : target === "short_video_script"
+        ? "Transforme esta peça em um roteiro de Reel com gancho forte, cenas curtas, direção visual e fala/legenda por cena. O roteiro será usado pelo MODO Video para montar o primeiro corte."
+        : "Adapte a peça para um novo contexto de canal, preservando fatos, oferta, público e posicionamento.";
   return [
     "DESDOBRAMENTO DE CONTEÚDO JÁ APROVADO PELO CLIENTE.",
     instruction,
@@ -108,7 +110,9 @@ export default function ContentWorkspace() {
       const [currentDashboard, currentRequests] = await Promise.all([getDashboard(), listContentRequests()]);
       setDashboard(currentDashboard);
       setRequests(currentRequests);
-      const openId = new URLSearchParams(window.location.search).get("open");
+      const params = new URLSearchParams(window.location.search);
+      const openId = params.get("open");
+      const requestedFormat = params.get("format");
       if (openId && currentRequests.some((item) => item.id === openId)) setExpandedId(openId);
 
       const rawPrefill = window.sessionStorage.getItem("modo.directorPrefill");
@@ -131,6 +135,11 @@ export default function ContentWorkspace() {
         window.sessionStorage.removeItem("modo.directorPrefill");
       } else {
         setBrandId((current) => current || currentDashboard.brands[0]?.id || "");
+        if (requestedFormat === "video") {
+          setContentType("short_video_script");
+          setChannel("Instagram");
+          setSuccess("MODO Video selecionado. Crie o roteiro; depois da aprovação, a MODO monta o primeiro corte automaticamente.");
+        }
       }
       setError("");
     } catch (caught) {
@@ -294,7 +303,7 @@ export default function ContentWorkspace() {
     <div className="workspace-shell">
       <header className="workspace-header">
         <a href="/app"><img src="/logo.svg" alt="MODO" /></a>
-        <nav><a href="/app">Painel</a><a href="/app/week">Minha semana</a><a href="/app/director">Diretor</a><a className="active" href="/app/content">Criar</a><a href="/app/linkedin">LinkedIn</a><a href="/app/planos">Planos</a></nav>
+        <nav><a href="/app">Painel</a><a href="/app/week">Minha semana</a><a href="/app/director">Diretor</a><a className="active" href="/app/content">Criar</a><a href="/app/video">MODO Video</a><a href="/app/linkedin">LinkedIn</a><a href="/app/planos">Planos</a></nav>
         <div className="workspace-balance"><small>Saldo</small><strong>{dashboard.usage.creditsRemaining}</strong><span>créditos</span></div>
       </header>
 
@@ -342,7 +351,7 @@ export default function ContentWorkspace() {
                 <div className="workspace-summary"><span>Marca: <strong>{selectedBrand?.name}</strong></span><span>Formato: <strong>{formatLabels[contentType]}</strong></span><span>Objetivo: <strong>{objectiveLabels[objective]}</strong></span><span>Saldo após pedido: <strong>{Math.max(0, dashboard.usage.creditsRemaining - cost)}</strong></span></div>
                 {error && <div className="portal-error">{error}</div>}
                 {success && <div className="workspace-success">{success}</div>}
-                <button className="button button-primary button-full" disabled={!canSubmit || submitting}>{submitting ? "Diretor assumindo o pedido..." : `Produzir com a MODO · ${cost} crédito${cost > 1 ? "s" : ""}`}</button>
+                <button className="button button-primary button-full" disabled={!canSubmit || submitting}>{submitting ? "Diretor assumindo o pedido..." : contentType === "short_video_script" ? `Criar roteiro para Reel · ${cost} créditos` : `Produzir com a MODO · ${cost} crédito${cost > 1 ? "s" : ""}`}</button>
                 {dashboard.usage.creditsRemaining < cost && <small className="workspace-warning">Saldo insuficiente para este formato. Escolha um formato de 1 crédito ou faça upgrade.</small>}
               </>
             )}

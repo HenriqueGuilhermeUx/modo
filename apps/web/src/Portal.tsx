@@ -201,6 +201,18 @@ export default function Portal() {
 
         <ActivationChecklist />
 
+        <section className="portal-video-entry">
+          <div>
+            <small>NOVO · MODO VIDEO</small>
+            <h2>Seu Reel pode nascer com o primeiro corte pronto.</h2>
+            <p>Da estratégia ao MP4: roteiro, cenas, B-roll ou mídia própria, legendas, ritmo, Quality Gate, aprovação e Publisher.</p>
+          </div>
+          <div className="portal-video-entry-actions">
+            <a className="button button-primary" href="/app/video">Abrir MODO Video</a>
+            <a className="button button-secondary" href="/app/content?format=video">Criar um Reel</a>
+          </div>
+        </section>
+
         <section className="portal-overview" id="overview">
           <article className="portal-stat portal-stat-primary">
             <small>Saldo disponível</small>
@@ -229,7 +241,7 @@ export default function Portal() {
             <span>Posts: {dashboard.usage.usageByType.static_post}</span>
             <span>Stories: {dashboard.usage.usageByType.story}</span>
             <span>Carrosséis: {dashboard.usage.usageByType.carousel}/{dashboard.usage.entitlements.maxCarouselsPerMonth}</span>
-            <span>Roteiros: {dashboard.usage.usageByType.short_video_script}/{dashboard.usage.entitlements.maxShortVideoScriptsPerMonth}</span>
+            <span>Reels: {dashboard.usage.usageByType.short_video_script}/{dashboard.usage.entitlements.maxShortVideoScriptsPerMonth}</span>
           </div>
         </section>
 

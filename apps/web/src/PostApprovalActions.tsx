@@ -25,6 +25,11 @@ const derivativeOptions: Array<{
     title: "Gerar Stories visuais",
     description: "Cria três Stories consistentes com a peça aprovada.",
   },
+  {
+    type: "short_video_script",
+    title: "Transformar em Reel",
+    description: "Cria um roteiro de vídeo curto a partir desta aprovação e libera o First Cut no MODO Video.",
+  },
 ];
 
 export default function PostApprovalActions({
@@ -34,6 +39,7 @@ export default function PostApprovalActions({
   onGenerate,
 }: Props) {
   const available = derivativeOptions.filter((option) => option.type !== request.contentType);
+  const isVideoScript = request.contentType === "short_video_script";
 
   return (
     <section className="post-approval-workspace" id={`post-approval-${request.id}`}>
@@ -46,27 +52,46 @@ export default function PostApprovalActions({
         <span>✓ Versão protegida</span>
       </div>
 
-      <section className="post-approval-card publisher-v2-card">
-        <NativePublisherApprovalAction request={request} />
-      </section>
+      {isVideoScript ? (
+        <section className="post-approval-card video-launch-card">
+          <div>
+            <small>MODO VIDEO · FIRST CUT</small>
+            <strong>Agora transforme o roteiro em Reel.</strong>
+            <p>A MODO monta o primeiro corte em 9:16 com cenas, mídia própria ou B-roll, imagens, legendas, ritmo e narração opcional. Você pode trocar só a cena que não gostou.</p>
+            <div className="video-launch-features">
+              <span>15 · 30 · 45s</span>
+              <span>Quality Gate</span>
+              <span>Aprovação por cena</span>
+              <span>MP4 para o Publisher</span>
+            </div>
+          </div>
+          <a className="button button-primary" href={`/app/video/${request.id}`}>Montar primeiro corte</a>
+        </section>
+      ) : (
+        <>
+          <section className="post-approval-card publisher-v2-card">
+            <NativePublisherApprovalAction request={request} />
+          </section>
 
-      <div className="post-approval-grid">
-        <article className="post-approval-card primary">
-          <small>ACABAMENTO NA MODO</small>
-          <strong>Editar e exportar no Studio</strong>
-          <p>Aplique título, CTA e ajustes finais. Depois baixe a peça em PNG.</p>
-          <a className="button button-primary" href={`/app/studio/${request.id}`}>Abrir no Studio</a>
-        </article>
+          <div className="post-approval-grid">
+            <article className="post-approval-card primary">
+              <small>ACABAMENTO NA MODO</small>
+              <strong>Editar e exportar no Studio</strong>
+              <p>Aplique título, CTA e ajustes finais. Depois baixe a peça em PNG.</p>
+              <a className="button button-primary" href={`/app/studio/${request.id}`}>Abrir no Studio</a>
+            </article>
 
-        <article className="post-approval-card canva-card">
-          <CanvaApprovalAction contentRequestId={request.id} />
-        </article>
-      </div>
+            <article className="post-approval-card canva-card">
+              <CanvaApprovalAction contentRequestId={request.id} />
+            </article>
+          </div>
+        </>
+      )}
 
       <section className="post-approval-card">
         <small>CENTRAL DE PUBLICAÇÃO</small>
-        <strong>Calendário, canais e desempenho</strong>
-        <p>Gerencie conexões por marca, acompanhe agendamentos, falhas, retries e o que a MODO aprendeu com a performance.</p>
+        <strong>{isVideoScript ? "Publique o MP4 depois da aprovação final" : "Calendário, canais e desempenho"}</strong>
+        <p>{isVideoScript ? "O roteiro não vai direto para a rede. O MODO Video gera o MP4, protege a versão aprovada e só então libera publicação ou agendamento." : "Gerencie conexões por marca, acompanhe agendamentos, falhas, retries e o que a MODO aprendeu com a performance."}</p>
         <a className="button button-secondary" href={`/app/publisher?brand=${encodeURIComponent(request.brandId)}`}>Abrir Publisher</a>
       </section>
 

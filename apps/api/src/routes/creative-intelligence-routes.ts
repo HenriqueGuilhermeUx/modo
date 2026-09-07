@@ -33,9 +33,23 @@ async function requireBrand(auth: AuthService, request: FastifyRequest, brandId:
 export async function registerCreativeIntelligenceRoutes(app: FastifyInstance, options: Options) {
   const service = new CreativeIntelligenceService({ databaseUrl: options.databaseUrl, databaseSsl: options.databaseSsl });
   const auxiliaryContent = new ContentService({ databaseUrl: options.databaseUrl, databaseSsl: options.databaseSsl });
-  const apify = new ApifyProspectorProvider({ token: process.env.APIFY_TOKEN, actorId: process.env.APIFY_PROSPECTOR_ACTOR_ID, baseUrl: process.env.APIFY_BASE_URL });
+  const apify = new ApifyProspectorProvider({
+    token: process.env.APIFY_PROSPECTOR_TOKEN || process.env.APIFY_API_TOKEN || process.env.APIFY_TOKEN,
+    actorId: process.env.APIFY_PROSPECTOR_ACTOR_ID,
+    taskId: process.env.APIFY_PROSPECTOR_TASK_ID || process.env.APIFY_B2B_PROSPECTING_TASK_ID,
+    baseUrl: process.env.APIFY_PROSPECTOR_BASE_URL || process.env.APIFY_API_BASE_URL || process.env.APIFY_BASE_URL,
+    inputTemplateJson: process.env.APIFY_PROSPECTOR_INPUT_TEMPLATE_JSON,
+    timeoutSeconds: Number(process.env.APIFY_PROSPECTOR_TIMEOUT_SECONDS || 240),
+    maxTotalChargeUsd: Number(process.env.APIFY_PROSPECTOR_MAX_CHARGE_USD || 0) || undefined,
+  });
   const prospectorProvider = apify.configured ? apify : new ManualProspectorProvider();
-  const prospector = new ProspectorService({ databaseUrl: options.databaseUrl, databaseSsl: options.databaseSsl, provider: prospectorProvider, openAiApiKey: process.env.OPENAI_API_KEY, openAiTextModel: process.env.OPENAI_TEXT_MODEL });
+  const prospector = new ProspectorService({
+    databaseUrl: options.databaseUrl,
+    databaseSsl: options.databaseSsl,
+    provider: prospectorProvider,
+    openAiApiKey: process.env.OPENAI_API_KEY,
+    openAiTextModel: process.env.OPENAI_TEXT_MODEL,
+  });
   await Promise.all([service.initialize(), auxiliaryContent.initialize(), prospector.initialize()]);
   app.addHook("onClose", async () => { await Promise.all([service.close(), auxiliaryContent.close(), prospector.close()]); });
 

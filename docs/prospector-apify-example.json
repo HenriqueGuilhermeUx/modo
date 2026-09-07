@@ -1,0 +1,9 @@
+{
+  "segment": "Contabilidade",
+  "roles": ["Sócio", "CEO"],
+  "location": "Brasil",
+  "companySize": "10-100 funcionários",
+  "offer": "SmartBots",
+  "maxItems": 20,
+  "searchQuery": "Contabilidade Sócio OR CEO Brasil"
+}

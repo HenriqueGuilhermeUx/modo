@@ -1,0 +1,1 @@
+Prospector providers implement `ProspectorProvider` and return normalized lead candidates. Provider-specific payloads stay behind the adapter boundary.

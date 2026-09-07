@@ -34,10 +34,10 @@ export async function registerCreativeIntelligenceRoutes(app: FastifyInstance, o
   const service = new CreativeIntelligenceService({ databaseUrl: options.databaseUrl, databaseSsl: options.databaseSsl });
   const auxiliaryContent = new ContentService({ databaseUrl: options.databaseUrl, databaseSsl: options.databaseSsl });
   const apify = new ApifyProspectorProvider({
-    token: process.env.APIFY_TOKEN,
+    token: process.env.APIFY_PROSPECTOR_TOKEN || process.env.APIFY_API_TOKEN || process.env.APIFY_TOKEN,
     actorId: process.env.APIFY_PROSPECTOR_ACTOR_ID,
-    taskId: process.env.APIFY_PROSPECTOR_TASK_ID,
-    baseUrl: process.env.APIFY_BASE_URL,
+    taskId: process.env.APIFY_PROSPECTOR_TASK_ID || process.env.APIFY_B2B_PROSPECTING_TASK_ID,
+    baseUrl: process.env.APIFY_PROSPECTOR_BASE_URL || process.env.APIFY_API_BASE_URL || process.env.APIFY_BASE_URL,
     inputTemplateJson: process.env.APIFY_PROSPECTOR_INPUT_TEMPLATE_JSON,
     timeoutSeconds: Number(process.env.APIFY_PROSPECTOR_TIMEOUT_SECONDS || 240),
     maxTotalChargeUsd: Number(process.env.APIFY_PROSPECTOR_MAX_CHARGE_USD || 0) || undefined,

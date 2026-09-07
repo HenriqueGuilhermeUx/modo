@@ -8,26 +8,20 @@ import { z } from "zod";
 import { AuthError, type AuthService } from "../services/auth-service.js";
 import { ContentService } from "../services/content-service.js";
 import { CreativeIntelligenceService } from "../services/creative-intelligence-service.js";
+import { ApifyProspectorProvider, ManualProspectorProvider } from "../services/prospector-provider.js";
 import { ProspectorService } from "../services/prospector-service.js";
 import { registerLinkedInRoutes } from "./linkedin-routes.js";
 import { registerPostizRoutes } from "./postiz-routes.js";
 import { registerProspectorRoutes } from "./prospector-routes.js";
 import { registerSignalRoutes } from "./signal-routes.js";
 
-interface Options {
-  auth: AuthService;
-  databaseUrl?: string;
-  databaseSsl?: boolean;
-}
+interface Options { auth: AuthService; databaseUrl?: string; databaseSsl?: boolean; }
 
 function bearerToken(request: FastifyRequest) {
   const value = request.headers.authorization;
-  if (!value?.startsWith("Bearer ")) {
-    throw new AuthError("UNAUTHORIZED", 401, "Faça login para continuar.");
-  }
+  if (!value?.startsWith("Bearer ")) throw new AuthError("UNAUTHORIZED", 401, "Faça login para continuar.");
   return value.slice(7).trim();
 }
-
 async function requireBrand(auth: AuthService, request: FastifyRequest, brandId: string) {
   const context = await auth.authenticate(bearerToken(request));
   const brands = await auth.listBrands(context.organization.id);
@@ -36,54 +30,18 @@ async function requireBrand(auth: AuthService, request: FastifyRequest, brandId:
   return { context, brand };
 }
 
-export async function registerCreativeIntelligenceRoutes(
-  app: FastifyInstance,
-  options: Options,
-) {
-  const service = new CreativeIntelligenceService({
-    databaseUrl: options.databaseUrl,
-    databaseSsl: options.databaseSsl,
-  });
-  const auxiliaryContent = new ContentService({
-    databaseUrl: options.databaseUrl,
-    databaseSsl: options.databaseSsl,
-  });
-  const prospector = new ProspectorService({
-    databaseUrl: options.databaseUrl,
-    databaseSsl: options.databaseSsl,
-  });
+export async function registerCreativeIntelligenceRoutes(app: FastifyInstance, options: Options) {
+  const service = new CreativeIntelligenceService({ databaseUrl: options.databaseUrl, databaseSsl: options.databaseSsl });
+  const auxiliaryContent = new ContentService({ databaseUrl: options.databaseUrl, databaseSsl: options.databaseSsl });
+  const apify = new ApifyProspectorProvider({ token: process.env.APIFY_TOKEN, actorId: process.env.APIFY_PROSPECTOR_ACTOR_ID, baseUrl: process.env.APIFY_BASE_URL });
+  const prospectorProvider = apify.configured ? apify : new ManualProspectorProvider();
+  const prospector = new ProspectorService({ databaseUrl: options.databaseUrl, databaseSsl: options.databaseSsl, provider: prospectorProvider, openAiApiKey: process.env.OPENAI_API_KEY, openAiTextModel: process.env.OPENAI_TEXT_MODEL });
   await Promise.all([service.initialize(), auxiliaryContent.initialize(), prospector.initialize()]);
-  app.addHook("onClose", async () => {
-    await Promise.all([service.close(), auxiliaryContent.close(), prospector.close()]);
-  });
+  app.addHook("onClose", async () => { await Promise.all([service.close(), auxiliaryContent.close(), prospector.close()]); });
 
-  await registerLinkedInRoutes(app, {
-    auth: options.auth,
-    content: auxiliaryContent,
-    clientId: process.env.LINKEDIN_CLIENT_ID,
-    clientSecret: process.env.LINKEDIN_CLIENT_SECRET,
-    redirectUri: process.env.LINKEDIN_REDIRECT_URI,
-    scopes: process.env.LINKEDIN_SCOPES,
-    encryptionSecret: process.env.LINKEDIN_TOKEN_ENCRYPTION_SECRET,
-    apiVersion: process.env.LINKEDIN_API_VERSION,
-    webUrl: process.env.PUBLIC_WEB_URL,
-    databaseUrl: options.databaseUrl,
-    databaseSsl: options.databaseSsl,
-  });
-  await registerSignalRoutes(app, {
-    auth: options.auth,
-    content: auxiliaryContent,
-    databaseUrl: options.databaseUrl,
-    databaseSsl: options.databaseSsl,
-  });
-  await registerPostizRoutes(app, {
-    auth: options.auth,
-    content: auxiliaryContent,
-    apiKey: process.env.POSTIZ_API_KEY,
-    baseUrl: process.env.POSTIZ_BASE_URL,
-    databaseUrl: options.databaseUrl,
-    databaseSsl: options.databaseSsl,
-  });
+  await registerLinkedInRoutes(app, { auth: options.auth, content: auxiliaryContent, clientId: process.env.LINKEDIN_CLIENT_ID, clientSecret: process.env.LINKEDIN_CLIENT_SECRET, redirectUri: process.env.LINKEDIN_REDIRECT_URI, scopes: process.env.LINKEDIN_SCOPES, encryptionSecret: process.env.LINKEDIN_TOKEN_ENCRYPTION_SECRET, apiVersion: process.env.LINKEDIN_API_VERSION, webUrl: process.env.PUBLIC_WEB_URL, databaseUrl: options.databaseUrl, databaseSsl: options.databaseSsl });
+  await registerSignalRoutes(app, { auth: options.auth, content: auxiliaryContent, databaseUrl: options.databaseUrl, databaseSsl: options.databaseSsl });
+  await registerPostizRoutes(app, { auth: options.auth, content: auxiliaryContent, apiKey: process.env.POSTIZ_API_KEY, baseUrl: process.env.POSTIZ_BASE_URL, databaseUrl: options.databaseUrl, databaseSsl: options.databaseSsl });
   await registerProspectorRoutes(app, { auth: options.auth, prospector });
 
   app.get("/api/v1/director/profile/:brandId", async (request) => {
@@ -91,50 +49,32 @@ export async function registerCreativeIntelligenceRoutes(
     const { context } = await requireBrand(options.auth, request, brandId);
     return service.getProfile(context.organization.id, brandId);
   });
-
   app.put("/api/v1/director/profile/:brandId", async (request) => {
     const brandId = z.string().uuid().parse((request.params as { brandId: string }).brandId);
     const { context } = await requireBrand(options.auth, request, brandId);
-    const input = CreativeProfileUpsertSchema.parse({
-      ...(request.body as Record<string, unknown>),
-      brandId,
-    });
+    const input = CreativeProfileUpsertSchema.parse({ ...(request.body as Record<string, unknown>), brandId });
     return service.upsertProfile(context.organization.id, input);
   });
-
   app.get("/api/v1/director/recommendations/:brandId", async (request) => {
     const brandId = z.string().uuid().parse((request.params as { brandId: string }).brandId);
     const { context } = await requireBrand(options.auth, request, brandId);
-    return {
-      recommendations: await service.listRecommendations(context.organization.id, brandId),
-    };
+    return { recommendations: await service.listRecommendations(context.organization.id, brandId) };
   });
-
-  app.post(
-    "/api/v1/director/plan/:brandId",
-    { config: { rateLimit: { max: 12, timeWindow: "10 minutes" } } },
-    async (request, reply) => {
-      const brandId = z.string().uuid().parse((request.params as { brandId: string }).brandId);
-      const { context, brand } = await requireBrand(options.auth, request, brandId);
-      return reply.code(201).send(await service.generatePlan(context.organization.id, brand));
-    },
-  );
-
+  app.post("/api/v1/director/plan/:brandId", { config: { rateLimit: { max: 12, timeWindow: "10 minutes" } } }, async (request, reply) => {
+    const brandId = z.string().uuid().parse((request.params as { brandId: string }).brandId);
+    const { context, brand } = await requireBrand(options.auth, request, brandId);
+    return reply.code(201).send(await service.generatePlan(context.organization.id, brand));
+  });
   app.post("/api/v1/director/recommendations/:id/status", async (request) => {
     const context = await options.auth.authenticate(bearerToken(request));
     const id = z.string().uuid().parse((request.params as { id: string }).id);
-    const status = CreativeRecommendationStatusSchema.parse(
-      (request.body as { status?: unknown })?.status,
-    );
+    const status = CreativeRecommendationStatusSchema.parse((request.body as { status?: unknown })?.status);
     return service.setRecommendationStatus(context.organization.id, id, status);
   });
-
   app.post("/api/v1/director/feedback/:brandId", async (request, reply) => {
     const brandId = z.string().uuid().parse((request.params as { brandId: string }).brandId);
     const { context } = await requireBrand(options.auth, request, brandId);
     const feedback = CreativeFeedbackSchema.parse(request.body);
-    return reply.code(201).send(
-      await service.recordFeedback(context.organization.id, brandId, feedback),
-    );
+    return reply.code(201).send(await service.recordFeedback(context.organization.id, brandId, feedback));
   });
 }

@@ -8,8 +8,10 @@ import { z } from "zod";
 import { AuthError, type AuthService } from "../services/auth-service.js";
 import { ContentService } from "../services/content-service.js";
 import { CreativeIntelligenceService } from "../services/creative-intelligence-service.js";
+import { ProspectorService } from "../services/prospector-service.js";
 import { registerLinkedInRoutes } from "./linkedin-routes.js";
 import { registerPostizRoutes } from "./postiz-routes.js";
+import { registerProspectorRoutes } from "./prospector-routes.js";
 import { registerSignalRoutes } from "./signal-routes.js";
 
 interface Options {
@@ -46,9 +48,13 @@ export async function registerCreativeIntelligenceRoutes(
     databaseUrl: options.databaseUrl,
     databaseSsl: options.databaseSsl,
   });
-  await Promise.all([service.initialize(), auxiliaryContent.initialize()]);
+  const prospector = new ProspectorService({
+    databaseUrl: options.databaseUrl,
+    databaseSsl: options.databaseSsl,
+  });
+  await Promise.all([service.initialize(), auxiliaryContent.initialize(), prospector.initialize()]);
   app.addHook("onClose", async () => {
-    await Promise.all([service.close(), auxiliaryContent.close()]);
+    await Promise.all([service.close(), auxiliaryContent.close(), prospector.close()]);
   });
 
   await registerLinkedInRoutes(app, {
@@ -78,6 +84,7 @@ export async function registerCreativeIntelligenceRoutes(
     databaseUrl: options.databaseUrl,
     databaseSsl: options.databaseSsl,
   });
+  await registerProspectorRoutes(app, { auth: options.auth, prospector });
 
   app.get("/api/v1/director/profile/:brandId", async (request) => {
     const brandId = z.string().uuid().parse((request.params as { brandId: string }).brandId);

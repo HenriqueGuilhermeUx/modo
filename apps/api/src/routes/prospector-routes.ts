@@ -7,10 +7,12 @@ function bearer(request:FastifyRequest){const value=request.headers.authorizatio
 export async function registerProspectorRoutes(app:FastifyInstance,deps:{auth:AuthService;prospector:ProspectorService}){
  const userFor=async(request:FastifyRequest)=>deps.auth.authenticate(bearer(request));
  const fail=(error:unknown,reply:any)=>{if(error instanceof ProspectorError)return reply.code(error.status).send({code:error.code,message:error.message});throw error};
- app.get("/api/v1/prospector/health",async()=>({status:"ok",storage:deps.prospector.storage,capabilities:["icp","campaigns","leads","fit-score","lead-status"],provider:"manual"}));
+ app.get("/api/v1/prospector/health",async()=>({status:"ok",storage:deps.prospector.storage,capabilities:["icp","campaigns","leads","fit-score","lead-status","discovery","outreach-draft"],provider:deps.prospector.provider}));
  app.get("/api/v1/prospector/campaigns",async(request,reply)=>{try{return await deps.prospector.listCampaigns(await userFor(request))}catch(error){return fail(error,reply)}});
  app.post("/api/v1/prospector/campaigns",async(request,reply)=>{try{return reply.code(201).send(await deps.prospector.createCampaign(await userFor(request),request.body as any))}catch(error){return fail(error,reply)}});
+ app.post("/api/v1/prospector/campaigns/:id/discover",{config:{rateLimit:{max:8,timeWindow:"10 minutes"}}},async(request,reply)=>{try{const {id}=request.params as {id:string};const limit=Number((request.body as any)?.limit||20);return await deps.prospector.discover(await userFor(request),id,limit)}catch(error){return fail(error,reply)}});
  app.get("/api/v1/prospector/campaigns/:id/leads",async(request,reply)=>{try{const {id}=request.params as {id:string};return await deps.prospector.listLeads(await userFor(request),id)}catch(error){return fail(error,reply)}});
  app.post("/api/v1/prospector/campaigns/:id/leads",async(request,reply)=>{try{const {id}=request.params as {id:string};return reply.code(201).send(await deps.prospector.addLead(await userFor(request),{...(request.body as any),campaignId:id}))}catch(error){return fail(error,reply)}});
  app.patch("/api/v1/prospector/leads/:id/status",async(request,reply)=>{try{const {id}=request.params as {id:string};const {status}=request.body as {status:ProspectorLeadStatus};return await deps.prospector.updateLeadStatus(await userFor(request),id,status)}catch(error){return fail(error,reply)}});
+ app.post("/api/v1/prospector/leads/:id/approach",async(request,reply)=>{try{const {id}=request.params as {id:string};const channel=String((request.body as any)?.channel||"email");return await deps.prospector.prepareApproach(await userFor(request),id,channel)}catch(error){return fail(error,reply)}});
 }

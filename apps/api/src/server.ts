@@ -6,6 +6,7 @@ import { registerAgencyApprovalRoutes } from "./routes/agency-approval-routes.js
 import { registerHumanOperationsRoutes } from "./routes/human-operations-routes.js";
 import { registerNativeLinkedInV2Routes } from "./routes/native-linkedin-v2-routes.js";
 import { registerNativePublisherV2Routes } from "./routes/native-publisher-v2-routes.js";
+import { registerNexOfficeRoutes } from "./routes/nexoffice-routes.js";
 import { registerPartnerRoutes } from "./routes/partner-routes.js";
 import { registerStrategyNetworkRoutes } from "./routes/strategy-network-routes.js";
 import { registerVideoRoutes } from "./routes/video-routes.js";
@@ -170,6 +171,10 @@ const socialTokenLifecycle = new NativeSocialTokenLifecycleService({
 });
 await socialTokenLifecycle.initialize();
 app.addHook("onClose", async () => socialTokenLifecycle.close());
+
+await registerNexOfficeRoutes(app, {
+  serviceKey: process.env.NEXOFFICE_SERVICE_KEY,
+});
 
 await registerStrategyNetworkRoutes(app, {
   databaseUrl: config.DATABASE_URL,

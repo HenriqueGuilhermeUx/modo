@@ -42,6 +42,7 @@ import "./curation-discreet.css";
 import "./product-path-guide.css";
 import "./publisher-v2.css";
 import "./prospector.css";
+import "./demand.css";
 import "./legal.css";
 
 createRoot(document.getElementById("root")!).render(

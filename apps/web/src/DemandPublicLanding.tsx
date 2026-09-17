@@ -1,1 +1,81 @@
-import{useEffect,useState}from"react";const API=(import.meta.env.VITE_API_URL||"http://localhost:4000").replace(/\/$/,"");export default function DemandPublicLanding(){const id=window.location.pathname.split("/").filter(Boolean)[1]||"";const[page,setPage]=useState<any>(null);const[error,setError]=useState("");const[sent,setSent]=useState(false);const[busy,setBusy]=useState(false);useEffect(()=>{fetch(`${API}/api/v1/public/demand/${id}`).then(async r=>{const p=await r.json();if(!r.ok)throw new Error(p.message);return p}).then(setPage).catch(e=>setError(e.message||"Página não encontrada."))},[id]);const submit=async(e:any)=>{e.preventDefault();setBusy(true);const fd=new FormData(e.currentTarget);const q=new URLSearchParams(location.search),utm:Object.fromEntries([...q.entries()].filter(([k])=>k.startsWith("utm_")));try{const r=await fetch(`${API}/api/v1/public/demand/${id}/leads`,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({name:fd.get("name"),email:fd.get("email"),phone:fd.get("phone"),utm})});if(!r.ok)throw new Error((await r.json()).message);setSent(true)}catch(e:any){setError(e.message)}finally{setBusy(false)}};if(error&&!page)return <main className="dp-shell"><section className="dp-card"><h1>{error}</h1></section></main>;if(!page)return <main className="dp-shell"><section className="dp-card"><p>Carregando…</p></section></main>;const l=page.landing;return <main className="dp-shell"><section className="dp-hero"><div className="dp-brand">{page.business}</div><h1>{l.headline}</h1><p>{l.subheadline}</p><a href="#contato" onClick={()=>window.dispatchEvent(new CustomEvent("modo-demand-cta"))}>{l.cta} →</a>{page.location&&<small>Atendimento: {page.location}</small>}</section><section className="dp-benefits"><article><b>01</b><h2>Entenda a proposta</h2><p>Uma página direta, criada para conectar sua necessidade à oferta certa.</p></article><article><b>02</b><h2>Dê o próximo passo</h2><p>Envie seus dados de contato. A equipe poderá continuar a conversa com você.</p></article><article><b>03</b><h2>Sem complicação</h2><p>Você decide se quer avançar depois de conhecer melhor a solução.</p></article></section><section id="contato" className="dp-form"><div><span>PRÓXIMO PASSO</span><h2>{l.cta}</h2><p>Preencha e a equipe de {page.business} poderá entrar em contato.</p></div>{sent?<div className="dp-success"><b>✓ Recebido</b><p>Seu contato foi registrado.</p></div>:<form onSubmit={submit}><input name="name" placeholder="Seu nome"/><input name="email" type="email" placeholder="Seu e-mail"/><input name="phone" placeholder="WhatsApp / telefone"/><button disabled={busy}>{busy?"Enviando…":l.cta}</button>{error&&<small>{error}</small>}<small>Ao enviar, você concorda em ser contatado sobre esta solicitação.</small></form>}</section><footer>{page.business} · Página de campanha criada com MODO</footer></main>}
+import { useEffect, useState } from "react";
+
+const API = (import.meta.env.VITE_API_URL || "http://localhost:4000").replace(/\/$/, "");
+
+export default function DemandPublicLanding() {
+  const id = window.location.pathname.split("/").filter(Boolean)[1] || "";
+  const [page, setPage] = useState<any>(null);
+  const [error, setError] = useState("");
+  const [sent, setSent] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    fetch(`${API}/api/v1/public/demand/${id}`)
+      .then(async (response) => {
+        const payload = await response.json();
+        if (!response.ok) throw new Error(payload.message);
+        return payload;
+      })
+      .then(setPage)
+      .catch((err) => setError(err.message || "Página não encontrada."));
+  }, [id]);
+
+  const submit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setBusy(true);
+    setError("");
+    const form = event.currentTarget;
+    const data = new FormData(form);
+    const query = new URLSearchParams(window.location.search);
+    const utm = Object.fromEntries(Array.from(query.entries()).filter(([key]) => key.startsWith("utm_")));
+    try {
+      const response = await fetch(`${API}/api/v1/public/demand/${id}/leads`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ name: data.get("name"), email: data.get("email"), phone: data.get("phone"), utm }),
+      });
+      if (!response.ok) {
+        const payload = await response.json();
+        throw new Error(payload.message || "Não foi possível enviar.");
+      }
+      setSent(true);
+      form.reset();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Não foi possível enviar.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (error && !page) return <main className="dp-shell"><section className="dp-card"><h1>{error}</h1></section></main>;
+  if (!page) return <main className="dp-shell"><section className="dp-card"><p>Carregando…</p></section></main>;
+
+  const landing = page.landing;
+  return <main className="dp-shell">
+    <section className="dp-hero">
+      <div className="dp-brand">{page.business}</div>
+      <h1>{landing.headline}</h1>
+      <p>{landing.subheadline}</p>
+      <a href="#contato">{landing.cta} →</a>
+      {page.location && <small>Atendimento: {page.location}</small>}
+    </section>
+    <section className="dp-benefits">
+      <article><b>01</b><h2>Entenda a proposta</h2><p>Uma página direta, criada para conectar sua necessidade à oferta certa.</p></article>
+      <article><b>02</b><h2>Dê o próximo passo</h2><p>Envie seus dados de contato. A equipe poderá continuar a conversa com você.</p></article>
+      <article><b>03</b><h2>Sem complicação</h2><p>Você decide se quer avançar depois de conhecer melhor a solução.</p></article>
+    </section>
+    <section id="contato" className="dp-form">
+      <div><span>PRÓXIMO PASSO</span><h2>{landing.cta}</h2><p>Preencha e a equipe de {page.business} poderá entrar em contato.</p></div>
+      {sent ? <div className="dp-success"><b>✓ Recebido</b><p>Seu contato foi registrado.</p></div> :
+        <form onSubmit={submit}>
+          <input name="name" placeholder="Seu nome" required />
+          <input name="email" type="email" placeholder="Seu e-mail" />
+          <input name="phone" placeholder="WhatsApp / telefone" />
+          <button disabled={busy}>{busy ? "Enviando…" : landing.cta}</button>
+          {error && <small>{error}</small>}
+          <small>Ao enviar, você concorda em ser contatado sobre esta solicitação.</small>
+        </form>}
+    </section>
+    <footer>{page.business} · Página de campanha criada com MODO</footer>
+  </main>;
+}

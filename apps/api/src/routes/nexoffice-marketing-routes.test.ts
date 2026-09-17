@@ -103,7 +103,7 @@ describe('NexOffice marketing bridge Google Ads governance',()=>{
     }
     expect(current?.status).toBe('ready');
 
-    const approved=await app.inject({method:'POST',url:`/api/v1/internal/nexoffice/marketing/v1/content/drafts/${body.request.id}/approve`,headers});
+    const approved=await app.inject({method:'POST',url:`/api/v1/internal/nexoffice/marketing/v1/content/drafts/${body.request.id}/approve`,headers,payload:{}});
     expect(approved.statusCode).toBe(200);
     expect(approved.json().request.status).toBe('approved');
     expect(approved.json().governance.explicitApproval).toBe(true);

@@ -1,13 +1,12 @@
 import{createCipheriv,createDecipheriv,createHash,randomBytes,randomUUID}from"node:crypto";import pg from"pg";
 
 export class GoogleAdsError extends Error{constructor(public code:string,public status:number,message:string,public detail?:unknown){super(message)}}
-
 type Options={databaseUrl?:string;databaseSsl?:boolean;clientId?:string;clientSecret?:string;redirectUri?:string;encryptionSecret?:string;apiVersion?:string;developerToken?:string};
 type OAuthState={id:string;ownerId:string;connectionId:string;stateHash:string;expiresAt:string;usedAt?:string|null};
 
 export class GoogleAdsService{
- private pool?:pg.Pool;private states:OAuthState[]=[];public readonly apiVersion:string;
- constructor(private options:Options={}){if(options.databaseUrl)this.pool=new pg.Pool({connectionString:options.databaseUrl,ssl:options.databaseSsl?{rejectUnauthorized:false}:undefined});this.apiVersion=options.apiVersion||"v25"}
+ private pool?:pg.Pool;private states:OAuthState[]=[];public readonly apiVersion:string;private options:Options;
+ constructor(options:Options={}){this.options={databaseUrl:options.databaseUrl,databaseSsl:options.databaseSsl,clientId:options.clientId||process.env.GOOGLE_ADS_CLIENT_ID,clientSecret:options.clientSecret||process.env.GOOGLE_ADS_CLIENT_SECRET,redirectUri:options.redirectUri||process.env.GOOGLE_ADS_REDIRECT_URI,encryptionSecret:options.encryptionSecret||process.env.GOOGLE_ADS_TOKEN_ENCRYPTION_SECRET,apiVersion:options.apiVersion||process.env.GOOGLE_ADS_API_VERSION||"v25",developerToken:options.developerToken||process.env.GOOGLE_ADS_DEVELOPER_TOKEN};if(this.options.databaseUrl)this.pool=new pg.Pool({connectionString:this.options.databaseUrl,ssl:this.options.databaseSsl?{rejectUnauthorized:false}:undefined});this.apiVersion=this.options.apiVersion||"v25"}
  get configured(){return Boolean(this.options.clientId&&this.options.clientSecret&&this.options.redirectUri&&this.options.encryptionSecret)}
  async initialize(){if(!this.pool)return;await this.pool.query(`alter table media_connections add column if not exists credential_ciphertext text`);await this.pool.query(`create table if not exists media_oauth_states(id uuid primary key,owner_id text not null,connection_id uuid not null,state_hash text not null unique,provider text not null,expires_at timestamptz not null,used_at timestamptz,created_at timestamptz not null default now())`);await this.pool.query(`create index if not exists idx_media_oauth_state_expiry on media_oauth_states(provider,expires_at)`) }
  async close(){await this.pool?.end()}

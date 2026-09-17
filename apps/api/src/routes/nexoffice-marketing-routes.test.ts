@@ -1,9 +1,10 @@
 import Fastify from 'fastify';
-import {describe,expect,it} from 'vitest';
+import {afterEach,describe,expect,it,vi} from 'vitest';
 import {registerNexOfficeMarketingRoutes} from './nexoffice-marketing-routes.js';
 import {MediaConnectionService} from '../services/media-connection-service.js';
 
 const headers={'x-nexoffice-key':'test-bridge-key','x-nexoffice-workspace-id':'workspace-a','content-type':'application/json'};
+afterEach(()=>vi.unstubAllGlobals());
 
 describe('NexOffice marketing bridge Google Ads governance',()=>{
   it('keeps OAuth and campaign activation closed when Google credentials/account are absent',async()=>{
@@ -77,7 +78,9 @@ describe('NexOffice marketing bridge Google Ads governance',()=>{
 
   it('isolates Market Radar missions by NexOffice workspace and keeps collection approval-first',async()=>{
     const app=Fastify();
-    await registerNexOfficeMarketingRoutes(app,{serviceKey:'test-bridge-key',intelligenceProvider:'queue',apifyMarketRadarTaskId:'test-market-radar-task'});
+    const fetchMock=vi.fn(async()=>new Response(JSON.stringify({data:{id:'run-market-radar-1',status:'RUNNING',defaultDatasetId:'dataset-market-radar-1'}}),{status:201,headers:{'content-type':'application/json'}}));
+    vi.stubGlobal('fetch',fetchMock);
+    await registerNexOfficeMarketingRoutes(app,{serviceKey:'test-bridge-key',intelligenceProvider:'apify',apifyApiToken:'test-token',apifyMarketRadarTaskId:'test-market-radar-task'});
     const health=await app.inject({method:'GET',url:'/api/v1/internal/nexoffice/marketing/v1/health',headers});
     expect(health.statusCode).toBe(200);
     expect(health.json().marketRadar.configured).toBe(true);

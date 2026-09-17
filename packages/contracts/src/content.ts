@@ -107,7 +107,7 @@ export const ContentRequestSchema = z.object({
   brief: z.string(),
   channel: z.string(),
   status: ContentRequestStatusSchema,
-  creditsCharged: z.number().int().positive(),
+  creditsCharged: z.number().int().nonnegative(),
   revisionCount: z.number().int().nonnegative(),
   maxRevisions: z.number().int().nonnegative(),
   revisionInstructions: z.string().nullable(),

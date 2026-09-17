@@ -26,6 +26,12 @@ describe('NexOffice marketing bridge Google Ads governance',()=>{
     expect(healthBody.marketRadar.configured).toBe(false);
     expect(healthBody.marketRadar.collectionRequiresExplicitApproval).toBe(true);
     expect(healthBody.marketRadar.externalCommunication).toBe(false);
+    expect(healthBody.capabilities).toContain('content.drafts.read');
+    expect(healthBody.capabilities).toContain('content.drafts.create');
+    expect(healthBody.content.draftCreation).toBe(true);
+    expect(healthBody.content.modoCreditsCharged).toBe(0);
+    expect(healthBody.content.publishing).toBe(false);
+    expect(healthBody.content.externalPublication).toBe(false);
 
     const prepare=await app.inject({method:'POST',url:'/api/v1/internal/nexoffice/marketing/v1/media/connections/google_ads/prepare',headers,payload:{}});
     expect(prepare.statusCode).toBe(201);
@@ -73,6 +79,31 @@ describe('NexOffice marketing bridge Google Ads governance',()=>{
     const other=await app.inject({method:'GET',url:'/api/v1/internal/nexoffice/marketing/v1/prospecting/campaigns',headers:otherHeaders});
     expect(other.statusCode).toBe(200);
     expect(other.json()).toEqual([]);
+    await app.close();
+  });
+
+  it('creates workspace-scoped content drafts without consuming MODO credits or publishing',async()=>{
+    const app=Fastify();
+    await registerNexOfficeMarketingRoutes(app,{serviceKey:'test-bridge-key'});
+    const created=await app.inject({method:'POST',url:'/api/v1/internal/nexoffice/marketing/v1/content/drafts',headers,payload:{brandName:'Empresa A',niche:'outro',contentType:'carousel',objective:'demanda',brief:'Explicar como organizar a operação sem depender de planilhas e mensagens soltas.',channel:'Instagram'}});
+    expect(created.statusCode).toBe(201);
+    const body=created.json();
+    expect(body.request.creditsCharged).toBe(0);
+    expect(body.governance.billingMode).toBe('nexoffice_entitlement');
+    expect(body.governance.publishing).toBe(false);
+    expect(body.governance.externalPublication).toBe(false);
+
+    const listA=await app.inject({method:'GET',url:'/api/v1/internal/nexoffice/marketing/v1/content/drafts',headers});
+    expect(listA.statusCode).toBe(200);
+    expect(listA.json().requests).toHaveLength(1);
+
+    const otherHeaders={...headers,'x-nexoffice-workspace-id':'workspace-b'};
+    const listB=await app.inject({method:'GET',url:'/api/v1/internal/nexoffice/marketing/v1/content/drafts',headers:otherHeaders});
+    expect(listB.statusCode).toBe(200);
+    expect(listB.json().requests).toEqual([]);
+
+    const crossRead=await app.inject({method:'GET',url:`/api/v1/internal/nexoffice/marketing/v1/content/drafts/${body.request.id}`,headers:otherHeaders});
+    expect(crossRead.statusCode).toBe(404);
     await app.close();
   });
 

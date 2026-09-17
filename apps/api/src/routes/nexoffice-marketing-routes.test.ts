@@ -20,6 +20,11 @@ describe('NexOffice marketing bridge Google Ads governance',()=>{
     expect(healthBody.prospecting.externalOutreach).toBe(false);
     expect(healthBody.capabilities).toContain('prospecting.icp');
     expect(healthBody.capabilities).toContain('prospecting.outreach_draft');
+    expect(healthBody.capabilities).toContain('intelligence.market_radar.read');
+    expect(healthBody.capabilities).toContain('intelligence.market_radar.collect');
+    expect(healthBody.marketRadar.configured).toBe(false);
+    expect(healthBody.marketRadar.collectionRequiresExplicitApproval).toBe(true);
+    expect(healthBody.marketRadar.externalCommunication).toBe(false);
 
     const prepare=await app.inject({method:'POST',url:'/api/v1/internal/nexoffice/marketing/v1/media/connections/google_ads/prepare',headers,payload:{}});
     expect(prepare.statusCode).toBe(201);
@@ -67,6 +72,34 @@ describe('NexOffice marketing bridge Google Ads governance',()=>{
     const other=await app.inject({method:'GET',url:'/api/v1/internal/nexoffice/marketing/v1/prospecting/campaigns',headers:otherHeaders});
     expect(other.statusCode).toBe(200);
     expect(other.json()).toEqual([]);
+    await app.close();
+  });
+
+  it('isolates Market Radar missions by NexOffice workspace and keeps collection approval-first',async()=>{
+    const app=Fastify();
+    await registerNexOfficeMarketingRoutes(app,{serviceKey:'test-bridge-key',intelligenceProvider:'queue',apifyMarketRadarTaskId:'test-market-radar-task'});
+    const health=await app.inject({method:'GET',url:'/api/v1/internal/nexoffice/marketing/v1/health',headers});
+    expect(health.statusCode).toBe(200);
+    expect(health.json().marketRadar.configured).toBe(true);
+
+    const created=await app.inject({method:'POST',url:'/api/v1/internal/nexoffice/marketing/v1/intelligence/market-radar/missions',headers,payload:{approved:true,name:'Radar Santos',objective:'Mapear concorrentes e sinais de demanda',brandName:'NexOffice Teste',niche:'SaaS B2B',regions:['Santos'],keywords:['gestão empresarial','ERP'],competitors:['Concorrente A'],maxItems:10}});
+    expect(created.statusCode).toBe(201);
+    const mission=created.json().mission;
+    expect(mission.playbook).toBe('market_radar');
+    expect(created.json().governance.explicitApproval).toBe(true);
+    expect(created.json().governance.externalCommunication).toBe(false);
+
+    const listA=await app.inject({method:'GET',url:'/api/v1/internal/nexoffice/marketing/v1/intelligence/market-radar/missions',headers});
+    expect(listA.statusCode).toBe(200);
+    expect(listA.json().missions).toHaveLength(1);
+
+    const otherHeaders={...headers,'x-nexoffice-workspace-id':'workspace-b'};
+    const listB=await app.inject({method:'GET',url:'/api/v1/internal/nexoffice/marketing/v1/intelligence/market-radar/missions',headers:otherHeaders});
+    expect(listB.statusCode).toBe(200);
+    expect(listB.json().missions).toEqual([]);
+
+    const crossRead=await app.inject({method:'GET',url:`/api/v1/internal/nexoffice/marketing/v1/intelligence/market-radar/missions/${mission.id}/results`,headers:otherHeaders});
+    expect(crossRead.statusCode).toBe(404);
     await app.close();
   });
 

@@ -186,6 +186,13 @@ await registerNexOfficeMarketingRoutes(app, {
   apifyApiToken: config.APIFY_API_TOKEN,
   apifyApiBaseUrl: config.APIFY_API_BASE_URL,
   apifyB2bProspectingTaskId: config.APIFY_B2B_PROSPECTING_TASK_ID,
+  intelligenceProvider: config.INTELLIGENCE_PROVIDER,
+  apifyMarketRadarTaskId: config.APIFY_MARKET_RADAR_TASK_ID,
+  n8nIntelligenceWebhookUrl: config.N8N_INTELLIGENCE_WEBHOOK_URL,
+  n8nIntelligenceSecret: config.N8N_INTELLIGENCE_SECRET,
+  intelligenceCallbackSecret: config.INTELLIGENCE_CALLBACK_SECRET,
+  publicApiUrl: config.PUBLIC_API_URL,
+  intelligenceRequestTimeoutMs: config.INTELLIGENCE_REQUEST_TIMEOUT_MS,
 });
 
 await registerStrategyNetworkRoutes(app, {

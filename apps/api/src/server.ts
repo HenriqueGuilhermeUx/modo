@@ -183,6 +183,9 @@ await registerNexOfficeMarketingRoutes(app, {
   databaseSsl: config.DATABASE_SSL,
   openAiApiKey: config.OPENAI_API_KEY,
   openAiTextModel: config.OPENAI_TEXT_MODEL,
+  apifyApiToken: config.APIFY_API_TOKEN,
+  apifyApiBaseUrl: config.APIFY_API_BASE_URL,
+  apifyB2bProspectingTaskId: config.APIFY_B2B_PROSPECTING_TASK_ID,
 });
 
 await registerStrategyNetworkRoutes(app, {

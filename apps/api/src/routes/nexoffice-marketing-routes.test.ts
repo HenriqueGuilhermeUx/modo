@@ -13,8 +13,13 @@ describe('NexOffice marketing bridge Google Ads governance',()=>{
     expect(health.statusCode).toBe(200);
     const healthBody=health.json();
     expect(healthBody.externalCampaignActivation).toBe(false);
+    expect(healthBody.externalProspectingOutreach).toBe(false);
     expect(healthBody.workflow).toEqual(['draft','review','ready']);
     expect(healthBody.googleAds.metricsReadOnly).toBe(true);
+    expect(healthBody.prospecting.discoveryRequiresExplicitApproval).toBe(true);
+    expect(healthBody.prospecting.externalOutreach).toBe(false);
+    expect(healthBody.capabilities).toContain('prospecting.icp');
+    expect(healthBody.capabilities).toContain('prospecting.outreach_draft');
 
     const prepare=await app.inject({method:'POST',url:'/api/v1/internal/nexoffice/marketing/v1/media/connections/google_ads/prepare',headers,payload:{}});
     expect(prepare.statusCode).toBe(201);
@@ -34,6 +39,34 @@ describe('NexOffice marketing bridge Google Ads governance',()=>{
     const insights=await app.inject({method:'GET',url:'/api/v1/internal/nexoffice/marketing/v1/insights?days=30',headers});
     expect(insights.statusCode).toBe(200);
     expect(insights.json().googleAds).toBeNull();
+    await app.close();
+  });
+
+  it('exposes workspace-scoped B2B prospecting but never sends outreach',async()=>{
+    const app=Fastify();
+    await registerNexOfficeMarketingRoutes(app,{serviceKey:'test-bridge-key'});
+
+    const created=await app.inject({method:'POST',url:'/api/v1/internal/nexoffice/marketing/v1/prospecting/campaigns',headers,payload:{name:'SaaS Santos',segment:'SaaS B2B',roles:['Founder','CEO'],location:'Santos',offer:'NexOffice'}});
+    expect(created.statusCode).toBe(201);
+    const campaign=created.json();
+    expect(campaign.segment).toBe('SaaS B2B');
+
+    const lead=await app.inject({method:'POST',url:`/api/v1/internal/nexoffice/marketing/v1/prospecting/campaigns/${campaign.id}/leads`,headers,payload:{name:'Pessoa Teste',role:'Founder',company:'Empresa Teste',email:'pessoa@example.com',fitScore:88,signal:'Crescimento da operação'}});
+    expect(lead.statusCode).toBe(201);
+    expect(lead.json().status).toBe('new');
+
+    const approach=await app.inject({method:'POST',url:`/api/v1/internal/nexoffice/marketing/v1/prospecting/leads/${lead.json().id}/approach`,headers,payload:{channel:'email'}});
+    expect(approach.statusCode).toBe(200);
+    expect(approach.json().message).toMatch(/Empresa Teste|Pessoa/i);
+
+    const discovery=await app.inject({method:'POST',url:`/api/v1/internal/nexoffice/marketing/v1/prospecting/campaigns/${campaign.id}/discover`,headers,payload:{approved:true,limit:5}});
+    expect(discovery.statusCode).toBe(503);
+    expect(discovery.json().error).toBe('PROVIDER_NOT_CONFIGURED');
+
+    const otherHeaders={...headers,'x-nexoffice-workspace-id':'workspace-b'};
+    const other=await app.inject({method:'GET',url:'/api/v1/internal/nexoffice/marketing/v1/prospecting/campaigns',headers:otherHeaders});
+    expect(other.statusCode).toBe(200);
+    expect(other.json()).toEqual([]);
     await app.close();
   });
 

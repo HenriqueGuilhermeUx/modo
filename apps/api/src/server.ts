@@ -6,6 +6,7 @@ import { registerAgencyApprovalRoutes } from "./routes/agency-approval-routes.js
 import { registerHumanOperationsRoutes } from "./routes/human-operations-routes.js";
 import { registerNativeLinkedInV2Routes } from "./routes/native-linkedin-v2-routes.js";
 import { registerNativePublisherV2Routes } from "./routes/native-publisher-v2-routes.js";
+import { registerNexOfficeMarketingRoutes } from "./routes/nexoffice-marketing-routes.js";
 import { registerNexOfficeRoutes } from "./routes/nexoffice-routes.js";
 import { registerPartnerRoutes } from "./routes/partner-routes.js";
 import { registerStrategyNetworkRoutes } from "./routes/strategy-network-routes.js";
@@ -174,6 +175,14 @@ app.addHook("onClose", async () => socialTokenLifecycle.close());
 
 await registerNexOfficeRoutes(app, {
   serviceKey: process.env.NEXOFFICE_SERVICE_KEY,
+});
+
+await registerNexOfficeMarketingRoutes(app, {
+  serviceKey: process.env.NEXOFFICE_SERVICE_KEY,
+  databaseUrl: config.DATABASE_URL,
+  databaseSsl: config.DATABASE_SSL,
+  openAiApiKey: config.OPENAI_API_KEY,
+  openAiTextModel: config.OPENAI_TEXT_MODEL,
 });
 
 await registerStrategyNetworkRoutes(app, {

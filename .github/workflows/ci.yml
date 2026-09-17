@@ -94,6 +94,11 @@ jobs:
           LINKEDIN_CLIENT_SECRET: ci-linkedin-secret
           LINKEDIN_TOKEN_ENCRYPTION_SECRET: ci-linkedin-encryption-secret
           LINKEDIN_PUBLISHER_REDIRECT_URI: http://127.0.0.1:4011/api/v2/publisher/oauth/linkedin/callback
+          GOOGLE_ADS_CLIENT_ID: ci-google-ads-client
+          GOOGLE_ADS_CLIENT_SECRET: ci-google-ads-secret
+          GOOGLE_ADS_REDIRECT_URI: http://127.0.0.1:4011/api/v1/internal/nexoffice/marketing/v1/media/google_ads/oauth/callback
+          GOOGLE_ADS_TOKEN_ENCRYPTION_SECRET: ci-google-ads-encryption-secret-0123456789
+          GOOGLE_ADS_API_VERSION: v25
         run: |
           set -euo pipefail
           LOG_FILE="${RUNNER_TEMP}/modo-api-publisher-v2-postgres.log"
@@ -108,11 +113,15 @@ jobs:
             if curl --fail --silent "http://127.0.0.1:4011/health" >/dev/null; then
               PUBLISHER_HEALTH="$(curl --fail --silent "http://127.0.0.1:4011/api/v2/publisher/health" || true)"
               LINKEDIN_HEALTH="$(curl --fail --silent "http://127.0.0.1:4011/api/v2/publisher/linkedin/health" || true)"
+              GOOGLE_ADS_HEALTH="$(curl --fail --silent "http://127.0.0.1:4011/api/v1/google-ads/readiness" || true)"
               if printf '%s' "${PUBLISHER_HEALTH}" | grep -q '"directInstagramOAuth":true' && \
                  printf '%s' "${PUBLISHER_HEALTH}" | grep -q 'api/v2/publisher/oauth/instagram/callback' && \
                  printf '%s' "${LINKEDIN_HEALTH}" | grep -q '"configured":true' && \
-                 printf '%s' "${LINKEDIN_HEALTH}" | grep -q 'api/v2/publisher/oauth/linkedin/callback'; then
-                echo "MODO Publisher V2 iniciou com PostgreSQL e OAuth direto de Instagram/LinkedIn registrado."
+                 printf '%s' "${LINKEDIN_HEALTH}" | grep -q 'api/v2/publisher/oauth/linkedin/callback' && \
+                 printf '%s' "${GOOGLE_ADS_HEALTH}" | grep -q '"configured":true' && \
+                 printf '%s' "${GOOGLE_ADS_HEALTH}" | grep -q '"apiVersion":"v25"' && \
+                 printf '%s' "${GOOGLE_ADS_HEALTH}" | grep -q '"externalCampaignActivation":false'; then
+                echo "MODO iniciou com PostgreSQL, OAuth social e Google Ads readiness protegida por governança."
                 exit 0
               fi
             fi
@@ -124,6 +133,6 @@ jobs:
             sleep 1
           done
 
-          echo "MODO Publisher V2 não ficou saudável com PostgreSQL/OAuth social:"
+          echo "MODO Publisher V2/Google Ads não ficou saudável com PostgreSQL/OAuth:"
           cat "${LOG_FILE}"
           exit 1

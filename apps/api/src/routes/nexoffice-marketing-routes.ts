@@ -3,6 +3,7 @@ import type { FastifyInstance, FastifyRequest } from "fastify";
 import { z } from "zod";
 import { AdsCopilotService } from "../services/ads-copilot-service.js";
 import { DemandService } from "../services/demand-service.js";
+import { GoogleAdsError, GoogleAdsService } from "../services/google-ads-service.js";
 import { MediaCampaignError, MediaCampaignService } from "../services/media-campaign-service.js";
 import { MediaConnectionService, type MediaProvider } from "../services/media-connection-service.js";
 
@@ -12,138 +13,62 @@ type Options = {
   databaseSsl?: boolean;
   openAiApiKey?: string;
   openAiTextModel?: string;
+  googleAdsClientId?: string;
+  googleAdsClientSecret?: string;
+  googleAdsRedirectUri?: string;
+  googleAdsEncryptionSecret?: string;
+  googleAdsApiVersion?: string;
+  googleAdsDeveloperToken?: string;
 };
 
 const DemandInput = z.object({
-  name: z.string().max(160).optional(),
-  business: z.string().min(1).max(160),
-  offer: z.string().min(1).max(240),
-  objective: z.string().max(40).default("leads"),
-  location: z.string().max(160).default("Brasil"),
-  monthlyBudget: z.number().nonnegative().default(0),
-  ticket: z.number().nonnegative().default(0),
-  cpc: z.number().positive().optional(),
-  landingRate: z.number().min(0).max(100).optional(),
-  closeRate: z.number().min(0).max(100).optional(),
+  name: z.string().max(160).optional(), business: z.string().min(1).max(160), offer: z.string().min(1).max(240),
+  objective: z.string().max(40).default("leads"), location: z.string().max(160).default("Brasil"), monthlyBudget: z.number().nonnegative().default(0),
+  ticket: z.number().nonnegative().default(0), cpc: z.number().positive().optional(), landingRate: z.number().min(0).max(100).optional(), closeRate: z.number().min(0).max(100).optional(),
 });
+const AdsInput = z.object({business:z.string().min(1).max(160),offer:z.string().min(1).max(240),objective:z.string().max(80).optional(),location:z.string().max(160).optional(),budget:z.number().nonnegative().optional(),ticket:z.number().nonnegative().optional(),customerDescription:z.string().max(1200).optional(),channelPreference:z.string().max(120).optional()});
+const CampaignInput = z.object({projectId:z.string().uuid(),provider:z.enum(["google_ads","meta_ads"]),name:z.string().max(160).optional(),monthlyBudget:z.number().nonnegative().optional(),plan:z.record(z.string(),z.unknown()).default({})});
+const OutcomeInput=z.object({eventName:z.enum(["qualified_lead","customer"]),sessionId:z.string().max(128).optional(),utm:z.record(z.string(),z.unknown()).optional(),metadata:z.record(z.string(),z.unknown()).optional()});
 
-const AdsInput = z.object({
-  business: z.string().min(1).max(160),
-  offer: z.string().min(1).max(240),
-  objective: z.string().max(80).optional(),
-  location: z.string().max(160).optional(),
-  budget: z.number().nonnegative().optional(),
-  ticket: z.number().nonnegative().optional(),
-  customerDescription: z.string().max(1200).optional(),
-  channelPreference: z.string().max(120).optional(),
-});
+function safeEqual(received:string,expected:string){if(!received||!expected)return false;const a=Buffer.from(received),b=Buffer.from(expected);return a.length===b.length&&timingSafeEqual(a,b)}
+function access(request:FastifyRequest,expected:string){const key=String(request.headers["x-nexoffice-key"]||""),workspaceId=String(request.headers["x-nexoffice-workspace-id"]||"").trim();if(!expected)return{ok:false as const,status:503,error:"bridge_not_configured"};if(!safeEqual(key,expected))return{ok:false as const,status:401,error:"unauthorized"};if(!workspaceId)return{ok:false as const,status:400,error:"workspace_required"};return{ok:true as const,workspaceId}}
+function context(workspaceId:string){return{organization:{id:`nexoffice:${workspaceId}`}}}
+function googleFail(reply:any,e:unknown){if(e instanceof GoogleAdsError)return reply.code(e.status).send({error:e.code,message:e.message,detail:e.detail});throw e}
+function campaignFail(reply:any,e:unknown){if(e instanceof MediaCampaignError)return reply.code(e.status).send({error:e.code,message:e.message});throw e}
 
-const CampaignInput = z.object({
-  projectId: z.string().uuid(),
-  provider: z.enum(["google_ads", "meta_ads"]),
-  name: z.string().max(160).optional(),
-  monthlyBudget: z.number().nonnegative().optional(),
-  plan: z.record(z.string(), z.unknown()).default({}),
-});
+export async function registerNexOfficeMarketingRoutes(app:FastifyInstance,options:Options={}){
+ const expectedKey=options.serviceKey||process.env.NEXOFFICE_SERVICE_KEY||"";
+ const demand=new DemandService({databaseUrl:options.databaseUrl,databaseSsl:options.databaseSsl});
+ const ads=new AdsCopilotService({openAiApiKey:options.openAiApiKey,model:options.openAiTextModel});
+ const media=new MediaConnectionService({databaseUrl:options.databaseUrl,databaseSsl:options.databaseSsl});
+ const campaigns=new MediaCampaignService({databaseUrl:options.databaseUrl,databaseSsl:options.databaseSsl});
+ const googleAds=new GoogleAdsService({databaseUrl:options.databaseUrl,databaseSsl:options.databaseSsl,clientId:options.googleAdsClientId,clientSecret:options.googleAdsClientSecret,redirectUri:options.googleAdsRedirectUri,encryptionSecret:options.googleAdsEncryptionSecret,apiVersion:options.googleAdsApiVersion||"v25",developerToken:options.googleAdsDeveloperToken});
+ await demand.initialize();await media.initialize();await campaigns.initialize();await googleAds.initialize();
+ app.addHook("onClose",async()=>{await Promise.all([demand.close(),media.close(),campaigns.close(),googleAds.close()])});
 
-function safeEqual(received: string, expected: string) {
-  if (!received || !expected) return false;
-  const a = Buffer.from(received);
-  const b = Buffer.from(expected);
-  return a.length === b.length && timingSafeEqual(a, b);
-}
+ app.get("/api/v1/internal/nexoffice/marketing/v1/health",async(request,reply)=>{const a=access(request,expectedKey);if(!a.ok)return reply.code(a.status).send({status:"error",error:a.error});return{status:"ok",contract:"nexoffice-marketing-v1",workspaceId:a.workspaceId,storage:{demand:demand.storage,media:media.storage,campaigns:campaigns.storage},capabilities:["demand.projects","demand.landing","demand.funnel","demand.leads","demand.outcomes","ads.plan","media.connections.read","media.connections.prepare","google_ads.oauth","google_ads.account_select","google_ads.metrics.read","marketing.insights","campaigns.draft","campaigns.review","campaigns.ready"],workflow:["draft","review","ready"],googleAds:{oauthConfigured:googleAds.configured,apiVersion:googleAds.apiVersion,metricsReadOnly:true},externalCampaignActivation:false,readyRequirements:["explicit_client_approval","authorized_media_account"]}});
 
-function access(request: FastifyRequest, expected: string) {
-  const key = String(request.headers["x-nexoffice-key"] || "");
-  const workspaceId = String(request.headers["x-nexoffice-workspace-id"] || "").trim();
-  if (!expected) return { ok: false as const, status: 503, error: "bridge_not_configured" };
-  if (!safeEqual(key, expected)) return { ok: false as const, status: 401, error: "unauthorized" };
-  if (!workspaceId) return { ok: false as const, status: 400, error: "workspace_required" };
-  return { ok: true as const, workspaceId };
-}
+ app.get("/api/v1/internal/nexoffice/marketing/v1/demand/projects",async(request,reply)=>{const a=access(request,expectedKey);if(!a.ok)return reply.code(a.status).send({error:a.error});return demand.list(context(a.workspaceId))});
+ app.post("/api/v1/internal/nexoffice/marketing/v1/demand/projects",async(request,reply)=>{const a=access(request,expectedKey);if(!a.ok)return reply.code(a.status).send({error:a.error});return reply.code(201).send(await demand.create(context(a.workspaceId),DemandInput.parse(request.body)))});
+ app.post("/api/v1/internal/nexoffice/marketing/v1/demand/projects/:id/landing",async(request,reply)=>{const a=access(request,expectedKey);if(!a.ok)return reply.code(a.status).send({error:a.error});return demand.generateLanding(context(a.workspaceId),String((request.params as any).id))});
+ app.get("/api/v1/internal/nexoffice/marketing/v1/demand/projects/:id/funnel",async(request,reply)=>{const a=access(request,expectedKey);if(!a.ok)return reply.code(a.status).send({error:a.error});return demand.funnel(context(a.workspaceId),String((request.params as any).id))});
+ app.get("/api/v1/internal/nexoffice/marketing/v1/demand/projects/:id/leads",async(request,reply)=>{const a=access(request,expectedKey);if(!a.ok)return reply.code(a.status).send({error:a.error});return demand.listLeads(context(a.workspaceId),String((request.params as any).id))});
+ app.post("/api/v1/internal/nexoffice/marketing/v1/demand/projects/:id/outcomes",async(request,reply)=>{const a=access(request,expectedKey);if(!a.ok)return reply.code(a.status).send({error:a.error});return demand.trackOutcome(context(a.workspaceId),String((request.params as any).id),OutcomeInput.parse(request.body))});
 
-function context(workspaceId: string) {
-  return { organization: { id: `nexoffice:${workspaceId}` } };
-}
+ app.post("/api/v1/internal/nexoffice/marketing/v1/ads/plan",async(request,reply)=>{const a=access(request,expectedKey);if(!a.ok)return reply.code(a.status).send({error:a.error});return ads.plan(AdsInput.parse(request.body))});
 
-export async function registerNexOfficeMarketingRoutes(app: FastifyInstance, options: Options = {}) {
-  const expectedKey = options.serviceKey || process.env.NEXOFFICE_SERVICE_KEY || "";
-  const demand = new DemandService({ databaseUrl: options.databaseUrl, databaseSsl: options.databaseSsl });
-  const ads = new AdsCopilotService({ openAiApiKey: options.openAiApiKey, model: options.openAiTextModel });
-  const media = new MediaConnectionService({ databaseUrl: options.databaseUrl, databaseSsl: options.databaseSsl });
-  const campaigns = new MediaCampaignService({ databaseUrl: options.databaseUrl, databaseSsl: options.databaseSsl });
-  await demand.initialize();
-  await media.initialize();
-  await campaigns.initialize();
-  app.addHook("onClose", async () => Promise.all([demand.close(), media.close(), campaigns.close()]));
+ app.get("/api/v1/internal/nexoffice/marketing/v1/media/connections",async(request,reply)=>{const a=access(request,expectedKey);if(!a.ok)return reply.code(a.status).send({error:a.error});return media.list(context(a.workspaceId))});
+ app.post("/api/v1/internal/nexoffice/marketing/v1/media/connections/:provider/prepare",async(request,reply)=>{const a=access(request,expectedKey);if(!a.ok)return reply.code(a.status).send({error:a.error});const provider=z.enum(["google_ads","meta_ads"]).parse((request.params as any).provider) as MediaProvider;const prepared=await media.prepare(context(a.workspaceId),provider);if(provider!=="google_ads")return reply.code(201).send(prepared);try{return reply.code(201).send({...prepared,authorization:await googleAds.prepare(context(a.workspaceId),prepared.id)})}catch(e){return googleFail(reply,e)}});
+ app.post("/api/v1/internal/nexoffice/marketing/v1/media/google_ads/connections/:id/select-account",async(request,reply)=>{const a=access(request,expectedKey);if(!a.ok)return reply.code(a.status).send({error:a.error});try{return await googleAds.selectAccount(context(a.workspaceId),String((request.params as any).id),z.object({customerId:z.string().min(1),accountName:z.string().max(160).optional()}).parse(request.body))}catch(e){return googleFail(reply,e)}});
+ app.get("/api/v1/internal/nexoffice/marketing/v1/media/google_ads/metrics",async(request,reply)=>{const a=access(request,expectedKey);if(!a.ok)return reply.code(a.status).send({error:a.error});try{return await googleAds.metrics(context(a.workspaceId),Number((request.query as any)?.days||30))}catch(e){return googleFail(reply,e)}});
 
-  app.get("/api/v1/internal/nexoffice/marketing/v1/health", async (request, reply) => {
-    const a = access(request, expectedKey);
-    if (!a.ok) return reply.code(a.status).send({ status: "error", error: a.error });
-    return {
-      status: "ok",
-      contract: "nexoffice-marketing-v1",
-      workspaceId: a.workspaceId,
-      storage: { demand: demand.storage, media: media.storage, campaigns: campaigns.storage },
-      capabilities: ["demand.projects", "demand.landing", "demand.funnel", "ads.plan", "media.connections.read", "media.connections.prepare", "campaigns.draft", "campaigns.review", "campaigns.ready"],
-      workflow: ["draft", "review", "ready"],
-      externalCampaignActivation: false,
-      readyRequirements: ["explicit_client_approval", "authorized_media_account"],
-    };
-  });
+ // Browser callback: the signed one-time state binds the Google response to the originating NexOffice tenant and connection.
+ app.get("/api/v1/internal/nexoffice/marketing/v1/media/google_ads/oauth/callback",async(request,reply)=>{const q=request.query as any;if(q?.error)return reply.code(400).type("text/html").send("<html><body><h2>Autorização Google Ads não concluída</h2><p>Você pode fechar esta janela e tentar novamente no NexOffice.</p></body></html>");try{await googleAds.callback(String(q?.state||""),String(q?.code||""));return reply.type("text/html").send("<html><body><h2>Google Ads autorizado</h2><p>Volte ao NexOffice para escolher a conta e concluir a conexão.</p><script>setTimeout(function(){window.close()},1800)</script></body></html>")}catch(e){if(e instanceof GoogleAdsError)return reply.code(e.status).type("text/html").send(`<html><body><h2>Não foi possível concluir</h2><p>${String(e.message).replace(/[<>&]/g,"")}</p></body></html>`);throw e}});
 
-  app.get("/api/v1/internal/nexoffice/marketing/v1/demand/projects", async (request, reply) => {
-    const a = access(request, expectedKey); if (!a.ok) return reply.code(a.status).send({ error: a.error });
-    return demand.list(context(a.workspaceId));
-  });
-  app.post("/api/v1/internal/nexoffice/marketing/v1/demand/projects", async (request, reply) => {
-    const a = access(request, expectedKey); if (!a.ok) return reply.code(a.status).send({ error: a.error });
-    const input = DemandInput.parse(request.body);
-    return reply.code(201).send(await demand.create(context(a.workspaceId), input));
-  });
-  app.post("/api/v1/internal/nexoffice/marketing/v1/demand/projects/:id/landing", async (request, reply) => {
-    const a = access(request, expectedKey); if (!a.ok) return reply.code(a.status).send({ error: a.error });
-    return demand.generateLanding(context(a.workspaceId), String((request.params as any).id));
-  });
-  app.get("/api/v1/internal/nexoffice/marketing/v1/demand/projects/:id/funnel", async (request, reply) => {
-    const a = access(request, expectedKey); if (!a.ok) return reply.code(a.status).send({ error: a.error });
-    return demand.funnel(context(a.workspaceId), String((request.params as any).id));
-  });
+ app.get("/api/v1/internal/nexoffice/marketing/v1/campaigns",async(request,reply)=>{const a=access(request,expectedKey);if(!a.ok)return reply.code(a.status).send({error:a.error});const projectId=String((request.query as any)?.projectId||"")||undefined;return campaigns.list(context(a.workspaceId),projectId)});
+ app.post("/api/v1/internal/nexoffice/marketing/v1/campaigns",async(request,reply)=>{const a=access(request,expectedKey);if(!a.ok)return reply.code(a.status).send({error:a.error});try{return reply.code(201).send(await campaigns.create(context(a.workspaceId),CampaignInput.parse(request.body)))}catch(e){return campaignFail(reply,e)}});
+ app.post("/api/v1/internal/nexoffice/marketing/v1/campaigns/:id/review",async(request,reply)=>{const a=access(request,expectedKey);if(!a.ok)return reply.code(a.status).send({error:a.error});try{return await campaigns.submitReview(context(a.workspaceId),String((request.params as any).id))}catch(e){return campaignFail(reply,e)}});
+ app.post("/api/v1/internal/nexoffice/marketing/v1/campaigns/:id/ready",async(request,reply)=>{const a=access(request,expectedKey);if(!a.ok)return reply.code(a.status).send({error:a.error});const body=z.object({approved:z.literal(true)}).parse(request.body);try{return await campaigns.markReady(context(a.workspaceId),String((request.params as any).id),body)}catch(e){return campaignFail(reply,e)}});
 
-  app.post("/api/v1/internal/nexoffice/marketing/v1/ads/plan", async (request, reply) => {
-    const a = access(request, expectedKey); if (!a.ok) return reply.code(a.status).send({ error: a.error });
-    return ads.plan(AdsInput.parse(request.body));
-  });
-
-  app.get("/api/v1/internal/nexoffice/marketing/v1/media/connections", async (request, reply) => {
-    const a = access(request, expectedKey); if (!a.ok) return reply.code(a.status).send({ error: a.error });
-    return media.list(context(a.workspaceId));
-  });
-  app.post("/api/v1/internal/nexoffice/marketing/v1/media/connections/:provider/prepare", async (request, reply) => {
-    const a = access(request, expectedKey); if (!a.ok) return reply.code(a.status).send({ error: a.error });
-    const provider = z.enum(["google_ads", "meta_ads"]).parse((request.params as any).provider) as MediaProvider;
-    return reply.code(201).send(await media.prepare(context(a.workspaceId), provider));
-  });
-
-  app.get("/api/v1/internal/nexoffice/marketing/v1/campaigns", async (request, reply) => {
-    const a = access(request, expectedKey); if (!a.ok) return reply.code(a.status).send({ error: a.error });
-    const projectId = String((request.query as any)?.projectId || "") || undefined;
-    return campaigns.list(context(a.workspaceId), projectId);
-  });
-  app.post("/api/v1/internal/nexoffice/marketing/v1/campaigns", async (request, reply) => {
-    const a = access(request, expectedKey); if (!a.ok) return reply.code(a.status).send({ error: a.error });
-    try { return reply.code(201).send(await campaigns.create(context(a.workspaceId), CampaignInput.parse(request.body))); }
-    catch (e) { if (e instanceof MediaCampaignError) return reply.code(e.status).send({ error: e.code, message: e.message }); throw e; }
-  });
-  app.post("/api/v1/internal/nexoffice/marketing/v1/campaigns/:id/review", async (request, reply) => {
-    const a = access(request, expectedKey); if (!a.ok) return reply.code(a.status).send({ error: a.error });
-    try { return await campaigns.submitReview(context(a.workspaceId), String((request.params as any).id)); }
-    catch (e) { if (e instanceof MediaCampaignError) return reply.code(e.status).send({ error: e.code, message: e.message }); throw e; }
-  });
-  app.post("/api/v1/internal/nexoffice/marketing/v1/campaigns/:id/ready", async (request, reply) => {
-    const a = access(request, expectedKey); if (!a.ok) return reply.code(a.status).send({ error: a.error });
-    const body = z.object({ approved: z.literal(true) }).parse(request.body);
-    try { return await campaigns.markReady(context(a.workspaceId), String((request.params as any).id), body); }
-    catch (e) { if (e instanceof MediaCampaignError) return reply.code(e.status).send({ error: e.code, message: e.message }); throw e; }
-  });
+ app.get("/api/v1/internal/nexoffice/marketing/v1/insights",async(request,reply)=>{const a=access(request,expectedKey);if(!a.ok)return reply.code(a.status).send({error:a.error});const ctx=context(a.workspaceId),projects=await demand.list(ctx),funnels=await Promise.all(projects.slice(0,50).map(async(p:any)=>({projectId:p.id,name:p.name,...await demand.funnel(ctx,p.id)})));let google:any=null;try{google=await googleAds.metrics(ctx,Number((request.query as any)?.days||30))}catch(e){if(!(e instanceof GoogleAdsError)||![409,503].includes(e.status))throw e}const demandTotals=funnels.reduce((s:any,f:any)=>({pageViews:s.pageViews+Number(f.pageViews||0),ctaClicks:s.ctaClicks+Number(f.ctaClicks||0),leads:s.leads+Number(f.leads||0),qualifiedLeads:s.qualifiedLeads+Number(f.qualifiedLeads||0),customers:s.customers+Number(f.customers||0)}),{pageViews:0,ctaClicks:0,leads:0,qualifiedLeads:0,customers:0});return{periodDays:Math.min(90,Math.max(1,Number((request.query as any)?.days||30))),projects:projects.length,funnels,demandTotals,googleAds:google,blended:google?{costMinor:google.costMinor,customers:demandTotals.customers,cacMinor:demandTotals.customers?Math.round(google.costMinor/demandTotals.customers):null,googleReportedRoas:google.roas,attribution:"workspace_blended_not_campaign_attributed"}:null,learningNote:"CAC combinado só é exibido quando há custo real do Google Ads e clientes registrados no funil da MODO. Não representa atribuição individual de campanha."}});
 }

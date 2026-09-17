@@ -93,6 +93,23 @@ describe('NexOffice marketing bridge Google Ads governance',()=>{
     expect(body.governance.publishing).toBe(false);
     expect(body.governance.externalPublication).toBe(false);
 
+    let current:any=null;
+    for(let attempt=0;attempt<20;attempt++){
+      const read=await app.inject({method:'GET',url:`/api/v1/internal/nexoffice/marketing/v1/content/drafts/${body.request.id}`,headers});
+      expect(read.statusCode).toBe(200);
+      current=read.json().request;
+      if(current.status==='ready')break;
+      await new Promise(resolve=>setTimeout(resolve,5));
+    }
+    expect(current?.status).toBe('ready');
+
+    const approved=await app.inject({method:'POST',url:`/api/v1/internal/nexoffice/marketing/v1/content/drafts/${body.request.id}/approve`,headers});
+    expect(approved.statusCode).toBe(200);
+    expect(approved.json().request.status).toBe('approved');
+    expect(approved.json().governance.explicitApproval).toBe(true);
+    expect(approved.json().governance.publishing).toBe(false);
+    expect(approved.json().governance.externalPublication).toBe(false);
+
     const listA=await app.inject({method:'GET',url:'/api/v1/internal/nexoffice/marketing/v1/content/drafts',headers});
     expect(listA.statusCode).toBe(200);
     expect(listA.json().requests).toHaveLength(1);

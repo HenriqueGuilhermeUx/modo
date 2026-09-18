@@ -24,6 +24,7 @@ import { registerActivationRoutes } from "./routes/activation-routes.js";
 import { registerCanvaRoutes } from "./routes/canva-routes.js";
 import { registerCreativeIntelligenceRoutes } from "./routes/creative-intelligence-routes.js";
 import { registerInstagramRoutes } from "./routes/instagram-routes.js";
+import { registerMediaConnectionRoutes } from "./routes/media-connection-routes.js";
 import { registerPlatformAdminRoutes } from "./routes/platform-admin-routes.js";
 import { registerSourceRoutes } from "./routes/source-routes.js";
 import { registerStudioRoutes } from "./routes/studio-routes.js";
@@ -41,6 +42,8 @@ import { ContentError, ContentService } from "./services/content-service.js";
 import { CreativeIntelligenceError } from "./services/creative-intelligence-service.js";
 import { DiagnosticService } from "./services/diagnostic-service.js";
 import { InstagramService } from "./services/instagram-service.js";
+import { GoogleAdsService } from "./services/google-ads-service.js";
+import { MediaConnectionService } from "./services/media-connection-service.js";
 import { LeadService } from "./services/lead-service.js";
 import { PaymentError, PaymentService } from "./services/payment-service.js";
 import { PlatformAdminError, PlatformAdminService } from "./services/platform-admin-service.js";
@@ -78,6 +81,12 @@ export interface CreateAppOptions {
   instagramApiVersion?: string;
   instagramGraphBaseUrl?: string;
   publicWebUrl?: string;
+  googleAdsClientId?: string;
+  googleAdsClientSecret?: string;
+  googleAdsRedirectUri?: string;
+  googleAdsEncryptionSecret?: string;
+  googleAdsApiVersion?: string;
+  googleAdsDeveloperToken?: string;
 }
 
 function bearerToken(request: FastifyRequest) {
@@ -144,6 +153,13 @@ export async function createApp(options: CreateAppOptions) {
     databaseUrl: options.databaseUrl,
     databaseSsl: options.databaseSsl,
   });
+  const media = new MediaConnectionService({ databaseUrl: options.databaseUrl, databaseSsl: options.databaseSsl });
+  const googleAds = new GoogleAdsService({
+    databaseUrl: options.databaseUrl, databaseSsl: options.databaseSsl,
+    clientId: options.googleAdsClientId, clientSecret: options.googleAdsClientSecret,
+    redirectUri: options.googleAdsRedirectUri, encryptionSecret: options.googleAdsEncryptionSecret,
+    apiVersion: options.googleAdsApiVersion, developerToken: options.googleAdsDeveloperToken,
+  });
   const admin = new PlatformAdminService({
     databaseUrl: options.databaseUrl,
     databaseSsl: options.databaseSsl,
@@ -178,6 +194,8 @@ export async function createApp(options: CreateAppOptions) {
   await activation.initialize();
   await canva.initialize();
   await instagram.initialize();
+  await media.initialize();
+  await googleAds.initialize();
   await payments.initialize();
   await admin.initialize();
   app.addHook("onClose", async () => {
@@ -189,6 +207,8 @@ export async function createApp(options: CreateAppOptions) {
       activation.close(),
       canva.close(),
       instagram.close(),
+      media.close(),
+      googleAds.close(),
       payments.close(),
       admin.close(),
     ]);
@@ -238,6 +258,7 @@ export async function createApp(options: CreateAppOptions) {
   });
   await registerCanvaRoutes(app, { auth, content, assets, canva });
   await registerInstagramRoutes(app, { auth, content, assets, instagram });
+  await registerMediaConnectionRoutes(app, { auth, media, googleAds });
 
   app.get("/health", async () => ({
     status: "ok",
@@ -258,6 +279,7 @@ export async function createApp(options: CreateAppOptions) {
     canvaStorage: canva.storage,
     instagramIntegration: instagram.configured ? "configured" : "not_configured",
     instagramStorage: instagram.storage,
+    googleAdsIntegration: googleAds.configured ? "configured" : "not_configured",
     creativeIntelligence: "enabled",
     quickStart: "enabled",
     studio: "enabled",

@@ -69,12 +69,6 @@ const app = await createApp({
   instagramApiVersion: config.INSTAGRAM_API_VERSION,
   instagramGraphBaseUrl: config.INSTAGRAM_GRAPH_BASE_URL,
   publicWebUrl: config.PUBLIC_WEB_URL,
-  googleAdsClientId: process.env.GOOGLE_ADS_CLIENT_ID,
-  googleAdsClientSecret: process.env.GOOGLE_ADS_CLIENT_SECRET,
-  googleAdsRedirectUri: process.env.GOOGLE_ADS_MODO_REDIRECT_URI || "https://modo-api-3m10.onrender.com/api/v1/media-connections/google_ads/oauth/callback",
-  googleAdsEncryptionSecret: process.env.GOOGLE_ADS_TOKEN_ENCRYPTION_SECRET,
-  googleAdsApiVersion: process.env.GOOGLE_ADS_API_VERSION || "v25",
-  googleAdsDeveloperToken: process.env.GOOGLE_ADS_DEVELOPER_TOKEN,
 });
 
 await app.register(async (scope) => {
@@ -211,6 +205,12 @@ await registerNexOfficeMarketingRoutes(app, {
   intelligenceCallbackSecret: config.INTELLIGENCE_CALLBACK_SECRET,
   publicApiUrl: config.PUBLIC_API_URL,
   intelligenceRequestTimeoutMs: config.INTELLIGENCE_REQUEST_TIMEOUT_MS,
+  googleAdsClientId: process.env.GOOGLE_ADS_CLIENT_ID,
+  googleAdsClientSecret: process.env.GOOGLE_ADS_CLIENT_SECRET,
+  googleAdsRedirectUri: process.env.GOOGLE_ADS_MODO_REDIRECT_URI || "https://modo-api-3m10.onrender.com/api/v1/media-connections/google_ads/oauth/callback",
+  googleAdsEncryptionSecret: process.env.GOOGLE_ADS_TOKEN_ENCRYPTION_SECRET,
+  googleAdsApiVersion: process.env.GOOGLE_ADS_API_VERSION || "v25",
+  googleAdsDeveloperToken: process.env.GOOGLE_ADS_DEVELOPER_TOKEN,
 });
 
 await registerStrategyNetworkRoutes(app, {

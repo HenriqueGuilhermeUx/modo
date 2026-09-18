@@ -4,6 +4,7 @@ import { DemoDiagnosticProvider } from "./providers/demo-diagnostic-provider.js"
 import { N8nDiagnosticProvider } from "./providers/n8n-diagnostic-provider.js";
 import { registerAgencyApprovalRoutes } from "./routes/agency-approval-routes.js";
 import { registerHumanOperationsRoutes } from "./routes/human-operations-routes.js";
+import { registerMetricoolRoutes } from "./routes/metricool-routes.js";
 import { registerNativeLinkedInV2Routes } from "./routes/native-linkedin-v2-routes.js";
 import { registerNativePublisherV2Routes } from "./routes/native-publisher-v2-routes.js";
 import { registerNexOfficeMarketingRoutes } from "./routes/nexoffice-marketing-routes.js";
@@ -172,6 +173,16 @@ const socialTokenLifecycle = new NativeSocialTokenLifecycleService({
 });
 await socialTokenLifecycle.initialize();
 app.addHook("onClose", async () => socialTokenLifecycle.close());
+
+await app.register(async (scope) => {
+  await registerMetricoolRoutes(scope, {
+    databaseUrl: config.DATABASE_URL,
+    databaseSsl: config.DATABASE_SSL,
+    userToken: process.env.METRICOOL_USER_TOKEN,
+    userId: process.env.METRICOOL_USER_ID,
+    baseUrl: process.env.METRICOOL_BASE_URL || "https://app.metricool.com",
+  });
+});
 
 await registerNexOfficeRoutes(app, {
   serviceKey: process.env.NEXOFFICE_SERVICE_KEY,

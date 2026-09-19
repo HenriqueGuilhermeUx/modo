@@ -1,6 +1,7 @@
 import type { CreativeBrief, CreativeProvider, CreativeProviderJob } from "./creative-engine-service.js";
 
 interface Options {
+  apiKey?: string;
   apiKeyId?: string;
   apiKeySecret?: string;
   baseUrl?: string;
@@ -11,6 +12,7 @@ interface Options {
 export class HiggsfieldCreativeProvider implements CreativeProvider {
   readonly name = "higgsfield";
   readonly configured: boolean;
+  private readonly apiKey?: string;
   private readonly apiKeyId?: string;
   private readonly apiKeySecret?: string;
   private readonly baseUrl: string;
@@ -18,20 +20,22 @@ export class HiggsfieldCreativeProvider implements CreativeProvider {
   private readonly videoModel: string;
 
   constructor(options: Options = {}) {
+    this.apiKey = options.apiKey;
     this.apiKeyId = options.apiKeyId;
     this.apiKeySecret = options.apiKeySecret;
     this.baseUrl = (options.baseUrl || "https://api.higgsfield.ai").replace(/\/$/, "");
     this.imageModel = options.imageModel || "ideogram/v4.0";
     this.videoModel = options.videoModel || "bytedance/seedance-2.0/text-to-video";
-    this.configured = Boolean(this.apiKeyId && this.apiKeySecret);
+    this.configured = Boolean(this.apiKey || (this.apiKeyId && this.apiKeySecret));
   }
 
   private async request(path: string, init?: RequestInit) {
-    if (!this.apiKeyId || !this.apiKeySecret) throw new Error("Credenciais Higgsfield não configuradas.");
+    const credential = this.apiKey || (this.apiKeyId && this.apiKeySecret ? `${this.apiKeyId}:${this.apiKeySecret}` : undefined);
+    if (!credential) throw new Error("Credenciais Higgsfield não configuradas.");
     const response = await fetch(`${this.baseUrl}${path}`, {
       ...init,
       headers: {
-        Authorization: `Key ${this.apiKeyId}:${this.apiKeySecret}`,
+        Authorization: `Key ${credential}`,
         "Content-Type": "application/json",
         ...(init?.headers || {}),
       },

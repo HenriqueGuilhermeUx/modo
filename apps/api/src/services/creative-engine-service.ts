@@ -35,6 +35,7 @@ export interface CreativeProviderJob {
 export interface CreativeProvider {
   readonly name: string;
   readonly configured: boolean;
+  readonly supports?: CreativeMediaKind[];
   submit(input: CreativeBrief): Promise<CreativeProviderJob>;
   getJob(providerJobId: string): Promise<CreativeProviderJob>;
 }
@@ -56,17 +57,17 @@ export class CreativeEngineService {
     }));
   }
 
-  provider(name?: string) {
+  provider(name?: string, kind?: CreativeMediaKind) {
     const available = name
       ? this.providers.find((item) => item.name === name)
-      : this.providers.find((item) => item.configured);
+      : this.providers.find((item) => item.configured && (!kind || item.supports?.includes(kind)));
     if (!available) throw new CreativeEngineError("CREATIVE_PROVIDER_NOT_FOUND", 503, "Nenhum motor criativo configurado.");
     if (!available.configured) throw new CreativeEngineError("CREATIVE_PROVIDER_NOT_CONFIGURED", 503, `O motor criativo ${available.name} ainda não está configurado.`);
     return available;
   }
 
   async generate(input: CreativeBrief, providerName?: string) {
-    const provider = this.provider(providerName);
+    const provider = this.provider(providerName, input.kind);
     const job = await provider.submit(input);
     return { id: randomUUID(), ...job };
   }

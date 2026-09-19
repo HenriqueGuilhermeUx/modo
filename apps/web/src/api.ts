@@ -15,3 +15,5 @@ export const getCreativeEngineHealth=()=>request<{status:string;providers:Array<
 export const getCreativeGeneration=(id:string)=>request<CreativeGeneration>(`/api/v1/creative-engine/generations/${encodeURIComponent(id)}`,undefined,true);
 
 export const setCreativeApproval=(id:string,status:"approved"|"rejected")=>request<CreativeGeneration>(`/api/v1/creative-engine/generations/${encodeURIComponent(id)}/approval`,{method:"POST",body:JSON.stringify({status})},true);
+
+export const createCreativeVariation=(id:string,instructions?:string)=>request<CreativeGeneration>(`/api/v1/creative-engine/generations/${encodeURIComponent(id)}/variation`,{method:"POST",body:JSON.stringify({instructions})},true);

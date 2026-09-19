@@ -35,7 +35,7 @@ export interface CreativeProviderJob {
 export interface CreativeProvider {
   readonly name: string;
   readonly configured: boolean;
-  readonly supports?: CreativeMediaKind[];
+  readonly supports?: readonly CreativeMediaKind[];
   submit(input: CreativeBrief): Promise<CreativeProviderJob>;
   getJob(providerJobId: string): Promise<CreativeProviderJob>;
 }

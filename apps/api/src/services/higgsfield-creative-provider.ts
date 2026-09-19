@@ -1,3 +1,4 @@
+import { chooseVideoModel } from "./video-model-catalog.js";
 import type { CreativeBrief, CreativeProvider, CreativeProviderJob } from "./creative-engine-service.js";
 
 interface Options {
@@ -26,7 +27,7 @@ export class HiggsfieldCreativeProvider implements CreativeProvider {
     this.apiKeySecret = options.apiKeySecret;
     this.baseUrl = (options.baseUrl || "https://api.higgsfield.ai").replace(/\/$/, "");
     this.imageModel = options.imageModel || "ideogram/v4.0";
-    this.videoModel = options.videoModel || "bytedance/seedance-2.5/text-to-video";
+    this.videoModel = options.videoModel || chooseVideoModel("fast_social").model;
     this.configured = Boolean(this.apiKey || (this.apiKeyId && this.apiKeySecret));
   }
 

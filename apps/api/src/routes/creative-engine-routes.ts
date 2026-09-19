@@ -32,6 +32,12 @@ async function contextForBrand(auth: AuthService, request: FastifyRequest, brand
   return context;
 }
 
+function publicCreative(item: any) {
+  if (!item) return item;
+  const { providerJobId: _providerJobId, organizationId: _organizationId, ...safe } = item;
+  return safe;
+}
+
 export async function registerCreativeEngineRoutes(app: FastifyInstance, options: {
   auth: AuthService;
   engine: CreativeEngineService;
@@ -51,19 +57,19 @@ export async function registerCreativeEngineRoutes(app: FastifyInstance, options
     const context = await contextForBrand(options.auth, request, input.brandId);
     const job = await options.engine.generate(input, input.provider);
     const stored = await options.assets.create(context.organization.id, input, job);
-    return reply.code(202).send(stored);
+    return reply.code(202).send(publicCreative(stored));
   });
 
   app.get("/api/v1/creative-engine/library/:brandId", async (request) => {
     const brandId = z.string().uuid().parse((request.params as { brandId: string }).brandId);
     const context = await contextForBrand(options.auth, request, brandId);
-    return { items: await options.assets.list(context.organization.id, brandId) };
+    return { items: (await options.assets.list(context.organization.id, brandId)).map(publicCreative) };
   });
 
   app.get("/api/v1/creative-engine/approved/:brandId", async (request) => {
     const brandId = z.string().uuid().parse((request.params as { brandId: string }).brandId);
     const context = await contextForBrand(options.auth, request, brandId);
-    return { items: await options.assets.listApproved(context.organization.id, brandId) };
+    return { items: (await options.assets.listApproved(context.organization.id, brandId)).map(publicCreative) };
   });
 
   app.post("/api/v1/creative-engine/generations/:id/approval", async (request) => {
@@ -74,7 +80,7 @@ export async function registerCreativeEngineRoutes(app: FastifyInstance, options
     if (!item) throw new AuthError("CREATIVE_NOT_FOUND",404,"Criação não encontrada.");
     const checked = item.qualityStatus === "pending" ? await options.assets.qualityGate(context.organization.id,id) : item;
     if (body.status === "approved" && checked.qualityStatus !== "passed") throw new AuthError("QUALITY_GATE_FAILED",409,"O criativo precisa passar pelo Quality Gate antes da aprovação.");
-    return options.assets.setApproval(context.organization.id,id,body.status);
+    return publicCreative(await options.assets.setApproval(context.organization.id,id,body.status));
   });
 
   app.post("/api/v1/creative-engine/generations/:id/variation", {
@@ -88,7 +94,7 @@ export async function registerCreativeEngineRoutes(app: FastifyInstance, options
     const brief = { brandId: source.brandId, kind: source.kind as "image"|"video", objective: source.objective, prompt: body.instructions ? source.prompt + "\\n\\nVariação solicitada: " + body.instructions : source.prompt + "\\n\\nCrie uma variação visual distinta preservando objetivo e mensagem." };
     const job = await options.engine.generate(brief, source.provider);
     const stored = await options.assets.create(context.organization.id, brief, job);
-    return reply.code(202).send(stored);
+    return reply.code(202).send(publicCreative(stored));
   });
 
   app.get("/api/v1/creative-engine/generations/:id", async (request) => {
@@ -96,9 +102,9 @@ export async function registerCreativeEngineRoutes(app: FastifyInstance, options
     const id = z.string().uuid().parse((request.params as { id: string }).id);
     const stored = await options.assets.get(context.organization.id, id);
     if (!stored) throw new AuthError("CREATIVE_NOT_FOUND", 404, "Criação não encontrada.");
-    if (stored.status === "ready" || stored.status === "failed") return stored;
+    if (stored.status === "ready" || stored.status === "failed") return publicCreative(stored);
     const providerJob = await options.engine.status(stored.provider, stored.providerJobId);
     const synced = await options.assets.sync(context.organization.id, id, providerJob);
-    return synced.status === "ready" ? options.assets.qualityGate(context.organization.id,id) : synced;
+    return publicCreative(synced.status === "ready" ? await options.assets.qualityGate(context.organization.id,id) : synced);
   });
 }

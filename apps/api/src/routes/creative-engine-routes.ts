@@ -70,7 +70,11 @@ export async function registerCreativeEngineRoutes(app: FastifyInstance, options
     const context = await options.auth.authenticate(token(request));
     const id = z.string().uuid().parse((request.params as { id: string }).id);
     const body = z.object({ status: z.enum(["approved","rejected"]) }).parse(request.body);
-    const item = await options.assets.get(context.organization.id,id);\n    if (!item) throw new AuthError("CREATIVE_NOT_FOUND",404,"Criação não encontrada.");\n    const checked = item.qualityStatus === "pending" ? await options.assets.qualityGate(context.organization.id,id) : item;\n    if (body.status === "approved" && checked.qualityStatus !== "passed") throw new AuthError("QUALITY_GATE_FAILED",409,"O criativo precisa passar pelo Quality Gate antes da aprovação.");\n    return options.assets.setApproval(context.organization.id,id,body.status);
+    const item = await options.assets.get(context.organization.id,id);
+    if (!item) throw new AuthError("CREATIVE_NOT_FOUND",404,"Criação não encontrada.");
+    const checked = item.qualityStatus === "pending" ? await options.assets.qualityGate(context.organization.id,id) : item;
+    if (body.status === "approved" && checked.qualityStatus !== "passed") throw new AuthError("QUALITY_GATE_FAILED",409,"O criativo precisa passar pelo Quality Gate antes da aprovação.");
+    return options.assets.setApproval(context.organization.id,id,body.status);
   });
 
   app.get("/api/v1/creative-engine/generations/:id", async (request) => {
@@ -80,6 +84,7 @@ export async function registerCreativeEngineRoutes(app: FastifyInstance, options
     if (!stored) throw new AuthError("CREATIVE_NOT_FOUND", 404, "Criação não encontrada.");
     if (stored.status === "ready" || stored.status === "failed") return stored;
     const providerJob = await options.engine.status(stored.provider, stored.providerJobId);
-    const synced = await options.assets.sync(context.organization.id, id, providerJob);\n    return synced.status === "ready" ? options.assets.qualityGate(context.organization.id,id) : synced;
+    const synced = await options.assets.sync(context.organization.id, id, providerJob);
+    return synced.status === "ready" ? options.assets.qualityGate(context.organization.id,id) : synced;
   });
 }

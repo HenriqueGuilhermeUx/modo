@@ -11,6 +11,7 @@ interface Options {
 
 export class HiggsfieldCreativeProvider implements CreativeProvider {
   readonly name = "higgsfield";
+  readonly supports = ["video"] as const;
   readonly configured: boolean;
   private readonly apiKey?: string;
   private readonly apiKeyId?: string;

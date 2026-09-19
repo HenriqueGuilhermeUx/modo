@@ -11,3 +11,5 @@ export type CreativeGeneration={id:string;organizationId:string;brandId:string;p
 export const generateCreative=(input:{brandId:string;kind:"image"|"video";objective:string;audience?:string;channel?:string;format?:string;prompt:string;negativePrompt?:string;durationSeconds?:number;provider?:string})=>request<CreativeGeneration>("/api/v1/creative-engine/generations",{method:"POST",body:JSON.stringify(input)},true);
 export const listCreativeLibrary=(brandId:string)=>request<{items:CreativeGeneration[]}>(`/api/v1/creative-engine/library/${encodeURIComponent(brandId)}`,undefined,true);
 export const getCreativeEngineHealth=()=>request<{status:string;providers:Array<{provider:string;configured:boolean}>;humanApprovalRequired:boolean}>("/api/v1/creative-engine/health",undefined,true);
+
+export const getCreativeGeneration=(id:string)=>request<CreativeGeneration>(`/api/v1/creative-engine/generations/${encodeURIComponent(id)}`,undefined,true);

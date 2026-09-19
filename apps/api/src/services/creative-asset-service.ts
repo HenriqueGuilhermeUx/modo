@@ -23,7 +23,11 @@ export class CreativeAssetService {
       provider_job_id TEXT NOT NULL, kind TEXT NOT NULL, objective TEXT NOT NULL, prompt TEXT NOT NULL,
       status TEXT NOT NULL, quality_status TEXT NOT NULL DEFAULT 'pending', quality_score INTEGER, approval_status TEXT NOT NULL DEFAULT 'pending', assets JSONB NOT NULL DEFAULT '[]'::jsonb, error TEXT,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    ); CREATE INDEX IF NOT EXISTS modo_creative_jobs_brand_idx ON modo_creative_jobs(organization_id,brand_id,created_at DESC);`);
+    );
+    ALTER TABLE modo_creative_jobs ADD COLUMN IF NOT EXISTS quality_status TEXT NOT NULL DEFAULT 'pending';
+    ALTER TABLE modo_creative_jobs ADD COLUMN IF NOT EXISTS quality_score INTEGER;
+    ALTER TABLE modo_creative_jobs ADD COLUMN IF NOT EXISTS approval_status TEXT NOT NULL DEFAULT 'pending';
+    CREATE INDEX IF NOT EXISTS modo_creative_jobs_brand_idx ON modo_creative_jobs(organization_id,brand_id,created_at DESC);`);
   }
   async close(){ await this.pool?.end(); }
   private map(r:any):StoredCreativeJob{return{id:r.id,organizationId:r.organization_id,brandId:r.brand_id,provider:r.provider,providerJobId:r.provider_job_id,kind:r.kind,objective:r.objective,prompt:r.prompt,status:r.status,qualityStatus:r.quality_status||"pending",qualityScore:r.quality_score??undefined,approvalStatus:r.approval_status||"pending",assets:r.assets||[],error:r.error,createdAt:new Date(r.created_at).toISOString(),updatedAt:new Date(r.updated_at).toISOString()}}

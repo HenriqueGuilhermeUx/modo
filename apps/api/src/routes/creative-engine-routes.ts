@@ -2,6 +2,7 @@ import type { FastifyInstance, FastifyRequest } from "fastify";
 import { z } from "zod";
 import { AuthError, type AuthService } from "../services/auth-service.js";
 import { CreativeEngineService } from "../services/creative-engine-service.js";
+import { CreativeAssetService } from "../services/creative-asset-service.js";
 
 const BriefSchema = z.object({
   brandId: z.string().uuid(),
@@ -34,6 +35,7 @@ async function contextForBrand(auth: AuthService, request: FastifyRequest, brand
 export async function registerCreativeEngineRoutes(app: FastifyInstance, options: {
   auth: AuthService;
   engine: CreativeEngineService;
+  assets: CreativeAssetService;
 }) {
   app.get("/api/v1/creative-engine/health", async () => ({
     status: "ok",
@@ -48,7 +50,14 @@ export async function registerCreativeEngineRoutes(app: FastifyInstance, options
     const input = BriefSchema.parse(request.body);
     await contextForBrand(options.auth, request, input.brandId);
     const job = await options.engine.generate(input, input.provider);
-    return reply.code(202).send(job);
+    const stored = await options.assets.create((await options.auth.authenticate(token(request))).organization.id, input, job);
+    return reply.code(202).send(stored);
+  });
+
+  app.get("/api/v1/creative-engine/library/:brandId", async (request) => {
+    const brandId = z.string().uuid().parse((request.params as { brandId: string }).brandId);
+    const context = await contextForBrand(options.auth, request, brandId);
+    return { items: await options.assets.list(context.organization.id, brandId) };
   });
 
   app.get("/api/v1/creative-engine/generations/:provider/:jobId", async (request) => {

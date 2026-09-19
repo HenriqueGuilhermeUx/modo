@@ -32,6 +32,11 @@ export class CreativeAssetService {
     if(this.pool){const r=await this.pool.query(`INSERT INTO modo_creative_jobs(id,organization_id,brand_id,provider,provider_job_id,kind,objective,prompt,status,assets,error) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::jsonb,$11) RETURNING *`,[id,organizationId,brief.brandId,job.provider,job.providerJobId,brief.kind,brief.objective,brief.prompt,job.status,JSON.stringify(job.assets),job.error||null]);return this.map(r.rows[0]);}
     const now=new Date().toISOString();const item:StoredCreativeJob={id,organizationId,brandId:brief.brandId,provider:job.provider,providerJobId:job.providerJobId,kind:brief.kind,objective:brief.objective,prompt:brief.prompt,status:job.status,qualityStatus:"pending",approvalStatus:"pending",assets:job.assets,error:job.error,createdAt:now,updatedAt:now};this.jobs.set(id,item);return item;
   }
+  async listApproved(organizationId:string,brandId:string){
+    if(this.pool){const r=await this.pool.query("SELECT * FROM modo_creative_jobs WHERE organization_id=$1 AND brand_id=$2 AND status='ready' AND quality_status='passed' AND approval_status='approved' ORDER BY updated_at DESC LIMIT 100",[organizationId,brandId]);return r.rows.map(x=>this.map(x));}
+    return [...this.jobs.values()].filter(x=>x.organizationId===organizationId&&x.brandId===brandId&&x.status==="ready"&&x.qualityStatus==="passed"&&x.approvalStatus==="approved").sort((a,b)=>b.updatedAt.localeCompare(a.updatedAt));
+  }
+
   async list(organizationId:string,brandId:string){
     if(this.pool){const r=await this.pool.query("SELECT * FROM modo_creative_jobs WHERE organization_id=$1 AND brand_id=$2 ORDER BY created_at DESC LIMIT 100",[organizationId,brandId]);return r.rows.map(x=>this.map(x));}
     return [...this.jobs.values()].filter(x=>x.organizationId===organizationId&&x.brandId===brandId).sort((a,b)=>b.createdAt.localeCompare(a.createdAt));

@@ -60,6 +60,13 @@ export async function registerCreativeEngineRoutes(app: FastifyInstance, options
     return { items: await options.assets.list(context.organization.id, brandId) };
   });
 
+  app.post("/api/v1/creative-engine/generations/:id/approval", async (request) => {
+    const context = await options.auth.authenticate(token(request));
+    const id = z.string().uuid().parse((request.params as { id: string }).id);
+    const body = z.object({ status: z.enum(["approved","rejected"]) }).parse(request.body);
+    return options.assets.setApproval(context.organization.id,id,body.status);
+  });
+
   app.get("/api/v1/creative-engine/generations/:id", async (request) => {
     const context = await options.auth.authenticate(token(request));
     const id = z.string().uuid().parse((request.params as { id: string }).id);

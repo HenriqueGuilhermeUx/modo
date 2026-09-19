@@ -26,7 +26,7 @@ export class HiggsfieldCreativeProvider implements CreativeProvider {
     this.apiKeySecret = options.apiKeySecret;
     this.baseUrl = (options.baseUrl || "https://api.higgsfield.ai").replace(/\/$/, "");
     this.imageModel = options.imageModel || "ideogram/v4.0";
-    this.videoModel = options.videoModel || "bytedance/seedance-2.0/text-to-video";
+    this.videoModel = options.videoModel || "bytedance/seedance-2.5/text-to-video";
     this.configured = Boolean(this.apiKey || (this.apiKeyId && this.apiKeySecret));
   }
 

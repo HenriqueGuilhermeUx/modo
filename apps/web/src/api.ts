@@ -7,9 +7,11 @@ export type MetricoolStatus={configured:boolean;provider:"metricool";linked:bool
 export const getMetricoolStatus=(brandId:string)=>request<MetricoolStatus>(`/api/v1/metricool/brands/${encodeURIComponent(brandId)}/status`,undefined,true);
 export const connectMetricoolBrand=(brandId:string)=>request<{provider:string;blogId:string;loginUrl:string;expiresInMinutes:number;singleUse:boolean}>(`/api/v1/metricool/brands/${encodeURIComponent(brandId)}/connect`,{method:"POST"},true);
 
-export type CreativeGeneration={id:string;organizationId:string;brandId:string;provider:string;providerJobId:string;kind:"image"|"video";objective:string;prompt:string;status:"queued"|"processing"|"ready"|"failed";assets:Array<{url:string;mimeType?:string;width?:number;height?:number;durationSeconds?:number}>;error?:string|null;createdAt:string;updatedAt:string};
+export type CreativeGeneration={id:string;organizationId:string;brandId:string;provider:string;providerJobId:string;kind:"image"|"video";objective:string;prompt:string;status:"queued"|"processing"|"ready"|"failed";approvalStatus?:"pending"|"approved"|"rejected";assets:Array<{url:string;mimeType?:string;width?:number;height?:number;durationSeconds?:number}>;error?:string|null;createdAt:string;updatedAt:string};
 export const generateCreative=(input:{brandId:string;kind:"image"|"video";objective:string;audience?:string;channel?:string;format?:string;prompt:string;negativePrompt?:string;durationSeconds?:number;provider?:string})=>request<CreativeGeneration>("/api/v1/creative-engine/generations",{method:"POST",body:JSON.stringify(input)},true);
 export const listCreativeLibrary=(brandId:string)=>request<{items:CreativeGeneration[]}>(`/api/v1/creative-engine/library/${encodeURIComponent(brandId)}`,undefined,true);
 export const getCreativeEngineHealth=()=>request<{status:string;providers:Array<{provider:string;configured:boolean}>;humanApprovalRequired:boolean}>("/api/v1/creative-engine/health",undefined,true);
 
 export const getCreativeGeneration=(id:string)=>request<CreativeGeneration>(`/api/v1/creative-engine/generations/${encodeURIComponent(id)}`,undefined,true);
+
+export const setCreativeApproval=(id:string,status:"approved"|"rejected")=>request<CreativeGeneration>(`/api/v1/creative-engine/generations/${encodeURIComponent(id)}/approval`,{method:"POST",body:JSON.stringify({status})},true);

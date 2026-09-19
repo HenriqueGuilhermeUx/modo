@@ -48,9 +48,9 @@ export async function registerCreativeEngineRoutes(app: FastifyInstance, options
     config: { rateLimit: { max: 12, timeWindow: "10 minutes" } },
   }, async (request, reply) => {
     const input = BriefSchema.parse(request.body);
-    await contextForBrand(options.auth, request, input.brandId);
+    const context = await contextForBrand(options.auth, request, input.brandId);
     const job = await options.engine.generate(input, input.provider);
-    const stored = await options.assets.create((await options.auth.authenticate(token(request))).organization.id, input, job);
+    const stored = await options.assets.create(context.organization.id, input, job);
     return reply.code(202).send(stored);
   });
 
@@ -60,12 +60,13 @@ export async function registerCreativeEngineRoutes(app: FastifyInstance, options
     return { items: await options.assets.list(context.organization.id, brandId) };
   });
 
-  app.get("/api/v1/creative-engine/generations/:provider/:jobId", async (request) => {
-    await options.auth.authenticate(token(request));
-    const params = z.object({
-      provider: z.string().min(1).max(50),
-      jobId: z.string().min(1).max(500),
-    }).parse(request.params);
-    return options.engine.status(params.provider, params.jobId);
+  app.get("/api/v1/creative-engine/generations/:id", async (request) => {
+    const context = await options.auth.authenticate(token(request));
+    const id = z.string().uuid().parse((request.params as { id: string }).id);
+    const stored = await options.assets.get(context.organization.id, id);
+    if (!stored) throw new AuthError("CREATIVE_NOT_FOUND", 404, "Criação não encontrada.");
+    if (stored.status === "ready" || stored.status === "failed") return stored;
+    const providerJob = await options.engine.status(stored.provider, stored.providerJobId);
+    return options.assets.sync(context.organization.id, id, providerJob);
   });
 }

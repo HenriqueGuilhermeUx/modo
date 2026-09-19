@@ -15,6 +15,7 @@ const BriefSchema = z.object({
   negativePrompt: z.string().max(4000).optional(),
   durationSeconds: z.number().int().min(1).max(120).optional(),
   provider: z.string().max(50).optional(),
+  confirmPaidGeneration: z.boolean().optional(),
 });
 
 function token(request: FastifyRequest) {
@@ -55,6 +56,7 @@ export async function registerCreativeEngineRoutes(app: FastifyInstance, options
   }, async (request, reply) => {
     const input = BriefSchema.parse(request.body);
     const context = await contextForBrand(options.auth, request, input.brandId);
+    if (input.kind === "video" && input.confirmPaidGeneration !== true) throw new AuthError("PAID_GENERATION_CONFIRMATION_REQUIRED",409,"Vídeos usam geração paga. Confirme explicitamente antes de gerar.");
     const job = await options.engine.generate(input, input.provider);
     const stored = await options.assets.create(context.organization.id, input, job);
     return reply.code(202).send(publicCreative(stored));

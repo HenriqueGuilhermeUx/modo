@@ -13,3 +13,21 @@ export function chooseVideoModel(useCase:VideoUseCase="fast_social"){
  if(!match)throw new Error("Nenhum modelo de vídeo habilitado para este caso de uso.");
  return match;
 }
+
+export interface VideoRoutingInput{objective?:string;channel?:string;format?:string;hasImage?:boolean;hasReferences?:boolean;}
+export function inferVideoUseCase(input:VideoRoutingInput):VideoUseCase{
+ const text=`${input.objective||""} ${input.channel||""} ${input.format||""}`.toLowerCase();
+ if(input.hasReferences)return "reference_to_video";
+ if(input.hasImage)return "image_to_video";
+ if(/cinema|cinematic|filme|storytelling|brand film/.test(text))return "cinematic";
+ if(/ads|ad|anúncio|anuncio|performance|conversão|conversao|campanha paga|google/.test(text))return "premium_ad";
+ return "fast_social";
+}
+export function routeVideoModel(input:VideoRoutingInput){
+ const requested=inferVideoUseCase(input);
+ try{return{requested,useCase:requested,profile:chooseVideoModel(requested),fallback:false};}
+ catch{
+  const fallback=chooseVideoModel("fast_social");
+  return{requested,useCase:"fast_social" as VideoUseCase,profile:fallback,fallback:true};
+ }
+}

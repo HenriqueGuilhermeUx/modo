@@ -1,4 +1,4 @@
-import { chooseVideoModel } from "./video-model-catalog.js";
+import { chooseVideoModel, routeVideoModel } from "./video-model-catalog.js";
 import type { CreativeBrief, CreativeProvider, CreativeProviderJob } from "./creative-engine-service.js";
 
 interface Options {
@@ -50,7 +50,8 @@ export class HiggsfieldCreativeProvider implements CreativeProvider {
   }
 
   async submit(input: CreativeBrief): Promise<CreativeProviderJob> {
-    const model = input.kind === "video" ? this.videoModel : this.imageModel;
+    const routed = input.kind === "video" ? routeVideoModel({objective:input.objective,channel:input.channel,format:input.format}) : undefined;
+    const model = input.kind === "video" ? (routed?.profile.model || this.videoModel) : this.imageModel;
     // Provider transport is isolated here so model/API revisions never leak into MODO's domain layer.
     const body = await this.request(`/${model}`, {
       method: "POST",

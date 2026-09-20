@@ -3,6 +3,7 @@ import { z } from "zod";
 import { AuthError, type AuthService } from "../services/auth-service.js";
 import { CreativeEngineService } from "../services/creative-engine-service.js";
 import { CreativeAssetService } from "../services/creative-asset-service.js";
+import { videoCapabilities, videoRoutingPreview } from "../services/video-model-catalog.js";
 
 const BriefSchema = z.object({
   brandId: z.string().uuid(),
@@ -44,6 +45,10 @@ export async function registerCreativeEngineRoutes(app: FastifyInstance, options
   engine: CreativeEngineService;
   assets: CreativeAssetService;
 }) {
+  app.get("/api/v1/creative-engine/video-capabilities", async (request) => { await options.auth.authenticate(token(request)); return {items:videoCapabilities()}; });
+
+  app.post("/api/v1/creative-engine/video-route-preview", async (request) => { await options.auth.authenticate(token(request)); const body=z.object({objective:z.string().optional(),channel:z.string().optional(),format:z.string().optional()}).parse(request.body||{}); return videoRoutingPreview(body); });
+
   app.get("/api/v1/creative-engine/health", async () => ({
     status: "ok",
     providers: options.engine.capabilities(),

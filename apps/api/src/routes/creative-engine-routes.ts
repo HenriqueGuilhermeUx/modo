@@ -71,6 +71,8 @@ export async function registerCreativeEngineRoutes(app: FastifyInstance, options
     return reply.code(202).send(publicCreative(stored));
   });
 
+  app.get("/api/v1/creative-engine/costs/:brandId", async (request) => { const brandId=z.string().uuid().parse((request.params as {brandId:string}).brandId); const context=await contextForBrand(options.auth,request,brandId); return options.assets.costSummary(context.organization.id,brandId); });
+
   app.get("/api/v1/creative-engine/library/:brandId", async (request) => {
     const brandId = z.string().uuid().parse((request.params as { brandId: string }).brandId);
     const context = await contextForBrand(options.auth, request, brandId);

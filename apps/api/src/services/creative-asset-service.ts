@@ -67,9 +67,9 @@ export class CreativeAssetService {
     if(this.pool){const r=await this.pool.query("SELECT * FROM modo_creative_jobs WHERE id=$1 AND organization_id=$2",[id,organizationId]);return r.rowCount?this.map(r.rows[0]):null;}
     const x=this.jobs.get(id);return x?.organizationId===organizationId?x:null;
   }
-}
-
   async costSummary(organizationId:string,brandId:string){
     if(this.pool){const r=await this.pool.query("SELECT COUNT(*)::int AS generations,COALESCE(SUM(estimated_cost_usd),0)::float8 AS estimated,COALESCE(SUM(actual_cost_usd),0)::float8 AS actual FROM modo_creative_jobs WHERE organization_id=$1 AND brand_id=$2",[organizationId,brandId]);return{generations:r.rows[0].generations,estimatedCostUsd:r.rows[0].estimated,actualCostUsd:r.rows[0].actual};}
     const xs=[...this.jobs.values()].filter(x=>x.organizationId===organizationId&&x.brandId===brandId);return{generations:xs.length,estimatedCostUsd:xs.reduce((n,x)=>n+(x.estimatedCostUsd||0),0),actualCostUsd:xs.reduce((n,x)=>n+(x.actualCostUsd||0),0)};
   }
+
+}

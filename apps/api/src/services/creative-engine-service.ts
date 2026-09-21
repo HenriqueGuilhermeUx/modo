@@ -47,6 +47,13 @@ export class CreativeEngineError extends Error {
   }
 }
 
+export function enrichCreativePrompt(input: CreativeBrief) {
+  const parts=[`Objetivo: ${input.objective}.`,input.audience?`Público: ${input.audience}.`:"",input.channel?`Canal: ${input.channel}.`:"",input.format?`Formato: ${input.format}.`:"",`Pedido do cliente: ${input.prompt}`].filter(Boolean);
+  if(input.kind==="video")parts.push("Crie uma peça publicitária clara, visualmente consistente, com abertura forte, progressão objetiva e encerramento adequado ao canal. Não invente alegações, preços, depoimentos ou dados não fornecidos.");
+  else parts.push("Crie uma peça visual clara, profissional e coerente com o objetivo. Não invente alegações, preços, depoimentos ou dados não fornecidos.");
+  return parts.join("\n");
+}
+
 export class CreativeEngineService {
   constructor(private readonly providers: CreativeProvider[]) {}
 
@@ -68,7 +75,8 @@ export class CreativeEngineService {
 
   async generate(input: CreativeBrief, providerName?: string) {
     const provider = this.provider(providerName, input.kind);
-    const job = await provider.submit(input);
+    const enriched={...input,prompt:enrichCreativePrompt(input)};
+    const job = await provider.submit(enriched);
     return { id: randomUUID(), ...job };
   }
 

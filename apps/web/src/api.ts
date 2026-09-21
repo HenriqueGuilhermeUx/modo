@@ -20,3 +20,6 @@ export const createCreativeVariation=(id:string,instructions?:string)=>request<C
 
 export type VideoRoutePreview={requestedUseCase:string;selectedUseCase:string;modelKey:string;paid:boolean;fallback:boolean;maxDurationSeconds?:number};
 export const previewCreativeVideoRoute=(input:{objective?:string;channel?:string;format?:string})=>request<VideoRoutePreview>("/api/v1/creative-engine/video-route-preview",{method:"POST",body:JSON.stringify(input)},true);
+
+export type CreativeCostSummary={generations:number;estimatedCostUsd:number;actualCostUsd:number};
+export const getCreativeCostSummary=(brandId:string)=>request<CreativeCostSummary>(`/api/v1/creative-engine/costs/${encodeURIComponent(brandId)}`,undefined,true);

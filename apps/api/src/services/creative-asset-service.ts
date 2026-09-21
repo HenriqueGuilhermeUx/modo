@@ -5,7 +5,7 @@ const { Pool: PgPool } = pg;
 
 export interface StoredCreativeJob {
   id: string; organizationId: string; brandId: string; provider: string; providerJobId: string;
-  kind: string; objective: string; prompt: string; status: string; qualityStatus?: "pending"|"passed"|"needs_review"; qualityScore?: number; approvalStatus?: "pending"|"approved"|"rejected"; assets: CreativeAsset[];
+  kind: string; objective: string; prompt: string; status: string; qualityStatus?: "pending"|"passed"|"needs_review"; qualityScore?: number; approvalStatus?: "pending"|"approved"|"rejected"; estimatedCostUsd?: number; actualCostUsd?: number; assets: CreativeAsset[];
   error?: string | null; createdAt: string; updatedAt: string;
 }
 
@@ -27,10 +27,12 @@ export class CreativeAssetService {
     ALTER TABLE modo_creative_jobs ADD COLUMN IF NOT EXISTS quality_status TEXT NOT NULL DEFAULT 'pending';
     ALTER TABLE modo_creative_jobs ADD COLUMN IF NOT EXISTS quality_score INTEGER;
     ALTER TABLE modo_creative_jobs ADD COLUMN IF NOT EXISTS approval_status TEXT NOT NULL DEFAULT 'pending';
+    ALTER TABLE modo_creative_jobs ADD COLUMN IF NOT EXISTS estimated_cost_usd NUMERIC;
+    ALTER TABLE modo_creative_jobs ADD COLUMN IF NOT EXISTS actual_cost_usd NUMERIC;
     CREATE INDEX IF NOT EXISTS modo_creative_jobs_brand_idx ON modo_creative_jobs(organization_id,brand_id,created_at DESC);`);
   }
   async close(){ await this.pool?.end(); }
-  private map(r:any):StoredCreativeJob{return{id:r.id,organizationId:r.organization_id,brandId:r.brand_id,provider:r.provider,providerJobId:r.provider_job_id,kind:r.kind,objective:r.objective,prompt:r.prompt,status:r.status,qualityStatus:r.quality_status||"pending",qualityScore:r.quality_score??undefined,approvalStatus:r.approval_status||"pending",assets:r.assets||[],error:r.error,createdAt:new Date(r.created_at).toISOString(),updatedAt:new Date(r.updated_at).toISOString()}}
+  private map(r:any):StoredCreativeJob{return{id:r.id,organizationId:r.organization_id,brandId:r.brand_id,provider:r.provider,providerJobId:r.provider_job_id,kind:r.kind,objective:r.objective,prompt:r.prompt,status:r.status,qualityStatus:r.quality_status||"pending",qualityScore:r.quality_score??undefined,approvalStatus:r.approval_status||"pending",estimatedCostUsd:r.estimated_cost_usd==null?undefined:Number(r.estimated_cost_usd),actualCostUsd:r.actual_cost_usd==null?undefined:Number(r.actual_cost_usd),assets:r.assets||[],error:r.error,createdAt:new Date(r.created_at).toISOString(),updatedAt:new Date(r.updated_at).toISOString()}}
   async create(organizationId:string, brief:CreativeBrief, job:CreativeProviderJob){
     const id=randomUUID();
     if(this.pool){const r=await this.pool.query(`INSERT INTO modo_creative_jobs(id,organization_id,brand_id,provider,provider_job_id,kind,objective,prompt,status,assets,error) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::jsonb,$11) RETURNING *`,[id,organizationId,brief.brandId,job.provider,job.providerJobId,brief.kind,brief.objective,brief.prompt,job.status,JSON.stringify(job.assets),job.error||null]);return this.map(r.rows[0]);}
@@ -66,3 +68,8 @@ export class CreativeAssetService {
     const x=this.jobs.get(id);return x?.organizationId===organizationId?x:null;
   }
 }
+
+  async costSummary(organizationId:string,brandId:string){
+    if(this.pool){const r=await this.pool.query("SELECT COUNT(*)::int AS generations,COALESCE(SUM(estimated_cost_usd),0)::float8 AS estimated,COALESCE(SUM(actual_cost_usd),0)::float8 AS actual FROM modo_creative_jobs WHERE organization_id=$1 AND brand_id=$2",[organizationId,brandId]);return{generations:r.rows[0].generations,estimatedCostUsd:r.rows[0].estimated,actualCostUsd:r.rows[0].actual};}
+    const xs=[...this.jobs.values()].filter(x=>x.organizationId===organizationId&&x.brandId===brandId);return{generations:xs.length,estimatedCostUsd:xs.reduce((n,x)=>n+(x.estimatedCostUsd||0),0),actualCostUsd:xs.reduce((n,x)=>n+(x.actualCostUsd||0),0)};
+  }

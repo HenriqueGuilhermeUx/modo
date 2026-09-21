@@ -44,6 +44,7 @@ export async function registerCreativeEngineRoutes(app: FastifyInstance, options
   auth: AuthService;
   engine: CreativeEngineService;
   assets: CreativeAssetService;
+  creativeIntelligence?: { getProfile(accountId:string,brandId:string):Promise<any> };
 }) {
   app.get("/api/v1/creative-engine/video-capabilities", async (request) => { await options.auth.authenticate(token(request)); return {items:videoCapabilities()}; });
 
@@ -61,8 +62,11 @@ export async function registerCreativeEngineRoutes(app: FastifyInstance, options
   }, async (request, reply) => {
     const input = BriefSchema.parse(request.body);
     const context = await contextForBrand(options.auth, request, input.brandId);
+    const profile=options.creativeIntelligence?await options.creativeIntelligence.getProfile(context.organization.id,input.brandId):undefined;
+    const brandContext=profile?[...(profile.productsOrServicesToShow||[]).map((x:string)=>`Produto/serviço: ${x}`),...(profile.currentPriorities||[]).map((x:string)=>`Prioridade: ${x}`),...(profile.proofAvailable||[]).map((x:string)=>`Prova disponível: ${x}`),...(profile.prohibitedTopics||[]).map((x:string)=>`Não abordar: ${x}`)].join("\n"):"";
+    const enrichedInput=brandContext?{...input,prompt:`${input.prompt}\n\nContexto conhecido da marca:\n${brandContext}`} : input;
     if (input.kind === "video" && input.confirmPaidGeneration !== true) throw new AuthError("PAID_GENERATION_CONFIRMATION_REQUIRED",409,"Vídeos usam geração paga. Confirme explicitamente antes de gerar.");
-    const job = await options.engine.generate(input, input.provider);
+    const job = await options.engine.generate(enrichedInput, input.provider);
     const stored = await options.assets.create(context.organization.id, input, job);
     return reply.code(202).send(publicCreative(stored));
   });

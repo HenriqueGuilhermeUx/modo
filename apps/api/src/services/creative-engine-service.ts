@@ -61,12 +61,13 @@ export class CreativeEngineService {
     return this.providers.map((provider) => ({
       provider: provider.name,
       configured: provider.configured,
+      supports: provider.supports ?? [],
     }));
   }
 
   provider(name?: string, kind?: CreativeMediaKind) {
     const available = name
-      ? this.providers.find((item) => item.name === name)
+      ? this.providers.find((item) => item.name === name && (!kind || item.supports?.includes(kind)))
       : this.providers.find((item) => item.configured && (!kind || item.supports?.includes(kind)));
     if (!available) throw new CreativeEngineError("CREATIVE_PROVIDER_NOT_FOUND", 503, "Nenhum motor criativo configurado.");
     if (!available.configured) throw new CreativeEngineError("CREATIVE_PROVIDER_NOT_CONFIGURED", 503, `O motor criativo ${available.name} ainda não está configurado.`);

@@ -105,7 +105,8 @@ export async function registerCreativeEngineRoutes(app: FastifyInstance, options
     const id = z.string().uuid().parse((request.params as { id: string }).id);
     const source = await options.assets.get(context.organization.id,id);
     if (!source) throw new AuthError("CREATIVE_NOT_FOUND",404,"Criação não encontrada.");
-    const body = z.object({ instructions: z.string().max(2000).optional() }).parse(request.body || {});
+    const body = z.object({ instructions: z.string().max(2000).optional(), confirmPaidGeneration:z.boolean().optional() }).parse(request.body || {});
+    if(source.kind==="video" && body.confirmPaidGeneration!==true) throw new AuthError("PAID_GENERATION_CONFIRMATION_REQUIRED",409,"Variações de vídeo também usam geração paga. Confirme explicitamente antes de gerar.");
     const brief = { brandId: source.brandId, kind: source.kind as "image"|"video", objective: source.objective, prompt: body.instructions ? source.prompt + "\\n\\nVariação solicitada: " + body.instructions : source.prompt + "\\n\\nCrie uma variação visual distinta preservando objetivo e mensagem." };
     const job = await options.engine.generate(brief, source.provider);
     const stored = await options.assets.create(context.organization.id, brief, job);

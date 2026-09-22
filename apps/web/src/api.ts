@@ -16,7 +16,7 @@ export const getCreativeGeneration=(id:string)=>request<CreativeGeneration>(`/ap
 
 export const setCreativeApproval=(id:string,status:"approved"|"rejected")=>request<CreativeGeneration>(`/api/v1/creative-engine/generations/${encodeURIComponent(id)}/approval`,{method:"POST",body:JSON.stringify({status})},true);
 
-export const createCreativeVariation=(id:string,instructions?:string)=>request<CreativeGeneration>(`/api/v1/creative-engine/generations/${encodeURIComponent(id)}/variation`,{method:"POST",body:JSON.stringify({instructions})},true);
+export const createCreativeVariation=(id:string,instructions?:string,confirmPaidGeneration?:boolean)=>request<CreativeGeneration>(`/api/v1/creative-engine/generations/${encodeURIComponent(id)}/variation`,{method:"POST",body:JSON.stringify({instructions,confirmPaidGeneration})},true);
 
 export type VideoRoutePreview={requestedUseCase:string;selectedUseCase:string;modelKey:string;paid:boolean;fallback:boolean;maxDurationSeconds?:number};
 export const previewCreativeVideoRoute=(input:{objective?:string;channel?:string;format?:string})=>request<VideoRoutePreview>("/api/v1/creative-engine/video-route-preview",{method:"POST",body:JSON.stringify(input)},true);

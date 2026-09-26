@@ -21,7 +21,7 @@ export class CreativeAssetService {
       id TEXT PRIMARY KEY, organization_id TEXT NOT NULL REFERENCES modo_organizations(id) ON DELETE CASCADE,
       brand_id TEXT NOT NULL REFERENCES modo_brands(id) ON DELETE CASCADE, provider TEXT NOT NULL,
       provider_job_id TEXT NOT NULL, kind TEXT NOT NULL, objective TEXT NOT NULL, prompt TEXT NOT NULL,
-      status TEXT NOT NULL, quality_status TEXT NOT NULL DEFAULT 'pending', quality_score INTEGER, approval_status TEXT NOT NULL DEFAULT 'pending', assets JSONB NOT NULL DEFAULT '[]'::jsonb, error TEXT,
+      status TEXT NOT NULL, quality_status TEXT NOT NULL DEFAULT 'pending', quality_score INTEGER, approval_status TEXT NOT NULL DEFAULT 'pending', idempotency_key TEXT, assets JSONB NOT NULL DEFAULT '[]'::jsonb, error TEXT,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
     ALTER TABLE modo_creative_jobs ADD COLUMN IF NOT EXISTS quality_status TEXT NOT NULL DEFAULT 'pending';
@@ -29,15 +29,18 @@ export class CreativeAssetService {
     ALTER TABLE modo_creative_jobs ADD COLUMN IF NOT EXISTS approval_status TEXT NOT NULL DEFAULT 'pending';
     ALTER TABLE modo_creative_jobs ADD COLUMN IF NOT EXISTS estimated_cost_usd NUMERIC;
     ALTER TABLE modo_creative_jobs ADD COLUMN IF NOT EXISTS actual_cost_usd NUMERIC;
+    ALTER TABLE modo_creative_jobs ADD COLUMN IF NOT EXISTS idempotency_key TEXT;
+    CREATE UNIQUE INDEX IF NOT EXISTS modo_creative_jobs_idem_idx ON modo_creative_jobs(organization_id,idempotency_key) WHERE idempotency_key IS NOT NULL;
     CREATE INDEX IF NOT EXISTS modo_creative_jobs_brand_idx ON modo_creative_jobs(organization_id,brand_id,created_at DESC);`);
   }
   async close(){ await this.pool?.end(); }
   private map(r:any):StoredCreativeJob{return{id:r.id,organizationId:r.organization_id,brandId:r.brand_id,provider:r.provider,providerJobId:r.provider_job_id,kind:r.kind,objective:r.objective,prompt:r.prompt,status:r.status,qualityStatus:r.quality_status||"pending",qualityScore:r.quality_score??undefined,approvalStatus:r.approval_status||"pending",estimatedCostUsd:r.estimated_cost_usd==null?undefined:Number(r.estimated_cost_usd),actualCostUsd:r.actual_cost_usd==null?undefined:Number(r.actual_cost_usd),assets:r.assets||[],error:r.error,createdAt:new Date(r.created_at).toISOString(),updatedAt:new Date(r.updated_at).toISOString()}}
-  async create(organizationId:string, brief:CreativeBrief, job:CreativeProviderJob){
+  async create(organizationId:string, brief:CreativeBrief, job:CreativeProviderJob, idempotencyKey?:string){
     const id=randomUUID();
-    if(this.pool){const r=await this.pool.query(`INSERT INTO modo_creative_jobs(id,organization_id,brand_id,provider,provider_job_id,kind,objective,prompt,status,assets,error) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::jsonb,$11) RETURNING *`,[id,organizationId,brief.brandId,job.provider,job.providerJobId,brief.kind,brief.objective,brief.prompt,job.status,JSON.stringify(job.assets),job.error||null]);return this.map(r.rows[0]);}
+    if(this.pool){const r=await this.pool.query(`INSERT INTO modo_creative_jobs(id,organization_id,brand_id,provider,provider_job_id,kind,objective,prompt,status,assets,error,idempotency_key) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::jsonb,$11,$12) RETURNING *`,[id,organizationId,brief.brandId,job.provider,job.providerJobId,brief.kind,brief.objective,brief.prompt,job.status,JSON.stringify(job.assets),job.error||null,idempotencyKey||null]);return this.map(r.rows[0]);}
     const now=new Date().toISOString();const item:StoredCreativeJob={id,organizationId,brandId:brief.brandId,provider:job.provider,providerJobId:job.providerJobId,kind:brief.kind,objective:brief.objective,prompt:brief.prompt,status:job.status,qualityStatus:"pending",approvalStatus:"pending",assets:job.assets,error:job.error,createdAt:now,updatedAt:now};this.jobs.set(id,item);return item;
   }
+  async findByIdempotencyKey(organizationId:string,key:string){if(this.pool){const r=await this.pool.query("SELECT * FROM modo_creative_jobs WHERE organization_id=$1 AND idempotency_key=$2 LIMIT 1",[organizationId,key]);return r.rowCount?this.map(r.rows[0]):null;}return null;}
   async listApproved(organizationId:string,brandId:string){
     if(this.pool){const r=await this.pool.query("SELECT * FROM modo_creative_jobs WHERE organization_id=$1 AND brand_id=$2 AND status='ready' AND quality_status='passed' AND approval_status='approved' ORDER BY updated_at DESC LIMIT 100",[organizationId,brandId]);return r.rows.map(x=>this.map(x));}
     return [...this.jobs.values()].filter(x=>x.organizationId===organizationId&&x.brandId===brandId&&x.status==="ready"&&x.qualityStatus==="passed"&&x.approvalStatus==="approved").sort((a,b)=>b.updatedAt.localeCompare(a.updatedAt));

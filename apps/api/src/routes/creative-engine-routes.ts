@@ -64,12 +64,13 @@ export async function registerCreativeEngineRoutes(app: FastifyInstance, options
     const context = await contextForBrand(options.auth, request, input.brandId);
     const idemRaw=request.headers["idempotency-key"]; const idem=Array.isArray(idemRaw)?idemRaw[0]:idemRaw;
     if(idem && (idem.length<8 || idem.length>200)) throw new AuthError("INVALID_IDEMPOTENCY_KEY",400,"Idempotency-Key inválida.");
+    if(idem){const existing=await options.assets.findByIdempotencyKey(context.organization.id,idem);if(existing)return reply.code(200).send(publicCreative(existing));}
     const profile=options.creativeIntelligence?await options.creativeIntelligence.getProfile(context.organization.id,input.brandId):undefined;
     const brandContext=profile?[...(profile.productsOrServicesToShow||[]).map((x:string)=>`Produto/serviço: ${x}`),...(profile.currentPriorities||[]).map((x:string)=>`Prioridade: ${x}`),...(profile.proofAvailable||[]).map((x:string)=>`Prova disponível: ${x}`),...(profile.prohibitedTopics||[]).map((x:string)=>`Não abordar: ${x}`)].join("\n"):"";
     const enrichedInput=brandContext?{...input,prompt:`${input.prompt}\n\nContexto conhecido da marca:\n${brandContext}`} : input;
     if (input.kind === "video" && input.confirmPaidGeneration !== true) throw new AuthError("PAID_GENERATION_CONFIRMATION_REQUIRED",409,"Vídeos usam geração paga. Confirme explicitamente antes de gerar.");
     const job = await options.engine.generate(enrichedInput, input.provider);
-    const stored = await options.assets.create(context.organization.id, input, job);
+    const stored = await options.assets.create(context.organization.id, input, job, idem);
     return reply.code(202).send(publicCreative(stored));
   });
 

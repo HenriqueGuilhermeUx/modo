@@ -24,6 +24,7 @@ import { registerActivationRoutes } from "./routes/activation-routes.js";
 import { registerCanvaRoutes } from "./routes/canva-routes.js";
 import { registerCreativeIntelligenceRoutes } from "./routes/creative-intelligence-routes.js";
 import { registerInstagramRoutes } from "./routes/instagram-routes.js";
+import { registerOpenAiAdsRoutes } from "./routes/openai-ads-routes.js";
 import { registerPlatformAdminRoutes } from "./routes/platform-admin-routes.js";
 import { registerSourceRoutes } from "./routes/source-routes.js";
 import { registerStudioRoutes } from "./routes/studio-routes.js";
@@ -63,6 +64,7 @@ export interface CreateAppOptions {
   publicApiUrl?: string;
   contentDemoDelayMs?: number;
   openAiApiKey?: string;
+  openAiAdsApiKey?: string;
   openAiTextModel?: string;
   openAiImageModel?: string;
   canvaClientId?: string;
@@ -238,6 +240,7 @@ export async function createApp(options: CreateAppOptions) {
   });
   await registerCanvaRoutes(app, { auth, content, assets, canva });
   await registerInstagramRoutes(app, { auth, content, assets, instagram });
+  await registerOpenAiAdsRoutes(app, { auth, apiKey: options.openAiAdsApiKey });
 
   app.get("/health", async () => ({
     status: "ok",
@@ -258,6 +261,7 @@ export async function createApp(options: CreateAppOptions) {
     canvaStorage: canva.storage,
     instagramIntegration: instagram.configured ? "configured" : "not_configured",
     instagramStorage: instagram.storage,
+    openAiAdsIntegration: options.openAiAdsApiKey ? "configured" : "not_configured",
     creativeIntelligence: "enabled",
     quickStart: "enabled",
     studio: "enabled",

@@ -54,6 +54,7 @@ const app = await createApp({
   contentSecret: config.N8N_CONTENT_SECRET,
   publicApiUrl: config.PUBLIC_API_URL,
   openAiApiKey: config.OPENAI_API_KEY,
+  openAiAdsApiKey: config.OPENAI_ADS_API_KEY,
   openAiTextModel: config.OPENAI_TEXT_MODEL,
   openAiImageModel: config.OPENAI_IMAGE_MODEL,
   canvaClientId: config.CANVA_CLIENT_ID,

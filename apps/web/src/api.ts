@@ -23,3 +23,6 @@ export const previewCreativeVideoRoute=(input:{objective?:string;channel?:string
 
 export type CreativeCostSummary={generations:number;estimatedCostUsd:number;actualCostUsd:number};
 export const getCreativeCostSummary=(brandId:string)=>request<CreativeCostSummary>(`/api/v1/creative-engine/costs/${encodeURIComponent(brandId)}`,undefined,true);
+
+export type OpenAiAdsAccountStatus={provider:"openai_ads";mode:"read_only";connected:boolean;account:{id:string;name:string|null;legalName:string|null;brandName:string|null;url:string|null;status:string|null;timezone:string|null;currencyCode:string|null;review:unknown;accountIntegrityReview:unknown}};
+export const getOpenAiAdsAccount=()=>request<OpenAiAdsAccountStatus>("/api/v1/media/openai-ads/account",undefined,true);

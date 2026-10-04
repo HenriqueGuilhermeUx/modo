@@ -24,6 +24,7 @@ import { registerActivationRoutes } from "./routes/activation-routes.js";
 import { registerCanvaRoutes } from "./routes/canva-routes.js";
 import { registerCreativeIntelligenceRoutes } from "./routes/creative-intelligence-routes.js";
 import { registerInstagramRoutes } from "./routes/instagram-routes.js";
+import { registerMarketIntelligenceRoutes } from "./routes/market-intelligence-routes.js";
 import { registerPlatformAdminRoutes } from "./routes/platform-admin-routes.js";
 import { registerSourceRoutes } from "./routes/source-routes.js";
 import { registerStudioRoutes } from "./routes/studio-routes.js";
@@ -42,6 +43,7 @@ import { CreativeIntelligenceError } from "./services/creative-intelligence-serv
 import { DiagnosticService } from "./services/diagnostic-service.js";
 import { InstagramService } from "./services/instagram-service.js";
 import { LeadService } from "./services/lead-service.js";
+import { MarketIntelligenceService } from "./services/market-intelligence-service.js";
 import { PaymentError, PaymentService } from "./services/payment-service.js";
 import { PlatformAdminError, PlatformAdminService } from "./services/platform-admin-service.js";
 
@@ -63,6 +65,10 @@ export interface CreateAppOptions {
   publicApiUrl?: string;
   contentDemoDelayMs?: number;
   openAiApiKey?: string;
+  changeDetectionBaseUrl?: string;
+  changeDetectionApiKey?: string;
+  scraplingBaseUrl?: string;
+  scraplingApiKey?: string;
   openAiTextModel?: string;
   openAiImageModel?: string;
   canvaClientId?: string;
@@ -98,6 +104,12 @@ export async function createApp(options: CreateAppOptions) {
   const app = Fastify({ logger: options.logger ?? false });
   const diagnostics = new DiagnosticService(options.provider);
   const leads = new LeadService();
+  const marketIntelligence = new MarketIntelligenceService({
+    changeDetectionBaseUrl: options.changeDetectionBaseUrl,
+    changeDetectionApiKey: options.changeDetectionApiKey,
+    scraplingBaseUrl: options.scraplingBaseUrl,
+    scraplingApiKey: options.scraplingApiKey,
+  });
   const billing = new BillingService({
     databaseUrl: options.databaseUrl,
     databaseSsl: options.databaseSsl,
@@ -238,6 +250,7 @@ export async function createApp(options: CreateAppOptions) {
   });
   await registerCanvaRoutes(app, { auth, content, assets, canva });
   await registerInstagramRoutes(app, { auth, content, assets, instagram });
+  await registerMarketIntelligenceRoutes(app, { auth, service: marketIntelligence });
 
   app.get("/health", async () => ({
     status: "ok",
@@ -259,6 +272,7 @@ export async function createApp(options: CreateAppOptions) {
     instagramIntegration: instagram.configured ? "configured" : "not_configured",
     instagramStorage: instagram.storage,
     creativeIntelligence: "enabled",
+    marketIntelligence: marketIntelligence.capabilities,
     quickStart: "enabled",
     studio: "enabled",
     weeklyAgenda: "enabled",

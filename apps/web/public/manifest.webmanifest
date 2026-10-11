@@ -1,0 +1,21 @@
+{
+  "name": "MODO — Presença Digital",
+  "short_name": "MODO",
+  "description": "Estratégia, criação e operação de presença digital em um só lugar.",
+  "id": "/",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#111827",
+  "lang": "pt-BR",
+  "categories": ["business", "productivity", "marketing"],
+  "icons": [
+    {
+      "src": "/logo.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

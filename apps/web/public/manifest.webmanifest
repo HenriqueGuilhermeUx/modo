@@ -1,0 +1,21 @@
+{
+  "name": "MODO — Sua marca em modo presença",
+  "short_name": "MODO",
+  "description": "Estratégia, criação e operação de presença digital.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#ffffff",
+  "lang": "pt-BR",
+  "categories": ["business", "marketing", "productivity"],
+  "icons": [
+    {
+      "src": "/logo.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "prefer_related_applications": false
+}

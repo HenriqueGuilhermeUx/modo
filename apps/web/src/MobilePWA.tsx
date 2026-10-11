@@ -1,6 +1,6 @@
 import type { Dashboard } from "@modo/contracts";
 import type { ContentRequest } from "@modo/contracts/content";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   approveContentRequest,
   createContentRequest,
@@ -57,7 +57,7 @@ function BrandMark() {
   return <div className="modo-native-brand"><span>M</span><i /></div>;
 }
 
-function Pill({ children, tone = "blue" }: { children: React.ReactNode; tone?: "blue" | "green" | "purple" | "neutral" | "warning" }) {
+function Pill({ children, tone = "blue" }: { children: ReactNode; tone?: "blue" | "green" | "purple" | "neutral" | "warning" }) {
   return <span className={"modo-native-pill " + tone}>{children}</span>;
 }
 

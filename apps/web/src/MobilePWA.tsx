@@ -102,10 +102,6 @@ function Create({ dashboard, onRefresh }: { dashboard: Dashboard; onRefresh: () 
   const [request, setRequest] = useState<ContentRequest | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
-  const [workingScene, setWorkingScene] = useState<number | null>(null);
-  const [provider, setProvider] = useState<"instagram"|"facebook">("instagram");
-  const [connections, setConnections] = useState<any[]>([]);
-  const [loadingConnections, setLoadingConnections] = useState(false);
   const available = formats.filter(([, , channels]) => (channels as readonly string[]).includes(channel));
 
   useEffect(() => {
@@ -170,6 +166,10 @@ function Video({ dashboard, recent, onRefresh }: { dashboard: Dashboard; recent:
   const [project, setProject] = useState<any>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
+  const [workingScene, setWorkingScene] = useState<number | null>(null);
+  const [provider, setProvider] = useState<"instagram"|"facebook">("instagram");
+  const [connections, setConnections] = useState<any[]>([]);
+  const [loadingConnections, setLoadingConnections] = useState(false);
 
   useEffect(() => { if (request?.id) mobileApi("/api/v1/video-projects/by-content/" + encodeURIComponent(request.id)).then(x => setProject(x.project || null)).catch(() => undefined); }, [request?.id]);
 

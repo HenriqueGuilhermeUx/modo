@@ -1,20 +1,39 @@
 {
-  "name": "MODO — Sua marca em modo presença",
+  "id": "/app/mobile",
+  "name": "MODO — Presença e Conteúdo",
   "short_name": "MODO",
-  "description": "Estratégia, criação e operação de presença digital.",
-  "start_url": "/",
+  "description": "MODO: criação, vídeo, agenda e operação de presença digital no celular.",
+  "start_url": "/app/mobile",
   "scope": "/",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#ffffff",
+  "orientation": "portrait-primary",
+  "background_color": "#F5F7FB",
+  "theme_color": "#F5F7FB",
   "lang": "pt-BR",
   "categories": ["business", "marketing", "productivity"],
   "icons": [
     {
-      "src": "/logo.svg",
+      "src": "/pwa-icon.svg",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Criar",
+      "url": "/app/content",
+      "icons": [{"src":"/pwa-icon.svg","sizes":"any","type":"image/svg+xml"}]
+    },
+    {
+      "name": "Vídeo",
+      "url": "/app/video",
+      "icons": [{"src":"/pwa-icon.svg","sizes":"any","type":"image/svg+xml"}]
+    },
+    {
+      "name": "Agenda",
+      "url": "/app/week",
+      "icons": [{"src":"/pwa-icon.svg","sizes":"any","type":"image/svg+xml"}]
     }
   ],
   "prefer_related_applications": false

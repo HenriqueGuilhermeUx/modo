@@ -10,7 +10,11 @@
   "background_color": "#F5F7FB",
   "theme_color": "#F5F7FB",
   "lang": "pt-BR",
-  "categories": ["business", "marketing", "productivity"],
+  "categories": [
+    "business",
+    "marketing",
+    "productivity"
+  ],
   "icons": [
     {
       "src": "/pwa-icon.svg",
@@ -22,18 +26,36 @@
   "shortcuts": [
     {
       "name": "Criar",
-      "url": "/app/content",
-      "icons": [{"src":"/pwa-icon.svg","sizes":"any","type":"image/svg+xml"}]
+      "url": "/app/mobile/create",
+      "icons": [
+        {
+          "src": "/pwa-icon.svg",
+          "sizes": "any",
+          "type": "image/svg+xml"
+        }
+      ]
     },
     {
       "name": "Vídeo",
-      "url": "/app/video",
-      "icons": [{"src":"/pwa-icon.svg","sizes":"any","type":"image/svg+xml"}]
+      "url": "/app/mobile/video",
+      "icons": [
+        {
+          "src": "/pwa-icon.svg",
+          "sizes": "any",
+          "type": "image/svg+xml"
+        }
+      ]
     },
     {
       "name": "Agenda",
-      "url": "/app/week",
-      "icons": [{"src":"/pwa-icon.svg","sizes":"any","type":"image/svg+xml"}]
+      "url": "/app/mobile/agenda",
+      "icons": [
+        {
+          "src": "/pwa-icon.svg",
+          "sizes": "any",
+          "type": "image/svg+xml"
+        }
+      ]
     }
   ],
   "prefer_related_applications": false

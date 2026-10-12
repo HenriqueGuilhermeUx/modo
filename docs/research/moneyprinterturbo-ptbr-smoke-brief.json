@@ -1,0 +1,25 @@
+{
+  "name": "MODO / MoneyPrinterTurbo — smoke-test brief",
+  "purpose": "Local isolated evaluation only; never submit to a paid provider without explicit budget authorization",
+  "request_path": "/api/v1/videos",
+  "method": "POST",
+  "headers": { "x-api-key": "<read from secure environment>", "Content-Type": "application/json" },
+  "body": {
+    "video_subject": "MODO: publicidade inteligente para pequenos negócios",
+    "video_script": "Seu negócio merece crescer. A MODO ajuda você a criar campanhas com estratégia, criatividade e controle. Você aprova cada etapa. MODO: marketing mais simples para sua empresa.",
+    "video_language": "pt-BR",
+    "video_aspect": "9:16",
+    "video_source": "local",
+    "video_count": 1,
+    "video_clip_duration": 5,
+    "n_threads": 2,
+    "voice_name": "pt-BR-FranciscaNeural",
+    "bgm_type": "none",
+    "subtitle_enabled": true
+  },
+  "warnings": [
+    "Example only: the exact video_aspect enum, voice and local material schema must be checked against the pinned upstream revision.",
+    "No task submission is implemented by the MODO read-only adapter.",
+    "Do not use production customer data, unlicensed media or unapproved paid providers."
+  ]
+}

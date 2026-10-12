@@ -1,0 +1,28 @@
+# Isolated MoneyPrinterTurbo API — manual operator-only smoke test.
+# Run from a pinned, reviewed MoneyPrinterTurbo upstream checkout, not from the MODO repo.
+# Usage: docker compose -f /path/to/this/file --project-directory /path/to/upstream up --build api
+# Copy config.example.toml to config.toml first, set [app].api_key to a strong secret.
+# This file intentionally does not expose WebUI or any public network port.
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: ["python3", "main.py"]
+    ports:
+      - "127.0.0.1:8080:8080"
+    volumes:
+      - "./config.toml:/MoneyPrinterTurbo/config.toml:ro"
+      - "./storage:/MoneyPrinterTurbo/storage"
+      - "./resource:/MoneyPrinterTurbo/resource:ro"
+    environment:
+      PYTHONUNBUFFERED: "1"
+    restart: "no"
+    mem_limit: 6g
+    cpus: 2.0
+    pids_limit: 256
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    init: true

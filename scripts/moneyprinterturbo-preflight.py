@@ -21,7 +21,7 @@ def main():
     if not token:
         parser.error("MPT_API_KEY must be set in the environment; do not paste secrets into arguments")
     # The upstream /api/v1 endpoint may return 404/405; that still demonstrates network reachability.
-    req = Request(url + "/api/v1", headers={"x-api-key": token}, method="GET")
+    req = Request(url + "/api/v1/tasks", headers={"x-api-key": token}, method="GET")
     try:
         with urlopen(req, timeout=10) as response:
             status = response.status
@@ -30,8 +30,8 @@ def main():
     except (URLError, TimeoutError) as exc:
         print(json.dumps({"reachable": False, "reason": type(exc).__name__}))
         return 1
-    print(json.dumps({"reachable": True, "http_status": status, "note": "No video task was submitted; Auth requires an endpoint-specific protected request; no video submitted"}))
-    return 0
+    print(json.dumps({"reachable": True, "http_status": status, "authenticated": status == 200, "note": "GET /api/v1/tasks; no video submitted"}))
+    return 0 if status == 200 else 1
 
 
 if __name__ == "__main__":

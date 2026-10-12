@@ -38,6 +38,21 @@ describe("MoneyPrinterTurbo read-only adapter", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
+  it("reports upstream failed tasks without exposing assets", async () => {
+    const taskId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true, json: async () => ({
+        status: 200, data: { task_id: taskId, state: -1, error: "render failed",
+          videos: ["https://worker.internal/tasks/private.mp4"] },
+      }),
+    }));
+    const client = new MoneyPrinterTurboReadOnlyClient("https://worker.internal/", "secret");
+    const result = await client.getJob(taskId);
+    expect(result.status).toBe("failed");
+    expect(result.error).toBe("render failed");
+    expect(result.assets).toEqual([]);
+  });
+
   it("never exposes unverified upstream asset URLs", async () => {
     const taskId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({

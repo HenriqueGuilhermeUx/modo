@@ -1,0 +1,24 @@
+name: MoneyPrinterTurbo smoke runner tests
+
+on:
+  pull_request:
+    paths:
+      - "scripts/moneyprinterturbo-smoke-runner.py"
+      - "scripts/test_moneyprinterturbo_smoke_runner.py"
+      - ".github/workflows/moneyprinterturbo-smoke-tests.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  runner-security:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Validate smoke runner safety without network or secrets
+        run: python -m unittest discover -s scripts -p 'test_moneyprinterturbo_smoke_runner.py' -v

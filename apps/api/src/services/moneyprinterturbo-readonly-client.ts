@@ -53,6 +53,12 @@ export class MoneyPrinterTurboReadOnlyClient {
     const body = await this.get(`/api/v1/tasks/${encodeURIComponent(taskId)}`);
     if (body?.status !== 200 || body?.data?.task_id !== taskId) throw new Error("Unexpected upstream task response");
     const data = body.data;
-    // Upstream app/models/const.py: failed=-1, complete=1, processing=4.\n    // A completed task is NOT ready for MODO until assets are ingested into\n    // tenant-scoped storage. Never return upstream /tasks links.\n    const status = data.state === -1 ? "failed" : "processing";\n    return { provider: "moneyprinterturbo", providerJobId: taskId,\n      status, assets: [],\n      error: data.error ? String(data.error) : undefined };
+    // Upstream app/models/const.py: failed=-1, complete=1, processing=4.
+    // A completed task is NOT ready for MODO until assets are ingested into
+    // tenant-scoped storage. Never return upstream /tasks links.
+    const status = data.state === -1 ? "failed" : "processing";
+    return { provider: "moneyprinterturbo", providerJobId: taskId,
+      status, assets: [],
+      error: data.error ? String(data.error) : undefined };
   }
 }

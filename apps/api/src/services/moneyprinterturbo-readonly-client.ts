@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import type { CreativeProviderJob } from "./creative-engine-service.js";
 
 /**
@@ -14,6 +15,7 @@ export class MoneyPrinterTurboReadOnlyClient {
       throw new Error("MoneyPrinterTurbo requires a private HTTPS base URL");
     }
     if (!apiKey) throw new Error("MoneyPrinterTurbo API key missing");
+    // Explicitly approved private worker endpoint; never accept arbitrary user-provided URLs.
     this.baseUrl = url.origin;
   }
 
@@ -35,7 +37,7 @@ export class MoneyPrinterTurboReadOnlyClient {
 
   async checkAuthentication(): Promise<boolean> {
     // An upstream with empty app.api_key accepts any key: test rejection first.
-    const invalidKey = "modo-invalid-" + crypto.randomUUID();
+    const invalidKey = "modo-invalid-" + randomUUID();
     const response = await fetch(this.baseUrl + "/api/v1/tasks?page=1&page_size=1", {
       headers: { "x-api-key": invalidKey },
       redirect: "error",

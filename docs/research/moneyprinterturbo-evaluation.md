@@ -31,3 +31,13 @@ Evaluate a low-cost short-video assembly backend for MODO, complementary to the 
 
 ## Decision
 Proceed only after a reproducible local/isolated smoke test and documented license, cost, security and quality evidence. Until then this is a candidate provider, not an enabled feature.
+
+## Verified upstream facts (12 Oct 2026)
+- Upstream LICENSE is MIT; copyright attribution and license notice must be retained.
+- Upstream provides a Dockerfile, docker-compose.yml and FastAPI dependencies (fastapi/uvicorn). The compose example bind-mounts the source and publishes the API port; do not deploy this example unchanged as a public production endpoint.
+- Dockerfile uses chmod 777 on the application directory: harden filesystem permissions, runtime user and volumes before deploying.
+- Requirements include FFmpeg-oriented media stack, moviepy, faster-whisper, edge-tts and cloud SDKs; CPU/RAM and transitive-dependency review are mandatory.
+- The repo license does NOT grant rights to third-party music, stock media, fonts, voices or provider content.
+
+## Deployment gate
+Do not provision a public upstream container with unauthenticated rendering endpoints. First implement a dedicated MODO-side authenticated proxy and tenant/job-level authorization, and pin a vetted upstream revision. Use a private network endpoint where available, non-root container, strict request validation, limits and explicit output storage. Do not use the existing production API's environment secrets in the worker. Start with an isolated no-spend smoke test. No production rollout before verified video output and security tests.

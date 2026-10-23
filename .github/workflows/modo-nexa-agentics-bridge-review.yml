@@ -1,0 +1,59 @@
+name: MODO x Nexa Agentics — Preview-only Adapter
+
+on:
+  push:
+    branches:
+      - feat/nexa-agentics-modo-bridge-20261023
+    paths:
+      - apps/api/src/services/nexa-agentics-bridge.ts
+      - apps/api/src/services/nexa-agentics-bridge.test.ts
+      - apps/api/src/services/workspace-auth-service.ts
+      - apps/api/src/routes/workspace-auth-routes.ts
+      - .github/workflows/modo-nexa-agentics-bridge-review.yml
+  pull_request:
+    branches:
+      - main
+    paths:
+      - apps/api/src/services/nexa-agentics-bridge.ts
+      - apps/api/src/services/nexa-agentics-bridge.test.ts
+      - apps/api/src/services/workspace-auth-service.ts
+      - apps/api/src/routes/workspace-auth-routes.ts
+      - .github/workflows/modo-nexa-agentics-bridge-review.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: modo-agentics-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  campaign-preview-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 14
+    env:
+      NODE_ENV: test
+      MODO_NEXA_AGENTICS_ENABLED: 'false'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - name: Refuse production integration and credentials
+        run: |
+          test -z "${DATABASE_URL:-}"
+          test -z "${RENDER:-}"
+          test -z "${MODO_NEXA_AGENTICS_BASE_URL:-}"
+          test -z "${MODO_NEXA_AGENTICS_KEY_B64:-}"
+          test "${MODO_NEXA_AGENTICS_ENABLED}" = false
+      - name: Install declared dependencies without scripts
+        run: npm install --ignore-scripts --no-audit --no-fund
+      - name: Test product-scoped signing, anti-escalation, strict response
+        run: npm exec --workspace=@modo/api -- vitest run src/services/nexa-agentics-bridge.test.ts
+      - name: Typecheck MODO API
+        run: npm run typecheck -w @modo/api
+      - name: Confirm not deployed or externally enabled
+        run: echo 'MODO_AGENTICS_LAB_ONLY: no campaign publish, wallet, billing, customer data or deploy'

@@ -232,6 +232,26 @@ export class WorkspaceAuthService {
     }
   }
 
+  /**
+   * Resolve a real MODO login before issuing a product-bridge request.
+   * Does not accept user/organization IDs from the HTTP payload.
+   */
+  async resolveAgenticsSession(token: string): Promise<{userId:string;organizationId:string}> {
+    if (!/^[A-Za-z0-9_-]{43,128}$/.test(token)) {
+      throw new AuthError("INVALID_SESSION", 401, "Sessão inválida.");
+    }
+    const r = await this.requirePool().query<{user_id:string;organization_id:string}>(
+      `SELECT s.user_id,s.organization_id
+       FROM modo_sessions s
+       JOIN modo_memberships m ON m.user_id=s.user_id AND m.organization_id=s.organization_id
+       WHERE s.token_hash=$1 AND s.expires_at>now()
+       LIMIT 1`,
+      [hashToken(token)],
+    );
+    if(!r.rows.length)throw new AuthError("INVALID_SESSION",401,"Sessão inválida ou expirada.");
+    return {userId:r.rows[0].user_id,organizationId:r.rows[0].organization_id};
+  }
+
   async getWorkspaceType(organizationId: string): Promise<WorkspaceType> {
     const result = await this.requirePool().query<{ workspace_type: WorkspaceType }>(
       "SELECT workspace_type FROM modo_organizations WHERE id=$1 LIMIT 1",

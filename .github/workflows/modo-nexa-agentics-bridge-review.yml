@@ -20,6 +20,8 @@ on:
       - apps/api/src/routes/workspace-auth-routes.ts
       - .github/workflows/modo-nexa-agentics-bridge-review.yml
 
+  workflow_dispatch:
+
 permissions:
   contents: read
 

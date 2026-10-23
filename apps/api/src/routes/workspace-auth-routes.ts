@@ -5,6 +5,7 @@ import { AuthError } from "../services/auth-service.js";
 import { BillingService } from "../services/billing-service.js";
 import { PasswordResetError, PasswordResetService } from "../services/password-reset-service.js";
 import { WorkspaceAuthService, type WorkspaceType } from "../services/workspace-auth-service.js";
+import {modoAgenticsEnabled,getModoAgenticsPreview} from "../services/nexa-agentics-bridge.js";
 
 interface Options {
   databaseUrl?: string;
@@ -99,6 +100,34 @@ export async function registerWorkspaceAuthRoutes(app: FastifyInstance, options:
       return passwordAction(() => passwordReset.reset(input.token, input.password));
     },
   );
+
+  const authenticatedAgenticsIdentity = async (authorization: string | undefined) => {
+    const match = /^Bearer ([A-Za-z0-9_-]{43,128})$/.exec(String(authorization||""));
+    if(!match)throw new AuthError("INVALID_SESSION",401,"Sessão necessária.");
+    return workspaceAuth.resolveAgenticsSession(match[1]);
+  };
+
+  // Disabled in production. Only signed, synthetic campaign planning preview.
+  app.get("/api/v1/agentics/capabilities", async(request) => {
+    const identity = await authenticatedAgenticsIdentity(request.headers.authorization);
+    return {product:"modo",organizationId:identity.organizationId,
+      operations:["campaign.draft.preview"],configured:modoAgenticsEnabled(),
+      mode:"synthetic_review_only",externalCampaignActivation:false,
+      customerDataAccess:false,financialExecutionAllowed:false,
+      productionReady:false};
+  });
+  app.post("/api/v1/agentics/preview", async(request) => {
+    const identity = await authenticatedAgenticsIdentity(request.headers.authorization);
+    const input = z.object({operation:z.literal("campaign.draft.preview")}).strict().parse(request.body);
+    if(input.operation!=="campaign.draft.preview"||!modoAgenticsEnabled()) {
+      throw new AuthError("AGENTICS_DISABLED",409,"Agente de campanhas em homologação isolada.");
+    }
+    try{return await getModoAgenticsPreview(identity);}
+    catch{
+      throw new AuthError("AGENTICS_UNAVAILABLE",503,
+        "Prévia indisponível. Nenhuma campanha ou ação externa foi executada.");
+    }
+  });
 
   app.get("/api/v1/workspace-auth/health", async () => ({
     status: "ok",

@@ -1,0 +1,22 @@
+name: USA localization guard
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'apps/web/src/Root.tsx'
+      - 'apps/web/src/UsLanding.tsx'
+      - 'apps/web/src/UsLanding.css'
+      - 'scripts/usa-preview-check.mjs'
+      - '.github/workflows/usa-localization-guard.yml'
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate US localization boundary
+        run: node scripts/usa-preview-check.mjs

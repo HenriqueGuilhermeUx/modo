@@ -24,6 +24,10 @@ jobs:
         run: npm install --include=dev
       - name: Generate synthetic MODO HTML composition
         run: npx tsx scripts/hyperframes-preview-smoke.ts "$RUNNER_TEMP/hyperframes-smoke"
+      - name: Install FFmpeg in disposable runner
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg
       - name: Check FFmpeg
         run: ffmpeg -version
       - name: HyperFrames lint and project check (pinned CLI)

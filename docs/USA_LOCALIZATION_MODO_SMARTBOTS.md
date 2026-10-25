@@ -33,3 +33,11 @@ Both pages explain that US onboarding, billing, provider integrations, and contr
 - US landing pages link to the demonstrators. No conversion to Brazilian checkout or `/app` routes.
 
 Next work: true authenticated en-US tenant separation, backend/campaign settings, US legal policies, accessible UI and translations across full existing product modules. Those remain **not completed**.
+
+## Interactive previews (browser-only)
+
+- `/us` and `/us/smartbots`: English-language launch previews.
+- `/us/demo`: MODO sample campaign brief and human review checklist, with local copy capability.
+- `/us/smartbots/demo`: SmartBots sample lead inbox, CRM stages, and manually copied follow-up message.
+- These sample tools keep transient state in browser memory. They do not send WhatsApp, run real AI inference, connect US payments, publish ads or sign up users.
+- The duplicated `UsWorkspace.tsx` component was removed after causing Linux TypeScript TS1149 collision with the existing `USWorkspace.tsx`. The USA guard now checks case-insensitive source filename uniqueness.

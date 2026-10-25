@@ -1,5 +1,5 @@
 /** US-preview static regression contract. No network or environment secrets. */
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import assert from "node:assert/strict";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
@@ -9,6 +9,13 @@ const read = (path) => readFileSync(resolve(projectRoot, path), "utf8");
 const entry = read("apps/web/src/Root.tsx");
 const preview = read("apps/web/src/UsLanding.tsx");
 const css = read("apps/web/src/UsLanding.css");
+
+// Reject filenames that differ only by casing (Linux builds fail with TS1149).
+const sourceFiles = readdirSync(resolve(projectRoot, "apps/web/src"));
+const sourceNames = sourceFiles.filter(name => /\\.(tsx?|jsx?)$/i.test(name));
+assert.equal(new Set(sourceNames.map(name => name.toLowerCase())).size, sourceNames.length,
+  "Case-colliding source files detected; rename or remove the duplicate before building");
+
 
 assert.ok(entry.includes("USPreview") || entry.includes("UsLanding"), "US preview must be mounted explicitly");
 assert.ok(entry.includes("/us/smartbots"), "Expected existing route or US gate: /us/smartbots");

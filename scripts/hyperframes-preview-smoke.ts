@@ -12,13 +12,20 @@ const result = buildHyperframesPilot({
     { headline: "Um passo de cada vez.", caption: "Demonstracao tecnica sem dados reais.", durationSeconds: 2.5 },
   ],
 });
-await mkdir(directory, { recursive: true });
-await writeFile(resolve(directory, result.filename), result.html, { encoding: "utf8", mode: 0o600 });
-process.stdout.write(JSON.stringify({
-  directory,
-  filename: result.filename,
-  durationSeconds: result.durationSeconds,
-  fps: result.fps,
-  resolution: [result.width, result.height],
-  sampleOnly: true,
-}) + "\n");
+async function main() {
+  await mkdir(directory, { recursive: true });
+  await writeFile(resolve(directory, result.filename), result.html, { encoding: "utf8", mode: 0o600 });
+  process.stdout.write(JSON.stringify({
+    directory,
+    filename: result.filename,
+    durationSeconds: result.durationSeconds,
+    fps: result.fps,
+    resolution: [result.width, result.height],
+    sampleOnly: true,
+  }) + "\n");
+}
+
+main().catch((error) => {
+  console.error(error);
+  process.exitCode = 1;
+});

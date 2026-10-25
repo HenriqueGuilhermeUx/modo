@@ -5,6 +5,8 @@ on:
     branches: ['feat/hyperframes-pilot-20261025']
     paths:
       - 'scripts/hyperframes-preview-smoke.ts'
+      - 'apps/api/src/services/hyperframes-pilot.ts'
+      - 'apps/api/src/services/hyperframes-pilot.test.ts'
       - '.github/workflows/hyperframes-pilot-smoke.yml'
   workflow_dispatch:
 

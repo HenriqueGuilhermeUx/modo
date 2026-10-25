@@ -22,4 +22,14 @@ assert.ok(!/href=["']\/(app|login|cadastro|criar-conta)/i.test(preview), "US pre
 assert.ok(!/fetch\s*\(/.test(preview), "US preview must not call Brazilian backend APIs");
 assert.ok(css.includes(".av-us-landing"), "Styles must use a US-specific namespace");
 assert.ok(!/^\s*(body|html|:root|\*)\s*\{/m.test(css), "US preview styles must not redefine global selectors");
+
+const operational = read("apps/web/src/USWorkspace.tsx");
+assert.ok(operational.includes("Local interactive demonstration"), "USWorkspace.tsx expected capability missing: Local interactive demonstration");
+assert.ok(operational.includes("en-US"), "USWorkspace.tsx expected capability missing: en-US");
+assert.ok(operational.includes("Copy draft reply"), "USWorkspace.tsx expected capability missing: Copy draft reply");
+assert.ok(operational.includes("Build sample plan"), "USWorkspace.tsx expected capability missing: Build sample plan");
+assert.ok(!/(fetch|XMLHttpRequest)\s*\(/.test(operational), "Operational US preview must not call backend APIs");
+assert.ok(!/localStorage\s*\.|sessionStorage\s*\./.test(operational), "Demo should not persist potentially identifying visitor input");
+assert.ok(!/href=["']\/(app|login|cadastro|criar-conta)/i.test(operational), "Demo must not send visitors to Brazilian account activation");
+
 console.log("PASS: modo US preview route, language, copy, branding, isolation and CSS namespace");

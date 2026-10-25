@@ -19,6 +19,11 @@ assert.equal(new Set(sourceNames.map(name => name.toLowerCase())).size, sourceNa
 
 assert.ok(entry.includes("USPreview") || entry.includes("UsLanding"), "US preview must be mounted explicitly");
 assert.ok(entry.includes("/us/smartbots"), "Expected existing route or US gate: /us/smartbots");
+const firstUsGate = entry.indexOf('if(path==="/us/demo"');
+const brSessionAccess = entry.indexOf('window.sessionStorage.getItem("modo.accountMode")');
+assert.ok(firstUsGate >= 0 && brSessionAccess > firstUsGate, "US route must be resolved before Brazil session-mode access");
+assert.ok(entry.indexOf('if(path==="/us"||path==="/us/smartbots")') < brSessionAccess, "US marketing route must not read Brazil session-mode storage");
+
 assert.ok(entry.includes("/smartbots.html"), "Expected existing route or US gate: /smartbots.html");
 assert.ok(entry.includes("/us"), "US preview must have an isolated route");
 assert.ok(preview.includes("en-US"), "US preview must set document language");

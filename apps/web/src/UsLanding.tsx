@@ -107,7 +107,7 @@ export default function UsLanding({ product }: { product: UsProduct }) {
               ? "SmartBots connects a simple business mini-site, assisted answers, lead capture, a lightweight CRM and suggested follow-ups. You stay in control of each message."
               : "MODO brings brand strategy, content creation, campaign planning and review workflows together so small teams can move from ideas to action."}</p>
             <div className="av-us-actions">
-              <a className="av-us-primary" href="#features">Explore capabilities ↗</a>
+              <a className="av-us-primary" href="/us/workspace">Try the interactive workspace ↗</a>
               <a className="av-us-primary" href={isSmartBots ? "/us/smartbots/demo" : "/us/demo"}>Try an interactive demo ↗</a>
               <a className="av-us-secondary" href={isSmartBots ? "/us" : "/us/smartbots"}>
                 {isSmartBots ? "Explore MODO" : "See SmartBots"}

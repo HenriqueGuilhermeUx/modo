@@ -108,6 +108,7 @@ export default function UsLanding({ product }: { product: UsProduct }) {
               : "MODO brings brand strategy, content creation, campaign planning and review workflows together so small teams can move from ideas to action."}</p>
             <div className="av-us-actions">
               <a className="av-us-primary" href="#features">Explore capabilities ↗</a>
+              <a className="av-us-primary" href={isSmartBots ? "/us/smartbots/demo" : "/us/demo"}>Try an interactive demo ↗</a>
               <a className="av-us-secondary" href={isSmartBots ? "/us" : "/us/smartbots"}>
                 {isSmartBots ? "Explore MODO" : "See SmartBots"}
               </a>

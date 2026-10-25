@@ -73,7 +73,8 @@ export function buildHyperframesPilot(input: HyperframesPilotInput) {
     'h1{font-size:86px;line-height:1.09;margin:0;max-width:95%;overflow-wrap:break-word;}',
     'p{font-size:40px;line-height:1.25;max-width:92%;margin:0;opacity:.85;overflow-wrap:break-word;}',
     '</style></head><body>',
-    '<div id="root" data-composition-id="root" data-start="0" data-fps="30" data-width="' + dimensions[0] +
+    '<div id="root" data-composition-id="root" data-no-timeline data-start="0" data-duration="' +
+    Number(cursor.toFixed(3)) + '" data-fps="30" data-width="' + dimensions[0] +
     '" data-height="' + dimensions[1] + '">',
     clips.join("\n"),
     '</div></body></html>',

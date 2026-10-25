@@ -18,6 +18,8 @@ describe("HyperFrames isolated export", () => {
     expect(out.height).toBe(1920);
     expect(out.durationSeconds).toBe(5);
     expect(out.html).toContain('data-composition-id="root"');
+    expect(out.html).toContain('data-no-timeline');
+    expect(out.html).toContain('data-duration="5"');
     expect(out.html).toContain('data-start="3" data-duration="2"');
     expect(out.status).toBe("export-only");
   });

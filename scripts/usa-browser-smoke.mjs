@@ -1,11 +1,12 @@
 /** MODO/SmartBots USA QA: built-site browser test with synthetic data. */
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
+import { resolve } from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { chromium } from 'playwright';
 
 const host = 'http://127.0.0.1:4183';
-const server = spawn('npx', ['vite', 'preview', '--host', '127.0.0.1', '--port', '4183', '--strictPort'], {
+const server = spawn(process.execPath, [resolve('node_modules/vite/bin/vite.js'), 'preview', '--host', '127.0.0.1', '--port', '4183', '--strictPort'], {
   cwd: 'apps/web', env: { ...process.env }, stdio: ['ignore', 'pipe', 'pipe'],
 });
 let logs = '';

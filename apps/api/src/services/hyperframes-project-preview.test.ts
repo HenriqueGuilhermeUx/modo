@@ -53,4 +53,32 @@ describe("MODO project to HyperFrames preview", () => {
     project.scenes = Array.from({length: 9}, (_, i) => ({...sample().scenes[0], index: i + 1 }));
     expect(() => exportVideoProjectHyperframesPreview(project, "Marca")).toThrow(/UNSUPPORTED_SCENE_COUNT/);
   });
+
+  it("rejects unsupported external media, voice and motion without dropping them", () => {
+    const project = sample();
+    project.scenes[0].imageUrl = "https://example.com/image.png";
+    expect(() => exportVideoProjectHyperframesPreview(project, "Marca")).toThrow(/UNSUPPORTED_MEDIA/);
+    project.scenes[0].imageUrl = null;
+    project.scenes[0].motion = "push_in";
+    expect(() => exportVideoProjectHyperframesPreview(project, "Marca")).toThrow(/UNSUPPORTED_MEDIA/);
+    project.scenes[0].motion = "static";
+    project.voiceover = true;
+    expect(() => exportVideoProjectHyperframesPreview(project, "Marca")).toThrow(/UNSUPPORTED_PROJECT/);
+  });
+
+  it("rejects gaps, overlaps and text truncation instead of changing original meaning", () => {
+    const project = sample();
+    project.scenes[0].startFrame = 20;
+    expect(() => exportVideoProjectHyperframesPreview(project, "Marca")).toThrow(/UNSUPPORTED_TIMELINE/);
+    project.scenes[0].startFrame = 0;
+    project.scenes[0].headline = "x".repeat(181);
+    expect(() => exportVideoProjectHyperframesPreview(project, "Marca")).toThrow(/UNSUPPORTED_TEXT/);
+    project.scenes[0].headline = "Título";
+    project.scenes.push({ ...project.scenes[0], index: 2, startFrame: 160, endFrame: 210 });
+    expect(() => exportVideoProjectHyperframesPreview(project, "Marca")).toThrow(/UNSUPPORTED_TIMELINE/);
+    project.scenes[1].startFrame = 150;
+    const result = exportVideoProjectHyperframesPreview(project, "Marca");
+    expect(result.durationSeconds).toBe(7);
+    expect(result.unsupportedRemotionFeaturesExcluded).toBe(false);
+  });
 });

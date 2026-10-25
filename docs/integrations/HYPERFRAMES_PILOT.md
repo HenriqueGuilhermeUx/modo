@@ -27,3 +27,22 @@ Ferramenta creative.storyboard_export escopo modo.video.preview.
 Entrada: brandName, accentColor, format, scenes; saída: HTML para worker
 isolado de pré-visualização. Sem autorização para publicar ou agendar.
 A ferramenta NÃO será exposta no núcleo Agentics até passar em testes.
+
+
+## Próxima etapa: exportação autenticada de projetos existentes
+
+A PR adiciona a rota opt-in:
+`GET /api/v1/video-projects/:id/hyperframes-preview`
+
+- Exige o mesmo token Bearer e consulta da organização/marca que as rotas de vídeo.
+- Só é registrada com `MODO_HYPERFRAMES_PREVIEW_ENABLED=true`.
+- Retorna objeto `preview` com o `index.html`, metadados e
+  `publishingAllowed=false`. Não executa render, não cobra e não altera estado.
+- Os projetos já criados no Remotion permanecem com seu renderizador original.
+- Projetos com mais de oito cenas ou cenas acima de 12 segundos recebem HTTP 422;
+  não modificar a sequência nem descartar cenas silenciosamente.
+- Testes: `hyperframes-project-preview.test.ts`, em conjunto com o teste
+  anterior. Antes de habilitar em staging, confirmar autenticação/isolamento por
+  tenant com chamadas HTTP reais.
+
+Este recurso é um exportador de preview técnico, não um vídeo visível na interface.

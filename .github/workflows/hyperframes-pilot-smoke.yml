@@ -5,6 +5,7 @@ on:
     branches: ['feat/hyperframes-pilot-20261025']
     paths:
       - 'scripts/hyperframes-preview-smoke.ts'
+      - 'scripts/verify-hyperframes-smoke.mjs'
       - 'apps/api/src/services/hyperframes-pilot.ts'
       - 'apps/api/src/services/hyperframes-pilot.test.ts'
       - '.github/workflows/hyperframes-pilot-smoke.yml'
@@ -40,8 +41,8 @@ jobs:
       - name: Render synthetic MP4 (no publish)
         working-directory: ${{ runner.temp }}/hyperframes-smoke
         run: npx -y hyperframes@0.8.200 render --quality draft --output sample.mp4
-      - name: Confirm output is a valid video
-        run: ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1 "$RUNNER_TEMP/hyperframes-smoke/sample.mp4"
+      - name: Validate MP4 metadata and scene transitions
+        run: node scripts/verify-hyperframes-smoke.mjs "$RUNNER_TEMP/hyperframes-smoke/sample.mp4"
       - name: Upload isolated test artifact
         uses: actions/upload-artifact@v4
         with:

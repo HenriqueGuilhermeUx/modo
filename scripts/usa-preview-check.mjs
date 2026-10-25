@@ -32,4 +32,13 @@ assert.ok(!/(fetch|XMLHttpRequest)\s*\(/.test(operational), "Operational US prev
 assert.ok(!/localStorage\s*\.|sessionStorage\s*\./.test(operational), "Demo should not persist potentially identifying visitor input");
 assert.ok(!/href=["']\/(app|login|cadastro|criar-conta)/i.test(operational), "Demo must not send visitors to Brazilian account activation");
 
+
+const workspace = read("apps/web/src/UsWorkspace.tsx");
+assert.ok(entry.includes("/us/workspace"), "English workspace route missing");
+assert.ok(preview.includes('href="/us/workspace"'), "Preview must link to interactive walkthrough");
+assert.match(workspace, /initialTasks/, "Walkthrough must use sample data");
+assert.match(workspace, /setTasks/, "Demo task state missing");
+assert.ok(!/fetch\s*\(/.test(workspace), "Demo must never send data to Brazil APIs");
+assert.ok(!/localStorage|sessionStorage|submitSmartBotsIntake/.test(workspace), "Demo data must stay in memory");
+
 console.log("PASS: modo US preview route, language, copy, branding, isolation and CSS namespace");

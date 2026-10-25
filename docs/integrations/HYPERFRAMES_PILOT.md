@@ -46,3 +46,16 @@ A PR adiciona a rota opt-in:
   tenant com chamadas HTTP reais.
 
 Este recurso é um exportador de preview técnico, não um vídeo visível na interface.
+
+
+## MP4 smoke with content-integrity gate
+
+The isolated GitHub Actions job renders a five-second, 1080×1920, 30 fps
+synthetic two-scene composition and verifies:
+- HyperFrames lint/check;
+- success of MP4 production in a disposable runner;
+- ffprobe resolution, frame rate and duration bounds;
+- decoded frames at 1s and 4s have different MD5 hashes.
+
+The verified artifact is retained for one day. This does not test uploaded
+customer assets, audio, billing, render concurrency, or the Publisher V2.

@@ -1,0 +1,110 @@
+name: MODO mobile SDK57 security trial — no deploy
+on:
+  push:
+    branches: ['security/modo-mobile-expo57-20261026']
+  pull_request:
+    branches: ['security/modo-api-remotion-zod-20261026']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  mobile-compat:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Test independent audit classification
+        run: node --test scripts/modo-mobile-security-audit.test.cjs
+      - name: Install Expo 57 trial without postinstall scripts
+        run: npm install --include=dev --ignore-scripts --no-audit --no-fund
+      - name: Confirm clean install of generated lock in disposable runner
+        run: npm ci --include=dev --ignore-scripts --no-audit --no-fund
+      - name: Build shared contracts
+        run: npm run build --workspace=@modo/contracts
+      - name: Check mobile types
+        run: npm run typecheck --workspace=@modo/mobile
+      - name: Validate Expo SDK package compatibility
+        run: npm exec --workspace=@modo/mobile -- expo install --check
+      - name: Confirm application identifiers and version are unchanged
+        run: |
+          node - <<'NODE'
+          const assert=require('node:assert/strict');
+          const app=require('./apps/mobile/app.json').expo;
+          assert.equal(app.android.package,'br.com.alternativeventures.modo');
+          assert.equal(app.ios.bundleIdentifier,'br.com.alternativeventures.modo');
+          assert.equal(app.version,'1.1.0');
+          assert.equal(app.android.versionCode,6);
+          assert.equal(app.ios.buildNumber,'5');
+          const {verifyMobileSdk}=require('./scripts/modo-mobile-security-audit.cjs');
+          console.log(verifyMobileSdk(require('./package-lock.json'),
+            require('./apps/mobile/package.json')));
+          NODE
+      - name: Upload candidate lockfile only (never write to Git)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: modo-mobile-expo57-trial-lockfile
+          path: package-lock.json
+          retention-days: 1
+          if-no-files-found: ignore
+
+  mobile-risk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 17
+    outputs:
+      blocked: ${{ steps.summary.outputs.blocked }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install disposable dependency graph
+        run: npm install --include=dev --ignore-scripts --no-audit --no-fund
+      - name: Collect complete mobile-only dependency audit
+        shell: bash
+        run: |
+          set +e
+          npm audit --json --omit=dev --workspace=@modo/mobile > "$RUNNER_TEMP/mobile-audit.json"
+          result=$?
+          set -e
+          if [ "$result" -gt 1 ]; then exit "$result"; fi
+      - name: Generate precise read-only findings report
+        id: summary
+        run: |
+          node scripts/modo-mobile-security-audit.cjs \
+            "$RUNNER_TEMP/mobile-audit.json" package-lock.json \
+            apps/mobile/package.json "$RUNNER_TEMP/modo-mobile-security-report.json"
+          node - "$RUNNER_TEMP/modo-mobile-security-report.json" <<'NODE'
+          const fs=require('node:fs');
+          const r=JSON.parse(fs.readFileSync(process.argv[2],'utf8'));
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, 'blocked='+(r.status==='BLOCKED')+'\n');
+          NODE
+      - name: Upload sanitized report (release remains blocked while findings exist)
+        uses: actions/upload-artifact@v4
+        with:
+          name: modo-mobile-audit-expo57
+          path: ${{ runner.temp }}/modo-mobile-security-report.json
+          retention-days: 2
+          if-no-files-found: error
+
+  security-release-gate:
+    needs: [mobile-compat, mobile-risk]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Do not approve unremediated mobile risk or failed compatibility
+        env:
+          COMPAT: ${{ needs.mobile-compat.result }}
+          RISK_JOB: ${{ needs.mobile-risk.result }}
+          BLOCKED: ${{ needs.mobile-risk.outputs.blocked }}
+        run: |
+          echo "Compatibility: $COMPAT, audit job: $RISK_JOB, unresolved high/critical: $BLOCKED"
+          if [ "$COMPAT" != "success" ] || [ "$RISK_JOB" != "success" ] || [ "$BLOCKED" != "false" ]; then
+            echo "::error::MODO mobile release blocked until all findings are remediated and full app compatibility passes."
+            exit 1
+          fi

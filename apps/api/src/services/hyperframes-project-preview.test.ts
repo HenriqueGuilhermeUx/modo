@@ -18,7 +18,7 @@ const sample = (): VideoProject => ({
   status: "ready",
   renderer: "remotion",
   scenes: [{
-    index: 1, startFrame: 0, endFrame: 150,
+    index: 1, startFrame: 0, endFrame: 225,
     headline: "Presença que converte",
     caption: "Primeiro corte de marca",
     visual: "Brand gradient",
@@ -31,6 +31,13 @@ const sample = (): VideoProject => ({
     visualPrompt: null,
     stockQuery: null,
     stockCredit: null,
+  }, {
+    index: 2, startFrame: 225, endFrame: 450,
+    headline: "O projeto completo", caption: "Segundo momento do vídeo",
+    visual: "Brand gradient", imageUrl: null, videoUrl: null,
+    visualType: "kinetic_text", motion: "static", transition: "cut",
+    assetSource: "native", assetRevision: 0,
+    visualPrompt: null, stockQuery: null, stockCredit: null,
   }],
   outputUrl: null, mimeType: null, error: null,
   createdAt: "2026-10-25T18:00:00.000Z",
@@ -42,7 +49,7 @@ describe("MODO project to HyperFrames preview", () => {
     const output = exportVideoProjectHyperframesPreview(sample(), "Marca Teste");
     expect(output.organizationId).toBe("organization-x");
     expect(output.projectId).toBe(sample().id);
-    expect(output.durationSeconds).toBe(5);
+    expect(output.durationSeconds).toBe(15);
     expect(output.html).toContain("Presença que converte");
     expect(output.publishingAllowed).toBe(false);
   });
@@ -74,11 +81,13 @@ describe("MODO project to HyperFrames preview", () => {
     project.scenes[0].headline = "x".repeat(181);
     expect(() => exportVideoProjectHyperframesPreview(project, "Marca")).toThrow(/UNSUPPORTED_TEXT/);
     project.scenes[0].headline = "Título";
-    project.scenes.push({ ...project.scenes[0], index: 2, startFrame: 160, endFrame: 210 });
+    project.scenes[1].startFrame = 230;
     expect(() => exportVideoProjectHyperframesPreview(project, "Marca")).toThrow(/UNSUPPORTED_TIMELINE/);
-    project.scenes[1].startFrame = 150;
+    project.scenes[1].startFrame = 225;
     const result = exportVideoProjectHyperframesPreview(project, "Marca");
-    expect(result.durationSeconds).toBe(7);
+    expect(result.durationSeconds).toBe(15);
     expect(result.unsupportedRemotionFeaturesExcluded).toBe(false);
+    project.durationSeconds = 30;
+    expect(() => exportVideoProjectHyperframesPreview(project, "Marca")).toThrow(/UNSUPPORTED_TOTAL_DURATION/);
   });
 });

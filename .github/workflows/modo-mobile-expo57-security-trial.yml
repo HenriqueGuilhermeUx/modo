@@ -128,8 +128,30 @@ jobs:
           retention-days: 1
           if-no-files-found: error
 
+  mobile-signing-review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Test fail-closed signing and OTA review
+        run: node --test scripts/modo-mobile-signing-surface.test.cjs
+      - name: Check release identity, transport and static OTA signing
+        run: |
+          node scripts/modo-mobile-signing-surface.cjs \
+            apps/mobile/app.json apps/mobile/eas.json "$RUNNER_TEMP/modo-signing-config-review.json"
+      - name: Preserve configuration-only evidence (not credentials or binaries)
+        uses: actions/upload-artifact@v4
+        with:
+          name: modo-mobile-signing-config-review
+          path: ${{ runner.temp }}/modo-signing-config-review.json
+          retention-days: 1
+          if-no-files-found: error
+
   security-release-gate:
-    needs: [mobile-compat, mobile-risk, mobile-js-review]
+    needs: [mobile-compat, mobile-risk, mobile-js-review, mobile-signing-review]
     if: always()
     runs-on: ubuntu-latest
     steps:
@@ -138,10 +160,11 @@ jobs:
           COMPAT: ${{ needs.mobile-compat.result }}
           RISK_JOB: ${{ needs.mobile-risk.result }}
           BUNDLE_JOB: ${{ needs.mobile-js-review.result }}
+          SIGNING_JOB: ${{ needs.mobile-signing-review.result }}
           BLOCKED: ${{ needs.mobile-risk.outputs.blocked }}
         run: |
           echo "Compatibility: $COMPAT, audit: $RISK_JOB, JS export: $BUNDLE_JOB, unresolved high/critical: $BLOCKED"
-          if [ "$COMPAT" != "success" ] || [ "$RISK_JOB" != "success" ] || [ "$BUNDLE_JOB" != "success" ] || [ "$BLOCKED" != "false" ]; then
+          if [ "$COMPAT" != "success" ] || [ "$RISK_JOB" != "success" ] || [ "$BUNDLE_JOB" != "success" ] || [ "$SIGNING_JOB" != "success" ] || [ "$BLOCKED" != "false" ]; then
             echo "::error::MODO mobile release blocked until all findings are remediated and full app compatibility passes."
             exit 1
           fi

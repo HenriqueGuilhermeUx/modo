@@ -21,3 +21,12 @@ Preconditions:
 
 This is an intermediate step toward a durable, tenant-scoped queue + storage
 and a preview UI. Do not enable it in Render/Netlify production.
+
+
+## Tenant-scoped worker gate
+
+Every call must now include an `authorizedOrganizationId` independently
+verified by the future scheduling service; it must equal
+`project.organizationId`. Cross-tenant jobs fail before creating files or
+starting any subprocess. The caller cannot supply this value from an untrusted
+queue payload or browser request. Unit tests cover a mismatched organization.

@@ -60,6 +60,28 @@ function summarizeAudit(report) {
   };
 }
 
+/**
+ * Reports declared dependency parents only. This identifies where packages
+ * enter the dependency tree, not which code is bundled into the user app.
+ */
+function declaredParents(lock, vulnerableNames) {
+  if (!lock?.packages || !Array.isArray(vulnerableNames))
+    throw new Error("MODO_MOBILE_INVALID_LOCK_GRAPH");
+  const names = new Set(vulnerableNames);
+  const parents = Object.fromEntries(vulnerableNames.map(name => [name, []]));
+  for (const [path, entry] of Object.entries(lock.packages)) {
+    const deps = entry?.dependencies || {};
+    for (const [name, wanted] of Object.entries(deps)) {
+      if (!names.has(name)) continue;
+      const list = parents[name];
+      if (list.length >= 35) continue;
+      list.push({declaredBy: path || "(workspace root)",
+        versionRange: String(wanted).slice(0,100)});
+    }
+  }
+  return parents;
+}
+
 function verifyMobileSdk(lock, manifest) {
   const entries = lock?.packages;
   const installedExpo = entries?.["node_modules/expo"]?.version;
@@ -86,6 +108,8 @@ function run() {
   const summary = {
     ...summarizeAudit(audit),
     installedVersions: verifyMobileSdk(lock, pkg),
+    declaredDependencyParents: declaredParents(lock,
+      Object.keys(audit.vulnerabilities)),
   };
   fs.writeFileSync(outputFile, JSON.stringify(summary,null,2)+"\n",{mode:0o600});
   console.log(JSON.stringify({status:summary.status,counts:summary.counts,
@@ -97,4 +121,4 @@ if (require.main === module) {
     console.error(error);process.exitCode=1;
   }
 }
-module.exports={summarizeAudit,verifyMobileSdk};
+module.exports={summarizeAudit,verifyMobileSdk,declaredParents};

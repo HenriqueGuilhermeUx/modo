@@ -32,7 +32,7 @@ try {
   const errors = [], forbidden = [];
   page.on('pageerror', e => errors.push(e.message));
   page.on('request', request => {
-    if (/onrender\\.com|supabase\\.co|\\/api\\//i.test(request.url())) forbidden.push(request.url());
+    if (request.url().includes('onrender.com') || request.url().includes('supabase.co') || request.url().includes('/api/')) forbidden.push(request.url());
   });
 
   for (const [route, heading, demo] of [
@@ -41,7 +41,7 @@ try {
   ]) {
     await page.goto(origin + route, { waitUntil: 'networkidle' });
     await page.getByRole('heading', { level: 1 }).waitFor();
-    assert.match(await page.getByRole('heading', { level: 1 }).innerText(), new RegExp(heading.replace(/[.*+?^${}()|[\\]\\]/g, '\\$&')));
+    assert.ok((await page.getByRole('heading', { level: 1 }).innerText()).includes(heading), 'Incorrect hero heading: ' + route);
     assert.equal(await page.locator('html').getAttribute('lang'), 'en-US');
     assert.equal(await page.locator('meta[name="robots"]').getAttribute('content'), 'noindex,nofollow');
     assert.equal(await page.locator('main').count(), 1);

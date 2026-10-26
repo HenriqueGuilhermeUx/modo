@@ -7,6 +7,7 @@ import { renderHyperframesStagingPreview } from "./hyperframes-staging-worker.js
 const sample = () => ({
   id: "11111111-1111-4111-8111-111111111111",
   organizationId: "sandbox-only",
+  durationSeconds: 15,
   aspectRatio: "9:16", fps: 30, voiceover: false, voiceProvider: null,
   scenes: [{
     index: 1, startFrame: 0, endFrame: 225,

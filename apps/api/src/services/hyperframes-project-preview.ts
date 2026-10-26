@@ -45,6 +45,12 @@ export function exportVideoProjectHyperframesPreview(
       durationSeconds: Number(durationSeconds.toFixed(3)),
     };
   });
+  // Never call a shorter composition a faithful preview of the original
+  // MODO project. All project frames must be represented by the exported scenes.
+  if (!Number.isInteger(project.durationSeconds * project.fps) ||
+      expectedStart !== project.durationSeconds * project.fps) {
+    throw new Error("HYPERFRAMES_UNSUPPORTED_TOTAL_DURATION");
+  }
   const preview = buildHyperframesPilot({
     brandName,
     accentColor: "#2ED19A",

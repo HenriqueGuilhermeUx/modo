@@ -78,7 +78,9 @@ export function traceMobileAuditDependencyPaths(lock, audit) {
     const name = nameOf(current.path);
     const label = `${name}@${versionOf(packages,current.path) || "unknown"}`;
     const chain = [...current.route, label];
-    if (!routes.has(name)) routes.set(name, { chain, packagePath: current.path });
+    if (!routes.has(name)) routes.set(name, []);
+    routes.get(name).push({ chain, packagePath: current.path,
+      version: versionOf(packages,current.path) });
     const deps = {
       ...p.dependencies, ...p.optionalDependencies, ...p.peerDependencies,
     };
@@ -90,13 +92,23 @@ export function traceMobileAuditDependencyPaths(lock, audit) {
     }
   }
   const findings = Object.entries(audit.vulnerabilities).map(([name, v]) => {
-    const found = routes.get(name);
+    const instances = (routes.get(name) || []).sort((a,b)=>
+      a.chain.length-b.chain.length || a.packagePath.localeCompare(b.packagePath));
+    const found = instances[0];
+    const versions = [...new Set(instances.map(x=>x.version).filter(Boolean))];
     return {
       package: name, severity: v.severity,
       installedPackagePath: found?.packagePath || null,
       shortestPath: found?.chain || [],
-      installedVersion: found ?
-        versionOf(packages, found.packagePath) : null,
+      installedVersion: found?.version || null,
+      // The first/shortest path is NOT necessarily the vulnerable version.
+      // npm audit often flags a nested Expo Zod 3.x while a patched Zod 4.x
+      // is also present. Never declare remediation from one matching package.
+      allInstalledInstances: instances.map(x=>({
+        path:x.packagePath,version:x.version,chain:x.chain,
+      })),
+      installedVersions: versions,
+      multipleInstalledVersions: versions.length > 1,
       advisoryIds: [...new Set((Array.isArray(v.via) ? v.via : [])
         .filter(a=>a && typeof a==="object" && typeof a.url==="string")
         .flatMap(a=>a.url.match(/GHSA-[a-z0-9-]+/gi) || []))].slice(0,8),

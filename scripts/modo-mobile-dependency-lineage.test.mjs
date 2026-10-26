@@ -42,10 +42,10 @@ test("trace Expo CLI signing dependency from mobile without asserting shipped ex
 });
 test("do not assume missing package path is safe",()=>{
   const a=structuredClone(audit);
-  a.vulnerabilities.zod={severity:"high",via:[]};
+  a.vulnerabilities["unmapped-package"]={severity:"high",via:[]};
   const r=traceMobileAuditDependencyPaths(lock,a);
-  assert.deepEqual(r.unresolved,["zod"]);
-  assert.equal(r.findings.find(x=>x.package==="zod").graphResolution,"requires-manual-review");
+  assert.deepEqual(r.unresolved,["unmapped-package"]);
+  assert.equal(r.findings.find(x=>x.package==="unmapped-package").graphResolution,"requires-manual-review");
   assert.equal(r.safeToSignOrPublish,false);
 });
 test("lists every installed Zod copy, including vulnerable Expo transitive version",()=>{

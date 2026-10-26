@@ -14,6 +14,9 @@ Preconditions:
   infrastructure, not by this JavaScript module.
 - Output is returned in memory only with SHA-256; never written to customer
   object storage or scheduled/published.
+- The ffprobe gate requires exactly one video stream with the expected format,
+  resolution, frame rate and duration; audio, subtitle and extra video tracks
+  fail closed even if the MP4 container is otherwise readable.
 - No credentials, tokens or secret environment variables forwarded to child processes.
 - Job timeout is 300 seconds; maximum video output 25 MB. Video metadata
   is verified with ffprobe; sandbox smoke validates non-identical scenes.

@@ -101,4 +101,33 @@ describe("isolated HyperFrames staging runner", () => {
       }, "sandbox-only")).rejects.toThrow(/INVALID_VIDEO_PROPERTIES/);
     } finally { restore(); }
   });
+  it("rejects audio, subtitles and additional video tracks in a silent preview", async () => {
+    process.env.MODO_HYPERFRAMES_WORKER_MODE = "isolated-staging";
+    const primary = { codec_type: "video", width: 1080, height: 1920, r_frame_rate: "30/1" };
+    try {
+      for (const additionalStream of [
+        { codec_type: "audio" },
+        { codec_type: "subtitle" },
+        { ...primary },
+      ]) {
+        const mock = async (_command: string, args: string[], opt: { cwd: string }) => {
+          if (args[0] === "render") {
+            await writeFile(join(opt.cwd, "sample.mp4"), Buffer.alloc(5000, 1));
+          }
+          return args[0] === "-v"
+            ? { stdout: JSON.stringify({
+                streams: [primary, additionalStream],
+                format: { duration: "15.000000" },
+              }) }
+            : { stdout: "" };
+        };
+        await expect(renderHyperframesStagingPreview(sample(), "Marca", {
+          hyperframesExecutable: "/usr/local/bin/hyperframes",
+          ffprobeExecutable: "/usr/bin/ffprobe",
+          execute: mock,
+        }, "sandbox-only")).rejects.toThrow(/UNEXPECTED_MEDIA_STREAMS/);
+      }
+    } finally { restore(); }
+  });
+
 });

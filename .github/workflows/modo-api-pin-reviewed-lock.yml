@@ -1,4 +1,4 @@
-name: MODO API lockfile pin — isolated security branch
+name: MODO API versioned lock gate — no deploy
 
 on:
   push:
@@ -8,113 +8,61 @@ on:
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/modo-api-pin-reviewed-lock.yml'
+  pull_request:
+    branches: ['feat/hyperframes-pilot-20261025']
   workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
-  validate-lock:
-    if: github.repository == 'HenriqueGuilhermeUx/modo' && github.ref == 'refs/heads/security/modo-api-remotion-zod-20261026'
+  verified-lock:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
-    outputs:
-      checksum: ${{ steps.digest.outputs.checksum }}
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Resolve candidate without running untrusted dependency scripts
-        run: npm install --include=dev --ignore-scripts --no-audit --no-fund
-      - name: Verify clean npm ci from candidate lock
+      - name: Verify audited lockfile is committed and has reviewed checksum
+        run: |
+          git ls-files --error-unmatch package-lock.json
+          test -s package-lock.json
+          echo '743c5b922e8f51ba5db66a40d62c695601027f466a3dce647b30d22975723c87  package-lock.json' | sha256sum -c -
+      - name: Reinstall only from Git-tracked lockfile (no package scripts)
         run: npm ci --include=dev --ignore-scripts --no-audit --no-fund
-      - name: Confirm exact current safe candidate versions
+      - name: Verify dependency versions, intact lockfile and isolated Expo
         run: |
           node - <<'NODE'
           const assert = require('node:assert/strict');
-          const p = require('./apps/api/package.json');
+          const api = require('./apps/api/package.json');
           const lock = require('./package-lock.json').packages;
-          assert.equal(p.dependencies.zod, '4.6.7');
-          assert.equal(p.dependencies.remotion, '4.0.516');
-          for (const name of ['remotion', '@remotion/bundler', '@remotion/renderer']) {
-            assert.equal(p.dependencies[name], '4.0.516');
-            assert.equal(lock['node_modules/' + name]?.version, '4.0.516');
-          }
+          assert.equal(api.dependencies.zod, '4.6.7');
           assert.equal(lock['node_modules/zod']?.version, '4.6.7');
+          for (const name of ['remotion','@remotion/bundler','@remotion/renderer']) {
+            assert.equal(api.dependencies[name], '4.0.516');
+            assert.equal(lock['node_modules/'+name]?.version, '4.0.516');
+          }
           assert.equal(lock['node_modules/@remotion/studio']?.version, '4.0.516');
-          assert.ok(!lock['node_modules/@remotion/studio/node_modules/zod'],
-            'Studio must not retain an unsafe nested Zod copy');
-          assert.equal(lock['node_modules/expo/node_modules/zod']?.version, '3.25.76',
-            'Mobile Expo must remain unchanged in this API security PR');
-          assert.ok(Object.keys(lock).length > 900);
+          assert.ok(!lock['node_modules/@remotion/studio/node_modules/zod']);
+          assert.equal(lock['node_modules/expo/node_modules/zod']?.version, '3.25.76');
+          console.log('API patched Zod, aligned Remotion, mobile Expo unchanged');
           NODE
-      - name: Fail closed on unresolved API high or critical advisories
+          git diff --exit-code -- package-lock.json package.json apps/api/package.json
+      - name: Block unresolved high/critical API runtime vulnerabilities
         shell: bash
         run: |
           set +e
-          npm audit --json --omit=dev --workspace=@modo/api > "$RUNNER_TEMP/api-audit.json"
+          npm audit --json --omit=dev --workspace=@modo/api > "$RUNNER_TEMP/api-verified-lock-audit.json"
           status=$?
           set -e
           if [ "$status" -gt 1 ]; then exit "$status"; fi
-          node - "$RUNNER_TEMP/api-audit.json" <<'NODE'
+          node - "$RUNNER_TEMP/api-verified-lock-audit.json" <<'NODE'
           const fs=require('node:fs');
-          const report=JSON.parse(fs.readFileSync(process.argv[2],'utf8'));
-          const counts=report.metadata?.vulnerabilities;
+          const audit=JSON.parse(fs.readFileSync(process.argv[2],'utf8'));
+          const counts=audit.metadata?.vulnerabilities;
           if(!counts||!Number.isInteger(counts.high)||!Number.isInteger(counts.critical))
-            throw new Error('MODO_LOCK_AUDIT_UNAVAILABLE');
-          console.log('Audited API production scope:',counts);
-          if(counts.high||counts.critical)throw new Error('MODO_LOCK_HIGH_RISK_DEPS');
+            throw new Error('API_AUDIT_UNAVAILABLE');
+          console.log('Committed lockfile API security counts:',counts);
+          if(counts.high||counts.critical)throw new Error('API_RUNTIME_RELEASE_BLOCKED');
           NODE
-      - name: Compute canonical generated lock checksum
-        id: digest
-        run: echo "checksum=$(sha256sum package-lock.json | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
-      - name: Upload reviewed candidate lock
-        uses: actions/upload-artifact@v4
-        with:
-          name: modo-verified-api-package-lock
-          path: package-lock.json
-          retention-days: 1
-          if-no-files-found: error
-
-  pin-lockfile:
-    needs: validate-lock
-    if: github.repository == 'HenriqueGuilhermeUx/modo' && github.ref == 'refs/heads/security/modo-api-remotion-zod-20261026'
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    permissions:
-      contents: write
-    steps:
-      - name: Checkout only the isolated security branch
-        uses: actions/checkout@v4
-        with:
-          ref: security/modo-api-remotion-zod-20261026
-          persist-credentials: true
-      - name: Get validated lock artifact (no npm installs with write permission)
-        uses: actions/download-artifact@v4
-        with:
-          name: modo-verified-api-package-lock
-          path: .
-      - name: Verify lock checksum and ensure still on the authorized branch
-        env:
-          LOCK_SHA256: ${{ needs.validate-lock.outputs.checksum }}
-        run: |
-          test "$GITHUB_REF" = "refs/heads/security/modo-api-remotion-zod-20261026"
-          test "$(git branch --show-current)" = "security/modo-api-remotion-zod-20261026"
-          test "$(git rev-parse HEAD)" = "$GITHUB_SHA" || { echo 'Branch advanced since validation; refusing stale lock'; exit 1; }
-          test "$(sha256sum package-lock.json | cut -d' ' -f1)" = "$LOCK_SHA256"
-          test -s package-lock.json
-      - name: Pin lockfile for PR review only (no merge or deploy)
-        shell: bash
-        run: |
-          set -euo pipefail
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add -- package-lock.json
-          if git diff --cached --quiet; then
-            echo 'Reviewed lockfile already matches branch; no commit needed.'
-            exit 0
-          fi
-          test "$(git diff --cached --name-only)" = 'package-lock.json'
-          git commit -m 'chore(security): pin isolated Zod remediation lockfile'
-          git push origin HEAD:refs/heads/security/modo-api-remotion-zod-20261026

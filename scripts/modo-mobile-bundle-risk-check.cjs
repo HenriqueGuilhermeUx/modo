@@ -65,6 +65,13 @@ if(require.main===module){
       javascriptBundleFiles:report.javascriptBundleFiles,
       signaturesFound:report.signaturesFound.length,
       nativeBinaryInspected:false}));
+    // A known signing vendor inside exported application JavaScript is a
+    // stop signal, not just a warning. A clean string scan is NOT proof of
+    // native binary, EAS signing or cryptographic safety.
+    if (report.signaturesFound.length > 0) {
+      console.error("MODO_MOBILE_SIGNING_VENDOR_IN_EXPORTED_JS");
+      process.exitCode=2;
+    }
   }catch(error){console.error(error);process.exitCode=1;}
 }
 

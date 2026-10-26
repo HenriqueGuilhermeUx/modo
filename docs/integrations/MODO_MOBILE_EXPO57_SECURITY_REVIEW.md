@@ -1,0 +1,128 @@
+# MODO Mobile — análise isolada de segurança do Expo SDK 57
+
+**Estado:** experimentação documental e CI em uma branch separada da PR #164.
+Sem deploy, alteração de app distribuído, alteração de dependências, merge,
+dados de clientes ou execução financeira.
+
+## Evidências auditadas em 26/10/2026
+
+O `npm audit --omit=dev --workspace=@modo/mobile` do snapshot original
+encontrou 0 críticos, **5 altos**, 3 moderados:
+
+| Severidade | Pacote | Investigação |
+|---|---|---|
+| Alta | `@expo/cli` | Dependência transitiva; checar fluxo de build/CLI |
+| Alta | `@expo/code-signing-certificates` | Ferramentas de certificação |
+| Alta | `expo` | Agrega dependências vulneráveis; não implica vulnerabilidade no bundle JS |
+| Alta | `node-forge` | `GHSA-86w9-cpqp-85rv`, nenhuma correção publicada até esta verificação |
+| Alta | `zod` | `GHSA-mrhx-c7xc-m3w5`, checar dependência e versão efetivamente incluída |
+| Moderada | `expo-router` | Exige upgrade coordenado com SDK e roteamento |
+| Moderada | `query-string` | Verificar origens e código realmente importado |
+| Moderada | `decode-uri-component` | `GHSA-vcc3-ghjq-m6fr`; revisar parsing de entradas |
+
+A árvore CLI/EAS é diferente do código JavaScript efetivamente entregue
+ao Android/iOS. **Um `npm audit --omit=dev` não determina quais módulos
+entram no APK/AAB nem prova que uma falha é explorável.** Por isso,
+a classificação de bibliotecas é uma hipótese de triagem, não declaração
+de segurança ou motivo para ignorar vulnerabilidades.
+
+## Critérios da homologação
+
+- Conservar Expo 57, React Native 0.86 e versões atuais de produção.
+- Rodar `npm audit` em runner descartável e preservar IDs GHSA.
+- Build de tipos e exportação estática Android sem EAS e sem loja.
+- Recolher estatísticas do export, sem publicar bundles ou dados privados.
+- Não alegar que a ausência de nomes em sourcemaps demonstra ausência
+  de dependências — minificação, Hermes e plugins podem ocultá-las.
+- **Bloquear liberação** enquanto houver altos/críticos sem mitigação
+  verificada. Conferir pacotes usados em assinatura, certificados e
+  distribuição em ambiente confiável antes de criar AAB ou submissão.
+- Não aplicar `npm audit fix --force` nem downgrade para SDK 54
+  sugerido pelo npm: quebra potencial das APIs SDK 57.
+- Não fazer override de `node-forge` para versão não corrigida, nem
+  forçar `zod@4` em ferramentas Expo sem testes específicos.
+
+## Próximos controles
+
+Se os alertas estiverem confinados a ferramentas de compilação, avaliar
+um runner de build sem segredos persistentes, com egress restrito,
+tokens efêmeros e revisão das rotinas de assinatura. Continuar auditoria
+até upstream publicar correção ou existir patch upstream validado.
+
+A PR #167 corrige **apenas a API**, não a árvore Expo/mobile.
+A PR #172 da Nexa Agentics continua fora do escopo.
+
+## Primeira homologação reproduzida — 26/10/2026
+
+CI [GitHub Actions #40377249984](https://github.com/HenriqueGuilhermeUx/modo/actions/runs/40377249984) concluída com sucesso:
+
+- 3 testes unitários de classificação fail-closed passaram;
+- Auditoria de dependências de execução Expo **0 críticos / 5 altos / 3 moderados**, `releaseBlocked=true`;
+- Typecheck do workspace mobile e exportação estática **Android** aprovados;
+- Bundle Metro compilou **1.355 módulos**;
+- Saída técnica de exportação: **30 arquivos**, incluindo um JS e um sourcemap;
+- Sourcemap analisado: **1 de 1**, **1.347 entradas de módulos**, nenhuma referência a `node-forge` ou `@expo/code-signing-certificates` nesse mapa;
+- O JSON sanitizado marca explicitamente `absenceProvesSafety=false`.
+  Não foi criado AAB/APK nativo, não há prova sobre binários embarcados,
+  operações de assinatura e ambiente EAS. Também não foram publicados
+  mapas de origem; somente estatísticas são fornecidas como artefato.
+
+A ausência das bibliotecas criptográficas no mapa JS **reduz a hipótese
+de código enviado pelo Metro**, mas **não elimina a vulnerabilidade**:
+o processo de build/assinatura e outros caminhos precisam ser revisados.
+A política da PR continua bloqueando a liberação.
+
+Para mitigar risco de assinatura enquanto o upstream não fornece
+correção comprovada, um futuro pipeline de build deverá usar identidade
+e credenciais efêmeras, mínimos privilégios, runner isolado, sem aceitar
+certificados de fontes desconhecidas, além de revisar versões e
+integridade antes da distribuição. Nenhuma dessas medidas, sozinha,
+torna segura a validação criptográfica vulnerável.
+
+
+## Traceabilidade transitiva por lockfile (26/10/2026)
+
+O pipeline agora executa `modo-mobile-dependency-lineage.mjs` contra o
+`package-lock.json` resolvido no runner e o relatório bruto do npm audit.
+Para cada alerta, produz o caminho de dependências mais curto encontrado,
+versão efetivamente instalada e respectivos IDs GHSA, ou marca o caminho
+`requires-manual-review` se não foi possível reconstruí-lo.
+
+Isso responde **qual pacote traz o componente vulnerável ao workspace**
+(Expo, CLI, roteador ou transitivo). Não responde se uma biblioteca é
+executada no telefone, no CI, na assinatura ou nos servidores do provedor.
+
+O fluxo mantém `releaseBlocked=true` enquanto a auditoria registrar
+alertas altos/críticos; nenhum pacote é alterado. Os resultados são
+salvos como JSON sanitizado de curta retenção, sem conteúdo do bundle,
+credenciais nem parâmetros de usuário.
+
+Referência primária de risco: GHSA-86w9-cpqp-85rv, node-forge
+até 1.4.0 inclusive, sem versão corrigida oficialmente publicada
+na consulta de 26/10/2026. **Não aplicar override para uma versão inexistente
+ou executar assinatura criptográfica vulnerável como solução.**
+
+
+### Caminhos confirmados no grafo de instalação (26/10/2026)
+
+A primeira execução do rastreador contra o lockfile criado em CI examinou
+**620 pacotes** e conseguiu reconstruir caminhos para todos os oito alertas:
+- `@modo/mobile → expo@57.0.31 → @expo/cli@57.0.32 → node-forge@1.4.0`;
+- `@modo/mobile → expo → @expo/cli → @expo/code-signing-certificates@0.0.6`;
+- `@modo/mobile → expo-router@57.0.29 → query-string@7.1.3
+  → decode-uri-component@0.2.2`.
+
+Uma revisão posterior identificou que o primeiro relatório mostrava apenas
+**uma** instalação por nome. Isso poderia ser enganoso para `zod`:
+a árvore contém uma cópia mais nova (`4.6.7`) e outra exigida por
+`@expo/cli` (`3.25.76`). O rastreador foi corrigido para listar todas
+as instâncias e versões acessíveis no grafo, em vez de tratar a primeira
+como prova de correção das demais.
+
+Não foi feito override de `node-forge` porque a
+[GHSA-86w9-cpqp-85rv](https://github.com/advisories/GHSA-86w9-cpqp-85rv)
+ainda informa **nenhuma versão corrigida**; não há motivo seguro para
+forçar downgrade do Expo para solucionar esse achado isolado.
+
+Essas evidências são **do conjunto instalado em CI**, não de um AAB
+distribuído, e não removem o bloqueio `releaseBlocked=true`.

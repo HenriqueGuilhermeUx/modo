@@ -1,0 +1,104 @@
+name: MODO Expo 57 security staging — no deploy
+
+on:
+  push:
+    branches: ['security/modo-mobile-expo-audit-20261026']
+    paths:
+      - 'apps/mobile/**'
+      - 'scripts/modo-mobile-security-triage.mjs'
+      - 'scripts/modo-mobile-security-triage.test.mjs'
+      - 'scripts/modo-mobile-dependency-lineage.mjs'
+      - 'scripts/modo-mobile-dependency-lineage.test.mjs'
+      - 'scripts/modo-mobile-export-inspect.mjs'
+      - '.github/workflows/modo-mobile-security-staging.yml'
+      - 'package.json'
+      - 'package-lock.json'
+  pull_request:
+    branches: ['feat/hyperframes-pilot-20261025']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate fail-closed classification tests
+        run: node --test scripts/modo-mobile-security-triage.test.mjs scripts/modo-mobile-dependency-lineage.test.mjs
+      - name: Install only in disposable runner, no dependency scripts
+        run: npm install --include=dev --ignore-scripts --no-audit --no-fund
+      - name: Audit exact Expo 57 mobile workspace without downgrading
+        shell: bash
+        run: |
+          set -euo pipefail
+          set +e
+          npm audit --json --omit=dev --workspace=@modo/mobile > "$RUNNER_TEMP/mobile-audit.json"
+          status=$?
+          set -e
+          if [ "$status" -gt 1 ]; then
+            echo "Could not obtain a valid npm security report ($status)"
+            exit "$status"
+          fi
+          node scripts/modo-mobile-security-triage.mjs \
+            "$RUNNER_TEMP/mobile-audit.json" \
+            "$RUNNER_TEMP/unavailable-export" \
+            "$RUNNER_TEMP/modo-mobile-security-triage.json"
+      - name: Trace vulnerable packages to Expo dependency parents
+        run: |
+          node scripts/modo-mobile-dependency-lineage.mjs \
+            package-lock.json \
+            "$RUNNER_TEMP/mobile-audit.json" \
+            "$RUNNER_TEMP/modo-mobile-dependency-lineage.json"
+      - name: Export sanitized triage, never raw provider tokens or npm config
+        uses: actions/upload-artifact@v4
+        with:
+          name: modo-mobile-expo57-security-triage
+          path: |
+            ${{ runner.temp }}/modo-mobile-security-triage.json
+            ${{ runner.temp }}/modo-mobile-dependency-lineage.json
+          retention-days: 2
+          if-no-files-found: error
+
+  android-static-export:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      EXPO_NO_TELEMETRY: '1'
+      CI: '1'
+      NODE_ENV: production
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install with no automatic scripts or changes to package manifests
+        run: npm install --include=dev --ignore-scripts --no-audit --no-fund
+      - name: Build shared types and typecheck Expo 57 mobile
+        run: |
+          npm run build --workspace=@modo/contracts
+          npm run typecheck --workspace=@modo/mobile
+      - name: Generate local synthetic icons (no EAS or Play Store)
+        run: node apps/mobile/scripts/generate-assets.mjs
+      - name: Export static Android bundle without credentials or publishing
+        working-directory: apps/mobile
+        run: |
+          ../../node_modules/.bin/expo export --platform android \
+            --output-dir "$RUNNER_TEMP/modo-mobile-android-export" --clear --source-maps
+      - name: Inspect exported bundle for forensic hints (not proof of absence)
+        run: |
+          node scripts/modo-mobile-export-inspect.mjs \
+            "$RUNNER_TEMP/modo-mobile-android-export" \
+            "$RUNNER_TEMP/modo-mobile-export-evidence.json"
+      - name: Upload sanitized export metrics only, never APK or credentials
+        uses: actions/upload-artifact@v4
+        with:
+          name: modo-mobile-android-export-evidence
+          path: ${{ runner.temp }}/modo-mobile-export-evidence.json
+          retention-days: 2
+          if-no-files-found: error

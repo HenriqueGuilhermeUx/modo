@@ -1,0 +1,97 @@
+name: MODO API security candidate — no deploy
+
+on:
+  push:
+    branches:
+      - security/modo-api-remotion-zod-20261026
+  pull_request:
+    branches:
+      - feat/hyperframes-pilot-20261025
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  candidate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      NODE_ENV: test
+      MODO_HYPERFRAMES_WORKER_MODE: isolated-staging
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Resolve candidate dependencies without running postinstall
+        run: npm install --include=dev --ignore-scripts --no-audit --no-fund
+      - name: Assert exact patched API package versions
+        run: |
+          node --input-type=module -e '
+            import { createRequire } from "node:module";
+            const require = createRequire(import.meta.url);
+            for (const name of ["remotion", "@remotion/bundler", "@remotion/renderer"]) {
+              const version = require(name + "/package.json").version;
+              if(version !== "4.0.539") throw new Error(name + ": " + version);
+            }
+            if (require("zod/package.json").version !== "4.6.7") {
+              throw new Error("Zod API patched version mismatch");
+            }
+          '
+      - name: Typecheck, test and build MODO with resolved candidate
+        run: |
+          npm run build --workspace=@modo/contracts
+          npm run typecheck
+          npm test
+          npm run build
+      - name: Audit runtime API dependencies (report, never auto-fix)
+        id: audit
+        shell: bash
+        run: |
+          set +e
+          npm audit --json --omit=dev --workspace=@modo/api > "$RUNNER_TEMP/api-audit.json"
+          status=$?
+          set -e
+          if [ "$status" -gt 1 ]; then
+            echo "npm registry audit failed ($status)"; exit "$status"
+          fi
+          node - "$RUNNER_TEMP/api-audit.json" <<'NODE'
+          const fs = require("node:fs");
+          const a=JSON.parse(fs.readFileSync(process.argv[2], "utf8"));
+          const c=a.metadata?.vulnerabilities;
+          if (!c || !Number.isInteger(c.critical) || !Number.isInteger(c.high)) {
+            throw new Error("Security audit result is not valid");
+          }
+          console.log("Scoped API audit counts:",JSON.stringify(c));
+          for (const [name,v] of Object.entries(a.vulnerabilities||{})) {
+            if (["critical","high"].includes(v.severity)) {
+              console.log("HIGH/CRITICAL",v.severity,name,"range",v.range);
+            }
+          }
+          if (c.critical + c.high > 0) {
+            throw new Error("Runtime high/critical advisory remains; candidate is NOT approved");
+          }
+          NODE
+      - name: Install pinned HyperFrames CLI and ffmpeg in runner
+        if: success()
+        run: |
+          npm install --prefix "$RUNNER_TEMP/hf-cli" --no-save --ignore-scripts hyperframes@0.8.200
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg
+      - name: Validate complete synthetic MP4 through one-shot staging worker
+        if: success()
+        run: |
+          npx tsx scripts/hyperframes-worker-staging-e2e.ts \
+            "$RUNNER_TEMP/hf-cli/node_modules/.bin/hyperframes" \
+            "$(command -v ffprobe)" \
+            "$RUNNER_TEMP/security-candidate/sample.mp4"
+          node scripts/verify-hyperframes-smoke.mjs "$RUNNER_TEMP/security-candidate/sample.mp4" 15
+      - name: Keep generated lockfile for controlled review (never write to branch automatically)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: modo-api-candidate-lockfile
+          path: package-lock.json
+          retention-days: 1
+          if-no-files-found: error

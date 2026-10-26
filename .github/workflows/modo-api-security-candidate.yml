@@ -31,7 +31,7 @@ jobs:
             const require = createRequire(import.meta.url);
             const deps = JSON.parse(readFileSync("apps/api/package.json", "utf8")).dependencies;
             const expected = deps.remotion;
-            if (!/^4\\.0\\.[0-9]+$/.test(expected)) throw new Error("Remotion must have an exact 4.0.x version");
+            if (!/^4[.]0[.][0-9]+$/.test(expected)) throw new Error("Remotion must have an exact 4.0.x version");
             for (const name of ["remotion", "@remotion/bundler", "@remotion/renderer"]) {
               if (deps[name] !== expected) throw new Error("Remotion manifest versions must match: " + name);
               const actual = require(name + "/package.json").version;

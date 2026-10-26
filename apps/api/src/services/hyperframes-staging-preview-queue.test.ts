@@ -2,6 +2,8 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createHash } from "node:crypto";
 import type { VideoProject } from "@modo/contracts/video";
 import { HyperframesStagingPreviewQueue } from "./hyperframes-staging-preview-queue.js";
+import { randomBytes } from "node:crypto";
+import { HyperframesStagingEncryptedVault } from "./hyperframes-staging-encrypted-vault.js";
 
 const savedMode = {
   worker: process.env.MODO_HYPERFRAMES_WORKER_MODE,
@@ -173,4 +175,39 @@ describe("isolated HyperFrames private staging queue", () => {
     expect(x.readPreview(a.jobId, "sandbox-only")).toBeNull();
     expect(x.status(b.jobId, "sandbox-only")).toBeNull();
   });
+  it("uses opt-in authenticated encryption instead of retaining plaintext output", async () => {
+    const previous = process.env.MODO_HYPERFRAMES_STORAGE_MODE;
+    process.env.MODO_HYPERFRAMES_STORAGE_MODE = "isolated-staging";
+    const encryptedVault = new HyperframesStagingEncryptedVault({
+      key: randomBytes(32), retentionMs: 60_000,
+    });
+    try {
+      const x = queue({ encryptedVault });
+      const submission = x.enqueue({
+        project: project("encrypted-one"),
+        brandName: "Sandbox",
+        authorizedOrganizationId: "sandbox-only",
+      });
+      await flush();
+      const done = x.status(submission.jobId, "sandbox-only");
+      expect(done?.status).toBe("succeeded");
+      expect(done?.artifact?.sha256).toMatch(/^[a-f0-9]{64}$/);
+      expect(x.status(submission.jobId, "different-organization")).toBeNull();
+      const internal = x as unknown as { jobs: Map<string, {
+        result: Buffer | null; encrypted: boolean;
+      }> };
+      const job = internal.jobs.get(submission.jobId)!;
+      expect(job.result).toBeNull();
+      expect(job.encrypted).toBe(true);
+      expect(x.readPreview(submission.jobId, "different-organization")).toBeNull();
+      expect(x.readPreview(submission.jobId, "sandbox-only")?.length).toBe(5000);
+      expect(x.forget(submission.jobId, "sandbox-only")).toBe(true);
+      expect(encryptedVault.read(submission.jobId, "sandbox-only")).toBeNull();
+    } finally {
+      encryptedVault.close();
+      if (previous === undefined) delete process.env.MODO_HYPERFRAMES_STORAGE_MODE;
+      else process.env.MODO_HYPERFRAMES_STORAGE_MODE = previous;
+    }
+  });
+
 });

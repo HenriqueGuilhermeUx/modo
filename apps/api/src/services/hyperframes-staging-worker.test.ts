@@ -9,8 +9,13 @@ const sample = () => ({
   organizationId: "sandbox-only",
   aspectRatio: "9:16", fps: 30, voiceover: false, voiceProvider: null,
   scenes: [{
-    index: 1, startFrame: 0, endFrame: 150,
+    index: 1, startFrame: 0, endFrame: 225,
     headline: "Apenas demonstração", caption: "Sem cliente real.",
+    visualType: "kinetic_text", assetSource: "native",
+    imageUrl: null, videoUrl: null, motion: "static", transition: "cut",
+  }, {
+    index: 2, startFrame: 225, endFrame: 450,
+    headline: "Segunda cena", caption: "Sem narração ou assets externos.",
     visualType: "kinetic_text", assetSource: "native",
     imageUrl: null, videoUrl: null, motion: "static", transition: "cut",
   }],
@@ -42,7 +47,7 @@ describe("isolated HyperFrames staging runner", () => {
       if (command.includes("ffprobe")) return {
         stdout: JSON.stringify({ streams: [{
           codec_type: "video", width: 1080, height: 1920, r_frame_rate: "30/1",
-        }], format: {duration: "5.000000"} }),
+        }], format: {duration: "15.000000"} }),
       };
       return { stdout: "" };
     };
@@ -53,7 +58,7 @@ describe("isolated HyperFrames staging runner", () => {
         execute: mock,
       }, "sandbox-only");
       expect(result.organizationId).toBe("sandbox-only");
-      expect(result.durationSeconds).toBe(5);
+      expect(result.durationSeconds).toBe(15);
       expect(result.bytes).toBe(5000);
       expect(result.sha256).toMatch(/^[a-f0-9]{64}$/);
       expect(result.published).toBe(false);

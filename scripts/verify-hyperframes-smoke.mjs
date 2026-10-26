@@ -31,7 +31,10 @@ if (!track || track.width !== 1080 || track.height !== 1920 ||
   throw new Error("HYPERFRAMES_TEST_UNEXPECTED_VIDEO_PROPERTIES");
 }
 const duration = Number(probe.format?.duration);
-if (!Number.isFinite(duration) || duration < 4.9 || duration > 5.1) {
+const expectedDuration = process.argv[3] === undefined ? 5 : Number(process.argv[3]);
+if (![5, 15].includes(expectedDuration) ||
+    !Number.isFinite(duration) ||
+    Math.abs(duration - expectedDuration) > 0.12) {
   throw new Error("HYPERFRAMES_TEST_UNEXPECTED_DURATION");
 }
 
@@ -51,8 +54,8 @@ function frameDigest(seconds) {
   return digest;
 }
 
-const first = frameDigest(1);
-const second = frameDigest(4);
+const first = frameDigest(expectedDuration * 0.2);
+const second = frameDigest(expectedDuration * 0.8);
 if (first === second) throw new Error("HYPERFRAMES_TEST_STATIC_VIDEO");
 process.stdout.write(JSON.stringify({
   status: "pass", video: "synthetic",

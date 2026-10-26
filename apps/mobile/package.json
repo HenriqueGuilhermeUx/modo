@@ -11,7 +11,7 @@
   },
   "dependencies": {
     "@modo/contracts": "*",
-    "expo": "~57.0.9",
+    "expo": "~57.0.31",
     "expo-constants": "~57.0.14",
     "expo-linking": "~57.0.7",
     "expo-router": "~57.0.9",

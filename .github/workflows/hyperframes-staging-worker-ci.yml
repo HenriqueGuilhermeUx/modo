@@ -44,7 +44,7 @@ jobs:
             "$(command -v ffprobe)" \
             "$RUNNER_TEMP/hyperframes-staging/sample.mp4"
       - name: Verify MP4 has two distinct scenes
-        run: node scripts/verify-hyperframes-smoke.mjs "$RUNNER_TEMP/hyperframes-staging/sample.mp4"
+        run: node scripts/verify-hyperframes-smoke.mjs "$RUNNER_TEMP/hyperframes-staging/sample.mp4" 15
       - name: Upload synthetic preview only
         uses: actions/upload-artifact@v4
         with:

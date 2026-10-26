@@ -53,3 +53,19 @@ Referências:
 Nenhum aplicativo foi construído para distribuição; nenhuma publicação
 Play Store/TestFlight, atualização OTA, alteração de `app.json`,
 `eas.json` ou configuração de conta ocorreu nesta trial.
+
+## Resultado de inspeção estática do lockfile herdado
+
+O lockfile base da API PR #167 **já continha** `expo@57.0.31` resolvido,
+porque o manifesto antigo `~57.0.9` permitia qualquer correção 57.0.x.
+Também continha `node-forge@1.4.0`, `@expo/cli@57.0.32`,
+`expo-router@57.0.29` e `expo/node_modules/zod@3.25.76`.
+
+**Assim, elevar o mínimo no manifesto para `~57.0.31` não é, por si só,
+uma correção comprovada de qualquer alerta.** O npm audit da nova instalação
+é necessário; não remover o bloqueio só por atualizar a versão declarada.
+
+O node-forge observado pertence ao grafo de ferramentas do Expo, mas a
+ausência de exploração no binário ainda não foi demonstrada. Confirmar
+seus pontos de uso antes de qualquer mitigação; não aceitar automaticamente
+o risco de certificação/assinatura nem executar código de patch não revisado.

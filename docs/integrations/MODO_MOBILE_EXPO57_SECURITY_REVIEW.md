@@ -101,3 +101,28 @@ Referência primária de risco: GHSA-86w9-cpqp-85rv, node-forge
 até 1.4.0 inclusive, sem versão corrigida oficialmente publicada
 na consulta de 26/10/2026. **Não aplicar override para uma versão inexistente
 ou executar assinatura criptográfica vulnerável como solução.**
+
+
+### Caminhos confirmados no grafo de instalação (26/10/2026)
+
+A primeira execução do rastreador contra o lockfile criado em CI examinou
+**620 pacotes** e conseguiu reconstruir caminhos para todos os oito alertas:
+- `@modo/mobile → expo@57.0.31 → @expo/cli@57.0.32 → node-forge@1.4.0`;
+- `@modo/mobile → expo → @expo/cli → @expo/code-signing-certificates@0.0.6`;
+- `@modo/mobile → expo-router@57.0.29 → query-string@7.1.3
+  → decode-uri-component@0.2.2`.
+
+Uma revisão posterior identificou que o primeiro relatório mostrava apenas
+**uma** instalação por nome. Isso poderia ser enganoso para `zod`:
+a árvore contém uma cópia mais nova (`4.6.7`) e outra exigida por
+`@expo/cli` (`3.25.76`). O rastreador foi corrigido para listar todas
+as instâncias e versões acessíveis no grafo, em vez de tratar a primeira
+como prova de correção das demais.
+
+Não foi feito override de `node-forge` porque a
+[GHSA-86w9-cpqp-85rv](https://github.com/advisories/GHSA-86w9-cpqp-85rv)
+ainda informa **nenhuma versão corrigida**; não há motivo seguro para
+forçar downgrade do Expo para solucionar esse achado isolado.
+
+Essas evidências são **do conjunto instalado em CI**, não de um AAB
+distribuído, e não removem o bloqueio `releaseBlocked=true`.

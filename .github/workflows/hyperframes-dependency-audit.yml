@@ -1,0 +1,34 @@
+name: MODO dependency security review (report only)
+on:
+  workflow_dispatch:
+  push:
+    branches: ['feat/hyperframes-pilot-20261025']
+    paths:
+      - 'scripts/hyperframes-dependency-audit.mjs'
+      - '.github/workflows/hyperframes-dependency-audit.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install with no automatic fixes
+        run: npm install --include=dev --ignore-scripts --no-audit --no-fund
+      - name: Capture npm dependency vulnerabilities without modifying lockfile
+        run: |
+          npm audit --json > "$RUNNER_TEMP/modo-audit.json" || test "$?" -eq 1
+          node scripts/hyperframes-dependency-audit.mjs "$RUNNER_TEMP/modo-audit.json"
+      - name: Keep temporary sanitized vulnerability report
+        uses: actions/upload-artifact@v4
+        with:
+          name: modo-dependency-audit-sanitized
+          path: ${{ runner.temp }}/modo-audit-summary.json
+          retention-days: 1
+          if-no-files-found: error

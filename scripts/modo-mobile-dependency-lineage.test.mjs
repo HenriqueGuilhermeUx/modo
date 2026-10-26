@@ -10,8 +10,9 @@ const lock = {
     "packages/contracts": { version:"0.9.0" },
     "node_modules/expo": {version:"57.0.31",dependencies:{"@expo/cli":"57.0.32"}},
     "node_modules/expo/node_modules/@expo/cli": {
-      version:"57.0.32",dependencies:{"@expo/code-signing-certificates":"0.0.6"}
+      version:"57.0.32",dependencies:{"@expo/code-signing-certificates":"0.0.6","zod":"^3.25.76"}
     },
+    "node_modules/expo/node_modules/zod": {version:"3.25.76"},
     "node_modules/@expo/code-signing-certificates": {
       version:"0.0.6",dependencies:{"node-forge":"^1.4.0"}
     },
@@ -47,6 +48,22 @@ test("do not assume missing package path is safe",()=>{
   assert.equal(r.findings.find(x=>x.package==="zod").graphResolution,"requires-manual-review");
   assert.equal(r.safeToSignOrPublish,false);
 });
+test("lists every installed Zod copy, including vulnerable Expo transitive version",()=>{
+  const a=structuredClone(audit);
+  a.vulnerabilities.zod={severity:"high",via:[{url:"https://github.com/advisories/GHSA-mrhx-c7xc-m3w5"}]};
+  const extra=structuredClone(lock);
+  extra.packages["packages/contracts"].dependencies={"zod":"^4"};
+  const r=traceMobileAuditDependencyPaths(extra,a);
+  const zod=r.findings.find(x=>x.package==="zod");
+  assert.deepEqual(zod.installedVersions.sort(),["3.25.76","4.6.7"].sort());
+  assert.equal(zod.multipleInstalledVersions,true);
+  assert.equal(zod.allInstalledInstances.length,2);
+  assert.ok(zod.allInstalledInstances.some(x=>
+    x.path==="node_modules/expo/node_modules/zod" && x.version==="3.25.76"));
+  assert.equal(r.releaseBlocked,true);
+  assert.equal(r.safeToSignOrPublish,false);
+});
+
 test("refuse incomplete or corrupt lockfiles",()=>{
   assert.throws(()=>traceMobileAuditDependencyPaths({packages:{}},audit),/INVALID_SOURCE/);
   const bad=structuredClone(lock);

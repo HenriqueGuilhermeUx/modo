@@ -46,3 +46,33 @@ are input to human release review, not an automatic `npm audit fix`.
 No MODO production dependency versions or lockfile were intentionally
 changed in this pilot. Existing Render, Netlify, mobile apps, clients and
 publisher continue unchanged.
+
+
+## Validated runtime scope findings (2026-10-26 UTC)
+
+These numbers were retrieved from the separately scoped GitHub Actions
+audit, not inferred from the full monorepo list.
+
+| Scope | Critical | High | Moderate | High-severity packages |
+|---|---:|---:|---:|---|
+| API (`@modo/api`) | 0 | 3 | 0 | `@remotion/bundler`, `@remotion/studio`, `zod` |
+| Web (`@modo/web`) | 0 | 0 | 0 | None reported |
+| Mobile (`@modo/mobile`) | 0 | 5 | 3 | `@expo/cli`, `@expo/code-signing-certificates`, `expo`, `node-forge`, `zod` |
+
+The critical `vitest` and `tinypool` alerts appear only in
+the full dependency audit, not in any `--omit=dev` workspace run.
+This supports prioritizing runtime fixes while keeping the testing toolchain
+under review. It does NOT establish the vulnerability exploitability
+of the deployed API/mobile bundles, nor prove every deployed image is
+consistent with the dependency tree installed by CI.
+
+**Runtime release gate remains BLOCKED:** 3 high package findings in
+API, 5 high package findings in mobile. The same package can occur in
+more than one scope (e.g. `zod`). The web dependency audit showed zero
+findings, but web hosting security and application logic still need review.
+
+Full scoped CI and short-lived sanitized report:
+https://github.com/HenriqueGuilhermeUx/modo/actions/runs/40258092719
+
+The MODO Video/Remotion runtime must not be indiscriminately upgraded
+alongside Expo/mobile; handle them as separate compatibility changes.

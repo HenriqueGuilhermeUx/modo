@@ -69,3 +69,25 @@ O node-forge observado pertence ao grafo de ferramentas do Expo, mas a
 ausência de exploração no binário ainda não foi demonstrada. Confirmar
 seus pontos de uso antes de qualquer mitigação; não aceitar automaticamente
 o risco de certificação/assinatura nem executar código de patch não revisado.
+
+
+## Static build-signing and OTA configuration gate (26/10/2026)
+
+Added `scripts/modo-mobile-signing-surface.cjs` and negative tests to fail
+closed if this mobile app accidentally enables signed OTA updates, points
+Expo updates to an unreviewed remote URL, relaxes cleartext/network safety,
+changes the current Android/iOS identifiers, injects sensitive variables
+into `EXPO_PUBLIC_*` build environment, or changes Android submission
+status away from `draft`.
+
+The new independent `mobile-signing-review` job is a **required input**
+of the already fail-closed `security-release-gate`. It emits a short-retention
+configuration-only report, no app bundle, certificates, signing keys or secrets.
+
+Important limitations: this is a **static repository config review**, not
+inspection of Expo/EAS provider state, signing keys, device binaries,
+Expo CLI's native certificate logic, Android Play signing, or cryptographic
+exploitability. A green check **does not** waive the node-forge GHSA or
+authorize a release. The original mobile dependency audit stays BLOCKED
+until all high/critical findings have been remediated or formally reviewed
+with a separate decision.

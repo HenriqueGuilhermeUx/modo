@@ -20,6 +20,7 @@ export default function HyperframesExperimentalPreview({ project }: Props) {
     !project.voiceover &&
     project.scenes.length >= 1 &&
     project.scenes.length <= 8 &&
+    project.scenes[project.scenes.length - 1].endFrame === project.durationSeconds * project.fps &&
     project.scenes.every((scene, index, scenes) =>
       scene.visualType === "kinetic_text" &&
       scene.assetSource === "native" &&

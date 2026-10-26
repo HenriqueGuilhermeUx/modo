@@ -79,7 +79,7 @@ jobs:
         working-directory: apps/mobile
         run: |
           ../../node_modules/.bin/expo export --platform android \
-            --output-dir "$RUNNER_TEMP/modo-mobile-android-export" --clear
+            --output-dir "$RUNNER_TEMP/modo-mobile-android-export" --clear --source-maps
       - name: Inspect exported bundle for forensic hints (not proof of absence)
         run: |
           node scripts/modo-mobile-export-inspect.mjs \

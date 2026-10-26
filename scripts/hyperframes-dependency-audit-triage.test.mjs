@@ -12,7 +12,9 @@ const source=(entries={})=>({
 test("separates critical dev-only candidates from runtime release blockers",()=>{
   const a=summarizeAudit(source({
     vitest:{severity:"critical",isDirect:true,fixAvailable:false},
-    "@remotion/bundler":{severity:"high",isDirect:true,fixAvailable:false},
+    "@remotion/bundler":{severity:"high",isDirect:true,range:"<=4.0.516",
+      via:[{title:"Synthetic advisory",url:"https://github.com/advisories/GHSA-aaaa-bbbb-cccc",range:"<=4.0.516"}],
+      fixAvailable:{name:"@remotion/bundler",version:"4.0.520",isSemVerMajor:false}},
   }),"all");
   const api=summarizeAudit(source({"@remotion/bundler":{
     severity:"high",isDirect:true,fixAvailable:false}}),"api");
@@ -23,6 +25,11 @@ test("separates critical dev-only candidates from runtime release blockers",()=>
   assert.deepEqual(r.criticalDevOnlyCandidates,["vitest"]);
   assert.equal(r.releaseBlockers.length,1);
   assert.match(triageMarkdown(r),/BLOCKED/);
+  const finding=r.audits.all.packages.find(x=>x.package==="@remotion/bundler");
+  assert.equal(finding.advisories[0].advisoryId,"GHSA-aaaa-bbbb-cccc");
+  assert.equal(finding.suggestedVersion.version,"4.0.520");
+  assert.equal(finding.suggestedVersion.semverMajor,false);
+
 });
 test("refuses invalid or contradictory audit data instead of falsely approving",()=>{
   assert.throws(()=>summarizeAudit({error:{code:"ENOAUDIT"}},"api"),/REPORT_INVALID/);

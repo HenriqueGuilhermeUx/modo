@@ -38,5 +38,9 @@ jobs:
           npm run build --workspace=@modo/contracts
           npm run typecheck --workspace=@modo/api
           npm test --workspace=@modo/api
-      - name: Test web compatibility
-        run: npm run typecheck --workspace=@modo/web
+      - name: Typecheck all products including mobile
+        run: npm run typecheck
+      - name: Build MODO API and Web without a deploy
+        run: npm run build
+      - name: Test actual Remotion video rendering against patched transitive Zod
+        run: npm run smoke:video --workspace=@modo/api

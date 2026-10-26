@@ -92,8 +92,44 @@ jobs:
           retention-days: 2
           if-no-files-found: error
 
+  mobile-js-review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      CI: '1'
+      EXPO_OFFLINE: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify bundle risk detector never claims binary reachability
+        run: node --test scripts/modo-mobile-bundle-risk-check.test.cjs
+      - name: Install in disposable runner without postinstall side effects
+        run: npm install --include=dev --ignore-scripts --no-audit --no-fund
+      - name: Generate only synthetic default app assets
+        run: node apps/mobile/scripts/generate-assets.mjs
+      - name: Build shared type contracts
+        run: npm run build --workspace=@modo/contracts
+      - name: Export Android JavaScript only (not APK/AAB/EAS or Play Store)
+        working-directory: apps/mobile
+        run: npm exec -- expo export --platform android --output-dir "$RUNNER_TEMP/modo-mobile-js-export"
+      - name: Inspect exported JS for signing vendor fingerprints
+        run: |
+          node scripts/modo-mobile-bundle-risk-check.cjs \
+            "$RUNNER_TEMP/modo-mobile-js-export" \
+            "$RUNNER_TEMP/modo-mobile-js-review.json"
+      - name: Upload report only, never the app bundle or sensitive assets
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: modo-mobile-js-reachability-indicators
+          path: ${{ runner.temp }}/modo-mobile-js-review.json
+          retention-days: 1
+          if-no-files-found: error
+
   security-release-gate:
-    needs: [mobile-compat, mobile-risk]
+    needs: [mobile-compat, mobile-risk, mobile-js-review]
     if: always()
     runs-on: ubuntu-latest
     steps:
@@ -101,10 +137,11 @@ jobs:
         env:
           COMPAT: ${{ needs.mobile-compat.result }}
           RISK_JOB: ${{ needs.mobile-risk.result }}
+          BUNDLE_JOB: ${{ needs.mobile-js-review.result }}
           BLOCKED: ${{ needs.mobile-risk.outputs.blocked }}
         run: |
-          echo "Compatibility: $COMPAT, audit job: $RISK_JOB, unresolved high/critical: $BLOCKED"
-          if [ "$COMPAT" != "success" ] || [ "$RISK_JOB" != "success" ] || [ "$BLOCKED" != "false" ]; then
+          echo "Compatibility: $COMPAT, audit: $RISK_JOB, JS export: $BUNDLE_JOB, unresolved high/critical: $BLOCKED"
+          if [ "$COMPAT" != "success" ] || [ "$RISK_JOB" != "success" ] || [ "$BUNDLE_JOB" != "success" ] || [ "$BLOCKED" != "false" ]; then
             echo "::error::MODO mobile release blocked until all findings are remediated and full app compatibility passes."
             exit 1
           fi

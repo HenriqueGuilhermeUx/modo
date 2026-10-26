@@ -9,7 +9,7 @@ import { exportVideoProjectHyperframesPreview } from "./hyperframes-project-prev
 
 const execFileAsync = promisify(execFile);
 const MAX_FILE_BYTES = 25_000_000;
-const TIMEOUT_MS = 120_000;
+const TIMEOUT_MS = 300_000;
 type Exec = (command: string, args: string[], options: {
   cwd: string; timeout: number; maxBuffer: number; env: NodeJS.ProcessEnv; windowsHide: boolean;
 }) => Promise<{ stdout: string; stderr?: string }>;

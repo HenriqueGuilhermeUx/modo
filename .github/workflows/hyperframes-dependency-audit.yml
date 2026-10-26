@@ -4,6 +4,11 @@ on:
   push:
     branches: ['feat/hyperframes-pilot-20261025']
     paths:
+      - 'package.json'
+      - 'package-lock.json'
+      - 'apps/api/package.json'
+      - 'apps/web/package.json'
+      - 'apps/mobile/package.json'
       - 'scripts/hyperframes-dependency-audit.mjs'
       - 'scripts/hyperframes-dependency-audit-triage.mjs'
       - 'scripts/hyperframes-dependency-audit-triage.test.mjs'

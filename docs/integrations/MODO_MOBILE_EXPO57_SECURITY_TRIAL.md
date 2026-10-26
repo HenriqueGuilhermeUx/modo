@@ -91,3 +91,21 @@ exploitability. A green check **does not** waive the node-forge GHSA or
 authorize a release. The original mobile dependency audit stays BLOCKED
 until all high/critical findings have been remediated or formally reviewed
 with a separate decision.
+
+
+## Fail-closed static bundle screening (26/10/2026)
+
+The Android JS export inspector now **fails its job** (exit code 2)
+if it finds a literal reference to `node-forge`, `forge.rsa`, or
+`@expo/code-signing-certificates` in the exported application JavaScript.
+A unit test launches the CLI with a deliberately suspicious synthetic
+bundle, verifies rejection, and checks that a short diagnostic report
+survives. CI uploads the report even when such inspection fails; it never
+publishes or uploads app JavaScript, signing keys, Expo credentials or
+Android binaries.
+
+This detection is conservative but incomplete: minification, source
+transformations, indirect crypto dependencies and native binaries may
+evade string searches. Absence of matches does not clear the node-forge
+advisory, and `security-release-gate` must continue failing while
+any high/critical dependency finding remains.

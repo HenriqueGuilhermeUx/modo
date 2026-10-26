@@ -1,5 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
 import type { VideoProject } from "@modo/contracts/video";
+import type { HyperframesStagingEncryptedVault } from "./hyperframes-staging-encrypted-vault.js";
 import {
   renderHyperframesStagingPreview,
   type HyperframesStagingTools,
@@ -38,6 +39,8 @@ type PendingJob = {
   finishedAt: number | null;
   errorCode: "STAGING_RENDER_FAILED" | null;
   result: RenderResult | null;
+  artifact: HyperframesStagingJobView["artifact"];
+  encrypted: boolean;
 };
 
 /**
@@ -64,6 +67,7 @@ export class HyperframesStagingPreviewQueue {
     maxJobs?: number;
     maxStoredBytes?: number;
     completedTtlMs?: number;
+    encryptedVault?: HyperframesStagingEncryptedVault;
   }>) {}
 
   private now() { return (this.config.now || Date.now)(); }
@@ -81,13 +85,13 @@ export class HyperframesStagingPreviewQueue {
     for (const [id, entry] of this.jobs) {
       if (entry.finishedAt !== null && this.now() - entry.finishedAt >= ttl) {
         if (entry.result) this.storedBytes -= entry.result.video.byteLength;
+        if (entry.encrypted) this.config.encryptedVault?.forget(id, entry.authorizedOrganizationId);
         this.jobs.delete(id);
       }
     }
   }
 
   private visible(entry: PendingJob): HyperframesStagingJobView {
-    const { result } = entry;
     return {
       jobId: entry.jobId,
       projectId: entry.project.id,
@@ -97,14 +101,7 @@ export class HyperframesStagingPreviewQueue {
       previewOnly: true,
       published: false,
       errorCode: entry.errorCode,
-      artifact: result ? {
-        mimeType: "video/mp4",
-        bytes: result.bytes,
-        sha256: result.sha256,
-        width: result.width,
-        height: result.height,
-        durationSeconds: result.durationSeconds,
-      } : null,
+      artifact: entry.artifact,
     };
   }
 
@@ -143,6 +140,8 @@ export class HyperframesStagingPreviewQueue {
       finishedAt: null,
       errorCode: null,
       result: null,
+      artifact: null,
+      encrypted: false,
     };
     this.jobs.set(entry.jobId, entry);
     this.pending.push(entry.jobId);
@@ -158,6 +157,8 @@ export class HyperframesStagingPreviewQueue {
     const entry = this.jobs.get(jobId);
     if (!entry || !authorizedOrganizationId ||
         entry.authorizedOrganizationId !== authorizedOrganizationId) return null;
+    if (entry.encrypted &&
+        !this.config.encryptedVault?.metadata(jobId, authorizedOrganizationId)) return null;
     return this.visible(entry);
   }
 
@@ -171,7 +172,11 @@ export class HyperframesStagingPreviewQueue {
     const entry = this.jobs.get(jobId);
     if (!entry || !authorizedOrganizationId ||
         entry.authorizedOrganizationId !== authorizedOrganizationId ||
-        entry.status !== "succeeded" || !entry.result) return null;
+        entry.status !== "succeeded") return null;
+    if (entry.encrypted) {
+      return this.config.encryptedVault?.read(jobId, authorizedOrganizationId) ?? null;
+    }
+    if (!entry.result) return null;
     const expected = createHash("sha256").update(entry.result.video).digest("hex");
     if (expected !== entry.result.sha256 ||
         entry.result.video.byteLength !== entry.result.bytes) {
@@ -188,6 +193,7 @@ export class HyperframesStagingPreviewQueue {
         entry.authorizedOrganizationId !== authorizedOrganizationId ||
         entry.status === "queued" || entry.status === "running") return false;
     if (entry.result) this.storedBytes -= entry.result.video.byteLength;
+    if (entry.encrypted) this.config.encryptedVault?.forget(jobId, authorizedOrganizationId);
     return this.jobs.delete(jobId);
   }
 
@@ -214,17 +220,38 @@ export class HyperframesStagingPreviewQueue {
               createHash("sha256").update(result.video).digest("hex") !== result.sha256) {
             throw new Error("HYPERFRAMES_STAGING_INVALID_RENDER_RESULT");
           }
-          const limit = this.config.maxStoredBytes ?? 50_000_000;
-          if (this.storedBytes + result.bytes > limit) {
-            throw new Error("HYPERFRAMES_STAGING_STORAGE_CAPACITY");
+          if (this.config.encryptedVault) {
+            const descriptor = this.config.encryptedVault.put({
+              jobId: entry.jobId,
+              projectId: entry.project.id,
+              organizationId: entry.project.organizationId,
+              authorizedOrganizationId: entry.authorizedOrganizationId,
+              video: result.video,
+            });
+            if (descriptor.sha256 !== result.sha256 || descriptor.bytes !== result.bytes) {
+              this.config.encryptedVault.forget(entry.jobId, entry.authorizedOrganizationId);
+              throw new Error("HYPERFRAMES_STAGING_INVALID_ENCRYPTED_ARTIFACT");
+            }
+            // Never retain a plaintext MP4 in a job when a vault is configured.
+            entry.encrypted = true;
+          } else {
+            const limit = this.config.maxStoredBytes ?? 50_000_000;
+            if (this.storedBytes + result.bytes > limit) {
+              throw new Error("HYPERFRAMES_STAGING_STORAGE_CAPACITY");
+            }
+            entry.result = { ...result, video: Buffer.from(result.video) };
+            this.storedBytes += result.bytes;
           }
-          // Never retain or expose the renderer's original mutable bytes.
-          entry.result = { ...result, video: Buffer.from(result.video) };
-          this.storedBytes += result.bytes;
+          entry.artifact = {
+            mimeType: "video/mp4", bytes: result.bytes, sha256: result.sha256,
+            width: result.width, height: result.height,
+            durationSeconds: result.durationSeconds,
+          };
           entry.status = "succeeded";
         } catch {
           // Do not leak sensitive renderer stderr or upstream error messages.
           entry.result = null;
+          entry.artifact = null;
           entry.errorCode = "STAGING_RENDER_FAILED";
           entry.status = "failed";
         } finally {

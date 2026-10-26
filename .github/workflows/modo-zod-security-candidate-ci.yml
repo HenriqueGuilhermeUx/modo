@@ -36,7 +36,7 @@ jobs:
         with:
           node-version: '22'
       - name: Install isolated candidate (no live deployment or automatic fixes)
-        run: npm install --include=dev --ignore-scripts --no-audit --no-fund
+        run: npm install --include=dev --no-audit --no-fund
       - name: Audit API runtime dependencies
         shell: bash
         run: |

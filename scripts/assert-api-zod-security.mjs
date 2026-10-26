@@ -19,6 +19,16 @@ if (audit.error || !audit.vulnerabilities ||
   throw new Error("MODO_API_ZOD_AUDIT_INVALID");
 }
 if (Object.hasOwn(audit.vulnerabilities, "zod")) {
+  const finding = audit.vulnerabilities.zod;
+  const nodes = Array.isArray(finding.nodes) ? finding.nodes : [];
+  console.error("API_ZOD_AUDIT_DIAGNOSTIC", JSON.stringify({
+    declaredAPI: requested.dependencies.zod,
+    resolvedAPI: installed.version,
+    vulnerableNodes: nodes.filter(n=>typeof n === "string").slice(0,30),
+    affectedRange: typeof finding.range === "string" ? finding.range.slice(0,100) : null,
+    viaPackages: (Array.isArray(finding.via)?finding.via:[])
+      .filter(v=>typeof v === "string").slice(0,12),
+  }));
   throw new Error("MODO_API_ZOD_ADVISORY_STILL_PRESENT");
 }
 console.log(JSON.stringify({

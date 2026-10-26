@@ -1,0 +1,68 @@
+name: MODO API versioned lock gate — no deploy
+
+on:
+  push:
+    branches: ['security/modo-api-remotion-zod-20261026']
+    paths:
+      - 'apps/api/package.json'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/modo-api-pin-reviewed-lock.yml'
+  pull_request:
+    branches: ['feat/hyperframes-pilot-20261025']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verified-lock:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify audited lockfile is committed and has reviewed checksum
+        run: |
+          git ls-files --error-unmatch package-lock.json
+          test -s package-lock.json
+          echo '743c5b922e8f51ba5db66a40d62c695601027f466a3dce647b30d22975723c87  package-lock.json' | sha256sum -c -
+      - name: Reinstall only from Git-tracked lockfile (no package scripts)
+        run: npm ci --include=dev --ignore-scripts --no-audit --no-fund
+      - name: Verify dependency versions, intact lockfile and isolated Expo
+        run: |
+          node - <<'NODE'
+          const assert = require('node:assert/strict');
+          const api = require('./apps/api/package.json');
+          const lock = require('./package-lock.json').packages;
+          assert.equal(api.dependencies.zod, '4.6.7');
+          assert.equal(lock['node_modules/zod']?.version, '4.6.7');
+          for (const name of ['remotion','@remotion/bundler','@remotion/renderer']) {
+            assert.equal(api.dependencies[name], '4.0.516');
+            assert.equal(lock['node_modules/'+name]?.version, '4.0.516');
+          }
+          assert.equal(lock['node_modules/@remotion/studio']?.version, '4.0.516');
+          assert.ok(!lock['node_modules/@remotion/studio/node_modules/zod']);
+          assert.equal(lock['node_modules/expo/node_modules/zod']?.version, '3.25.76');
+          console.log('API patched Zod, aligned Remotion, mobile Expo unchanged');
+          NODE
+          git diff --exit-code -- package-lock.json package.json apps/api/package.json
+      - name: Block unresolved high/critical API runtime vulnerabilities
+        shell: bash
+        run: |
+          set +e
+          npm audit --json --omit=dev --workspace=@modo/api > "$RUNNER_TEMP/api-verified-lock-audit.json"
+          status=$?
+          set -e
+          if [ "$status" -gt 1 ]; then exit "$status"; fi
+          node - "$RUNNER_TEMP/api-verified-lock-audit.json" <<'NODE'
+          const fs=require('node:fs');
+          const audit=JSON.parse(fs.readFileSync(process.argv[2],'utf8'));
+          const counts=audit.metadata?.vulnerabilities;
+          if(!counts||!Number.isInteger(counts.high)||!Number.isInteger(counts.critical))
+            throw new Error('API_AUDIT_UNAVAILABLE');
+          console.log('Committed lockfile API security counts:',counts);
+          if(counts.high||counts.critical)throw new Error('API_RUNTIME_RELEASE_BLOCKED');
+          NODE

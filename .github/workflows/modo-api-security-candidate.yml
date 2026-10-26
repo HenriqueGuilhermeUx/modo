@@ -1,0 +1,122 @@
+name: MODO API security candidate — no deploy
+
+on:
+  push:
+    branches:
+      - security/modo-api-remotion-zod-20261026
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  candidate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      NODE_ENV: test
+      MODO_HYPERFRAMES_WORKER_MODE: isolated-staging
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Resolve candidate dependencies without running postinstall
+        run: npm install --include=dev --ignore-scripts --no-audit --no-fund
+      - name: Verify reproducible clean npm ci from generated candidate lockfile
+        run: |
+          test -s package-lock.json
+          node -e 'const l=require("./package-lock.json");if(!Number.isInteger(l.lockfileVersion)||!l.packages||Object.keys(l.packages).length<100)process.exit(1)'
+          sha256sum package-lock.json
+          npm ci --include=dev --ignore-scripts --no-audit --no-fund
+      - name: Assert exact patched API package versions
+        run: |
+          node --input-type=module -e '
+            import { createRequire } from "node:module";
+            import { readFileSync } from "node:fs";
+            const require = createRequire(import.meta.url);
+            const deps = JSON.parse(readFileSync("apps/api/package.json", "utf8")).dependencies;
+            const expected = deps.remotion;
+            if (!/^4[.]0[.][0-9]+$/.test(expected)) throw new Error("Remotion must have an exact 4.0.x version");
+            for (const name of ["remotion", "@remotion/bundler", "@remotion/renderer"]) {
+              if (deps[name] !== expected) throw new Error("Remotion manifest versions must match: " + name);
+              const actual = require(name + "/package.json").version;
+              if (actual !== expected) throw new Error("Installed Remotion mismatch: " + name + " " + actual);
+            }
+            if (deps.zod !== "4.6.7" || require("zod/package.json").version !== "4.6.7") {
+              throw new Error("Zod API patched version mismatch");
+            }
+          '
+      - name: Trace all installed copies of Zod and their dependents
+        run: |
+          node - <<'NODE'
+          const lock=require("./package-lock.json");
+          const rows=Object.entries(lock.packages||{})
+            .filter(([p])=>p==="node_modules/zod" || p.endsWith("/node_modules/zod"))
+            .map(([path,v])=>({path,version:v.version}));
+          if (!rows.length) throw new Error("No Zod package resolved");
+          console.log("Installed Zod copies:",JSON.stringify(rows));
+          for(const pkg of rows){
+            if(pkg.version!=="4.6.7") console.log("UNPATCHED_NESTED_ZOD",pkg.path,pkg.version);
+          }
+          NODE
+      - name: Typecheck, test and build MODO with resolved candidate
+        run: |
+          npm run build --workspace=@modo/contracts
+          npm run typecheck
+          npm test
+          npm run build
+      - name: Install pinned HyperFrames CLI and ffmpeg in runner
+        if: success()
+        run: |
+          npm install --prefix "$RUNNER_TEMP/hf-cli" --no-save --ignore-scripts hyperframes@0.8.200
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg
+      - name: Validate complete synthetic MP4 through one-shot staging worker
+        if: success()
+        run: |
+          npx tsx scripts/hyperframes-worker-staging-e2e.ts \
+            "$RUNNER_TEMP/hf-cli/node_modules/.bin/hyperframes" \
+            "$(command -v ffprobe)" \
+            "$RUNNER_TEMP/security-candidate/sample.mp4"
+          node scripts/verify-hyperframes-smoke.mjs "$RUNNER_TEMP/security-candidate/sample.mp4" 15
+      - name: Audit runtime API dependencies (report, never auto-fix)
+        id: audit
+        shell: bash
+        run: |
+          set +e
+          npm audit --json --omit=dev --workspace=@modo/api > "$RUNNER_TEMP/api-audit.json"
+          status=$?
+          set -e
+          if [ "$status" -gt 1 ]; then
+            echo "npm registry audit failed ($status)"; exit "$status"
+          fi
+          node - "$RUNNER_TEMP/api-audit.json" <<'NODE'
+          const fs = require("node:fs");
+          const a=JSON.parse(fs.readFileSync(process.argv[2], "utf8"));
+          const c=a.metadata?.vulnerabilities;
+          if (!c || !Number.isInteger(c.critical) || !Number.isInteger(c.high)) {
+            throw new Error("Security audit result is not valid");
+          }
+          console.log("Scoped API audit counts:",JSON.stringify(c));
+          for (const [name,v] of Object.entries(a.vulnerabilities||{})) {
+            if (["critical","high"].includes(v.severity)) {
+              console.log("HIGH/CRITICAL",v.severity,name,"range",v.range);
+            }
+          }
+          if (a.vulnerabilities?.zod &&
+              ["critical","high"].includes(a.vulnerabilities.zod.severity)) {
+            throw new Error("Zod remains vulnerable in nested runtime packages");
+          }
+          if (c.critical + c.high > 0) {
+            throw new Error("Remotion/runtime high advisories remain; release blocked, even if Zod remediation succeeds");
+          }
+          NODE
+      - name: Keep generated lockfile for controlled review (never write to branch automatically)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: modo-api-candidate-lockfile
+          path: package-lock.json
+          retention-days: 1
+          if-no-files-found: error

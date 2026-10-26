@@ -84,9 +84,16 @@ export async function renderHyperframesStagingPreview(
     } catch {
       throw new Error("HYPERFRAMES_STAGING_INVALID_FFPROBE");
     }
-    const stream = details.streams?.find((item) => item.codec_type === "video");
+    // Staging output must be a single video-only stream. A renderer bug or
+    // unexpected embedded track must never introduce customer audio, subtitles,
+    // attachments or secondary videos into a preview declared silent.
+    if (!Array.isArray(details.streams) || details.streams.length !== 1 ||
+        details.streams[0]?.codec_type !== "video") {
+      throw new Error("HYPERFRAMES_STAGING_UNEXPECTED_MEDIA_STREAMS");
+    }
+    const stream = details.streams[0];
     const duration = Number(details.format?.duration);
-    if (!stream || stream.width !== preview.width ||
+    if (stream.width !== preview.width ||
         stream.height !== preview.height || stream.r_frame_rate !== "30/1" ||
         !Number.isFinite(duration) ||
         Math.abs(duration - preview.durationSeconds) > 0.16) {

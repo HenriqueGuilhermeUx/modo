@@ -3,7 +3,10 @@
   "version": "0.9.0",
   "private": true,
   "description": "MODO — agência inteligente de presença digital.",
-  "workspaces": ["apps/*", "packages/*"],
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "scripts": {
     "dev": "npm run dev --workspace=@modo/api & npm run dev --workspace=@modo/web",
     "dev:web": "npm run dev --workspace=@modo/web",
@@ -16,5 +19,12 @@
     "smoke:production": "node scripts/smoke-production.mjs",
     "postinstall": "npm run build --workspace=@modo/contracts"
   },
-  "engines": {"node": ">=20.19"}
+  "engines": {
+    "node": ">=20.19"
+  },
+  "overrides": {
+    "@remotion/studio": {
+      "zod": "4.6.6"
+    }
+  }
 }

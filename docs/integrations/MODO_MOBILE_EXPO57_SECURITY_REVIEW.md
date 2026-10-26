@@ -51,3 +51,30 @@ até upstream publicar correção ou existir patch upstream validado.
 
 A PR #167 corrige **apenas a API**, não a árvore Expo/mobile.
 A PR #172 da Nexa Agentics continua fora do escopo.
+
+## Primeira homologação reproduzida — 26/10/2026
+
+CI [GitHub Actions #40377249984](https://github.com/HenriqueGuilhermeUx/modo/actions/runs/40377249984) concluída com sucesso:
+
+- 3 testes unitários de classificação fail-closed passaram;
+- Auditoria de dependências de execução Expo **0 críticos / 5 altos / 3 moderados**, `releaseBlocked=true`;
+- Typecheck do workspace mobile e exportação estática **Android** aprovados;
+- Bundle Metro compilou **1.355 módulos**;
+- Saída técnica de exportação: **30 arquivos**, incluindo um JS e um sourcemap;
+- Sourcemap analisado: **1 de 1**, **1.347 entradas de módulos**, nenhuma referência a `node-forge` ou `@expo/code-signing-certificates` nesse mapa;
+- O JSON sanitizado marca explicitamente `absenceProvesSafety=false`.
+  Não foi criado AAB/APK nativo, não há prova sobre binários embarcados,
+  operações de assinatura e ambiente EAS. Também não foram publicados
+  mapas de origem; somente estatísticas são fornecidas como artefato.
+
+A ausência das bibliotecas criptográficas no mapa JS **reduz a hipótese
+de código enviado pelo Metro**, mas **não elimina a vulnerabilidade**:
+o processo de build/assinatura e outros caminhos precisam ser revisados.
+A política da PR continua bloqueando a liberação.
+
+Para mitigar risco de assinatura enquanto o upstream não fornece
+correção comprovada, um futuro pipeline de build deverá usar identidade
+e credenciais efêmeras, mínimos privilégios, runner isolado, sem aceitar
+certificados de fontes desconhecidas, além de revisar versões e
+integridade antes da distribuição. Nenhuma dessas medidas, sozinha,
+torna segura a validação criptográfica vulnerável.

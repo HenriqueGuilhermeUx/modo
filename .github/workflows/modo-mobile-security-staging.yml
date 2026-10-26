@@ -7,6 +7,8 @@ on:
       - 'apps/mobile/**'
       - 'scripts/modo-mobile-security-triage.mjs'
       - 'scripts/modo-mobile-security-triage.test.mjs'
+      - 'scripts/modo-mobile-dependency-lineage.mjs'
+      - 'scripts/modo-mobile-dependency-lineage.test.mjs'
       - 'scripts/modo-mobile-export-inspect.mjs'
       - '.github/workflows/modo-mobile-security-staging.yml'
       - 'package.json'
@@ -28,7 +30,7 @@ jobs:
         with:
           node-version: '22'
       - name: Validate fail-closed classification tests
-        run: node --test scripts/modo-mobile-security-triage.test.mjs
+        run: node --test scripts/modo-mobile-security-triage.test.mjs scripts/modo-mobile-dependency-lineage.test.mjs
       - name: Install only in disposable runner, no dependency scripts
         run: npm install --include=dev --ignore-scripts --no-audit --no-fund
       - name: Audit exact Expo 57 mobile workspace without downgrading
@@ -47,11 +49,19 @@ jobs:
             "$RUNNER_TEMP/mobile-audit.json" \
             "$RUNNER_TEMP/unavailable-export" \
             "$RUNNER_TEMP/modo-mobile-security-triage.json"
+      - name: Trace vulnerable packages to Expo dependency parents
+        run: |
+          node scripts/modo-mobile-dependency-lineage.mjs \
+            package-lock.json \
+            "$RUNNER_TEMP/mobile-audit.json" \
+            "$RUNNER_TEMP/modo-mobile-dependency-lineage.json"
       - name: Export sanitized triage, never raw provider tokens or npm config
         uses: actions/upload-artifact@v4
         with:
           name: modo-mobile-expo57-security-triage
-          path: ${{ runner.temp }}/modo-mobile-security-triage.json
+          path: |
+            ${{ runner.temp }}/modo-mobile-security-triage.json
+            ${{ runner.temp }}/modo-mobile-dependency-lineage.json
           retention-days: 2
           if-no-files-found: error
 

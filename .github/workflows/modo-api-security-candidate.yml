@@ -4,9 +4,6 @@ on:
   push:
     branches:
       - security/modo-api-remotion-zod-20261026
-  pull_request:
-    branches:
-      - feat/hyperframes-pilot-20261025
   workflow_dispatch:
 
 permissions:

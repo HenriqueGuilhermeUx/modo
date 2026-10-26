@@ -56,6 +56,14 @@ try {
     for (const href of ['/us', '/us/smartbots']) {
       assert.ok(await page.locator('nav a[href="' + href + '"]').count() === 1, 'Missing USA navigation ' + href);
     }
+    // Keyboard-only visitors must reach the navigation and interactive demo.
+    await page.keyboard.press('Tab');
+    const keyboardTargets = await page.locator('nav a, .av-us-actions a').evaluateAll(elements =>
+      elements.filter(element => element.getAttribute('href') && element.tabIndex >= 0).length);
+    assert.ok(keyboardTargets >= 4, 'USA navigation lacks keyboard-reachable links: ' + route);
+    const accessibleDemoName = await page.locator('a[href="' + demo + '"]').getAttribute('aria-label');
+    const visibleDemoText = await page.locator('a[href="' + demo + '"]').innerText();
+    assert.ok((accessibleDemoName || visibleDemoText).trim().length > 3, 'Demo action needs accessible text: ' + route);
     await page.locator('a[href="' + demo + '"]').click();
     await page.waitForURL('**' + demo);
     assert.equal(await page.locator('html').getAttribute('lang'), 'en-US');

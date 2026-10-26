@@ -78,3 +78,26 @@ e credenciais efêmeras, mínimos privilégios, runner isolado, sem aceitar
 certificados de fontes desconhecidas, além de revisar versões e
 integridade antes da distribuição. Nenhuma dessas medidas, sozinha,
 torna segura a validação criptográfica vulnerável.
+
+
+## Traceabilidade transitiva por lockfile (26/10/2026)
+
+O pipeline agora executa `modo-mobile-dependency-lineage.mjs` contra o
+`package-lock.json` resolvido no runner e o relatório bruto do npm audit.
+Para cada alerta, produz o caminho de dependências mais curto encontrado,
+versão efetivamente instalada e respectivos IDs GHSA, ou marca o caminho
+`requires-manual-review` se não foi possível reconstruí-lo.
+
+Isso responde **qual pacote traz o componente vulnerável ao workspace**
+(Expo, CLI, roteador ou transitivo). Não responde se uma biblioteca é
+executada no telefone, no CI, na assinatura ou nos servidores do provedor.
+
+O fluxo mantém `releaseBlocked=true` enquanto a auditoria registrar
+alertas altos/críticos; nenhum pacote é alterado. Os resultados são
+salvos como JSON sanitizado de curta retenção, sem conteúdo do bundle,
+credenciais nem parâmetros de usuário.
+
+Referência primária de risco: GHSA-86w9-cpqp-85rv, node-forge
+até 1.4.0 inclusive, sem versão corrigida oficialmente publicada
+na consulta de 26/10/2026. **Não aplicar override para uma versão inexistente
+ou executar assinatura criptográfica vulnerável como solução.**

@@ -28,7 +28,7 @@ describe("isolated HyperFrames staging runner", () => {
     await expect(renderHyperframesStagingPreview(sample(), "Marca", {
       hyperframesExecutable: "/usr/local/bin/hyperframes",
       ffprobeExecutable: "/usr/bin/ffprobe",
-    })).rejects.toThrow(/WORKER_DISABLED/);
+    }, "sandbox-only")).rejects.toThrow(/WORKER_DISABLED/);
     restore();
   });
 
@@ -51,7 +51,7 @@ describe("isolated HyperFrames staging runner", () => {
         hyperframesExecutable: "/usr/local/bin/hyperframes",
         ffprobeExecutable: "/usr/bin/ffprobe",
         execute: mock,
-      });
+      }, "sandbox-only");
       expect(result.organizationId).toBe("sandbox-only");
       expect(result.durationSeconds).toBe(5);
       expect(result.bytes).toBe(5000);
@@ -63,6 +63,19 @@ describe("isolated HyperFrames staging runner", () => {
         "/usr/local/bin/hyperframes:render",
         "/usr/bin/ffprobe:-v",
       ]);
+    } finally { restore(); }
+  });
+
+  it("rejects cross-tenant preview before any subprocess or file creation", async () => {
+    process.env.MODO_HYPERFRAMES_WORKER_MODE = "isolated-staging";
+    try {
+      let invoked = false;
+      await expect(renderHyperframesStagingPreview(sample(), "Marca", {
+        hyperframesExecutable: "/usr/local/bin/hyperframes",
+        ffprobeExecutable: "/usr/bin/ffprobe",
+        execute: async () => { invoked = true; return { stdout: "" }; },
+      }, "other-organization")).rejects.toThrow(/TENANT_SCOPE_DENIED/);
+      expect(invoked).toBe(false);
     } finally { restore(); }
   });
 
@@ -79,7 +92,7 @@ describe("isolated HyperFrames staging runner", () => {
       await expect(renderHyperframesStagingPreview(sample(), "Marca", {
         hyperframesExecutable: "/usr/local/bin/hyperframes",
         ffprobeExecutable: "/usr/bin/ffprobe", execute: mock,
-      })).rejects.toThrow(/INVALID_VIDEO_PROPERTIES/);
+      }, "sandbox-only")).rejects.toThrow(/INVALID_VIDEO_PROPERTIES/);
     } finally { restore(); }
   });
 });

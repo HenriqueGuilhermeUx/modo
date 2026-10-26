@@ -23,6 +23,12 @@ jobs:
           node-version: '22'
       - name: Resolve candidate dependencies without running postinstall
         run: npm install --include=dev --ignore-scripts --no-audit --no-fund
+      - name: Verify reproducible clean npm ci from generated candidate lockfile
+        run: |
+          test -s package-lock.json
+          node -e 'const l=require("./package-lock.json");if(!Number.isInteger(l.lockfileVersion)||!l.packages||Object.keys(l.packages).length<100)process.exit(1)'
+          sha256sum package-lock.json
+          npm ci --include=dev --ignore-scripts --no-audit --no-fund
       - name: Assert exact patched API package versions
         run: |
           node --input-type=module -e '

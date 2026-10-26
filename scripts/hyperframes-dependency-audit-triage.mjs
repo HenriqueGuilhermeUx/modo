@@ -35,6 +35,27 @@ export function summarizeAudit(input, scope) {
       // never pretend a "fix" is a compatible upgrade.
       fixAvailable: item.fixAvailable === false ? "not_reported" :
         item.fixAvailable === true ? "npm_suggests" : "requires_review",
+      affectedRange: typeof item.range === "string" && item.range.length < 160 ?
+        item.range : null,
+      suggestedVersion: item.fixAvailable && typeof item.fixAvailable === "object" &&
+        item.fixAvailable.name === name && typeof item.fixAvailable.version === "string" &&
+        /^[0-9a-zA-Z.+-]{1,40}$/.test(item.fixAvailable.version)
+          ? { version: item.fixAvailable.version,
+              semverMajor: item.fixAvailable.isSemVerMajor === true } : null,
+      advisories: (Array.isArray(item.via) ? item.via : [])
+        .filter(v=>v && typeof v === "object")
+        .map(v=>{
+          const link = typeof v.url === "string" &&
+            /^https:\/\/(?:github.com\/advisories\/GHSA-[a-z0-9-]+|github.com\/.*\/security\/advisories\/GHSA-[a-z0-9-]+|www.npmjs.com\/advisories\/[0-9]+)$/i.test(v.url)
+            ? v.url : null;
+          return {
+            advisoryId: link?.match(/GHSA-[a-z0-9-]+/i)?.[0] ||
+              (Number.isInteger(v.source) ? String(v.source) : null),
+            url: link,
+            title: typeof v.title === "string" ? v.title.slice(0,160) : null,
+            vulnerableRange: typeof v.range === "string" ? v.range.slice(0,100) : null,
+          };
+        }).slice(0,12),
     };
   }).sort((a,b)=>
     severities.indexOf(a.severity)-severities.indexOf(b.severity) ||

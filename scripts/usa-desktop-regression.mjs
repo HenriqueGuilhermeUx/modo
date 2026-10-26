@@ -62,12 +62,12 @@ try {
     assert.ok((await page.locator('h1, h2').count()) > 0, 'Demo needs heading ' + demo);
   }
 
+  assert.deepEqual(forbidden, [], 'USA preview called a backend: ' + forbidden.join(', '));
   // The existing BR public route must not be captured by the /us router.
   await page.goto(origin + '/smartbots.html', { waitUntil: 'domcontentloaded' });
   await page.waitForTimeout(500);
   assert.notEqual(await page.locator('title').textContent(), 'SmartBots USA | Lead capture and follow-up');
   assert.equal(await page.locator('.av-us-landing').count(), 0);
-  assert.deepEqual(forbidden, [], 'Preview unexpectedly called Brazilian backend: ' + forbidden.join(', '));
   assert.deepEqual(errors, [], 'Browser JavaScript exceptions');
   console.log('PASS: desktop USA routing, navigation, semantics, overflow, noindex and BR-route separation');
 } finally {

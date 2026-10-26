@@ -63,9 +63,12 @@ export function classifyMobileAudit(report) {
 }
 
 export async function collectExportEvidence(root) {
-  const result = { expoAndroidExportGenerated: false, fileCount: 0,
-    sourceMapCount: 0, jsBundleCount: 0, potentialNodeForgePathHits: [],
-    sourceMapsComplete: false, absenceProvesSafety: false };
+  const result = {
+    expoAndroidExportGenerated: false, fileCount: 0,
+    sourceMapCount: 0, sourceMapsParsed: 0, sourceMapsSkipped: 0,
+    sourceModuleCount: 0, jsBundleCount: 0, potentialNodeForgePathHits: [],
+    sourceMapsComplete: false, absenceProvesSafety: false,
+  };
   const resolved=resolve(root);
   let scanned=0;
   async function walk(dir) {
@@ -79,25 +82,38 @@ export async function collectExportEvidence(root) {
       if (rel.endsWith(".map")) {
         result.sourceMapCount++;
         const size=(await stat(abs)).size;
-        if (size > 15_000_000) continue;
+        if (size > 40_000_000) {
+          result.sourceMapsSkipped++;
+          continue;
+        }
         try {
           const payload=JSON.parse(await readFile(abs, "utf8"));
-          if (Array.isArray(payload.sources)) {
-            for (const src of payload.sources) {
-              if (src.includes("node-forge") || src.includes("@expo/code-signing-certificates")) {
-                result.potentialNodeForgePathHits.push(src.slice(0,220));
-              }
+          if (!Array.isArray(payload.sources)) {
+            result.sourceMapsSkipped++;
+            continue;
+          }
+          result.sourceMapsParsed++;
+          result.sourceModuleCount+=payload.sources.length;
+          for (const src of payload.sources) {
+            if (typeof src !== "string")continue;
+            if (src.includes("node-forge")) {
+              result.potentialNodeForgePathHits.push("node-forge");
+            } else if (src.includes("@expo/code-signing-certificates")) {
+              result.potentialNodeForgePathHits.push("@expo/code-signing-certificates");
             }
           }
-        } catch { /* malformed source map is not evidence of safety */ }
+        } catch {
+          result.sourceMapsSkipped++;
+        }
       }
       if (rel.endsWith(".js") || rel.endsWith(".hbc")) result.jsBundleCount++;
     }
   }
   await walk(resolved);
   result.expoAndroidExportGenerated = result.fileCount > 0 && result.jsBundleCount > 0;
-  result.sourceMapsComplete = result.sourceMapCount > 0;
-  result.potentialNodeForgePathHits=result.potentialNodeForgePathHits.slice(0,15);
+  result.sourceMapsComplete = result.sourceMapCount > 0 &&
+    result.sourceMapsParsed === result.sourceMapCount;
+  result.potentialNodeForgePathHits=[...new Set(result.potentialNodeForgePathHits)];
   return result;
 }
 

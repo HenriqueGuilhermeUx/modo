@@ -44,7 +44,7 @@ async function main() {
   const result = await renderHyperframesStagingPreview(project, "MODO SYNTHETIC", {
     hyperframesExecutable: resolve(cli),
     ffprobeExecutable: resolve(ffprobe),
-  });
+  }, project.organizationId);
   if (result.organizationId !== project.organizationId || !result.previewOnly ||
       result.published !== false || result.bytes < 4000) {
     throw new Error("STAGING_SMOKE_SCOPE_OR_RENDER_INVALID");

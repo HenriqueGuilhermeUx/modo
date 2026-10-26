@@ -29,7 +29,14 @@ export async function renderHyperframesStagingPreview(
   project: VideoProject,
   brandName: string,
   tools: HyperframesStagingTools,
+  authorizedOrganizationId: string,
 ) {
+  // The worker must receive a server-verified tenant scope from its future
+  // scheduler; never trust the project payload by itself.
+  if (!authorizedOrganizationId || !project ||
+      project.organizationId !== authorizedOrganizationId) {
+    throw new Error("HYPERFRAMES_WORKER_TENANT_SCOPE_DENIED");
+  }
   if (process.env.MODO_HYPERFRAMES_WORKER_MODE !== "isolated-staging" ||
       process.env.NODE_ENV === "production") {
     throw new Error("HYPERFRAMES_WORKER_DISABLED");

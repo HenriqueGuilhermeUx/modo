@@ -33,12 +33,25 @@ jobs:
             const require = createRequire(import.meta.url);
             for (const name of ["remotion", "@remotion/bundler", "@remotion/renderer"]) {
               const version = require(name + "/package.json").version;
-              if(version !== "4.0.539") throw new Error(name + ": " + version);
+              if(version !== "4.0.516") throw new Error(name + ": " + version);
             }
             if (require("zod/package.json").version !== "4.6.7") {
               throw new Error("Zod API patched version mismatch");
             }
           '
+      - name: Trace all installed copies of Zod and their dependents
+        run: |
+          node - <<'NODE'
+          const lock=require("./package-lock.json");
+          const rows=Object.entries(lock.packages||{})
+            .filter(([p])=>p==="node_modules/zod" || p.endsWith("/node_modules/zod"))
+            .map(([path,v])=>({path,version:v.version}));
+          if (!rows.length) throw new Error("No Zod package resolved");
+          console.log("Installed Zod copies:",JSON.stringify(rows));
+          for(const pkg of rows){
+            if(pkg.version!=="4.6.7") console.log("UNPATCHED_NESTED_ZOD",pkg.path,pkg.version);
+          }
+          NODE
       - name: Typecheck, test and build MODO with resolved candidate
         run: |
           npm run build --workspace=@modo/contracts
@@ -69,8 +82,12 @@ jobs:
               console.log("HIGH/CRITICAL",v.severity,name,"range",v.range);
             }
           }
+          if (a.vulnerabilities?.zod &&
+              ["critical","high"].includes(a.vulnerabilities.zod.severity)) {
+            throw new Error("Zod remains vulnerable in nested runtime packages");
+          }
           if (c.critical + c.high > 0) {
-            throw new Error("Runtime high/critical advisory remains; candidate is NOT approved");
+            throw new Error("Remotion/runtime high advisories remain; release blocked, even if Zod remediation succeeds");
           }
           NODE
       - name: Install pinned HyperFrames CLI and ffmpeg in runner

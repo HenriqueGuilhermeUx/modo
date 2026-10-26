@@ -101,6 +101,7 @@ jobs:
         run: |
           test "$GITHUB_REF" = "refs/heads/security/modo-api-remotion-zod-20261026"
           test "$(git branch --show-current)" = "security/modo-api-remotion-zod-20261026"
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA" || { echo 'Branch advanced since validation; refusing stale lock'; exit 1; }
           test "$(sha256sum package-lock.json | cut -d' ' -f1)" = "$LOCK_SHA256"
           test -s package-lock.json
       - name: Pin lockfile for PR review only (no merge or deploy)

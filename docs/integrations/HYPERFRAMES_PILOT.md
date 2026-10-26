@@ -59,3 +59,16 @@ synthetic two-scene composition and verifies:
 
 The verified artifact is retained for one day. This does not test uploaded
 customer assets, audio, billing, render concurrency, or the Publisher V2.
+
+
+## Feature-flagged review screen, no publication
+A test-only panel has been added to the MODO Video V1.8 screen behind
+`VITE_HYPERFRAMES_PREVIEW_ENABLED=true`. It calls the authenticated,
+tenant-scoped `/hyperframes-preview` endpoint only when a human requests
+an HTML export. The backend additionally requires
+`MODO_HYPERFRAMES_PREVIEW_ENABLED=true` at startup.
+
+This panel does not run returned HTML in the browser, never calls the
+publisher, creates no job and sends no media to a new provider. Unsupported
+projects remain on Remotion. It is a manual technical-download experience,
+not a usable new public video renderer.

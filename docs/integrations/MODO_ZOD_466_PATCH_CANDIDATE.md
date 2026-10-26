@@ -22,3 +22,32 @@ Vitest/tinypool, provider network policies or runtime reachability.
 The entire MODO release remains blocked until these are reviewed separately.
 The pilot and production deployments, users, assets, publishing,
 billing, and PR #164 remain unchanged by this candidate.
+
+
+## Verified candidate results — 2026-10-26
+
+An initial experiment with only the direct API Zod pin **failed**:
+`npm audit` found a second vulnerable copy at
+`node_modules/@remotion/studio/node_modules/zod`.
+
+A narrowly scoped root package override was then added:
+`overrides["@remotion/studio"].zod = "4.6.6"`.
+
+The corrected candidate **passed**:
+- API `npm audit --omit=dev --workspace=@modo/api`: **0 critical,
+  0 high, 0 moderate** (previous baseline was 0 critical / 3 high).
+- Direct API Zod resolves to `4.6.6`.
+- All-workspace TypeScript type checks.
+- API unit/integration test suite.
+- Full build of API and web packages.
+- Existing Remotion V1.8 video-render smoke, including valid MP4,
+  narration, soundtrack and Media Lab.
+- GitGuardian security check.
+
+Evidence: https://github.com/HenriqueGuilhermeUx/modo/actions/runs/40353332576/job/121679024031
+
+**This does not certify the transitive override against every possible
+Remotion Studio path**, nor security of the deployed API container.
+A dedicated staging replay and careful code review remain required.
+No production deployment, merge or customer operation occurred.
+The mobile Expo-related high-severity findings remain unresolved.

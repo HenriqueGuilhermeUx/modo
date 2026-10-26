@@ -1,6 +1,6 @@
 const {test}=require("node:test");
 const assert=require("node:assert/strict");
-const {summarizeAudit,verifyMobileSdk}=require("./modo-mobile-security-audit.cjs");
+const {summarizeAudit,verifyMobileSdk,declaredParents}=require("./modo-mobile-security-audit.cjs");
 const sample=(entries)=>({metadata:{vulnerabilities:{
  critical:0,high:entries.filter(v=>v[1].severity==="high").length,
  moderate:entries.filter(v=>v[1].severity==="moderate").length,
@@ -30,4 +30,22 @@ test("native ABI cannot silently shift away from SDK 57 / React Native 0.86.3",(
  assert.equal(verifyMobileSdk(a,p).expo,"57.0.31");
  a.packages["node_modules/react-native"].version="0.87.0";
  assert.throws(()=>verifyMobileSdk(a,p),/NATIVE_VERSION_DRIFT/);
+});
+
+test("risk graph exposes declaring parents without inferring mobile bundle reachability",()=>{
+ const lock={packages:{
+   "node_modules/expo/node_modules/@expo/cli":{
+     dependencies:{"node-forge":"^1.3.3","@expo/code-signing-certificates":"^0.0.6"}},
+   "node_modules/@expo/code-signing-certificates":{
+     dependencies:{"node-forge":"^1.3.3"}},
+   "node_modules/query-string":{
+     dependencies:{"decode-uri-component":"^0.2.2"}},
+ }};
+ const parents=declaredParents(lock,["node-forge","decode-uri-component"]);
+ assert.deepEqual(parents["node-forge"].map(x=>x.declaredBy),[
+  "node_modules/expo/node_modules/@expo/cli",
+  "node_modules/@expo/code-signing-certificates"]);
+ assert.equal(parents["decode-uri-component"][0].declaredBy,
+  "node_modules/query-string");
+ assert.throws(()=>declaredParents(null,["node-forge"]),/INVALID_LOCK_GRAPH/);
 });

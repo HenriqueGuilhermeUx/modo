@@ -1,0 +1,42 @@
+name: MODO API Zod security compatibility (isolated)
+on:
+  push:
+    branches: ['fix/modo-api-zod-4-6-7-20261026']
+  pull_request:
+    paths:
+      - 'apps/api/package.json'
+      - 'scripts/assert-api-zod-security.mjs'
+      - '.github/workflows/modo-api-zod-security-ci.yml'
+permissions:
+  contents: read
+jobs:
+  api-zod:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install isolated dependency graph without lifecycle scripts
+        run: npm install --include=dev --ignore-scripts --no-audit --no-fund
+      - name: Audit API runtime (other Remotion findings may remain)
+        shell: bash
+        run: |
+          set -euo pipefail
+          set +e
+          npm audit --json --omit=dev --workspace=@modo/api > "$RUNNER_TEMP/api-audit.json"
+          exit_code=$?
+          set -e
+          if [ "$exit_code" -gt 1 ]; then exit "$exit_code"; fi
+      - name: Enforce patched Zod resolution and eliminated advisory
+        env:
+          MODO_API_ZOD_AUDIT_FILE: ${{ runner.temp }}/api-audit.json
+        run: node scripts/assert-api-zod-security.mjs
+      - name: Test whole API
+        run: |
+          npm run build --workspace=@modo/contracts
+          npm run typecheck --workspace=@modo/api
+          npm test --workspace=@modo/api
+      - name: Test web compatibility
+        run: npm run typecheck --workspace=@modo/web

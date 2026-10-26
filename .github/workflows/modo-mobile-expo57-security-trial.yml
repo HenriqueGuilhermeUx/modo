@@ -119,8 +119,8 @@ jobs:
           node scripts/modo-mobile-bundle-risk-check.cjs \
             "$RUNNER_TEMP/modo-mobile-js-export" \
             "$RUNNER_TEMP/modo-mobile-js-review.json"
-      - name: Upload report only, never the app bundle or sensitive assets
-        if: success()
+      - name: Upload report only, even if inspection blocks suspicious signing
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: modo-mobile-js-reachability-indicators

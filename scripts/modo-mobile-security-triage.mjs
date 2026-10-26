@@ -84,14 +84,14 @@ export async function collectExportEvidence(root) {
           const payload=JSON.parse(await readFile(abs, "utf8"));
           if (Array.isArray(payload.sources)) {
             for (const src of payload.sources) {
-              if (/node[_-]forge|@expo\\/code-signing-certificates/i.test(src)) {
+              if (src.includes("node-forge") || src.includes("@expo/code-signing-certificates")) {
                 result.potentialNodeForgePathHits.push(src.slice(0,220));
               }
             }
           }
         } catch { /* malformed source map is not evidence of safety */ }
       }
-      if (/\\.(?:js|hbc)$/.test(rel)) result.jsBundleCount++;
+      if (rel.endsWith(".js") || rel.endsWith(".hbc")) result.jsBundleCount++;
     }
   }
   await walk(resolved);

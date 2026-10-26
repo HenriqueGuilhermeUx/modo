@@ -66,8 +66,18 @@ try {
     assert.ok((accessibleDemoName || visibleDemoText).trim().length > 3, 'Demo action needs accessible text: ' + route);
     await page.locator('a[href="' + demo + '"]').click();
     await page.waitForURL('**' + demo);
-    assert.equal(await page.locator('html').getAttribute('lang'), 'en-US');
-    assert.ok((await page.locator('h1, h2').count()) > 0, 'Demo needs heading ' + demo);
+    // A URL change alone does not mean the lazy-loaded demo has mounted:
+    // the shared BR loading fallback can still carry lang="pt-BR".
+    // Wait for the real, product-specific US content before checking locale.
+    const demoHeading = demo === '/us/demo'
+      ? 'Make marketing easier to plan.'
+      : 'Keep conversations moving.';
+    await page.getByRole('heading', { level: 1, name: demoHeading }).waitFor({ timeout: 15000 });
+    await page.waitForFunction(() => document.documentElement.lang === 'en-US', null, { timeout: 10000 });
+    assert.equal(await page.locator('html').getAttribute('lang'), 'en-US',
+      'Mounted USA demo must declare en-US: ' + demo);
+    assert.equal(await page.locator('meta[name="robots"]').getAttribute('content'), 'noindex,nofollow',
+      'Mounted USA demo must remain non-indexable: ' + demo);
   }
 
   assert.deepEqual(forbidden, [], 'USA preview called a backend: ' + forbidden.join(', '));

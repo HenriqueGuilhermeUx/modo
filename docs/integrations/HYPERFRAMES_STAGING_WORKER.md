@@ -15,7 +15,7 @@ Preconditions:
 - Output is returned in memory only with SHA-256; never written to customer
   object storage or scheduled/published.
 - No credentials, tokens or secret environment variables forwarded to child processes.
-- Job timeout is 120 seconds; maximum video output 25 MB. Video metadata
+- Job timeout is 300 seconds; maximum video output 25 MB. Video metadata
   is verified with ffprobe; sandbox smoke validates non-identical scenes.
 - One-shot temp workdir is removed on success or failure.
 
@@ -30,3 +30,11 @@ verified by the future scheduling service; it must equal
 `project.organizationId`. Cross-tenant jobs fail before creating files or
 starting any subprocess. The caller cannot supply this value from an untrusted
 queue payload or browser request. Unit tests cover a mismatched organization.
+
+
+## Full-duration fidelity check
+The MODO adapter only accepts source scenes covering the entire declared
+project duration (15/30/45 seconds). If a sample is incomplete, it fails with
+`HYPERFRAMES_UNSUPPORTED_TOTAL_DURATION` rather than silently exporting
+a shortened composition. The CI staging worker now tests a full 15-second
+synthetic project; the independent quick generator smoke remains five seconds.

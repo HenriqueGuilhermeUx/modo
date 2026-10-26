@@ -14,6 +14,16 @@ Status: **piloto de engenharia**, sem deployment, sem endpoint HTTP, sem Redis, 
 - TTL padrão de dez minutos para resultados concluídos, aplicado quando a fila é acessada; operações de remoção exigem tenant e não removem jobs em andamento.
 - Testes com dados sintéticos para enfileiramento serial, tentativa cross-tenant, falhas de hash, expiração, quotas e mensagens de erro.
 
+## Prova opcional de criptografia AES-256-GCM (26/10/2026)
+
+O módulo separado `hyperframes-staging-encrypted-vault.ts` usa uma chave de **32 bytes**, cópia interna da chave, IV aleatório de 96 bits por objeto, AES-256-GCM com metadados autenticados (organização, projeto, job, tamanho, hash e validade), validação SHA-256, TTL, limite de memória e limpeza de ciphertext/chave no encerramento. As operações de leitura, metadados e exclusão exigem identidade da organização a cada acesso; não há URL pública ou signed URL.
+
+A fila aceita um parâmetro **opcional** `encryptedVault`. Com ele configurado, guarda **apenas metadados** no job, escreve o MP4 criptografado no cofre isolado e consulta o cofre novamente em cada download. Os testes cobrem o fluxo entre fila e cofre, incluindo recusa cross-tenant e remoção.
+
+Ambas as flags de render/fila permanecem necessárias. A criptografia exige **também** `MODO_HYPERFRAMES_STORAGE_MODE=isolated-staging`. Nunca ligue essas variáveis no Render de produção; o código proíbe `NODE_ENV=production`.
+
+**Limitação essencial:** criptografia em memória não cria durabilidade, não substitui KMS, não distribui filas entre instâncias, não impede acesso por administrador/root ao processo em execução e não equivale a criptografia de um bucket cloud em repouso. A chave não pode ser reutilizada da base Nexa, de tokens Privy ou do banco de dados. Não persistir em GitHub nem em logs.
+
 ## Importante: não é armazenamento privado durável
 
 **RAM isolada não é um serviço persistente.** As entradas e os MP4 desaparecem com reinícios do processo, não há recuperação após falha, coordenação multiworker, criptografia em repouso, object storage ou trilha persistente. O limite de jobs considera jobs retidos até exclusão ou expiração. Este módulo NÃO deve ser importado pelo servidor Fastify existente ou por qualquer rota voltada a clientes.

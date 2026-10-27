@@ -22,6 +22,8 @@ A fila aceita um parâmetro **opcional** `encryptedVault`. Com ele configurado, 
 
 Ambas as flags de render/fila permanecem necessárias. A criptografia exige **também** `MODO_HYPERFRAMES_STORAGE_MODE=isolated-staging`. Nunca ligue essas variáveis no Render de produção; o código proíbe `NODE_ENV=production`.
 
+**Fail-closed adicional:** se `MODO_HYPERFRAMES_STORAGE_MODE=isolated-staging` estiver ativado, a fila rejeita novas tarefas quando o cofre criptografado não foi injetado; não aceita downgrade silencioso para RAM sem criptografia. Se um cofre tiver sido injetado, a mesma flag passa a ser obrigatória antes do enfileiramento. A configuração da fila também recusa `maxJobs` fora de 1–20, `maxStoredBytes` fora de 4.000–100.000.000 bytes e TTL fora de 1–900 segundos.
+
 **Limitação essencial:** criptografia em memória não cria durabilidade, não substitui KMS, não distribui filas entre instâncias, não impede acesso por administrador/root ao processo em execução e não equivale a criptografia de um bucket cloud em repouso. A chave não pode ser reutilizada da base Nexa, de tokens Privy ou do banco de dados. Não persistir em GitHub nem em logs.
 
 ## Importante: não é armazenamento privado durável

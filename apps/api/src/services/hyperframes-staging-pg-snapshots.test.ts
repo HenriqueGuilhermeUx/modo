@@ -6,6 +6,7 @@ import { HyperframesStagingPgQueue } from "./hyperframes-staging-pg-queue.js";
 import { HyperframesStagingPgSnapshots } from "./hyperframes-staging-pg-snapshots.js";
 import { HyperframesStagingPgArtifacts } from "./hyperframes-staging-pg-artifacts.js";
 import { processStagingHyperframesPgJob } from "./hyperframes-staging-pg-render-runner.js";
+import { resumeStagingHyperframesPgJob } from "./hyperframes-staging-pg-recovery.js";
 
 const dbUrl = process.env.MODO_HYPERFRAMES_PG_TEST_DATABASE_URL;
 const original = {
@@ -157,6 +158,40 @@ describe.skipIf(!dbUrl)("staging encrypted immutable source snapshots", () => {
     expect(result.kind).toBe("completed");
     expect(await artifacts.read(job.jobId, tenant)).toEqual(video());
     expect(await snapshots.load(job.jobId, tenant)).toBeNull();
+  });
+
+  it("restarts from encrypted snapshot using new queue, source and output adapters", async () => {
+    const job = await make();
+    // These are fresh adapter instances, simulating a terminated worker process
+    // whose only durable state is Postgres plus an independently supplied key.
+    const restoredSource = new HyperframesStagingPgSnapshots(pool, { key });
+    const restoredOutput = new HyperframesStagingPgArtifacts(pool, { key });
+    const restoredQueue = new HyperframesStagingPgQueue(pool);
+    try {
+      const run = await resumeStagingHyperframesPgJob({
+        jobId: job.jobId, authorizedOrganizationId: tenant,
+        workerId: "restart-worker",
+        queue: restoredQueue, snapshots: restoredSource,
+        artifacts: restoredOutput, tools,
+        render: rendered,
+      });
+      expect(run.kind).toBe("completed");
+      expect(run.job?.attempts).toBe(1);
+      expect(await restoredOutput.read(job.jobId, tenant)).toEqual(video());
+      const repeated = await resumeStagingHyperframesPgJob({
+        jobId: job.jobId, authorizedOrganizationId: tenant,
+        workerId: "restart-worker",
+        queue: restoredQueue, snapshots: restoredSource,
+        artifacts: restoredOutput, tools,
+        render: async () => { throw new Error("already finished"); },
+      });
+      expect(repeated.kind).toBe("unclaimed");
+      expect(await restoredSource.load(job.jobId, "snapshot-tenant-b"))
+        .toBeNull();
+    } finally {
+      restoredSource.close();
+      restoredOutput.close();
+    }
   });
 
   it("deduplicates matching concurrent source and job creation", async () => {

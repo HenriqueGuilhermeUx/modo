@@ -187,15 +187,20 @@ export async function processStagingHyperframesPgJob(input: Readonly<{
     if (heartbeatInFlight) await heartbeatInFlight;
   }
 
+  // A renderer failure may return structurally invalid data. Never assume
+  // its 'video' is a Buffer when attempting to clear temporary plaintext.
+  const discardRenderedBytes = () => {
+    if (rendered && Buffer.isBuffer(rendered.video)) rendered.video.fill(0);
+  };
   if (leaseLost) {
-    rendered?.video.fill(0);
+    discardRenderedBytes();
     return { kind: "lost-lease", job: null };
   }
 
   if (renderFailed || !rendered) {
     const failed = await input.queue.fail(
       input.jobId, input.authorizedOrganizationId, input.workerId, fence);
-    rendered?.video.fill(0);
+    discardRenderedBytes();
     return failed ? { kind: "failed", job: failed } :
       { kind: "lost-lease", job: null };
   }
@@ -212,6 +217,6 @@ export async function processStagingHyperframesPgJob(input: Readonly<{
       { kind: "lost-lease", job: null };
   } finally {
     // The renderer's mutable plaintext must not be kept beyond this attempt.
-    rendered.video.fill(0);
+    discardRenderedBytes();
   }
 }

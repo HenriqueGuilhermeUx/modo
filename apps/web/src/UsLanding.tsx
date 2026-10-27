@@ -161,7 +161,7 @@ export default function UsLanding({ product }: { product: UsProduct }) {
       <footer className="av-us-footer">
         <span>© {new Date().getFullYear()} Alternative Ventures · MODO</span>
         <span>US preview. Features and availability subject to validation.</span>
-        <a href="https://alternativeventures.com.br/">About Alternative Ventures ↗</a>
+        <span>USA-only demo · No Brazilian login, billing or production access</span>
       </footer>
     </div>
   );

@@ -40,14 +40,20 @@ npm run build --workspace=@modo/contracts
 node scripts/build-usa-netlify.mjs
 ```
 
-The resulting directory must contain exactly `index.html`, `404.html`, `logo.svg`, `assets/`, `_redirects` and `_headers`. Its allowlist serves `/`, `/us`, `/us/smartbots`, `/us/demo` and `/us/smartbots/demo`; all other routes return a static 404. The `_headers` file sets `connect-src 'none'`, `form-action 'none'`, noindex and restrictive browser permissions. CI verifies the generated artifact, but **only a real Netlify response** can prove the platform honored these headers and the HTTP 404.
+The resulting directory must contain exactly `index.html`, `404.html`, `logo.svg`, `assets/`, `_redirects`, `_headers` and `usa-artifact-provenance.json`. Its allowlist serves `/`, `/us`, `/us/smartbots`, `/us/demo` and `/us/smartbots/demo`; all other routes return a static 404. The `_headers` file sets `connect-src 'none'`, `form-action 'none'`, noindex and restrictive browser permissions. CI verifies the generated artifact, but **only a real Netlify response** can prove the platform honored these headers and the HTTP 404.
 
 Safe first publication path, subject to the owner's explicit test-deploy authorization:
 
-1. Download the `modo-smartbots-usa-netlify` GitHub Actions artifact from the **exact current PR HEAD** and inspect its six top-level entries. Do not publish the repository root, `apps/web/dist`, or a default Brazil build.
+1. Download the `modo-smartbots-usa-netlify` GitHub Actions artifact from the **exact current PR HEAD** and inspect its seven top-level entries and verify `usa-artifact-provenance.json`. Do not publish the repository root, `apps/web/dist`, or a default Brazil build.
 2. Upload only the extracted `dist-usa` directory to the separate `av-usa-modo` site using a verified manual deploy mechanism, or first configure and audit a USA-specific Netlify package/build configuration that overrides the Brazilian root settings. Do not change `modo1`.
 3. Obtain the **actual Netlify deploy ID**, state `ready`, site ID and immutable deploy URL. Record the artifact SHA/commit provenance. An empty site, a project URL or an existing `modo1` PR preview is not proof that `av-usa-modo` has been deployed.
 4. Probe real responses: `/us`, `/us/smartbots`, both demos, direct refresh, `/app`, `/login`, `/admin`, `/api/test`, `/checkout` and an unknown path. Restricted paths must return HTTP 404; successful pages must have noindex and `connect-src 'none'`. Inspect browser requests and verify **zero** Brazilian API calls.
 5. Keep the project in test-only mode. Do not enable signup, outbound messaging, payment, real providers, domain changes, or production deployment.
 
 As of the 2026-10-27 inspection, the dedicated Netlify project had no published deploy ID. The separate existing `modo1` pull-request preview is not the dedicated USA site.
+
+## Offline artifact provenance (2026-10-27)
+
+The isolated build now emits `usa-artifact-provenance.json` with the exact checked-out 40-character Git SHA, the intended dedicated Netlify site ID and SHA-256 digests for **every** other file in `dist-usa`. The isolation checker verifies the manifest against the working tree and fails if a file was added, removed or modified. This prevents an unlabeled or silently changed ZIP from being mistaken for the reviewed build.
+
+The manifest says `kind: "build-artifact-only"`. **It is not a deploy attestation.** After an authorized manual upload, compare the Netlify deploy ID, actual response headers, 404 routes and downloaded static file digests to the manifest. Record any difference as a failed gate; do not claim a deployed SHA solely because GitHub Actions passed. No customer data or backend credentials are included.

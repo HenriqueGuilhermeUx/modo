@@ -70,7 +70,8 @@ describe.skipIf(!dbUrl)("Postgres HyperFrames staging recovery (dedicated DB onl
     );
     expect(new Set(result.map(x => x.jobId)).size).toBe(1);
     const count = await pool.query(
-      "SELECT count(*)::int AS total FROM modo_hyperframes_staging.render_jobs",
+      "SELECT count(*)::int AS total FROM modo_hyperframes_staging.render_jobs WHERE organization_id = $1",
+      ["sandbox-tenant-a"],
     );
     expect(count.rows[0].total).toBe(1);
     await expect(queue.enqueue({

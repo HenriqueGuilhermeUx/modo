@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 
 const SHA256 = /^[0-9a-f]{64}$/;
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const IDENTIFIER = /^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,127}$/;
 const IDEMPOTENCY_KEY = /^[a-zA-Z0-9][a-zA-Z0-9._:-]{7,127}$/;
 const MAX_ATTEMPTS = 3;
@@ -226,7 +227,7 @@ export function finishRecoveryLease(
   if (!ownsActiveLease(record, authorizedOrganizationId, workerId, fence, now)) {
     return null;
   }
-  if (!result || !IDENTIFIER.test(result.storageKey) ||
+  if (!result || !UUID.test(result.storageKey) ||
       !SHA256.test(result.sha256) ||
       !Number.isSafeInteger(result.bytes) ||
       result.bytes < 4000 || result.bytes > 25_000_000) {

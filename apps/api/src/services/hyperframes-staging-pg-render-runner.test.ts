@@ -1,4 +1,6 @@
 import { createHash, randomBytes } from "node:crypto";
+import { writeFile } from "node:fs/promises";
+import { join } from "node:path";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import type { VideoProject } from "@modo/contracts/video";
 import pg, { type Pool } from "pg";
@@ -16,11 +18,18 @@ const original = {
 };
 const project = (id: string, organizationId = "worker-tenant-a") => ({
   id, organizationId, durationSeconds: 15, aspectRatio: "9:16",
-  fps: 30, voiceover: false, scenes: [{
-    index: 1, startFrame: 0, endFrame: 450,
+  fps: 30, voiceover: false, voiceProvider: null, scenes: [{
+    index: 1, startFrame: 0, endFrame: 225,
     headline: "Demonstração sem cliente", caption: "Apenas vídeo sintético.",
     visualType: "kinetic_text", assetSource: "native",
     imageUrl: null, videoUrl: null,
+    motion: "static", transition: "cut",
+  }, {
+    index: 2, startFrame: 225, endFrame: 450,
+    headline: "Segunda cena", caption: "Sem acesso externo.",
+    visualType: "kinetic_text", assetSource: "native",
+    imageUrl: null, videoUrl: null,
+    motion: "static", transition: "cut",
   }],
 }) as unknown as VideoProject;
 const syntheticVideo = () => {
@@ -118,6 +127,49 @@ describe.skipIf(!dbUrl)("HyperFrames isolated PostgreSQL worker runner integrati
     });
     expect(again.kind).toBe("unclaimed");
     expect((await queue.get(task.job.jobId, "worker-tenant-a"))?.attempts).toBe(1);
+  });
+
+  it("integrates the real worker code path with mocked local CLI and ffprobe", async () => {
+    const task = await schedule("88888888-8888-4888-8888-888888888888");
+    const invoked: string[] = [];
+    const simulatedTools = {
+      ...tools,
+      execute: async (command: string, args: string[], options: {
+        cwd: string; env: NodeJS.ProcessEnv;
+      }) => {
+        expect(options.env.FINSIGHT_INTERNAL_API_KEY).toBeUndefined();
+        invoked.push(command + ":" + args[0]);
+        if (args[0] === "render") {
+          await writeFile(join(options.cwd, "sample.mp4"), syntheticVideo());
+        }
+        if (command === tools.ffprobeExecutable) {
+          return { stdout: JSON.stringify({
+            streams: [{
+              codec_type: "video", width: 1080, height: 1920,
+              r_frame_rate: "30/1",
+            }],
+            format: { duration: "15.000000" },
+          }) };
+        }
+        return { stdout: "" };
+      },
+    };
+    const outcome = await processStagingHyperframesPgJob({
+      jobId: task.job.jobId, project: task.input,
+      brandName: task.brandName,
+      authorizedOrganizationId: "worker-tenant-a",
+      workerId: "worker-pinned-cli-synthetic",
+      queue, artifacts, tools: simulatedTools,
+    });
+    expect(outcome.kind).toBe("completed");
+    expect(invoked).toEqual([
+      tools.hyperframesExecutable + ":lint",
+      tools.hyperframesExecutable + ":check",
+      tools.hyperframesExecutable + ":render",
+      tools.ffprobeExecutable + ":-v",
+    ]);
+    expect(await artifacts.read(task.job.jobId, "worker-tenant-a"))
+      .toEqual(syntheticVideo());
   });
 
   it("rejects a changed project or brand before claiming and without executing render", async () => {

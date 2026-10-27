@@ -6,6 +6,7 @@ on:
       - '.github/workflows/hyperframes-staging-pg-ci.yml'
       - 'infra/hyperframes-staging/**'
       - 'apps/api/src/services/hyperframes-staging-pg-queue*'
+      - 'apps/api/src/services/hyperframes-staging-pg-artifacts*'
       - 'apps/api/src/services/hyperframes-staging-recovery-protocol*'
   workflow_dispatch:
 
@@ -59,17 +60,20 @@ jobs:
       - name: Create isolated temporary staging schema
         run: psql -v ON_ERROR_STOP=1 -f infra/hyperframes-staging/001_render_jobs.sql
 
+      - name: Add staging-only encrypted MP4 schema
+        run: psql -v ON_ERROR_STOP=1 -f infra/hyperframes-staging/002_encrypted_render_artifacts.sql
+
       - name: API typecheck
         run: npm run typecheck --workspace=@modo/api
 
       - name: PostgreSQL concurrency and lease tests (synthetic tenants only)
-        run: npm test --workspace=@modo/api -- src/services/hyperframes-staging-pg-queue.test.ts
+        run: npm test --workspace=@modo/api -- src/services/hyperframes-staging-pg-queue.test.ts src/services/hyperframes-staging-pg-artifacts.test.ts
 
       - name: Reconfirm no production publish endpoints were introduced
         shell: bash
         run: |
           set -euo pipefail
-          if grep -Ei '/api/v[0-9]+/|app\.(get|post)|registerVideoRoutes|registerNativePublisherV2Routes|\.publish\(' apps/api/src/services/hyperframes-staging-pg-queue.ts; then
+          if grep -Ei '/api/v[0-9]+/|app\.(get|post)|registerVideoRoutes|registerNativePublisherV2Routes|\.publish\(' apps/api/src/services/hyperframes-staging-pg-queue.ts apps/api/src/services/hyperframes-staging-pg-artifacts.ts; then
             echo "A staging PostgreSQL adapter must not expose HTTP routes or publisher calls"
             exit 1
           fi

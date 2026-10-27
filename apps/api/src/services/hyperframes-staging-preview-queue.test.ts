@@ -210,4 +210,33 @@ describe("isolated HyperFrames private staging queue", () => {
     }
   });
 
+  it("never silently downgrades encryption when the private storage mode is requested", () => {
+    const original = process.env.MODO_HYPERFRAMES_STORAGE_MODE;
+    process.env.MODO_HYPERFRAMES_STORAGE_MODE = "isolated-staging";
+    try {
+      const x = queue();
+      expect(() => x.enqueue({
+        project: project("one"), brandName: "Sandbox",
+        authorizedOrganizationId: "sandbox-only",
+      })).toThrow(/ENCRYPTION_REQUIRED/);
+      expect(() => x.status("unknown-job", "sandbox-only"))
+        .toThrow(/ENCRYPTION_REQUIRED/);
+      expect(() => x.readPreview("unknown-job", "sandbox-only"))
+        .toThrow(/ENCRYPTION_REQUIRED/);
+    } finally {
+      if (original === undefined) delete process.env.MODO_HYPERFRAMES_STORAGE_MODE;
+      else process.env.MODO_HYPERFRAMES_STORAGE_MODE = original;
+    }
+  });
+
+  it("rejects dangerous queue capacity and TTL configurations before accepting any jobs", () => {
+    for (const options of [
+      { maxJobs: 0 }, { maxJobs: 21 }, { maxJobs: Number.NaN },
+      { maxStoredBytes: 0 }, { maxStoredBytes: 100_000_001 },
+      { completedTtlMs: -1 }, { completedTtlMs: 900_001 },
+    ]) {
+      expect(() => queue(options)).toThrow(/INVALID_LIMITS/);
+    }
+  });
+
 });

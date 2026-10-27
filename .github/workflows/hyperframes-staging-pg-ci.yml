@@ -46,8 +46,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Install repo dependencies without modifying lockfile
-        run: npm ci --include=dev
+      - name: Install dependencies (same as MODO main CI)
+        run: npm install --include=dev
 
       - name: Refuse using production database
         shell: bash

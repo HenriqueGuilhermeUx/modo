@@ -280,7 +280,7 @@ export class HyperframesStagingPgArtifacts {
         "DELETE FROM " + ARTIFACTS + " WHERE job_id IN" +
         " (SELECT job_id FROM " + ARTIFACTS +
         " WHERE expires_ms<=$1 ORDER BY expires_ms" +
-        " FOR UPDATE SKIP LOCKED LIMIT 100)", [now]);
+        " LIMIT 100 FOR UPDATE SKIP LOCKED)", [now]);
       return result.rowCount ?? 0;
     } finally {
       client.release();

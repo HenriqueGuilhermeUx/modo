@@ -8,6 +8,7 @@ on:
       - 'apps/api/src/services/hyperframes-staging-pg-queue*'
       - 'apps/api/src/services/hyperframes-staging-pg-artifacts*'
       - 'apps/api/src/services/hyperframes-staging-pg-render-runner*'
+      - 'apps/api/src/services/hyperframes-staging-pg-snapshots*'
       - 'apps/api/src/services/hyperframes-staging-worker*'
       - 'apps/api/src/services/hyperframes-staging-recovery-protocol*'
   workflow_dispatch:
@@ -65,6 +66,9 @@ jobs:
       - name: Add staging-only encrypted MP4 schema
         run: psql -v ON_ERROR_STOP=1 -f infra/hyperframes-staging/002_encrypted_render_artifacts.sql
 
+      - name: Add encrypted restart-recovery source schema
+        run: psql -v ON_ERROR_STOP=1 -f infra/hyperframes-staging/003_encrypted_render_snapshots.sql
+
       - name: API typecheck
         run: npm run typecheck --workspace=@modo/api
 
@@ -79,12 +83,13 @@ jobs:
           npm test --workspace=@modo/api -- src/services/hyperframes-staging-pg-queue.test.ts
           npm test --workspace=@modo/api -- src/services/hyperframes-staging-pg-artifacts.test.ts
           npm test --workspace=@modo/api -- src/services/hyperframes-staging-pg-render-runner.test.ts
+          npm test --workspace=@modo/api -- src/services/hyperframes-staging-pg-snapshots.test.ts
 
       - name: Reconfirm no production publish endpoints were introduced
         shell: bash
         run: |
           set -euo pipefail
-          if grep -Ei '/api/v[0-9]+/|app\.(get|post)|registerVideoRoutes|registerNativePublisherV2Routes|\.publish\(' apps/api/src/services/hyperframes-staging-pg-queue.ts apps/api/src/services/hyperframes-staging-pg-artifacts.ts apps/api/src/services/hyperframes-staging-pg-render-runner.ts; then
+          if grep -Ei '/api/v[0-9]+/|app\.(get|post)|registerVideoRoutes|registerNativePublisherV2Routes|\.publish\(' apps/api/src/services/hyperframes-staging-pg-queue.ts apps/api/src/services/hyperframes-staging-pg-artifacts.ts apps/api/src/services/hyperframes-staging-pg-render-runner.ts apps/api/src/services/hyperframes-staging-pg-snapshots.ts; then
             echo "A staging PostgreSQL adapter must not expose HTTP routes or publisher calls"
             exit 1
           fi

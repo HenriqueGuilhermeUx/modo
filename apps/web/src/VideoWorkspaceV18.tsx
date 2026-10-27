@@ -2,6 +2,8 @@ import type { VideoProject } from "@modo/contracts/video";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import VideoFirstCutPanel from "./VideoFirstCutPanel";
+import HyperframesExperimentalPreview from "./HyperframesExperimentalPreview";
+import "./hyperframes-experimental.css";
 import VideoWorkspace from "./VideoWorkspace";
 import { getLatestVideoProject, getVideoProject } from "./video-api";
 import "./video-v17.css";
@@ -76,6 +78,9 @@ export default function VideoWorkspaceV18() {
         <>
           {error && <div className="portal-error">{error}</div>}
           <VideoFirstCutPanel project={project} onProject={setProject} onError={setError} />
+          {import.meta.env.VITE_HYPERFRAMES_PREVIEW_ENABLED === "true" && (
+            <HyperframesExperimentalPreview project={project} />
+          )}
           <div className="video-v18-commercial-proof">
             <strong>Você não começa numa timeline vazia.</strong> A MODO produz o primeiro corte e mantém o controle granular: trocar uma cena, usar mídia própria, recuperar um take e aprovar só o que estiver certo.
           </div>

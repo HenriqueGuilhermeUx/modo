@@ -137,6 +137,20 @@ describe.skipIf(!dbUrl)("HyperFrames isolated PostgreSQL worker runner integrati
     })).rejects.toThrow(/TENANT_DENIED/);
   });
 
+  it("uses the request snapshot even if the original project is edited during rendering", async () => {
+    const task = await schedule("77777777-7777-4777-8777-777777777777");
+    const originalHeadline = task.input.scenes[0].headline;
+    const result = await execute(task, async (p) => {
+      task.input.scenes[0].headline = "Alteração tardia não autorizada";
+      expect(p.scenes[0].headline).toBe(originalHeadline);
+      expect(stagingRenderRequestSha256(p, task.brandName))
+        .toBe(task.job.requestSha256);
+      return render(p);
+    });
+    expect(result.kind).toBe("completed");
+    expect(task.input.scenes[0].headline).not.toBe(originalHeadline);
+  });
+
   it("sanitizes renderer errors and allows a retry with a fresh fence", async () => {
     const task = await schedule("33333333-3333-4333-8333-333333333333");
     const failure = await execute(task, async () => {

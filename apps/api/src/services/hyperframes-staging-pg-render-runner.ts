@@ -114,11 +114,21 @@ export async function processStagingHyperframesPgJob(input: Readonly<{
       !input.queue || !input.artifacts || !input.tools) {
     throw new Error("HYPERFRAMES_STAGING_PG_RUNNER_TENANT_DENIED");
   }
-  const digest = stagingRenderRequestSha256(input.project, input.brandName);
+  // Freeze the authorized request boundary by copying the input BEFORE
+  // hashing/claiming. The caller may edit its original project while the
+  // worker runs; the renderer must receive the identical snapshot that
+  // produced the persisted immutable request digest.
+  let snapshot: VideoProject;
+  try {
+    snapshot = structuredClone(input.project);
+  } catch {
+    throw new Error("HYPERFRAMES_STAGING_PG_RUNNER_INVALID_REQUEST");
+  }
+  const digest = stagingRenderRequestSha256(snapshot, input.brandName);
   const job = await input.queue.get(input.jobId, input.authorizedOrganizationId);
   if (!job) return { kind: "unclaimed", job: null };
   if (job.organizationId !== input.authorizedOrganizationId ||
-      job.projectId !== input.project.id ||
+      job.projectId !== snapshot.id ||
       job.requestSha256 !== digest) {
     throw new Error("HYPERFRAMES_STAGING_PG_RUNNER_REQUEST_MISMATCH");
   }
@@ -162,9 +172,9 @@ export async function processStagingHyperframesPgJob(input: Readonly<{
     try {
       const renderer = input.render ?? renderHyperframesStagingPreview;
       rendered = await renderer(
-        input.project, input.brandName, input.tools,
+        snapshot, input.brandName, input.tools,
         input.authorizedOrganizationId);
-      if (!validatedResult(rendered, input.project, input.authorizedOrganizationId)) {
+      if (!validatedResult(rendered, snapshot, input.authorizedOrganizationId)) {
         throw new Error("HYPERFRAMES_STAGING_PG_RUNNER_INVALID_VIDEO");
       }
     } catch {

@@ -139,3 +139,55 @@ export async function cancelVideoProject(id: string): Promise<VideoProject> {
   });
   return VideoProjectSchema.parse(payload.project);
 }
+
+
+/**
+ * Experimental HTML export only. Requires the server-side opt-in as well as
+ * the authenticated tenant scope enforced by video-routes.ts.
+ *
+ * Never returns a publishable MP4 and must not execute returned HTML in-app.
+ */
+export async function getHyperframesHtmlPreview(id: string): Promise<{
+  projectId: string;
+  organizationId: string;
+  html: string;
+  width: number;
+  height: number;
+  fps: number;
+  durationSeconds: number;
+  status: "export-only";
+  publishingAllowed: false;
+  assetRenderingEnabled: false;
+}> {
+  const payload = await request<{ preview?: Record<string, unknown> }>(
+    `/api/v1/video-projects/${encodeURIComponent(id)}/hyperframes-preview`,
+    { cache: "no-store" },
+  );
+  const data = payload.preview;
+  if (!data || data.projectId !== id ||
+      typeof data.organizationId !== "string" ||
+      typeof data.html !== "string" ||
+      data.html.length > 150_000 ||
+      data.width !== 1080 || data.height !== 1920 ||
+      data.fps !== 30 ||
+      typeof data.durationSeconds !== "number" ||
+      !Number.isFinite(data.durationSeconds) ||
+      data.durationSeconds < 1 || data.durationSeconds > 60 ||
+      data.status !== "export-only" ||
+      data.publishingAllowed !== false ||
+      data.assetRenderingEnabled !== false) {
+    throw new Error("A resposta de prévia HyperFrames não passou na validação.");
+  }
+  return {
+    projectId: data.projectId as string,
+    organizationId: data.organizationId as string,
+    html: data.html,
+    width: data.width,
+    height: data.height,
+    fps: data.fps,
+    durationSeconds: data.durationSeconds,
+    status: "export-only",
+    publishingAllowed: false,
+    assetRenderingEnabled: false,
+  };
+}

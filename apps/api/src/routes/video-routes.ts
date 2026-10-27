@@ -12,6 +12,7 @@ import { ContentError, ContentService } from "../services/content-service.js";
 import { VideoApprovalError, VideoApprovalService } from "../services/video-approval-service.js";
 import { VideoMediaLabService } from "../services/video-media-lab-service.js";
 import { VideoError, VideoService } from "../services/video-service.js";
+import { exportVideoProjectHyperframesPreview } from "../services/hyperframes-project-preview.js";
 
 interface Options {
   databaseUrl?: string;
@@ -217,6 +218,28 @@ export async function registerVideoRoutes(app: FastifyInstance, options: Options
     const id = z.string().uuid().parse((request.params as { id: string }).id);
     return { project: await decorate(await video.getForOrganization(id, current.organization.id)) };
   });
+
+  // Opt-in only, reads an already tenant-authorized project. Does not render,
+  // enqueue, update, approve or publish anything.
+  if (process.env.MODO_HYPERFRAMES_PREVIEW_ENABLED === "true") {
+    app.get(
+      "/api/v1/video-projects/:id/hyperframes-preview",
+      { config: { rateLimit: { max: 20, timeWindow: "30 minutes" } } },
+      async (request, reply) => {
+        const id = z.string().uuid().parse((request.params as { id: string }).id);
+        const found = await renderContext(request, id);
+        try {
+          const preview = exportVideoProjectHyperframesPreview(found.project, found.brand.name);
+          return reply.header("cache-control", "no-store").send({ preview });
+        } catch {
+          return reply.code(422).send({
+            code: "HYPERFRAMES_PREVIEW_UNSUPPORTED",
+            message: "Este projeto possui cenas ou durações ainda incompatíveis com o piloto.",
+          });
+        }
+      },
+    );
+  }
 
   app.get("/api/v1/video-projects/:id/scenes/:sceneIndex/takes", async (request) => {
     const current = await context(request);

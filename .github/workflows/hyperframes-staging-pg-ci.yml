@@ -7,6 +7,8 @@ on:
       - 'infra/hyperframes-staging/**'
       - 'apps/api/src/services/hyperframes-staging-pg-queue*'
       - 'apps/api/src/services/hyperframes-staging-pg-artifacts*'
+      - 'apps/api/src/services/hyperframes-staging-pg-render-runner*'
+      - 'apps/api/src/services/hyperframes-staging-worker*'
       - 'apps/api/src/services/hyperframes-staging-recovery-protocol*'
   workflow_dispatch:
 
@@ -67,13 +69,13 @@ jobs:
         run: npm run typecheck --workspace=@modo/api
 
       - name: PostgreSQL concurrency and lease tests (synthetic tenants only)
-        run: npm test --workspace=@modo/api -- src/services/hyperframes-staging-pg-queue.test.ts src/services/hyperframes-staging-pg-artifacts.test.ts
+        run: npm test --workspace=@modo/api -- src/services/hyperframes-staging-pg-queue.test.ts src/services/hyperframes-staging-pg-artifacts.test.ts src/services/hyperframes-staging-pg-render-runner.test.ts
 
       - name: Reconfirm no production publish endpoints were introduced
         shell: bash
         run: |
           set -euo pipefail
-          if grep -Ei '/api/v[0-9]+/|app\.(get|post)|registerVideoRoutes|registerNativePublisherV2Routes|\.publish\(' apps/api/src/services/hyperframes-staging-pg-queue.ts apps/api/src/services/hyperframes-staging-pg-artifacts.ts; then
+          if grep -Ei '/api/v[0-9]+/|app\.(get|post)|registerVideoRoutes|registerNativePublisherV2Routes|\.publish\(' apps/api/src/services/hyperframes-staging-pg-queue.ts apps/api/src/services/hyperframes-staging-pg-artifacts.ts apps/api/src/services/hyperframes-staging-pg-render-runner.ts; then
             echo "A staging PostgreSQL adapter must not expose HTTP routes or publisher calls"
             exit 1
           fi

@@ -37,7 +37,7 @@ describe.skipIf(!dbUrl)("Postgres HyperFrames staging recovery (dedicated DB onl
     process.env.NODE_ENV = "test";
     process.env.MODO_HYPERFRAMES_RECOVERY_MODE = "isolated-staging";
     process.env.MODO_HYPERFRAMES_DB_MODE = "isolated-staging";
-    await pool.query("DELETE FROM modo_hyperframes_staging.render_jobs");
+    await pool.query("DELETE FROM modo_hyperframes_staging.render_jobs WHERE organization_id LIKE $1", ["sandbox-tenant-%"]);
   });
   afterEach(() => {
     if (previous.node === undefined) delete process.env.NODE_ENV;

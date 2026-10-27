@@ -1,12 +1,15 @@
 import assert from "node:assert/strict";
 import { readFileSync, readdirSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { execFileSync } from "node:child_process";
+import { join, relative } from "node:path";
 
 const root = "apps/web/dist-usa";
 const html = readFileSync(root + "/index.html", "utf8");
 assert.match(html, /noindex,nofollow/);
 
 const topLevel = readdirSync(root).sort();
-assert.deepEqual(topLevel, ["404.html", "_headers", "_redirects", "assets", "index.html", "logo.svg"].sort(),
+assert.deepEqual(topLevel, ["404.html", "_headers", "_redirects", "assets", "index.html", "logo.svg", "usa-artifact-provenance.json"].sort(),
   "USA publish directory must not contain Brazilian routes, PWA, functions or extra files");
 
 const redirects = readFileSync(root + "/_redirects", "utf8").trim().split(/\r?\n/);
@@ -54,4 +57,29 @@ assert.ok(!entry.includes("PwaChrome"), "USA must not register Brazilian PWA");
 const landing = readFileSync("apps/web/src/UsLanding.tsx", "utf8");
 assert.ok(!landing.includes("https://alternativeventures.com.br/"),
   "USA demo must not navigate to the Brazilian institutional site");
+const provenance = JSON.parse(readFileSync(root + "/usa-artifact-provenance.json", "utf8"));
+assert.equal(provenance.schemaVersion, 1);
+assert.equal(provenance.kind, "build-artifact-only", "A build artifact must not claim to be deployed");
+assert.equal(provenance.sourceRepo, "HenriqueGuilhermeUx/modo");
+assert.equal(provenance.targetNetlifySiteId, "241772f0-7d68-4ff3-a20d-aeac9bcbb3f8");
+assert.equal(provenance.publishDirectory, root);
+assert.match(provenance.sourceCommit, /^[a-f0-9]{40}$/);
+assert.equal(provenance.sourceCommit, execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim(),
+  "Manifest must identify the exact checked-out commit");
+function walk(dir) {
+  return readdirSync(dir, { withFileTypes: true }).flatMap(entry => {
+    const full = join(dir, entry.name);
+    if (entry.isDirectory()) return walk(full);
+    assert.ok(entry.isFile(), "No symlinks or special files allowed in USA artifact");
+    return [relative(root, full)];
+  });
+}
+const artifactFiles = walk(root).filter(path => path !== "usa-artifact-provenance.json").sort();
+assert.deepEqual(provenance.files.map(file => file.path), artifactFiles,
+  "Manifest must list every publish file exactly once in sorted order");
+for (const file of provenance.files) {
+  assert.match(file.sha256, /^[a-f0-9]{64}$/);
+  assert.equal(file.sha256, createHash("sha256").update(readFileSync(join(root, file.path))).digest("hex"),
+    "USA artifact hash mismatch: " + file.path);
+}
 console.log("PASS: isolated US-only bundle, route allowlist + 404, CSP blocks API/forms, no Brazil Root/PWA");

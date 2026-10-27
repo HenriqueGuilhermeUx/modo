@@ -1,7 +1,42 @@
 import { execFileSync } from "node:child_process";
 import { renameSync, writeFileSync, copyFileSync } from "node:fs";
+
+// Build only the synthetic USA entry; never publish the Brazilian app or PWA.
 execFileSync("npm", ["exec", "--", "vite", "build", "--config", "vite.usa.config.ts"], { cwd: "apps/web", stdio: "inherit" });
 renameSync("apps/web/dist-usa/usa.html", "apps/web/dist-usa/index.html");
 copyFileSync("apps/web/public/logo.svg", "apps/web/dist-usa/logo.svg");
-writeFileSync("apps/web/dist-usa/_redirects", "/ /index.html 200\n/us /index.html 200\n/us/smartbots /index.html 200\n/us/demo /index.html 200\n/us/smartbots/demo /index.html 200\n");
+
+// Netlify _redirects take precedence over the Brazilian root netlify.toml.
+// Explicit allowlist, then a real HTTP 404 for every other route.
+writeFileSync("apps/web/dist-usa/_redirects", [
+  "/ /index.html 200",
+  "/us /index.html 200",
+  "/us/smartbots /index.html 200",
+  "/us/demo /index.html 200",
+  "/us/smartbots/demo /index.html 200",
+  "/* /404.html 404",
+  "",
+].join("\n"));
+writeFileSync("apps/web/dist-usa/404.html", [
+  '<!doctype html><html lang="en-US"><head><meta charset="utf-8">',
+  '<meta name="viewport" content="width=device-width,initial-scale=1">',
+  '<meta name="robots" content="noindex,nofollow">',
+  '<title>Unavailable | Alternative Ventures USA preview</title></head>',
+  '<body><main><h1>Page unavailable</h1>',
+  '<p>This preview does not provide accounts, billing, APIs or Brazilian application routes.</p>',
+  '<a href="/us">Return to the USA preview</a></main></body></html>',
+].join(""));
+
+// Publish only with the isolated dist-usa artifact. This policy is deliberately
+// not placed in the Brazilian root Netlify configuration.
+writeFileSync("apps/web/dist-usa/_headers", [
+  "/*",
+  "  X-Robots-Tag: noindex, nofollow, noarchive",
+  "  X-Content-Type-Options: nosniff",
+  "  Referrer-Policy: no-referrer",
+  "  X-Frame-Options: DENY",
+  "  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=()",
+  "  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'none'; form-action 'none'; object-src 'none'; base-uri 'none'; frame-src 'none'; frame-ancestors 'none'",
+  "",
+].join("\n"));
 execFileSync(process.execPath, ["scripts/usa-netlify-isolation-check.mjs"], { stdio: "inherit" });

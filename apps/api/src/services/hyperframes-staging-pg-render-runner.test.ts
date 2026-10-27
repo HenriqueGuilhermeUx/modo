@@ -255,6 +255,16 @@ describe.skipIf(!dbUrl)("HyperFrames isolated PostgreSQL worker runner integrati
     expect(outcome.job?.attempts).toBe(1);
   });
 
+  it("handles a malformed renderer buffer without crashing or exposing its data", async () => {
+    const task = await schedule("99999999-9999-4999-8999-999999999999");
+    const outcome = await execute(task, async (p) => ({
+      ...(await render(p)), video: "malformed-output" as unknown as Buffer,
+    }));
+    expect(outcome.kind).toBe("failed");
+    expect(outcome.job?.status).toBe("queued");
+    expect(await artifacts.read(task.job.jobId, "worker-tenant-a")).toBeNull();
+  });
+
   it("fails closed on invalid video metadata and on missing staging flags", async () => {
     const task = await schedule("66666666-6666-4666-8666-666666666666");
     const invalid = await execute(task, async (p) => ({

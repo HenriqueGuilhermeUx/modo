@@ -1,0 +1,35 @@
+name: USA Netlify isolated build
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'apps/web/usa.html'
+      - 'apps/web/src/usa-main.tsx'
+      - 'apps/web/src/UsLanding.tsx'
+      - 'apps/web/src/UsLanding.css'
+      - 'apps/web/src/USWorkspace.tsx'
+      - 'apps/web/src/USWorkspace.css'
+      - 'apps/web/vite.usa.config.ts'
+      - 'scripts/build-usa-netlify.mjs'
+      - 'scripts/usa-netlify-isolation-check.mjs'
+      - '.github/workflows/usa-netlify-build.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  isolated-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install --include=dev
+      - run: npm run build --workspace=@modo/contracts
+      - run: node scripts/build-usa-netlify.mjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: modo-smartbots-usa-netlify
+          path: apps/web/dist-usa
+          if-no-files-found: error

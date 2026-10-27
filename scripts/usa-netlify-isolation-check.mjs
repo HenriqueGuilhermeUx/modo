@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync, readdirSync } from "node:fs";
 const root = "apps/web/dist-usa";
-const html = readFileSync(root + "/usa.html", "utf8");
+const html = readFileSync(root + "/index.html", "utf8");
 assert.match(html, /noindex,nofollow/);
 const assets = readdirSync(root + "/assets").filter(x => x.endsWith(".js"));
 assert.ok(assets.length > 0, "No USA JavaScript bundle");

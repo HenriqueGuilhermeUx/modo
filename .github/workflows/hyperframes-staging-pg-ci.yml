@@ -69,7 +69,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if grep -Ei '/api/v[0-9]+/|app\.(get|post)|registerVideoRoutes|registerNativePublisherV2Routes|\\.publish\\(' apps/api/src/services/hyperframes-staging-pg-queue.ts; then
+          if grep -Ei '/api/v[0-9]+/|app\.(get|post)|registerVideoRoutes|registerNativePublisherV2Routes|\.publish\(' apps/api/src/services/hyperframes-staging-pg-queue.ts; then
             echo "A staging PostgreSQL adapter must not expose HTTP routes or publisher calls"
             exit 1
           fi

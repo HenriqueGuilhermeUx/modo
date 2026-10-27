@@ -49,7 +49,7 @@ function walk(dir) {
     const full = join(dir, entry.name);
     if (entry.isDirectory()) return walk(full);
     if (!entry.isFile()) throw new Error("Unexpected USA artifact entry: " + full);
-    return [relative(publishDir, full).replaceAll("\\\\", "/")];
+    return [relative(publishDir, full)];
   });
 }
 const paths = walk(publishDir).sort();
@@ -66,5 +66,5 @@ writeFileSync(join(publishDir, "usa-artifact-provenance.json"), JSON.stringify({
   targetNetlifySiteId: "241772f0-7d68-4ff3-a20d-aeac9bcbb3f8",
   publishDirectory: "apps/web/dist-usa",
   files,
-}, null, 2) + "\\n");
+}, null, 2) + "\n");
 execFileSync(process.execPath, ["scripts/usa-netlify-isolation-check.mjs"], { stdio: "inherit" });

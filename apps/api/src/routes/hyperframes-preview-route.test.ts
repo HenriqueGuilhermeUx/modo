@@ -1,18 +1,24 @@
 import { afterEach, describe, expect, it } from "vitest";
 import type { FastifyInstance } from "fastify";
 import { createApp } from "../app.js";
+import { registerVideoRoutes } from "./video-routes.js";
 import { DemoDiagnosticProvider } from "../providers/demo-diagnostic-provider.js";
 
 const previous = process.env.MODO_HYPERFRAMES_PREVIEW_ENABLED;
 let app: FastifyInstance | undefined;
 
 async function server() {
-  return createApp({
+  const instance = await createApp({
     provider: new DemoDiagnosticProvider(0),
     diagnosticProviderName: "demo",
     logger: false,
     allowedOrigins: ["http://localhost:5173"],
   });
+  // Production attaches video routes in server.ts, not in createApp().
+  // Register the exact same module here so the feature-gate test exercises
+  // the real route wiring rather than testing a missing test-fixture route.
+  await registerVideoRoutes(instance, {});
+  return instance;
 }
 afterEach(async () => {
   await app?.close();

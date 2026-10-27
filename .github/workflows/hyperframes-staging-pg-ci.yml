@@ -1,0 +1,76 @@
+name: HyperFrames isolated Postgres recovery CI
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/hyperframes-staging-pg-ci.yml'
+      - 'infra/hyperframes-staging/**'
+      - 'apps/api/src/services/hyperframes-staging-pg-queue*'
+      - 'apps/api/src/services/hyperframes-staging-recovery-protocol*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  staging-postgres-recovery:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_DB: modo_hyperframes_staging
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres -d modo_hyperframes_staging"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=8
+
+    env:
+      NODE_ENV: test
+      MODO_HYPERFRAMES_RECOVERY_MODE: isolated-staging
+      MODO_HYPERFRAMES_DB_MODE: isolated-staging
+      MODO_HYPERFRAMES_PG_TEST_DATABASE_URL: postgresql://postgres@127.0.0.1:5432/modo_hyperframes_staging
+      PGHOST: 127.0.0.1
+      PGPORT: "5432"
+      PGUSER: postgres
+      PGDATABASE: modo_hyperframes_staging
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install repo dependencies without modifying lockfile
+        run: npm ci --include=dev
+
+      - name: Refuse using production database
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${PGDATABASE}" = "modo_hyperframes_staging"
+          psql -v ON_ERROR_STOP=1 -Atc "SELECT current_database()" | grep -x modo_hyperframes_staging
+
+      - name: Create isolated temporary staging schema
+        run: psql -v ON_ERROR_STOP=1 -f infra/hyperframes-staging/001_render_jobs.sql
+
+      - name: API typecheck
+        run: npm run typecheck --workspace=@modo/api
+
+      - name: PostgreSQL concurrency and lease tests (synthetic tenants only)
+        run: npm test --workspace=@modo/api -- src/services/hyperframes-staging-pg-queue.test.ts
+
+      - name: Reconfirm no production publish endpoints were introduced
+        shell: bash
+        run: |
+          set -euo pipefail
+          if grep -Ei '/api/v[0-9]+/|app\.(get|post)|registerVideoRoutes|Publisher' apps/api/src/services/hyperframes-staging-pg-queue.ts; then
+            echo "A staging PostgreSQL adapter must not expose HTTP routes or publisher calls"
+            exit 1
+          fi
+          echo "PostgreSQL recovery adapter isolated from HTTP and publication"

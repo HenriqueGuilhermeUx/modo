@@ -68,7 +68,19 @@ export class HyperframesStagingPreviewQueue {
     maxStoredBytes?: number;
     completedTtlMs?: number;
     encryptedVault?: HyperframesStagingEncryptedVault;
-  }>) {}
+  }>) {
+    const maxJobs = config.maxJobs ?? 6;
+    const maxStoredBytes = config.maxStoredBytes ?? 50_000_000;
+    const completedTtlMs = config.completedTtlMs ?? 10 * 60_000;
+    if (!config.tools || !Number.isSafeInteger(maxJobs) ||
+        maxJobs < 1 || maxJobs > 20 ||
+        !Number.isSafeInteger(maxStoredBytes) ||
+        maxStoredBytes < 4000 || maxStoredBytes > 100_000_000 ||
+        !Number.isSafeInteger(completedTtlMs) ||
+        completedTtlMs < 1000 || completedTtlMs > 15 * 60_000) {
+      throw new Error("HYPERFRAMES_STAGING_QUEUE_INVALID_LIMITS");
+    }
+  }
 
   private now() { return (this.config.now || Date.now)(); }
 
@@ -77,6 +89,16 @@ export class HyperframesStagingPreviewQueue {
         process.env.MODO_HYPERFRAMES_WORKER_MODE !== "isolated-staging" ||
         process.env.MODO_HYPERFRAMES_QUEUE_MODE !== "isolated-staging") {
       throw new Error("HYPERFRAMES_STAGING_QUEUE_DISABLED");
+    }
+    // A request for encrypted staging storage must never silently degrade
+    // to the older plaintext RAM fallback, even when no vault was injected.
+    const encryptedRequested =
+      process.env.MODO_HYPERFRAMES_STORAGE_MODE === "isolated-staging";
+    if (encryptedRequested && !this.config.encryptedVault) {
+      throw new Error("HYPERFRAMES_STAGING_QUEUE_ENCRYPTION_REQUIRED");
+    }
+    if (this.config.encryptedVault && !encryptedRequested) {
+      throw new Error("HYPERFRAMES_STAGING_QUEUE_STORAGE_DISABLED");
     }
   }
 

@@ -70,6 +70,20 @@ jobs:
       - name: Add encrypted restart-recovery source schema
         run: psql -v ON_ERROR_STOP=1 -f infra/hyperframes-staging/003_encrypted_render_snapshots.sql
 
+      - name: Constrain isolated worker role to staging data only
+        run: psql -v ON_ERROR_STOP=1 -f infra/hyperframes-staging/004_worker_role.sql
+
+      - name: Assert minimal worker privileges
+        shell: bash
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 -Atc "
+            SELECT rolcanlogin::text || ':' || rolsuper::text || ':' ||
+                   has_schema_privilege('hf_staging_worker','modo_hyperframes_staging','CREATE')::text || ':' ||
+                   has_table_privilege('hf_staging_worker','modo_hyperframes_staging.render_jobs','TRUNCATE')::text || ':' ||
+                   has_table_privilege('hf_staging_worker','modo_hyperframes_staging.render_jobs','SELECT')::text
+              FROM pg_roles WHERE rolname='hf_staging_worker'" | grep -x 'false:false:false:false:true'
+
       - name: API typecheck
         run: npm run typecheck --workspace=@modo/api
 

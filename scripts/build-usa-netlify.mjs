@@ -13,9 +13,7 @@ copyFileSync("apps/web/public/logo.svg", "apps/web/dist-usa/logo.svg");
 writeFileSync("apps/web/dist-usa/_redirects", [
   "/ /index.html 200",
   "/us /index.html 200",
-  "/us/smartbots /index.html 200",
   "/us/demo /index.html 200",
-  "/us/smartbots/demo /index.html 200",
   "/* /404.html 404",
   "",
 ].join("\n"));

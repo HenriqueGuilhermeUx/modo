@@ -124,10 +124,10 @@ test("wrong database, production gate and stale lease are denied",async()=>{
  const prev=process.env.MODO_HF_HANDOFF_MODE,old=process.env.NODE_ENV;
  try{
   delete process.env.MODO_HF_HANDOFF_MODE;
-  await assert.rejects(run(j,p),/HF_SYNTHETIC_LEASE_DENIED/);
+  await assert.rejects(async()=>run(j,p),/HF_SYNTHETIC_LEASE_DENIED/);
   process.env.MODO_HF_HANDOFF_MODE=prev;
   process.env.NODE_ENV="production";
-  await assert.rejects(run(j,p),/HF_SYNTHETIC_LEASE_DENIED/);
+  await assert.rejects(async()=>run(j,p),/HF_SYNTHETIC_LEASE_DENIED/);
  }finally{
   process.env.MODO_HF_HANDOFF_MODE=prev;
   if(old===undefined)delete process.env.NODE_ENV;else process.env.NODE_ENV=old;
@@ -147,4 +147,20 @@ test("separate NOLOGIN dispatcher has INSERT only; existing worker cannot dispat
    "modo_hyperframes_staging.render_jobs"]);
  assert.deepEqual(r.rows,[{rolcanlogin:false,rolsuper:false,
  dispatcher_insert:true,queue_update:false,worker_insert:false,dispatcher_delete:false}]);
+});
+
+test("the separate NOLOGIN dispatcher can claim through delegated role but cannot modify the queue",async()=>{
+ const j=await source(),p=order(j);
+ const restricted=new Pool({connectionString:DB_URL,ssl:false,max:1});
+ try{
+  const client=await restricted.connect();
+  try{await client.query("SET ROLE hf_staging_nonce_dispatcher");}
+  finally{client.release();}
+  const claim=createSyntheticLeasePgClaim(restricted,expected(j));
+  assert.equal((await run(j,p,{claimLease:claim})).payload.nonce,p.nonce);
+  await assert.rejects(
+   restricted.query("UPDATE modo_hyperframes_staging.render_jobs SET status='queued' WHERE job_id=$1::uuid",[j.jobId]),
+   /permission denied/
+  );
+ }finally{await restricted.end();}
 });

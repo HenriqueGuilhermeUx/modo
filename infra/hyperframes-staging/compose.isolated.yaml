@@ -1,0 +1,90 @@
+# LOCAL/OFFLINE STAGING TEMPLATE ONLY — not connected to any Render service.
+# Both services run with network_mode:none; worker reaches Postgres ONLY
+# through a named Unix-domain socket volume. No published TCP ports.
+#
+# Operator must first provision the private files and the worker DB LOGIN.
+# See docs/integrations/HYPERFRAMES_ISOLATED_CONTAINER.md.
+name: modo-hyperframes-staging
+
+services:
+  pg-staging:
+    image: postgres:16-bookworm
+    profiles: ["local-db"]
+    network_mode: none
+    environment:
+      POSTGRES_USER: hf_staging_admin
+      POSTGRES_DB: modo_hyperframes_staging
+      POSTGRES_PASSWORD_FILE: /run/hyperframes/admin-password
+      POSTGRES_INITDB_ARGS: "--auth-local=scram-sha-256 --auth-host=scram-sha-256"
+    command:
+      - postgres
+      - -c
+      - "listen_addresses="
+      - -c
+      - "unix_socket_directories=/var/run/postgresql"
+      - -c
+      - "unix_socket_permissions=0777"
+    volumes:
+      - hf_pg_data:/var/lib/postgresql/data
+      - hf_pg_socket:/var/run/postgresql
+      - ./private/admin-password:/run/hyperframes/admin-password:ro
+      - ./001_render_jobs.sql:/docker-entrypoint-initdb.d/001_render_jobs.sql:ro
+      - ./002_encrypted_render_artifacts.sql:/docker-entrypoint-initdb.d/002_encrypted_render_artifacts.sql:ro
+      - ./003_encrypted_render_snapshots.sql:/docker-entrypoint-initdb.d/003_encrypted_render_snapshots.sql:ro
+      - ./004_worker_role.sql:/docker-entrypoint-initdb.d/004_worker_role.sql:ro
+    pids_limit: 128
+    cpus: "1"
+    mem_limit: 1g
+    shm_size: 128m
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hf_staging_admin -d modo_hyperframes_staging -h /var/run/postgresql"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  worker:
+    profiles: ["manual"]
+    build:
+      context: ../..
+      dockerfile: infra/hyperframes-staging/worker.Dockerfile
+    image: modo-hf-staging:local
+    depends_on:
+      pg-staging:
+        condition: service_healthy
+    network_mode: none
+    user: "10001:10001"
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 128
+    cpus: "2"
+    mem_limit: 2g
+    shm_size: 256m
+    tmpfs:
+      - /tmp:rw,nosuid,size=512m,mode=1777
+      - /home/hfworker:rw,nosuid,size=64m,mode=0700,uid=10001,gid=10001
+    volumes:
+      - hf_pg_socket:/var/run/postgresql:ro
+      - ./private/order.json:/run/hyperframes/order.json:ro
+      - ./private/db-password:/run/hyperframes/db-password:ro
+    environment:
+      NODE_ENV: test
+      MODO_HYPERFRAMES_WORKER_MODE: isolated-staging
+      MODO_HYPERFRAMES_RECOVERY_MODE: isolated-staging
+      MODO_HYPERFRAMES_DB_MODE: isolated-staging
+      MODO_HYPERFRAMES_STORAGE_MODE: isolated-staging
+      MODO_HYPERFRAMES_ONE_SHOT_MODE: isolated-staging
+      MODO_HYPERFRAMES_STAGE_DB_SOCKET: /var/run/postgresql
+      MODO_HYPERFRAMES_STAGE_DB_USER: hf_staging_worker
+      MODO_HYPERFRAMES_STAGE_DB_PASSWORD_FILE: /run/hyperframes/db-password
+      MODO_HYPERFRAMES_LOCAL_WORKER_ID: ${HF_STAGE_WORKER_ID:?Private staging worker ID required}
+      MODO_HYPERFRAMES_SIGNING_KEY_B64: ${HF_STAGE_SIGNING_KEY_B64:?Private HMAC signing key required}
+      MODO_HYPERFRAMES_CONTENT_KEY_B64: ${HF_STAGE_CONTENT_KEY_B64:?Separate private AES content key required}
+
+volumes:
+  hf_pg_data:
+  hf_pg_socket:

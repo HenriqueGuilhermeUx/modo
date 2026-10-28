@@ -6,6 +6,8 @@ on:
       - '.github/workflows/hyperframes-container-isolation.yml'
       - 'infra/hyperframes-staging/worker.Dockerfile'
       - 'infra/hyperframes-staging/worker.Dockerfile.dockerignore'
+      - 'infra/hyperframes-staging/chrome-cdp-preflight.cjs'
+      - 'infra/hyperframes-staging/chrome-headless-wrapper.sh'
       - 'infra/hyperframes-staging/fixtures/**'
       - 'apps/api/src/scripts/hyperframes-staging-one-shot.ts'
   workflow_dispatch:
@@ -46,6 +48,20 @@ jobs:
         run: |
           set -euo pipefail
           docker network create --driver bridge --internal hf-offline-ci
+
+      - name: Preflight real Chrome CDP page/screenshot with a 30s hard limit
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout --signal=TERM --kill-after=5s 30s \
+            docker run --rm --network hf-offline-ci --read-only \
+              --cap-drop ALL --security-opt no-new-privileges \
+              --pids-limit=128 --memory=4g --cpus=2 \
+              --shm-size=256m \
+              --tmpfs /tmp:rw,nosuid,size=512m,mode=1777 \
+              --tmpfs /home/hfworker:rw,nosuid,size=64m,mode=0700,uid=10001,gid=10001 \
+              --entrypoint /usr/local/bin/node \
+              modo-hf-staging:ci /opt/hf-chrome-preflight.cjs
 
       - name: Actually render synthetic MP4 offline under strict limits
         shell: bash

@@ -1,13 +1,8 @@
+# SmartBots USA ONLY. Isolated deploy branch; Brazilian main configuration unchanged.
 [build]
   base = "."
-  command = "npm run build --workspace=@modo/contracts && npm run build --workspace=@modo/api && npm run build --workspace=@modo/web"
-  publish = "apps/web/dist"
+  command = "npm install && npm run build --workspace=@modo/contracts && node scripts/build-smartbots-usa-netlify.mjs"
+  publish = "apps/web/dist-smartbots-usa"
 
 [build.environment]
   NODE_VERSION = "22"
-  VITE_API_URL = "https://modo-api-3m10.onrender.com"
-
-[[redirects]]
-  from = "/*"
-  to = "/index.html"
-  status = 200

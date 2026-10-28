@@ -5,7 +5,7 @@ import {acceptSyntheticHandoff,sha256,signSyntheticHandoff,signSyntheticReceipt,
 process.env.MODO_HF_HANDOFF_MODE="synthetic-ci-only";
 const a=generateKeyPairSync("ed25519"),b=generateKeyPairSync("ed25519"),N=1800000000000;
 const hash=s=>sha256(Buffer.from(s));
-const p=()=>({version:1,audience:"modo-hf-handoff-synthetic-v1",issuer:"synthetic-modo-scheduler",keyId:"scheduler-ci-v1",tenantId:"synthetic-tenant-one",projectId:"synthetic-project-one",jobId:"synthetic-job-one",workerId:"worker-ci-one",projectSha256:hash("project"),orderSha256:hash("order"),nonce:randomUUID(),issuedAtMs:N-1000,expiresAtMs:N+30000});
+const p=()=>({version:1,audience:"modo-hf-handoff-synthetic-v1",issuer:"synthetic-modo-scheduler",keyId:"scheduler-ci-v1",tenantId:"synthetic-tenant-one",projectId:"synthetic-project-one",jobId:"synthetic-job-one1",workerId:"worker-ci-one",projectSha256:hash("project"),orderSha256:hash("order"),nonce:randomUUID(),issuedAtMs:N-1000,expiresAtMs:N+30000});
 const expected=x=>Object.fromEntries(["tenantId","projectId","jobId","workerId","projectSha256","orderSha256"].map(k=>[k,x[k]]));
 const claims=()=>{const s=new Set();return async(_,nonce)=>!s.has(nonce)&&!!s.add(nonce);};
 const opts=x=>({envelope:signSyntheticHandoff(x,a.privateKey),publicKeys:{"scheduler-ci-v1":a.publicKey},expected:expected(x),nowMs:N,consumeNonce:claims()});

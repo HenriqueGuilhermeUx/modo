@@ -291,7 +291,7 @@ describe.skipIf(!dbUrl)("staging encrypted immutable source snapshots", () => {
     incorrect.close();
     await pool.query(
       "UPDATE modo_hyperframes_staging.render_snapshots" +
-      " SET ciphertext=overlay(ciphertext placing decode('ff','hex') from 1 for 1)" +
+      " SET ciphertext=set_byte(ciphertext,0,(get_byte(ciphertext,0) # 1))" +
       " WHERE job_id=$1", [job.jobId],
     );
     await expect(snapshots.load(job.jobId, tenant))

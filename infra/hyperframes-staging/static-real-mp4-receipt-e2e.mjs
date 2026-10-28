@@ -3,7 +3,7 @@
  * independent Chrome image. The browser process never receives keys or DB.
  * The preflight scheduler claims DB lease and signs a browser admission BEFORE rendering.
  */
-import {createHash,createPublicKey,generateKeyPairSync,randomUUID,verify as edVerify} from "node:crypto";
+import {createHash,createPublicKey,generateKeyPairSync,randomBytes,randomUUID,verify as edVerify} from "node:crypto";
 import {readFile,lstat,writeFile} from "node:fs/promises";
 import {execFile} from "node:child_process";
 import {promisify} from "node:util";
@@ -11,6 +11,7 @@ import {resolve,join} from "node:path";
 import assert from "node:assert/strict";
 import pg from "pg";
 import {HyperframesStagingPgQueue} from "../../apps/api/src/services/hyperframes-staging-pg-queue.ts";
+import {HyperframesStagingPgArtifacts} from "../../apps/api/src/services/hyperframes-staging-pg-artifacts.ts";
 import {signSyntheticLeaseOrder,acceptSyntheticLeaseOrder} from "./static-handoff-lease-v2.mjs";
 import {createSyntheticLeasePgClaim} from "./static-handoff-pg-lease.mjs";
 import {signSyntheticMp4LeaseReceipt,verifySyntheticMp4LeaseReceipt} from "./static-lease-mp4-receipt-v2.mjs";
@@ -204,15 +205,113 @@ try {
  assert.equal(receiptLedger.rows[0].output_sha256.trim(),outputSha256);
  assert.equal(receiptLedger.rows[0].output_bytes,video.length);
  assert.equal((await queue.get(lease.jobId,tenant)).status,"running");
- // Lease loss after rendering invalidates even a perfectly signed receipt.
- const failed=await queue.fail(lease.jobId,tenant,workerId,lease.lease.fence);
- assert.equal(failed?.status,"queued");
- const staleJob=await queue.get(lease.jobId,tenant);
+ // Reuse the EXISTING staging AES-256-GCM vault. Its encrypted ciphertext
+ // INSERT and terminal job update already occur in ONE PG transaction. A
+ // database AFTER INSERT trigger on this synthetic tenant requires the
+ // signed attestation, validates the live fence/digest/bytes, and inserts the
+ // finalization proof within that same transaction (or all roll back).
+ const keyBytes=randomBytes(32);
+ const vault=new HyperframesStagingPgArtifacts(pool,{
+  key:keyBytes,retentionMs:300000,maxTotalBytes:50000000
+ });
+ try{
+  // No receipt: the encrypted artifact and terminal transition MUST both roll back.
+  const withoutReceipt=await queue.enqueue({
+   organizationId:tenant,projectId:randomUUID(),
+   requestSha256:digest("synthetic-no-receipt-"+randomUUID()),
+   idempotencyKey:"synthetic-no-receipt-"+randomUUID()
+  },tenant);
+  const withoutLease=await queue.claim(withoutReceipt.jobId,tenant,workerId,60000);
+  assert.equal(withoutLease?.status,"running");
+  await assert.rejects(vault.finishWithVideo({
+   jobId:withoutReceipt.jobId,authorizedOrganizationId:tenant,
+   workerId,fence:withoutLease.lease.fence,video
+  }),/HF_SYNTHETIC_ENCRYPTED_FINALIZATION_MISSING_RECEIPT/);
+  assert.equal((await queue.get(withoutReceipt.jobId,tenant)).status,"running");
+  assert.equal((await pool.query(
+   "SELECT count(*)::int AS n FROM modo_hyperframes_staging.render_artifacts WHERE job_id=$1::uuid",
+   [withoutReceipt.jobId])).rows[0].n,0);
+  await queue.fail(withoutReceipt.jobId,tenant,workerId,withoutLease.lease.fence);
+  const invalid=Buffer.from(video);
+  invalid[invalid.length-1]^=1; // keeps ftyp but changes SHA-256
+  await assert.rejects(vault.finishWithVideo({
+   jobId:lease.jobId,authorizedOrganizationId:tenant,
+   workerId,fence:lease.lease.fence,video:invalid
+  }),/HF_SYNTHETIC_ENCRYPTED_FINALIZATION_MISSING_RECEIPT/);
+  assert.equal((await queue.get(lease.jobId,tenant)).status,"running");
+  assert.equal((await pool.query(
+   "SELECT count(*)::int AS n FROM modo_hyperframes_staging.render_artifacts WHERE job_id=$1::uuid",
+   [lease.jobId])).rows[0].n,0);
+  assert.equal((await pool.query(
+   "SELECT count(*)::int AS n FROM modo_hyperframes_staging.synthetic_encrypted_finalizations WHERE job_id=$1::uuid",
+   [lease.jobId])).rows[0].n,0);
+  // A forged caller cannot overwrite the existing lease or tenant.
+  assert.equal(await vault.finishWithVideo({
+   jobId:lease.jobId,authorizedOrganizationId:tenant,
+   workerId,fence:randomUUID(),video
+  }),null);
+  assert.equal(await vault.finishWithVideo({
+   jobId:lease.jobId,authorizedOrganizationId:"synthetic-other-tenant",
+   workerId,fence:lease.lease.fence,video
+  }),null);
+  const finished=await vault.finishWithVideo({
+   jobId:lease.jobId,authorizedOrganizationId:tenant,
+   workerId,fence:lease.lease.fence,video
+  });
+  assert.equal(finished?.status,"succeeded");
+  assert.equal(finished?.previewOnly,true);
+  assert.equal(finished?.published,false);
+  assert.equal(finished?.artifact?.sha256,outputSha256);
+  assert.equal(finished?.artifact?.bytes,video.length);
+  const artifact=await pool.query(
+   "SELECT storage_key,ciphertext,iv,auth_tag,sha256,byte_length "+
+   "FROM modo_hyperframes_staging.render_artifacts WHERE job_id=$1::uuid",
+   [lease.jobId]
+  );
+  assert.equal(artifact.rowCount,1);
+  assert.equal(artifact.rows[0].sha256.trim(),outputSha256);
+  assert.equal(artifact.rows[0].byte_length,video.length);
+  assert.equal(artifact.rows[0].ciphertext.equals(video),false);
+  assert.equal(artifact.rows[0].iv.length,12);
+  assert.equal(artifact.rows[0].auth_tag.length,16);
+  const finalization=await pool.query(
+   "SELECT receipt_sha256,output_sha256,output_bytes,storage_key,lease_fence "+
+   "FROM modo_hyperframes_staging.synthetic_encrypted_finalizations "+
+   "WHERE job_id=$1::uuid",
+   [lease.jobId]
+  );
+  assert.equal(finalization.rowCount,1);
+  assert.equal(finalization.rows[0].receipt_sha256.trim(),valid.receiptSha256);
+  assert.equal(finalization.rows[0].output_sha256.trim(),outputSha256);
+  assert.equal(finalization.rows[0].output_bytes,video.length);
+  assert.equal(finalization.rows[0].storage_key,artifact.rows[0].storage_key);
+  assert.equal(finalization.rows[0].lease_fence,lease.lease.fence);
+  const restarted=new HyperframesStagingPgArtifacts(pool,{key:keyBytes});
+  try{
+   const recovered=await restarted.read(lease.jobId,tenant);
+   assert.deepEqual(recovered,video);
+   recovered?.fill(0);
+   assert.equal(await restarted.read(lease.jobId,"synthetic-other-tenant"),null);
+   const duplicate=await restarted.finishWithVideo({
+    jobId:lease.jobId,authorizedOrganizationId:tenant,
+    workerId,fence:lease.lease.fence,video
+   });
+   assert.equal(duplicate,null);
+  }finally{restarted.close();}
+  const invalidKey=new HyperframesStagingPgArtifacts(pool,{key:randomBytes(32)});
+  try{
+   await assert.rejects(invalidKey.read(lease.jobId,tenant),/INTEGRITY_FAILED/);
+  }finally{invalidKey.close();}
+ }finally{vault.close();keyBytes.fill(0);}
+ // Terminal job cannot be failed/reclaimed or used to authorize a new receipt.
+ assert.equal(await queue.fail(lease.jobId,tenant,workerId,lease.lease.fence),null);
+ const terminalJob=await queue.get(lease.jobId,tenant);
+ assert.equal(terminalJob?.status,"succeeded");
  await assert.rejects(commitVerifiedSyntheticMp4Receipt({
-  pool,...verifyOptions,currentJob:staleJob
+  pool,...verifyOptions,currentJob:terminalJob
  }),/HF_SYNTHETIC_MP4_RECEIPT_DENIED/);
  assert.throws(()=>verifySyntheticMp4LeaseReceipt({
-  ...verifyOptions,currentJob:staleJob
+  ...verifyOptions,currentJob:terminalJob
  }),/HF_SYNTHETIC_MP4_RECEIPT_DENIED/);
  const q=await pool.query(
   "SELECT count(*)::int AS total FROM modo_hyperframes_staging.synthetic_lease_handoffs WHERE job_id=$1::uuid",
@@ -224,7 +323,7 @@ try {
   frames:observed.frames,codec:observed.codec,
   outputBytes:observed.outputBytes,mp4Sha256:outputSha256,
   signedReceiptSha256:valid.receiptSha256,
-  verifiedLeaseFence:true,authorizedBeforeRender:true,receiptLedgerAtomic:true,rejectedTamper:true,rejectedStaleFence:true,
+  verifiedLeaseFence:true,authorizedBeforeRender:true,receiptLedgerAtomic:true,encryptedVideoAtomic:true,verifiedAfterRestart:true,rejectedTamper:true,rejectedStaleFence:true,
   noPublication:true,noSecretsInRenderer:true
  })+"\n");
 }finally{

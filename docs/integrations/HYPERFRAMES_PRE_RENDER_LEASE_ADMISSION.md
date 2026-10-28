@@ -17,6 +17,16 @@ A migração adicional `007_synthetic_receipt_attestations.sql` cria tabela desc
 
 No E2E há casos positivos, duplicidade, adulteração de hash, revogação de chave, tentativa de UPDATE sem permissão e recusa após perda de lease. **Importante:** a transação confirma apenas a autenticidade/atestado do recibo, não a permanência do arquivo MP4. O job continua `running` durante o teste e é explicitamente invalidado depois; `succeeded` exige armazenamento de mídia criptografada e commit com fencing próprio, fora deste escopo.
 
+## Armazenamento criptografado e commit final do laboratório (008)
+
+A migração `008_synthetic_encrypted_finalization.sql` não muda a implementação da classe existente `HyperframesStagingPgArtifacts`. Ela acrescenta um gatilho exclusivamente para o tenant de laboratório `synthetic-tenant-mp4-receipt` sobre a tabela `render_artifacts` do banco descartável. O gatilho é executado **na mesma transação** que a classe já utiliza para inserir o MP4 cifrado com AES-256-GCM e atualizar o job para `succeeded`.
+
+Para esse tenant, o gatilho exige recibo previamente confirmado na tabela 007, despacho e fence ativos, identidade tenant/job/worker/versão/tentativa/digest compatível, status `running`, `previewOnly=true`, `published=false`, prazo do lease válido pelo relógio do PostgreSQL, e hash/tamanho do vídeo iguais aos do recibo. Na mesma transação insere em `synthetic_encrypted_finalizations` o vínculo `receipt_sha256 → job_id → lease_fence → storage_key → output_sha256`. Se faltar recibo ou houver divergência, a transação inteira sofre rollback: nenhum ciphertext e nenhuma alteração terminal. A função do gatilho tem `SECURITY DEFINER` com proprietário NOLOGIN de permissões limitadas.
+
+O teste E2E usa os **bytes reais do MP4**; prova falha/rollback com MP4 adulterado (mesmo `ftyp`), não existência de ciphertext após falha, confirmação cifrada sob fence correto, mudança atômica para `succeeded` sem publicar, integridade AES-GCM, leitura após reiniciar o adaptador e recusa de chave errada, outro tenant, fence velho e confirmação duplicada. A chave de 32 bytes é criada só em memória no runner descartável e invalidada ao final. A rotina já prevê retenção curta (5 minutos na fixture) e pode executar `forget`/expiração.
+
+**Escopo estrito:** apenas prova sintética em PostgreSQL efêmero. O gatilho não autentica sozinho serviços externos, não resolve replay da autorização do navegador durante o prazo, não constitui objeto de mídia/CDN comercial e não certifica equivalência visual com Remotion. O arquivo é descartado após o workflow, sem URL pública.
+
 ## Isolamento e limites
 
 - Nenhum segredo, credencial PostgreSQL, chave de assinatura privada ou backend MODO é montado no container. A imagem inclui exclusivamente um verificador CommonJS de **chave pública** adicional.

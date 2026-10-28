@@ -58,6 +58,8 @@ jobs:
           set -euo pipefail
           npm install --include=dev --no-audit --no-fund
           npm run build --workspace=@modo/api
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends ffmpeg
           command -v ffprobe
           docker build -f infra/hyperframes-staging/static-renderer.Dockerfile -t modo-hf-static-receipt:ci .
 

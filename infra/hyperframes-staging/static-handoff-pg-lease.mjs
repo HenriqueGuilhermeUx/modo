@@ -1,7 +1,6 @@
 /**
- * Synthetic-only Ed25519 v2 lease-bound claim: Node trusted scheduler only.
- * The actual browser has no pool, credentials, socket, publisher or routes.
- * A SQL row lock serializes the claim against queue lease transitions.
+ * Synthetic-only lease-bound dispatch. Trusted Node scheduler only, NEVER
+ * bundled in Chrome. DB SECURITY DEFINER function owns the row lock.
  */
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
  SYN=/^synthetic-[a-z0-9-]{8,70}$/,HEX=/^[0-9a-f]{64}$/;
@@ -13,11 +12,6 @@ function gate(){
 }
 const FIELDS=["organizationId","projectId","jobId","workerId",
  "leaseFence","leaseVersion","attempts","requestSha256","keyId"];
-/**
- * expected is a snapshot received from an authenticated scheduler that
- * independently authorized and claimed a real staging queue lease.
- * This adapter is not itself service authentication.
- */
 export function createSyntheticLeasePgClaim(pool,expected){
  gate();
  if(!pool||typeof pool.connect!=="function"||!expected||
@@ -38,36 +32,17 @@ export function createSyntheticLeasePgClaim(pool,expected){
    client=await pool.connect();
    const db=await client.query("SELECT current_database() AS name");
    if(db.rows[0]?.name!=="modo_hyperframes_staging")deny();
-   // Lock the current lease's row until the statement commits. A competing
-   // claim/heartbeat/fail/finish must observe serialization.
-   const statement=
-    "WITH clock AS MATERIALIZED "+
-    "(SELECT floor(extract(epoch FROM clock_timestamp())*1000)::bigint AS ms), "+
-    "eligible AS MATERIALIZED ("+
-    " SELECT j.job_id,j.organization_id FROM modo_hyperframes_staging.render_jobs j "+
-    " CROSS JOIN clock "+
-    " WHERE j.job_id=$2::uuid AND j.organization_id=$3 "+
-    " AND j.project_id=$4::text AND j.request_sha256=$5 "+
-    " AND j.status='running' AND j.version=$6 AND j.attempts=$7 "+
-    " AND j.document->>'previewOnly'='true' "+
-    " AND j.document->>'published'='false' "+
-    " AND j.document->'lease'->>'workerId'=$8 "+
-    " AND j.document->'lease'->>'fence'=$9 "+
-    " AND j.lease_expires_ms>clock.ms "+
-    " FOR SHARE OF j) "+
-    "INSERT INTO modo_hyperframes_staging.synthetic_lease_handoffs "+
-    "(nonce,job_id,organization_id,worker_id,lease_fence,lease_version,"+
-    "attempts,request_sha256,signed_order_sha256,claimed_ms,expires_ms) "+
-    "SELECT $1::uuid,eligible.job_id,eligible.organization_id,$8,$9::uuid,"+
-    "$6,$7,$5,$10,clock.ms,$11::bigint FROM eligible CROSS JOIN clock "+
-    "WHERE $11::bigint>clock.ms AND $11::bigint<=clock.ms+60000 "+
-    "ON CONFLICT DO NOTHING RETURNING 1 AS accepted";
-   const result=await client.query(statement,[
-    payload.nonce,trusted.jobId,trusted.organizationId,trusted.projectId,
-    trusted.requestSha256,trusted.leaseVersion,trusted.attempts,
-    trusted.workerId,trusted.leaseFence,signedOrderSha256,payload.expiresAtMs
-   ]);
-   return result.rowCount===1;
+   // SQL function with hardened SECURITY DEFINER is narrowly granted to the
+   // dispatcher. Its own NOLOGIN owner holds the row-lock privilege.
+   const result=await client.query(
+    "SELECT modo_hyperframes_staging.consume_synthetic_lease("+
+    "$1::uuid,$2::uuid,$3::text,$4::text,$5::text,$6::uuid,"+
+    "$7::integer,$8::smallint,$9::text,$10::text,$11::bigint) AS claimed",
+    [payload.nonce,trusted.jobId,trusted.organizationId,trusted.projectId,
+     trusted.workerId,trusted.leaseFence,trusted.leaseVersion,
+     trusted.attempts,trusted.requestSha256,signedOrderSha256,payload.expiresAtMs]
+   );
+   return result.rowCount===1&&result.rows[0].claimed===true;
   }catch(e){
    if(e?.message==="HF_SYNTHETIC_LEASE_DB_DENIED")throw e;
    throw Error("HF_SYNTHETIC_LEASE_DB_UNAVAILABLE");

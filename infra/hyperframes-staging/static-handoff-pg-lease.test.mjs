@@ -139,6 +139,8 @@ test("separate NOLOGIN dispatcher has INSERT only; existing worker cannot dispat
  const r=await pool.query(
   "SELECT rolcanlogin,rolsuper,"+
   "has_table_privilege('hf_staging_nonce_dispatcher',$1,'INSERT') AS dispatcher_insert,"+
+  "has_function_privilege('hf_staging_nonce_dispatcher',"+
+  "'modo_hyperframes_staging.consume_synthetic_lease(uuid,uuid,text,text,text,uuid,integer,smallint,text,text,bigint)','EXECUTE') AS dispatcher_execute,"+
   "has_table_privilege('hf_staging_nonce_dispatcher',$2,'UPDATE') AS queue_update,"+
   "has_table_privilege('hf_staging_worker',$1,'INSERT') AS worker_insert,"+
   "has_table_privilege('hf_staging_nonce_dispatcher',$1,'DELETE') AS dispatcher_delete "+
@@ -146,7 +148,7 @@ test("separate NOLOGIN dispatcher has INSERT only; existing worker cannot dispat
   ["modo_hyperframes_staging.synthetic_lease_handoffs",
    "modo_hyperframes_staging.render_jobs"]);
  assert.deepEqual(r.rows,[{rolcanlogin:false,rolsuper:false,
- dispatcher_insert:true,queue_update:false,worker_insert:false,dispatcher_delete:false}]);
+ dispatcher_insert:false,dispatcher_execute:true,queue_update:false,worker_insert:false,dispatcher_delete:false}]);
 });
 
 test("the separate NOLOGIN dispatcher can claim through delegated role but cannot modify the queue",async()=>{

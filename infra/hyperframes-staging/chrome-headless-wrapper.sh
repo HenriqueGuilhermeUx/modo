@@ -7,7 +7,7 @@
 # container settings. Disable only Chrome's nested sandbox; do not loosen
 # the outer container isolation. DO NOT use with customer HTML/media until
 # the production sandbox, RLS, key custody and security review are complete.
-exec /usr/bin/chromium-headless-shell \
+exec /usr/local/bin/hf-pinned-browser \
   --no-sandbox \
   --disable-setuid-sandbox \
   --disable-dev-shm-usage \

@@ -83,7 +83,7 @@ async function stagingDatabaseConfig(): Promise<pg.PoolConfig> {
     const info = await handle.stat();
     if (!info.isFile() || info.size < 16 || info.size > 512 ||
         (info.mode & 0o077) !== 0 ||
-        info.uid !== process.getuid()) {
+        info.uid !== process.getuid?.()) {
       throw new Error("HYPERFRAMES_ONE_SHOT_UNSAFE_DB_PASSWORD_FILE");
     }
     password = (await handle.readFile({ encoding: "utf8" })).replace(/\r?\n$/, "");

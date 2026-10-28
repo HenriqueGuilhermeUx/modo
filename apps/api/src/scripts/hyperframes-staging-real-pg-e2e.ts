@@ -190,7 +190,6 @@ async function run() {
       previewOnly: true, published: false,
     }) + "\n");
   } finally {
-    ciStage = "cleanup";
     await pool.query(
       "DELETE FROM modo_hyperframes_staging.render_jobs WHERE organization_id=$1",
       [ORG],

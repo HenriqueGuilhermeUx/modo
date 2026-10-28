@@ -95,9 +95,11 @@ jobs:
                 password:process.env.HF_TEMP_PG_PASSWORD,max:1});
               (async()=>{
                 const ok=await pool.query(
-                  "SELECT current_database() AS db, has_table_privilege(current_user, "+
-                  "'modo_hyperframes_staging.render_jobs','SELECT') AS can_read, "+
-                  "has_schema_privilege(current_user,'modo_hyperframes_staging','CREATE') AS can_ddl");
+                  "SELECT current_database() AS db, "+
+                  "has_table_privilege(current_user,$1,$2) AS can_read, "+
+                  "has_schema_privilege(current_user,$3,$4) AS can_ddl",
+                  ["modo_hyperframes_staging.render_jobs","SELECT",
+                   "modo_hyperframes_staging","CREATE"]);
                 if(ok.rows[0].db!=="modo_hyperframes_staging"||
                     ok.rows[0].can_read!==true||ok.rows[0].can_ddl!==false) process.exitCode=4;
                 else console.log("socket-only-role-no-schema-creation: PASS");

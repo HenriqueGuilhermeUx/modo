@@ -1,0 +1,77 @@
+name: HyperFrames bounded offline worker container smoke
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/hyperframes-container-isolation.yml'
+      - 'infra/hyperframes-staging/worker.Dockerfile'
+      - 'infra/hyperframes-staging/worker.Dockerfile.dockerignore'
+      - 'infra/hyperframes-staging/fixtures/**'
+      - 'apps/api/src/scripts/hyperframes-staging-one-shot.ts'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  offline-nonroot-container:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build isolated worker, no runtime secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker build --file infra/hyperframes-staging/worker.Dockerfile \
+            --tag modo-hf-staging:ci .
+
+      - name: Assert worker container runs offline with dropped privileges
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm \
+            --network none --read-only \
+            --cap-drop ALL --security-opt no-new-privileges \
+            --pids-limit=128 --memory=2g --cpus=2 \
+            --shm-size=256m \
+            --tmpfs /tmp:rw,nosuid,size=512m,mode=1777 \
+            --tmpfs /home/hfworker:rw,nosuid,size=64m,mode=0700,uid=10001,gid=10001 \
+            --entrypoint /usr/bin/node \
+            modo-hf-staging:ci \
+            -e 'const fs=require("node:fs");const os=require("node:os");const net=require("node:net");if(process.getuid()!==10001)process.exit(2);if(!fs.readFileSync("/proc/self/status","utf8").includes("CapEff:\t0000000000000000"))process.exit(3);if(!fs.statSync("/tmp").isDirectory())process.exit(4);const c=net.connect({host:"1.1.1.1",port:443,timeout:1500});c.on("connect",()=>process.exit(5));c.on("error",(e)=>{if(!["ENETUNREACH","EHOSTUNREACH","EACCES"].includes(e.code))process.exit(6);console.log("nonroot-no-network-no-linux-caps");});c.on("timeout",()=>process.exit(7));'
+
+      - name: Actually render synthetic MP4 offline under strict limits
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout --signal=TERM --kill-after=15s 360s \
+            docker run --rm \
+              --network none --read-only \
+              --cap-drop ALL --security-opt no-new-privileges \
+              --pids-limit=128 --memory=2g --cpus=2 \
+              --shm-size=256m \
+              --tmpfs /tmp:rw,nosuid,size=512m,mode=1777 \
+              --tmpfs /home/hfworker:rw,nosuid,size=64m,mode=0700,uid=10001,gid=10001 \
+              --mount type=bind,source="${PWD}/infra/hyperframes-staging/fixtures/synthetic-2sec",target=/fixtures,readonly \
+              --entrypoint /bin/sh \
+              modo-hf-staging:ci -ec '
+                set -eu
+                mkdir -m 700 /tmp/hf
+                cp /fixtures/index.html /tmp/hf/index.html
+                cd /tmp/hf
+                /opt/hyperframes/node_modules/.bin/hyperframes lint
+                /opt/hyperframes/node_modules/.bin/hyperframes check
+                /opt/hyperframes/node_modules/.bin/hyperframes render --fps 30 --quality draft --output synthetic.mp4
+                ffprobe -v error -show_entries stream=codec_type,codec_name,width,height,r_frame_rate:format=duration -of json synthetic.mp4 >result.json
+                node -e "
+                  const fs=require("node:fs");
+                  const x=JSON.parse(fs.readFileSync("result.json","utf8"));
+                  const stream=x.streams?.[0],duration=Number(x.format?.duration);
+                  if(x.streams?.length!==1||stream.codec_type!=="video"||stream.codec_name!=="h264"||
+                      stream.width!==1080||stream.height!==1920||stream.r_frame_rate!=="30/1"||
+                      !Number.isFinite(duration)||Math.abs(duration-2)>0.16||
+                      fs.statSync("synthetic.mp4").size<4000) process.exit(8);
+                  console.log("offline bounded container MP4 validated");
+                "
+              '

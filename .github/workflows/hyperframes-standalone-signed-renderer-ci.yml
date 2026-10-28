@@ -75,6 +75,30 @@ jobs:
           docker network create --driver bridge --internal hf-standalone-only
           test "$(docker network inspect -f '{{.Internal}}' hf-standalone-only)" = true
 
+      - name: Prove network has loopback but cannot reach public IP
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 12s docker run --rm --network hf-standalone-only --read-only \
+            --cap-drop ALL --security-opt no-new-privileges \
+            --pids-limit=128 --memory=4g --cpus=2 \
+            --entrypoint /usr/local/bin/node modo-static-standalone:ci \
+            -e '
+              const net=require("node:net");
+              const local=net.createServer(()=>{}).listen(0,"127.0.0.1",()=>{
+                const c=net.connect(local.address().port,"127.0.0.1");
+                c.once("connect",()=>{console.log("loopback-ok");c.destroy();local.close();});
+                c.once("error",()=>process.exit(41));
+              });
+              const external=net.connect({host:"1.1.1.1",port:443,timeout:1500});
+              external.once("connect",()=>process.exit(42));
+              external.once("error",e=>{
+                if(!["ENETUNREACH","EHOSTUNREACH","EACCES","ETIMEDOUT"].includes(e.code)) process.exit(43);
+                console.log("external-egress-denied");
+              });
+              external.once("timeout",()=>{external.destroy();console.log("external-egress-timeout-denied");});
+            '
+
       - name: Reject tampered and expired Ed25519 signed requests
         shell: bash
         run: |

@@ -7,9 +7,7 @@ const path = window.location.pathname.replace(/\/$/, "") || "/";
 const route = path === "/" ? "/us" : path;
 const components: Record<string, React.ReactElement> = {
   "/us": <UsLanding product="modo" />,
-  "/us/smartbots": <UsLanding product="smartbots" />,
   "/us/demo": <USWorkspace product="modo" />,
-  "/us/smartbots/demo": <USWorkspace product="smartbots" />,
 };
 const selected = Object.prototype.hasOwnProperty.call(components, route) ? components[route] : null;
 createRoot(document.getElementById("root")!).render(

@@ -41,13 +41,19 @@ jobs:
             modo-hf-staging:ci \
             -e 'const fs=require("node:fs");const os=require("node:os");const net=require("node:net");if(process.getuid()!==10001)process.exit(2);if(!fs.readFileSync("/proc/self/status","utf8").includes("CapEff:\t0000000000000000"))process.exit(3);if(!fs.statSync("/tmp").isDirectory())process.exit(4);const c=net.connect({host:"1.1.1.1",port:443,timeout:1500});c.on("connect",()=>process.exit(5));c.on("error",(e)=>{if(!["ENETUNREACH","EHOSTUNREACH","EACCES"].includes(e.code))process.exit(6);console.log("nonroot-no-network-no-linux-caps");});c.on("timeout",()=>process.exit(7));'
 
+      - name: Create isolated Docker bridge with loopback but no external routing
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker network create --driver bridge --internal hf-offline-ci
+
       - name: Actually render synthetic MP4 offline under strict limits
         shell: bash
         run: |
           set -euo pipefail
           timeout --signal=TERM --kill-after=15s 360s \
             docker run --rm \
-              --network none --read-only \
+              --network hf-offline-ci --read-only \
               --cap-drop ALL --security-opt no-new-privileges \
               --pids-limit=128 --memory=4g --cpus=2 \
               --shm-size=256m \
@@ -57,6 +63,26 @@ jobs:
               --entrypoint /bin/sh \
               modo-hf-staging:ci -ec '
                 set -eu
+                # Docker internal bridge has loopback for Chrome DevTools,
+                # but no external gateway; fail if internet is reachable.
+                node -e "
+                  const net=require(\\"node:net\\");
+                  const server=net.createServer(()=>{}).listen(0,\\"127.0.0.1\\",()=>{
+                    const port=server.address().port;
+                    const local=net.connect(port,\\"127.0.0.1\\");
+                    local.on(\\"connect\\",()=>{local.destroy();server.close();});
+                    local.on(\\"error\\",()=>process.exit(11));
+                  });
+                "
+                node -e "
+                  const net=require(\\"node:net\\");
+                  const c=net.connect({host:\\"1.1.1.1\\",port:443,timeout:1500});
+                  c.on(\\"connect\\",()=>process.exit(12));
+                  c.on(\\"error\\",(e)=>{
+                    if(![\\"ENETUNREACH\\",\\"EHOSTUNREACH\\",\\"EACCES\\",\\"ETIMEDOUT\\"].includes(e.code)) process.exit(13);
+                  });
+                  c.on(\\"timeout\\",()=>{c.destroy();process.exit(0);});
+                "
                 mkdir -m 700 /tmp/hf
                 cp /fixtures/index.html /tmp/hf/index.html
                 cd /tmp/hf
@@ -74,3 +100,8 @@ jobs:
                       fs.statSync(\"synthetic.mp4\").size<4000) process.exit(8);
                   console.log(\"offline bounded container MP4 validated\");
                 "              '
+
+      - name: Remove isolated Docker network
+        if: always()
+        shell: bash
+        run: docker network rm hf-offline-ci || true

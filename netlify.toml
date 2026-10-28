@@ -1,13 +1,8 @@
+# MODO USA dedicated deployment branch. Brazilian main remains unchanged.
 [build]
   base = "."
-  command = "npm run build --workspace=@modo/contracts && npm run build --workspace=@modo/api && npm run build --workspace=@modo/web"
-  publish = "apps/web/dist"
+  command = "npm install && npm run build --workspace=@modo/contracts && node scripts/build-usa-netlify.mjs"
+  publish = "apps/web/dist-usa"
 
 [build.environment]
   NODE_VERSION = "22"
-  VITE_API_URL = "https://modo-api-3m10.onrender.com"
-
-[[redirects]]
-  from = "/*"
-  to = "/index.html"
-  status = 200

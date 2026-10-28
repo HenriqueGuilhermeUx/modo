@@ -1,0 +1,34 @@
+name: USA desktop regression
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'apps/web/src/Root.tsx'
+      - 'apps/web/src/UsLanding.tsx'
+      - 'apps/web/src/UsLanding.css'
+      - 'apps/web/src/USWorkspace.tsx'
+      - 'apps/web/src/USWorkspace.css'
+      - 'scripts/usa-desktop-regression.mjs'
+      - '.github/workflows/usa-desktop-regression.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install workspace dependencies
+        run: npm install --include=dev
+      - name: Install browser runner
+        run: npm install --no-save --no-package-lock --ignore-scripts playwright@1.57.0
+      - name: Build production web assets
+        run: npm run build --workspace=@modo/web
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Verify desktop and Brazil isolation
+        run: node scripts/usa-desktop-regression.mjs

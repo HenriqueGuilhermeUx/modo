@@ -1,0 +1,32 @@
+name: SmartBots USA separate Netlify build
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'apps/web/smartbots-usa.html'
+      - 'apps/web/src/SmartBotsUSLanding.tsx'
+      - 'apps/web/src/smartbots-usa-main.tsx'
+      - 'apps/web/src/USWorkspace.tsx'
+      - 'apps/web/vite.smartbots-usa.config.ts'
+      - 'scripts/build-smartbots-usa-netlify.mjs'
+      - '.github/workflows/smartbots-usa-build.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install --include=dev
+      - run: npm run build --workspace=@modo/contracts
+      - run: node scripts/build-smartbots-usa-netlify.mjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: smartbots-usa-netlify
+          path: apps/web/dist-smartbots-usa
+          if-no-files-found: error

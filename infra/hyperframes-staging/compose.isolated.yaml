@@ -62,10 +62,10 @@ services:
       - no-new-privileges:true
     pids_limit: 128
     cpus: "2"
-    mem_limit: 2g
+    mem_limit: 4g
     shm_size: 256m
     tmpfs:
-      - /tmp:rw,nosuid,size=512m,mode=1777
+      - /tmp:rw,nosuid,size=2g,mode=1777
       - /home/hfworker:rw,nosuid,size=64m,mode=0700,uid=10001,gid=10001
     volumes:
       - hf_pg_socket:/var/run/postgresql:ro

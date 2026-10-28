@@ -65,13 +65,12 @@ jobs:
                 /opt/hyperframes/node_modules/.bin/hyperframes render --fps 30 --quality draft --output synthetic.mp4
                 ffprobe -v error -show_entries stream=codec_type,codec_name,width,height,r_frame_rate:format=duration -of json synthetic.mp4 >result.json
                 node -e "
-                  const fs=require("node:fs");
-                  const x=JSON.parse(fs.readFileSync("result.json","utf8"));
+                  const fs=require(\"node:fs\");
+                  const x=JSON.parse(fs.readFileSync(\"result.json\",\"utf8\"));
                   const stream=x.streams?.[0],duration=Number(x.format?.duration);
-                  if(x.streams?.length!==1||stream.codec_type!=="video"||stream.codec_name!=="h264"||
-                      stream.width!==1080||stream.height!==1920||stream.r_frame_rate!=="30/1"||
+                  if(x.streams?.length!==1||stream.codec_type!==\"video\"||stream.codec_name!==\"h264\"||
+                      stream.width!==1080||stream.height!==1920||stream.r_frame_rate!==\"30/1\"||
                       !Number.isFinite(duration)||Math.abs(duration-2)>0.16||
-                      fs.statSync("synthetic.mp4").size<4000) process.exit(8);
-                  console.log("offline bounded container MP4 validated");
-                "
-              '
+                      fs.statSync(\"synthetic.mp4\").size<4000) process.exit(8);
+                  console.log(\"offline bounded container MP4 validated\");
+                "              '

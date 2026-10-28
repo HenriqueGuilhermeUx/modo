@@ -7,6 +7,7 @@ import { HyperframesStagingPgSnapshots } from "./hyperframes-staging-pg-snapshot
 import { HyperframesStagingPgArtifacts } from "./hyperframes-staging-pg-artifacts.js";
 import { processStagingHyperframesPgJob } from "./hyperframes-staging-pg-render-runner.js";
 import { resumeStagingHyperframesPgJob } from "./hyperframes-staging-pg-recovery.js";
+import { signStagingWorkOrder, runSignedStagingWorkOrder } from "./hyperframes-staging-pg-work-order.js";
 
 const dbUrl = process.env.MODO_HYPERFRAMES_PG_TEST_DATABASE_URL;
 const original = {
@@ -191,6 +192,52 @@ describe.skipIf(!dbUrl)("staging encrypted immutable source snapshots", () => {
     } finally {
       restoredSource.close();
       restoredOutput.close();
+    }
+  });
+
+  it("dispatches one authenticated signed work order using its saved tenant and digest", async () => {
+    const job = await make();
+    const signingKey = randomBytes(32);
+    try {
+      const signed = signStagingWorkOrder({
+        jobId: job.jobId, organizationId: tenant,
+        workerId: "signed-snapshot-worker",
+        requestSha256: job.requestSha256,
+      }, signingKey, Date.now());
+      const outcome = await runSignedStagingWorkOrder({
+        signed, signingKey, localWorkerId: "signed-snapshot-worker",
+        now: Date.now(), queue, snapshots, artifacts, tools,
+        render: rendered,
+      });
+      expect(outcome.kind).toBe("completed");
+      expect(await artifacts.read(job.jobId, tenant)).toEqual(video());
+      const duplicate = await runSignedStagingWorkOrder({
+        signed, signingKey, localWorkerId: "signed-snapshot-worker",
+        now: Date.now(), queue, snapshots, artifacts, tools, render: rendered,
+      });
+      expect(duplicate.kind).toBe("unclaimed");
+      expect((await queue.get(job.jobId, tenant))?.attempts).toBe(1);
+    } finally {
+      signingKey.fill(0);
+    }
+  });
+
+  it("rejects a signed work order with a mismatched immutable request hash", async () => {
+    const job = await make();
+    const signingKey = randomBytes(32);
+    try {
+      const signed = signStagingWorkOrder({
+        jobId: job.jobId, organizationId: tenant,
+        workerId: "signed-snapshot-worker",
+        requestSha256: "f".repeat(64),
+      }, signingKey, Date.now());
+      await expect(runSignedStagingWorkOrder({
+        signed, signingKey, localWorkerId: "signed-snapshot-worker",
+        now: Date.now(), queue, snapshots, artifacts, tools, render: rendered,
+      })).rejects.toThrow(/JOB_MISMATCH/);
+      expect((await queue.get(job.jobId, tenant))?.attempts).toBe(0);
+    } finally {
+      signingKey.fill(0);
     }
   });
 

@@ -55,6 +55,53 @@ function stagingDatabaseUrl(): string {
   return raw;
 }
 
+/**
+ * For a container with --network none, PostgreSQL is accessible ONLY via a
+ * shared Unix-domain socket. No TCP listener, DNS or external egress needed.
+ * The socket is allowlisted, and the worker DB password is stored in a
+ * privately mounted regular file with no symlinks.
+ *
+ * Existing URL mode is kept for disposable GitHub CI and isolated remote
+ * staging environments with verified TLS; both modes are mutually exclusive.
+ */
+async function stagingDatabaseConfig(): Promise<pg.PoolConfig> {
+  const socket = process.env.MODO_HYPERFRAMES_STAGE_DB_SOCKET;
+  if (!socket) {
+    return { connectionString: stagingDatabaseUrl() };
+  }
+  if (socket !== "/var/run/postgresql" ||
+      process.env.MODO_HYPERFRAMES_STAGE_DB_URL ||
+      process.env.MODO_HYPERFRAMES_STAGE_DB_USER !== "hf_staging_worker" ||
+      process.env.MODO_HYPERFRAMES_STAGE_DB_PASSWORD_FILE !==
+        "/run/hyperframes/db-password") {
+    throw new Error("HYPERFRAMES_ONE_SHOT_SOCKET_CONFIG_DENIED");
+  }
+  const handle = await open(
+    "/run/hyperframes/db-password", constants.O_RDONLY | constants.O_NOFOLLOW);
+  let password = "";
+  try {
+    const info = await handle.stat();
+    if (!info.isFile() || info.size < 16 || info.size > 512 ||
+        (info.mode & 0o077) !== 0 ||
+        info.uid !== process.getuid()) {
+      throw new Error("HYPERFRAMES_ONE_SHOT_UNSAFE_DB_PASSWORD_FILE");
+    }
+    password = (await handle.readFile({ encoding: "utf8" })).replace(/\\r?\\n$/, "");
+    if (password.length < 16 || password.length > 512 ||
+        /[\\r\\n\\0]/.test(password)) {
+      throw new Error("HYPERFRAMES_ONE_SHOT_INVALID_DB_PASSWORD");
+    }
+    return {
+      host: socket,
+      database: "modo_hyperframes_staging",
+      user: "hf_staging_worker",
+      password,
+    };
+  } finally {
+    await handle.close();
+  }
+}
+
 async function main() {
   if (process.env.NODE_ENV === "production" ||
       REQUIRED.some(name => process.env[name] !== "isolated-staging")) {
@@ -87,7 +134,7 @@ async function main() {
       !ffprobeExecutable || !isAbsolute(ffprobeExecutable)) {
     throw new Error("HYPERFRAMES_ONE_SHOT_UNPINNED_WORKER");
   }
-  const dbUrl = stagingDatabaseUrl();
+  const dbConfig = await stagingDatabaseConfig();
   let signingKey: Buffer | null = null;
   let contentKey: Buffer | null = null;
   let snapshots: HyperframesStagingPgSnapshots | null = null;
@@ -106,7 +153,7 @@ async function main() {
       throw new Error("HYPERFRAMES_ONE_SHOT_INVALID_ORDER_FILE");
     }
     pool = new pg.Pool({
-      connectionString: dbUrl,
+      ...dbConfig,
       max: 2,
       connectionTimeoutMillis: 5_000,
       idleTimeoutMillis: 1_000,

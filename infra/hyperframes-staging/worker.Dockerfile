@@ -11,7 +11,7 @@ FROM node:22-bookworm-slim AS runtime
 # allowed to fetch binaries or npm packages while executing video jobs.
 RUN apt-get update -qq \
     && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends \
-      ffmpeg chromium ca-certificates fontconfig fonts-dejavu-core \
+      ffmpeg chromium unzip ca-certificates fontconfig fonts-dejavu-core \
     && rm -rf /var/lib/apt/lists/* \
     && useradd --uid 10001 --create-home --shell /usr/sbin/nologin hfworker \
     && install -d -o 10001 -g 10001 -m 0700 /home/hfworker
@@ -32,9 +32,10 @@ RUN npm install --prefix /opt/hyperframes --no-audit --no-fund \
 # Browser is installed at IMAGE BUILD time; runtime has NO network access.
 # Fail the build if its browser revision changes unexpectedly.
 RUN set -eu; \
-    mkdir -p /opt/hf-browser; \
-    HOME=/opt/hf-browser HYPERFRAMES_NO_UPDATE_CHECK=1 \
-      /opt/hyperframes/node_modules/.bin/hyperframes browser --install; \
+    mkdir -p /opt/hf-browser/.cache/hyperframes/chrome; \
+    npx --yes @puppeteer/browsers@3.2.6 install \
+      chrome-headless-shell@152.0.7977.30 \
+      --path /opt/hf-browser/.cache/hyperframes/chrome; \
     BIN=/opt/hf-browser/.cache/hyperframes/chrome/chrome-headless-shell/linux-152.0.7977.30/chrome-headless-shell-linux64/chrome-headless-shell; \
     test -x "$BIN"; \
     "$BIN" --version | grep -F '152.0.7977.30'; \

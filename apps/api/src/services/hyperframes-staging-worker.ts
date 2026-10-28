@@ -45,16 +45,16 @@ export async function renderHyperframesStagingPreview(
       !isAbsolute(tools.ffprobeExecutable)) {
     throw new Error("HYPERFRAMES_WORKER_EXECUTABLES_NOT_PINNED");
   }
+  const browserPath = process.env.HYPERFRAMES_BROWSER_PATH;
+  if (browserPath && !isAbsolute(browserPath)) {
+    throw new Error("HYPERFRAMES_WORKER_BROWSER_NOT_PINNED");
+  }
   const preview = exportVideoProjectHyperframesPreview(project, brandName);
   const workdir = await mkdtemp(join(tmpdir(), "modo-hf-stage-"));
   const execute: Exec = tools.execute || ((command, args, options) =>
     execFileAsync(command, args, options).then(({ stdout, stderr }) =>
       ({ stdout: String(stdout), stderr: String(stderr) })));
   // Only pass nonsecret worker variables, never production keys/tokens.
-  const browserPath = process.env.HYPERFRAMES_BROWSER_PATH;
-  if (browserPath && !isAbsolute(browserPath)) {
-    throw new Error("HYPERFRAMES_WORKER_BROWSER_NOT_PINNED");
-  }
   const environment: NodeJS.ProcessEnv = {
     PATH: process.env.PATH || "/usr/bin:/bin",
     HOME: workdir,

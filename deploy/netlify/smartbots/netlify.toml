@@ -1,0 +1,7 @@
+[build]
+  base = "."
+  command = "npm install && npm run build --workspace=@modo/contracts && node scripts/build-smartbots-usa-netlify.mjs"
+  publish = "apps/web/dist-smartbots-usa"
+
+[build.environment]
+  NODE_VERSION = "22"

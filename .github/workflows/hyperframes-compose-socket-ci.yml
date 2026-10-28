@@ -1,0 +1,113 @@
+name: HyperFrames offline Compose PostgreSQL socket gate
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/hyperframes-compose-socket-ci.yml'
+      - 'infra/hyperframes-staging/compose.isolated.yaml'
+      - 'infra/hyperframes-staging/worker.Dockerfile'
+      - 'infra/hyperframes-staging/worker.Dockerfile.dockerignore'
+      - 'infra/hyperframes-staging/004_worker_role.sql'
+      - 'apps/api/src/scripts/hyperframes-staging-one-shot.ts'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  offline-private-db:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      HF_STAGE_WORKER_ID: ci-synthetic-worker
+      HF_STAGE_SIGNING_KEY_B64: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+      HF_STAGE_CONTENT_KEY_B64: AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE=
+    steps:
+      - uses: actions/checkout@v4
+      - name: Create ephemeral staging secrets and private files outside Git
+        shell: bash
+        run: |
+          set -euo pipefail
+          test ! -e infra/hyperframes-staging/private
+          install -d -m 0700 infra/hyperframes-staging/private
+          openssl rand -hex 32 > infra/hyperframes-staging/private/admin-password
+          openssl rand -hex 32 > infra/hyperframes-staging/private/db-password
+          printf '{"test":"private-placeholder-synthetic-only"}\n' > infra/hyperframes-staging/private/order.json
+          chmod 0600 infra/hyperframes-staging/private/*
+          sudo chown 999:999 infra/hyperframes-staging/private/admin-password
+          sudo chown 10001:10001 infra/hyperframes-staging/private/db-password
+          sudo chown 10001:10001 infra/hyperframes-staging/private/order.json
+
+      - name: Validate compose doesn't publish a network port
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker compose -f infra/hyperframes-staging/compose.isolated.yaml \
+            --profile local-db --profile manual config --quiet
+          test "$(grep -c 'network_mode: none' infra/hyperframes-staging/compose.isolated.yaml)" -eq 2
+          if grep -E '^[[:space:]]+ports:|network_mode:[[:space:]]*host|privileged:[[:space:]]*true' \
+             infra/hyperframes-staging/compose.isolated.yaml; then
+            echo "Unsafe container network or privilege setting"
+            exit 1
+          fi
+
+      - name: Build disposable isolated worker image
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker build --file infra/hyperframes-staging/worker.Dockerfile \
+            --tag modo-hf-staging:local .
+
+      - name: Boot isolated password-auth PostgreSQL with no network
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker compose -f infra/hyperframes-staging/compose.isolated.yaml \
+            --profile local-db up -d --wait pg-staging
+
+      - name: Grant isolated role a temporary CI password (never committed)
+        shell: bash
+        run: |
+          set -euo pipefail
+          # The db password is randomly generated above and used only here.
+          worker_password="$(sudo cat infra/hyperframes-staging/private/db-password)"
+          printf "ALTER ROLE hf_staging_worker LOGIN PASSWORD '%s';\n" "$worker_password" |
+            docker compose -f infra/hyperframes-staging/compose.isolated.yaml \
+              exec -T pg-staging sh -c \
+              'PGPASSWORD="$(cat /run/hyperframes/admin-password)" psql -v ON_ERROR_STOP=1 -U hf_staging_admin -d modo_hyperframes_staging -h /var/run/postgresql'
+
+      - name: Query role only through private Unix socket in networkless worker
+        shell: bash
+        run: |
+          set -euo pipefail
+          worker_password="$(sudo cat infra/hyperframes-staging/private/db-password)"
+          docker run --rm --network none --read-only \
+            --cap-drop ALL --security-opt no-new-privileges \
+            --pids-limit=128 --cpus=2 --memory=2g \
+            --tmpfs /tmp:rw,nosuid,size=64m,mode=1777 \
+            --mount type=volume,source=modo-hyperframes-staging_hf_pg_socket,target=/var/run/postgresql,readonly \
+            -e HF_TEMP_PG_PASSWORD="$worker_password" \
+            --entrypoint /usr/local/bin/node \
+            modo-hf-staging:local -e '
+              const pg=require("pg");
+              const pool=new pg.Pool({host:"/var/run/postgresql",
+                database:"modo_hyperframes_staging",user:"hf_staging_worker",
+                password:process.env.HF_TEMP_PG_PASSWORD,max:1});
+              (async()=>{
+                const ok=await pool.query(
+                  "SELECT current_database() AS db, has_table_privilege(current_user, "+
+                  "'modo_hyperframes_staging.render_jobs','SELECT') AS can_read, "+
+                  "has_schema_privilege(current_user,'modo_hyperframes_staging','CREATE') AS can_ddl");
+                if(ok.rows[0].db!=="modo_hyperframes_staging"||
+                    ok.rows[0].can_read!==true||ok.rows[0].can_ddl!==false) process.exitCode=4;
+                else console.log("socket-only-role-no-schema-creation: PASS");
+              })().catch(()=>{process.exitCode=5}).finally(()=>pool.end());
+            '
+
+      - name: Remove ephemeral database, ciphertext and private test secrets
+        if: always()
+        shell: bash
+        run: |
+          docker compose -f infra/hyperframes-staging/compose.isolated.yaml \
+            --profile local-db --profile manual down -v --remove-orphans || true
+          sudo rm -rf infra/hyperframes-staging/private

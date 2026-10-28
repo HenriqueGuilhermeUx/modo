@@ -5,6 +5,9 @@ FROM node:22-bookworm-slim
 RUN apt-get update -qq \
     && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends \
       ffmpeg ca-certificates unzip fontconfig fonts-dejavu-core \
+      libnspr4 libnss3 libatk1.0-0 libatk-bridge2.0-0 libcups2 \
+      libdbus-1-3 libxkbcommon0 libxcomposite1 libxdamage1 libxfixes3 \
+      libxrandr2 libgbm1 libasound2 libx11-6 libxext6 libxrender1 libglib2.0-0 \
     && rm -rf /var/lib/apt/lists/* \
     && useradd --uid 10001 --create-home --shell /usr/sbin/nologin renderonly \
     && install -d -o 10001 -g 10001 -m 0700 /home/renderonly

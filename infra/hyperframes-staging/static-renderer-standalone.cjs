@@ -12,6 +12,7 @@ const http = require("node:http");
 const os = require("node:os");
 const path = require("node:path");
 const { promisify } = require("node:util");
+const {verifySyntheticRendererAdmissionFiles} = require("/opt/static-renderer-admission.cjs");
 const puppeteer = require("/opt/static-browser/node_modules/puppeteer-core");
 const exec = promisify(cp.execFile);
 const BROWSER = "/usr/local/bin/hf-static-chrome";
@@ -68,6 +69,14 @@ function failClosedEnvironment() {
      process.env.MODO_HF_STATIC_RENDERER_MODE !== "synthetic-ci-only") {
     denial("DISABLED");
   }
+  // Export is permitted ONLY after a separate trusted scheduler has claimed
+  // the PostgreSQL staging lease and signed a public-key-only admission.
+  // Legacy synthetic test (without export) remains unchanged.
+  const exportEnabled=process.env.MODO_HF_STATIC_EXPORT_MODE==="synthetic-ci-artifact";
+  const admissionEnabled=process.env.MODO_HF_STATIC_ADMISSION_MODE==="synthetic-ci-only";
+  if(exportEnabled!==admissionEnabled ||
+     (process.env.MODO_HF_STATIC_ADMISSION_MODE!==undefined && !admissionEnabled))
+    denial("ADMISSION_REQUIRED");
   // Output is never enabled by default, only explicitly for disposable CI.
   if(process.env.MODO_HF_STATIC_EXPORT_MODE!==undefined &&
      process.env.MODO_HF_STATIC_EXPORT_MODE!=="synthetic-ci-artifact") denial("EXPORT_DISABLED");
@@ -111,7 +120,7 @@ async function verifyEnvelope() {
   try { payload=JSON.parse(bytes.toString("utf8")); }
   catch { denial("INVALID_SIGNED_JSON"); }
   if(Buffer.from(JSON.stringify(payload)).equals(bytes)===false) denial("NONCANONICAL_PAYLOAD");
-  return validatePayload(payload,Date.now());
+  return {payload:validatePayload(payload,Date.now()),orderBytes:file};
 }
 function escapeHtml(text) {
   return text.replace(/&/g,"&amp;").replace(/</g,"&lt;")
@@ -256,7 +265,14 @@ async function render(p) {
     await fsp.rm(dir,{recursive:true,force:true});
   }
 }
-void (async()=>{failClosedEnvironment();const payload=await verifyEnvelope();await render(payload);})()
+void (async()=>{
+  failClosedEnvironment();
+  const verified=await verifyEnvelope();
+  // Admission check MUST precede any Chrome launch, HTML construction or MP4.
+  if(process.env.MODO_HF_STATIC_ADMISSION_MODE==="synthetic-ci-only")
+    verifySyntheticRendererAdmissionFiles(verified.orderBytes,verified.payload);
+  await render(verified.payload);
+})()
   .catch(error=>{
     const code=error instanceof Error &&
       /^HF_STATIC_RENDERER_[A-Z0-9_]+$/.test(error.message)

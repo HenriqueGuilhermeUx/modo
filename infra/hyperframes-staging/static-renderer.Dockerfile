@@ -32,6 +32,7 @@ RUN set -eu; \
 # Docker sandbox is mandatory; NEVER give this image user-provided HTML.
 COPY infra/hyperframes-staging/chrome-headless-wrapper.sh /usr/local/bin/hf-static-chrome
 COPY infra/hyperframes-staging/static-renderer-standalone.cjs /opt/static-renderer.cjs
+COPY infra/hyperframes-staging/static-renderer-admission.cjs /opt/static-renderer-admission.cjs
 RUN chmod 0755 /usr/local/bin/hf-static-chrome \
     && install -d -o root -g root -m 0755 /input \
     && test ! -e /app/apps/api \

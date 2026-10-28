@@ -1,7 +1,7 @@
 /**
  * CI-only offline receipt proof for a real FFmpeg H.264 MP4 rendered in the
  * independent Chrome image. The browser process never receives keys or DB.
- * THIS DOES NOT prove the browser was authorized before starting render.
+ * The preflight scheduler claims DB lease and signs a browser admission BEFORE rendering.
  */
 import {createHash,createPublicKey,generateKeyPairSync,randomUUID,verify as edVerify} from "node:crypto";
 import {readFile,lstat,writeFile} from "node:fs/promises";
@@ -14,6 +14,8 @@ import {HyperframesStagingPgQueue} from "../../apps/api/src/services/hyperframes
 import {signSyntheticLeaseOrder,acceptSyntheticLeaseOrder} from "./static-handoff-lease-v2.mjs";
 import {createSyntheticLeasePgClaim} from "./static-handoff-pg-lease.mjs";
 import {signSyntheticMp4LeaseReceipt,verifySyntheticMp4LeaseReceipt} from "./static-lease-mp4-receipt-v2.mjs";
+import admissionVerifier from "./static-renderer-admission.cjs";
+const {verifySyntheticRendererAdmission}=admissionVerifier;
 
 const EXEC=promisify(execFile);
 const DB_URL=process.env.MODO_HYPERFRAMES_PG_TEST_DATABASE_URL;
@@ -82,33 +84,39 @@ try {
  assert.match(source.jobId,/^synthetic-[a-z0-9-]{10,70}$/);
  const rendererOrderSha256=digest(orderBytes);
  const requestSha256=digest(signedBytes);
- const tenant="synthetic-tenant-mp4-receipt";
- const projectId=randomUUID(),workerId="worker-ci-one",keyId="scheduler-ci-v2";
+ // Scheduler preflight has ALREADY authorized and claimed this lease
+ // BEFORE the Docker renderer started. Read both current DB and signed permit.
+ const preflight=JSON.parse(await readFile(join(inputDir,"preflight-meta.json"),"utf8"));
+ const permit=JSON.parse(await readFile(join(inputDir,"admission.json"),"utf8"));
+ const permitKey=await readFile(join(inputDir,"admission-public-key.pem"));
+ const authorized=verifySyntheticRendererAdmission(permit,permitKey,orderBytes,source);
+ const permitBytes=Buffer.from(permit.payloadB64,"base64url");
+ assert.equal(digest(permitBytes),preflight.admissionSha256);
+ assert.equal(authorized.jobId,preflight.expectedLease.jobId);
+ assert.equal(authorized.leaseFence,preflight.expectedLease.leaseFence);
+ assert.equal(authorized.requestSha256,requestSha256);
+ assert.equal(preflight.rendererOrderSha256,rendererOrderSha256);
+ assert.equal(preflight.rendererJobId,source.jobId);
+ const expectedLease=preflight.expectedLease;
+ const {organizationId:tenant,projectId,jobId:authorizedJob,workerId}=expectedLease;
  const queue=new HyperframesStagingPgQueue(pool);
- const initial=await queue.enqueue({
-  organizationId:tenant,projectId,requestSha256,
-  idempotencyKey:"synthetic-receipt-"+randomUUID()
- },tenant);
- const lease=await queue.claim(initial.jobId,tenant,workerId,60000);
+ const lease=await queue.get(authorizedJob,tenant);
  assert.equal(lease?.status,"running");
- const expectedLease={
-  keyId,organizationId:tenant,projectId,jobId:lease.jobId,workerId,
-  leaseFence:lease.lease.fence,leaseVersion:lease.version,
-  attempts:lease.attempts,requestSha256
- };
- const now=Date.now();
- const leaseOrder={
-  version:2,audience:"modo-hf-lease-synthetic-v2",
-  issuer:"synthetic-modo-scheduler",...expectedLease,
-  nonce:randomUUID(),issuedAtMs:now-1000,expiresAtMs:now+30000
- };
- const schedulerKeys=generateKeyPairSync("ed25519");
- const signedLease=signSyntheticLeaseOrder(leaseOrder,schedulerKeys.privateKey);
- const accepted=await acceptSyntheticLeaseOrder({
-  envelope:signedLease,publicKeys:{[keyId]:schedulerKeys.publicKey},
-  expected:expectedLease,nowMs:Date.now(),
-  claimLease:createSyntheticLeasePgClaim(pool,expectedLease)
- });
+ assert.equal(lease?.lease?.fence,authorized.leaseFence);
+ assert.equal(lease?.requestSha256,requestSha256);
+ assert.equal(lease?.organizationId,tenant);
+ assert.equal(lease?.projectId,projectId);
+ assert.equal(lease?.version,expectedLease.leaseVersion);
+ assert.equal(lease?.attempts,expectedLease.attempts);
+ assert.ok(lease.lease.expiresAt>Date.now());
+ const claim=await pool.query(
+  "SELECT signed_order_sha256 FROM modo_hyperframes_staging.synthetic_lease_handoffs "+
+  "WHERE job_id=$1::uuid AND organization_id=$2 AND lease_fence=$3::uuid",
+  [authorizedJob,tenant,lease.lease.fence]
+ );
+ assert.equal(claim.rowCount,1);
+ assert.equal(claim.rows[0].signed_order_sha256.trim(),preflight.leaseOrderSha256);
+ const accepted={signedRequestSha256:preflight.leaseOrderSha256};
  const receiptKeys=generateKeyPairSync("ed25519");
  const receiptKeyId="trusted-attestor-ci-v2";
  const receipt={
@@ -173,7 +181,7 @@ try {
   frames:observed.frames,codec:observed.codec,
   outputBytes:observed.outputBytes,mp4Sha256:outputSha256,
   signedReceiptSha256:valid.receiptSha256,
-  verifiedLeaseFence:true,rejectedTamper:true,rejectedStaleFence:true,
+  verifiedLeaseFence:true,authorizedBeforeRender:true,rejectedTamper:true,rejectedStaleFence:true,
   noPublication:true,noSecretsInRenderer:true
  })+"\n");
 }finally{

@@ -40,6 +40,7 @@ jobs:
       MODO_HYPERFRAMES_DB_MODE: isolated-staging
       MODO_HF_HANDOFF_MODE: synthetic-ci-only
       MODO_HF_MP4_RECEIPT_MODE: synthetic-ci-only
+      MODO_HF_PREFLIGHT_MODE: synthetic-ci-only
       MODO_HYPERFRAMES_PG_TEST_DATABASE_URL: postgresql://postgres@127.0.0.1:5432/modo_hyperframes_staging
       PGHOST: 127.0.0.1
       PGPORT: "5432"
@@ -87,11 +88,49 @@ jobs:
           test "$(find "$IN" -maxdepth 1 -type f | wc -l)" -eq 4
           sudo chown 10001:10001 "$OUT"
 
-      - name: Produce true 150-frame MP4 with no outward browser network
+      - name: Authorize a staging lease BEFORE the renderer starts
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check infra/hyperframes-staging/static-renderer-admission.cjs
+          node --check infra/hyperframes-staging/static-renderer-preflight-synthetic.mjs
+          node --import tsx infra/hyperframes-staging/static-renderer-preflight-synthetic.mjs "$RUNNER_TEMP/hf-receipt-signed-input"
+          for f in preflight-meta.json admission.json admission-public-key.pem admission-tampered.json admission-expired.json; do
+            test -s "$RUNNER_TEMP/hf-receipt-signed-input/$f"
+          done
+          test ! -e "$RUNNER_TEMP/hf-receipt-signed-input/private-key.pem"
+          test ! -e "$RUNNER_TEMP/hf-receipt-real-output/synthetic.mp4"
+
+      - name: Reject tampered and expired admissions before Chrome
         shell: bash
         run: |
           set -euo pipefail
           docker network create --driver bridge --internal hf-real-receipt-only
+          test "$(docker network inspect -f '{{.Internal}}' hf-real-receipt-only)" = true
+          for case in admission-tampered admission-expired; do
+            set +e
+            OUT="$(timeout --signal=TERM --kill-after=3s 20s docker run --rm \
+              --network hf-real-receipt-only --read-only --cap-drop ALL \
+              --security-opt no-new-privileges --pids-limit=128 --memory=4g --cpus=2 \
+              -e MODO_HF_STATIC_EXPORT_MODE=synthetic-ci-artifact \
+              -e MODO_HF_STATIC_ADMISSION_MODE=synthetic-ci-only \
+              --mount "type=bind,source=$RUNNER_TEMP/hf-receipt-signed-input/order.json,target=/input/order.json,readonly" \
+              --mount "type=bind,source=$RUNNER_TEMP/hf-receipt-signed-input/public-key.pem,target=/input/public-key.pem,readonly" \
+              --mount "type=bind,source=$RUNNER_TEMP/hf-receipt-signed-input/admission-public-key.pem,target=/input/admission-public-key.pem,readonly" \
+              --mount "type=bind,source=$RUNNER_TEMP/hf-receipt-signed-input/$case.json,target=/input/admission.json,readonly" \
+              --mount "type=bind,source=$RUNNER_TEMP/hf-receipt-real-output,target=/output" \
+              modo-hf-static-receipt:ci 2>&1)"
+            STATUS="$?"
+            set -e
+            test "$STATUS" -ne 0
+            printf '%s\n' "$OUT" | grep -F HF_STATIC_RENDERER_ADMISSION_DENIED
+            test ! -e "$RUNNER_TEMP/hf-receipt-real-output/synthetic.mp4"
+          done
+
+      - name: Produce true 150-frame MP4 with no outward browser network
+        shell: bash
+        run: |
+          set -euo pipefail
           test "$(docker network inspect -f '{{.Internal}}' hf-real-receipt-only)" = true
           timeout --signal=TERM --kill-after=5s 145s docker run --rm \
             --network hf-real-receipt-only --read-only --cap-drop ALL \
@@ -100,6 +139,9 @@ jobs:
             --tmpfs /tmp:rw,nosuid,size=2g,mode=1777 \
             --tmpfs /home/renderonly:rw,nosuid,size=64m,mode=0700,uid=10001,gid=10001 \
             -e MODO_HF_STATIC_EXPORT_MODE=synthetic-ci-artifact \
+            -e MODO_HF_STATIC_ADMISSION_MODE=synthetic-ci-only \
+            --mount type=bind,source="$RUNNER_TEMP/hf-receipt-signed-input/admission.json",target=/input/admission.json,readonly \
+            --mount type=bind,source="$RUNNER_TEMP/hf-receipt-signed-input/admission-public-key.pem",target=/input/admission-public-key.pem,readonly \
             --mount type=bind,source="$RUNNER_TEMP/hf-receipt-signed-input/order.json",target=/input/order.json,readonly \
             --mount type=bind,source="$RUNNER_TEMP/hf-receipt-signed-input/public-key.pem",target=/input/public-key.pem,readonly \
             --mount type=bind,source="$RUNNER_TEMP/hf-receipt-real-output",target=/output \

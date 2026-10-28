@@ -1,0 +1,182 @@
+/**
+ * CI-only offline receipt proof for a real FFmpeg H.264 MP4 rendered in the
+ * independent Chrome image. The browser process never receives keys or DB.
+ * THIS DOES NOT prove the browser was authorized before starting render.
+ */
+import {createHash,createPublicKey,generateKeyPairSync,randomUUID,verify as edVerify} from "node:crypto";
+import {readFile,lstat,writeFile} from "node:fs/promises";
+import {execFile} from "node:child_process";
+import {promisify} from "node:util";
+import {resolve,join} from "node:path";
+import assert from "node:assert/strict";
+import pg from "pg";
+import {HyperframesStagingPgQueue} from "../../apps/api/src/services/hyperframes-staging-pg-queue.ts";
+import {signSyntheticLeaseOrder,acceptSyntheticLeaseOrder} from "./static-handoff-lease-v2.mjs";
+import {createSyntheticLeasePgClaim} from "./static-handoff-pg-lease.mjs";
+import {signSyntheticMp4LeaseReceipt,verifySyntheticMp4LeaseReceipt} from "./static-lease-mp4-receipt-v2.mjs";
+
+const EXEC=promisify(execFile);
+const DB_URL=process.env.MODO_HYPERFRAMES_PG_TEST_DATABASE_URL;
+if(process.env.NODE_ENV==="production"||
+ process.env.MODO_HF_MP4_RECEIPT_MODE!=="synthetic-ci-only"||
+ process.env.MODO_HF_HANDOFF_MODE!=="synthetic-ci-only"||
+ process.env.MODO_HYPERFRAMES_DB_MODE!=="isolated-staging"||
+ process.env.MODO_HYPERFRAMES_RECOVERY_MODE!=="isolated-staging"||
+ !DB_URL||process.argv.length!==4||
+ !process.argv[2].startsWith("/")||!process.argv[3].startsWith("/")) {
+ throw Error("HF_SYNTHETIC_REAL_MP4_E2E_DISABLED");
+}
+const inputDir=resolve(process.argv[2]),outputDir=resolve(process.argv[3]);
+const videoPath=join(outputDir,"synthetic.mp4");
+const digest=x=>createHash("sha256").update(x).digest("hex");
+const {Pool}=pg;
+const pool=new Pool({connectionString:DB_URL,ssl:false,max:6});
+let passed=false;
+try {
+ const db=await pool.query("SELECT current_database() AS name");
+ assert.equal(db.rows[0].name,"modo_hyperframes_staging");
+ const stat=await lstat(videoPath);
+ assert.equal(stat.isFile(),true);
+ assert.equal(stat.isSymbolicLink(),false);
+ assert.ok(stat.size>=4000&&stat.size<=25000000);
+ const video=await readFile(videoPath);
+ assert.equal(video.length,stat.size);
+ assert.equal(video.toString("ascii",4,8),"ftyp");
+ const outputSha256=digest(video);
+ const {stdout}=await EXEC("/usr/bin/ffprobe",[
+  "-v","error","-show_entries",
+  "stream=codec_type,codec_name,width,height,r_frame_rate,nb_frames:format=duration",
+  "-of","json",videoPath
+ ],{timeout:12000,maxBuffer:8192});
+ const probe=JSON.parse(stdout);
+ const stream=probe.streams?.[0];
+ assert.equal(probe.streams?.length,1);
+ assert.equal(stream.codec_type,"video");
+ assert.equal(stream.codec_name,"h264");
+ assert.equal(stream.width,1080);
+ assert.equal(stream.height,1920);
+ assert.equal(stream.r_frame_rate,"30/1");
+ assert.equal(Number(stream.nb_frames),150);
+ assert.ok(Math.abs(Number(probe.format?.duration)-5)<0.05);
+ const observed={outputSha256,outputBytes:video.length,codec:"h264",
+  width:1080,height:1920,fps:30,frames:150};
+ // Verify the ORIGINAL signer (which has no private key on disk) independently
+ // of the renderer's own signature verification.
+ const orderBytes=await readFile(join(inputDir,"order.json"));
+ const order=JSON.parse(orderBytes.toString("utf8"));
+ assert.deepEqual(Object.keys(order).sort(),["payloadB64","signatureB64"]);
+ const signedBytes=Buffer.from(order.payloadB64,"base64url");
+ const signature=Buffer.from(order.signatureB64,"base64url");
+ assert.equal(signedBytes.toString("base64url"),order.payloadB64);
+ assert.equal(signature.length,64);
+ const key=createPublicKey(await readFile(join(inputDir,"public-key.pem")));
+ assert.equal(key.asymmetricKeyType,"ed25519");
+ assert.equal(edVerify(null,signedBytes,key,signature),true);
+ const source=JSON.parse(signedBytes.toString("utf8"));
+ assert.equal(JSON.stringify(source),signedBytes.toString("utf8"));
+ assert.equal(source.audience,"modo-static-renderer-synthetic-ci-v1");
+ assert.equal(source.totalFrames,150);
+ assert.equal(source.width,observed.width);
+ assert.equal(source.height,observed.height);
+ assert.equal(source.fps,observed.fps);
+ assert.match(source.jobId,/^synthetic-[a-z0-9-]{10,70}$/);
+ const rendererOrderSha256=digest(orderBytes);
+ const requestSha256=digest(signedBytes);
+ const tenant="synthetic-tenant-mp4-receipt";
+ const projectId=randomUUID(),workerId="worker-ci-one",keyId="scheduler-ci-v2";
+ const queue=new HyperframesStagingPgQueue(pool);
+ const initial=await queue.enqueue({
+  organizationId:tenant,projectId,requestSha256,
+  idempotencyKey:"synthetic-receipt-"+randomUUID()
+ },tenant);
+ const lease=await queue.claim(initial.jobId,tenant,workerId,60000);
+ assert.equal(lease?.status,"running");
+ const expectedLease={
+  keyId,organizationId:tenant,projectId,jobId:lease.jobId,workerId,
+  leaseFence:lease.lease.fence,leaseVersion:lease.version,
+  attempts:lease.attempts,requestSha256
+ };
+ const now=Date.now();
+ const leaseOrder={
+  version:2,audience:"modo-hf-lease-synthetic-v2",
+  issuer:"synthetic-modo-scheduler",...expectedLease,
+  nonce:randomUUID(),issuedAtMs:now-1000,expiresAtMs:now+30000
+ };
+ const schedulerKeys=generateKeyPairSync("ed25519");
+ const signedLease=signSyntheticLeaseOrder(leaseOrder,schedulerKeys.privateKey);
+ const accepted=await acceptSyntheticLeaseOrder({
+  envelope:signedLease,publicKeys:{[keyId]:schedulerKeys.publicKey},
+  expected:expectedLease,nowMs:Date.now(),
+  claimLease:createSyntheticLeasePgClaim(pool,expectedLease)
+ });
+ const receiptKeys=generateKeyPairSync("ed25519");
+ const receiptKeyId="trusted-attestor-ci-v2";
+ const receipt={
+  version:2,audience:"modo-hf-mp4-receipt-synthetic-v2",
+  issuer:"synthetic-trusted-mp4-attestor",
+  keyId:receiptKeyId,
+  organizationId:tenant,projectId,jobId:lease.jobId,workerId,
+  leaseFence:lease.lease.fence,leaseVersion:lease.version,
+  attempts:lease.attempts,requestSha256,
+  leaseOrderSha256:accepted.signedRequestSha256,
+  rendererJobId:source.jobId,rendererOrderSha256,
+  ...observed,issuedAtMs:Date.now()
+ };
+ const envelope=signSyntheticMp4LeaseReceipt(receipt,receiptKeys.privateKey);
+ const expected={...expectedLease,keyId:receiptKeyId,
+  leaseOrderSha256:accepted.signedRequestSha256,
+  rendererJobId:source.jobId,rendererOrderSha256};
+ const readQueue=await queue.get(lease.jobId,tenant);
+ const verifyOptions={envelope,
+  publicKeys:{[receiptKeyId]:receiptKeys.publicKey},
+  expected,currentJob:readQueue,observed,nowMs:Date.now()};
+ const valid=verifySyntheticMp4LeaseReceipt(verifyOptions);
+ assert.equal(valid.verifiedMp4Sha256,outputSha256);
+ const badSha={...observed,outputSha256:digest("tampered synthetic bytes")};
+ assert.throws(()=>verifySyntheticMp4LeaseReceipt({...verifyOptions,observed:badSha}),
+  /HF_SYNTHETIC_MP4_RECEIPT_DENIED/);
+ assert.throws(()=>verifySyntheticMp4LeaseReceipt({...verifyOptions,
+  expected:{...expected,leaseFence:randomUUID()}}),
+  /HF_SYNTHETIC_MP4_RECEIPT_DENIED/);
+ assert.throws(()=>verifySyntheticMp4LeaseReceipt({...verifyOptions,
+  revokedKeyIds:[receiptKeyId]}),/HF_SYNTHETIC_MP4_RECEIPT_DENIED/);
+ const sig=envelope.signatureB64;
+ assert.throws(()=>verifySyntheticMp4LeaseReceipt({...verifyOptions,
+  envelope:{...envelope,signatureB64:(sig[0]==="A"?"B":"A")+sig.slice(1)}}),
+  /HF_SYNTHETIC_MP4_RECEIPT_DENIED/);
+ // Preserve a public-only receipt and key on the disposable runner, not in
+ // Docker and never in a production service. Read back to prove portability.
+ await writeFile(join(outputDir,"receipt.json"),JSON.stringify(envelope),
+  {encoding:"utf8",flag:"wx",mode:0o600});
+ await writeFile(join(outputDir,"receipt-public-key.pem"),
+  receiptKeys.publicKey.export({format:"pem",type:"spki"}),
+  {flag:"wx",mode:0o600});
+ const diskEnvelope=JSON.parse(await readFile(join(outputDir,"receipt.json"),"utf8"));
+ const diskPublic=createPublicKey(await readFile(join(outputDir,"receipt-public-key.pem")));
+ assert.equal(verifySyntheticMp4LeaseReceipt({...verifyOptions,
+  envelope:diskEnvelope,publicKeys:{[receiptKeyId]:diskPublic}}).receiptSha256,
+  valid.receiptSha256);
+ // Lease loss after rendering invalidates even a perfectly signed receipt.
+ const failed=await queue.fail(lease.jobId,tenant,workerId,lease.lease.fence);
+ assert.equal(failed?.status,"queued");
+ const staleJob=await queue.get(lease.jobId,tenant);
+ assert.throws(()=>verifySyntheticMp4LeaseReceipt({
+  ...verifyOptions,currentJob:staleJob
+ }),/HF_SYNTHETIC_MP4_RECEIPT_DENIED/);
+ const q=await pool.query(
+  "SELECT count(*)::int AS total FROM modo_hyperframes_staging.synthetic_lease_handoffs WHERE job_id=$1::uuid",
+  [lease.jobId]);
+ assert.equal(q.rows[0].total,1);
+ passed=true;
+ process.stdout.write(JSON.stringify({
+  passed:true,syntheticOnly:true,realMp4:true,
+  frames:observed.frames,codec:observed.codec,
+  outputBytes:observed.outputBytes,mp4Sha256:outputSha256,
+  signedReceiptSha256:valid.receiptSha256,
+  verifiedLeaseFence:true,rejectedTamper:true,rejectedStaleFence:true,
+  noPublication:true,noSecretsInRenderer:true
+ })+"\n");
+}finally{
+ await pool.end();
+ if(!passed)process.stderr.write("HF_SYNTHETIC_REAL_MP4_RECEIPT_E2E_FAILED\n");
+}

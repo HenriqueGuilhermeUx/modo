@@ -68,6 +68,14 @@ function failClosedEnvironment() {
      process.env.MODO_HF_STATIC_RENDERER_MODE !== "synthetic-ci-only") {
     denial("DISABLED");
   }
+  // Output is never enabled by default, only explicitly for disposable CI.
+  if(process.env.MODO_HF_STATIC_EXPORT_MODE!==undefined &&
+     process.env.MODO_HF_STATIC_EXPORT_MODE!=="synthetic-ci-artifact") denial("EXPORT_DISABLED");
+  if(process.env.MODO_HF_STATIC_EXPORT_MODE==="synthetic-ci-artifact"){
+    if(!fs.existsSync("/output")) denial("EXPORT_DIRECTORY_MISSING");
+    const info=fs.lstatSync("/output");
+    if(!info.isDirectory() || info.isSymbolicLink()) denial("EXPORT_DIRECTORY_INVALID");
+  }
   const banned = /^(?:PG(?:HOST|PORT|USER|PASSWORD|DATABASE)|DATABASE_URL|.*(?:SECRET|TOKEN|PASSWORD|PRIVATE_KEY|CONTENT_KEY|SIGNING_KEY)|HF_STAGE_)/;
   if (Object.keys(process.env).some(x=>banned.test(x)) ||
       fs.existsSync("/var/run/postgresql/.s.PGSQL.5432") ||
@@ -225,6 +233,16 @@ async function render(p) {
        size<4000 || size>25_000_000)denial("INVALID_VIDEO");
     const bytes=await fsp.readFile(video);
     if(bytes.toString("ascii",4,8)!=="ftyp")denial("INVALID_MP4");
+    // The ONLY allowed output is a newly created bounded synthetic MP4.
+    // No keys or customer inputs exist inside the renderer image.
+    if(process.env.MODO_HF_STATIC_EXPORT_MODE==="synthetic-ci-artifact"){
+      let file;
+      try{
+        file=await fsp.open("/output/synthetic.mp4","wx",0o600);
+        await file.writeFile(bytes);
+        await file.sync();
+      }finally{await file?.close();}
+    }
     process.stdout.write(JSON.stringify({
       passed:true,syntheticOnly:true,standalone:true,authorizedBy:"ed25519",
       noDbRuntime:true,frames:p.totalFrames,

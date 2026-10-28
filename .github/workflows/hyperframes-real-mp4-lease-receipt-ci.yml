@@ -1,0 +1,129 @@
+name: HyperFrames real synthetic MP4 lease-signed receipt E2E
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/hyperframes-real-mp4-lease-receipt-ci.yml'
+      - 'infra/hyperframes-staging/static-renderer*'
+      - 'infra/hyperframes-staging/static-handoff-lease-v2.mjs'
+      - 'infra/hyperframes-staging/static-handoff-pg-lease.mjs'
+      - 'infra/hyperframes-staging/static-lease-mp4-receipt-v2.mjs'
+      - 'infra/hyperframes-staging/static-real-mp4-receipt-e2e.mjs'
+      - 'infra/hyperframes-staging/00*.sql'
+      - 'apps/api/src/services/hyperframes-static-storyboard.ts'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  offline-real-mp4-receipt:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_DB: modo_hyperframes_staging
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres -d modo_hyperframes_staging"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=8
+    env:
+      NODE_ENV: test
+      MODO_HYPERFRAMES_RECOVERY_MODE: isolated-staging
+      MODO_HYPERFRAMES_DB_MODE: isolated-staging
+      MODO_HF_HANDOFF_MODE: synthetic-ci-only
+      MODO_HF_MP4_RECEIPT_MODE: synthetic-ci-only
+      MODO_HYPERFRAMES_PG_TEST_DATABASE_URL: postgresql://postgres@127.0.0.1:5432/modo_hyperframes_staging
+      PGHOST: 127.0.0.1
+      PGPORT: "5432"
+      PGUSER: postgres
+      PGDATABASE: modo_hyperframes_staging
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install MODO synthetic exporter and build isolated renderer
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --include=dev --no-audit --no-fund
+          npm run build --workspace=@modo/api
+          command -v ffprobe
+          docker build -f infra/hyperframes-staging/static-renderer.Dockerfile -t modo-hf-static-receipt:ci .
+
+      - name: Guard disposable database and apply existing isolated migrations
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$PGDATABASE" = modo_hyperframes_staging
+          psql -v ON_ERROR_STOP=1 -Atc "SELECT current_database()" | grep -x modo_hyperframes_staging
+          for n in 001_render_jobs 002_encrypted_render_artifacts 003_encrypted_render_snapshots 004_worker_role 005_synthetic_handoff_nonces 006_synthetic_lease_handoffs; do
+            psql -v ON_ERROR_STOP=1 -f "infra/hyperframes-staging/$n.sql"
+          done
+
+      - name: Prepare ephemeral order and private output mount
+        shell: bash
+        run: |
+          set -euo pipefail
+          IN="$RUNNER_TEMP/hf-receipt-signed-input"
+          OUT="$RUNNER_TEMP/hf-receipt-real-output"
+          test ! -e "$IN" && test ! -e "$OUT"
+          mkdir -m 0755 -p "$IN"
+          mkdir -m 0700 -p "$OUT"
+          MODO_HF_STATIC_SIGN_FIXTURE=synthetic-ci-only node infra/hyperframes-staging/static-renderer-sign-synthetic.mjs "$IN"
+          test ! -e "$IN/private-key.pem"
+          test "$(find "$IN" -maxdepth 1 -type f | wc -l)" -eq 4
+          sudo chown 10001:10001 "$OUT"
+
+      - name: Produce true 150-frame MP4 with no outward browser network
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker network create --driver bridge --internal hf-real-receipt-only
+          test "$(docker network inspect -f '{{.Internal}}' hf-real-receipt-only)" = true
+          timeout --signal=TERM --kill-after=5s 145s docker run --rm \
+            --network hf-real-receipt-only --read-only --cap-drop ALL \
+            --security-opt no-new-privileges --pids-limit=128 \
+            --memory=4g --cpus=2 --shm-size=256m \
+            --tmpfs /tmp:rw,nosuid,size=2g,mode=1777 \
+            --tmpfs /home/renderonly:rw,nosuid,size=64m,mode=0700,uid=10001,gid=10001 \
+            -e MODO_HF_STATIC_EXPORT_MODE=synthetic-ci-artifact \
+            --mount type=bind,source="$RUNNER_TEMP/hf-receipt-signed-input/order.json",target=/input/order.json,readonly \
+            --mount type=bind,source="$RUNNER_TEMP/hf-receipt-signed-input/public-key.pem",target=/input/public-key.pem,readonly \
+            --mount type=bind,source="$RUNNER_TEMP/hf-receipt-real-output",target=/output \
+            modo-hf-static-receipt:ci
+          sudo chown -R "$(id -u):$(id -g)" "$RUNNER_TEMP/hf-receipt-real-output"
+          test -s "$RUNNER_TEMP/hf-receipt-real-output/synthetic.mp4"
+          test ! -e "$RUNNER_TEMP/hf-receipt-real-output/receipt.json"
+
+      - name: Independently verify real bytes and sign receipt tied to PostgreSQL lease
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check infra/hyperframes-staging/static-lease-mp4-receipt-v2.mjs
+          node --check infra/hyperframes-staging/static-real-mp4-receipt-e2e.mjs
+          node --import tsx infra/hyperframes-staging/static-real-mp4-receipt-e2e.mjs \
+            "$RUNNER_TEMP/hf-receipt-signed-input" "$RUNNER_TEMP/hf-receipt-real-output"
+          test -s "$RUNNER_TEMP/hf-receipt-real-output/receipt.json"
+          test -s "$RUNNER_TEMP/hf-receipt-real-output/receipt-public-key.pem"
+          test ! -e "$RUNNER_TEMP/hf-receipt-signed-input/private-key.pem"
+          test ! -e "$RUNNER_TEMP/hf-receipt-real-output/private-key.pem"
+
+      - name: Destroy temporary video, public receipt, test inputs and network
+        if: always()
+        shell: bash
+        run: |
+          docker ps -aq --filter network=hf-real-receipt-only | xargs -r docker rm -f || true
+          docker network rm hf-real-receipt-only || true
+          sudo rm -rf "$RUNNER_TEMP/hf-receipt-signed-input" "$RUNNER_TEMP/hf-receipt-real-output"
+          echo "No media, receipt, keys, customer data or deployment retained"

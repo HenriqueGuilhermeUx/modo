@@ -66,22 +66,22 @@ jobs:
                 # Docker internal bridge has loopback for Chrome DevTools,
                 # but no external gateway; fail if internet is reachable.
                 node -e "
-                  const net=require(\\"node:net\\");
-                  const server=net.createServer(()=>{}).listen(0,\\"127.0.0.1\\",()=>{
+                  const net=require(\"node:net\");
+                  const server=net.createServer(()=>{}).listen(0,\"127.0.0.1\",()=>{
                     const port=server.address().port;
-                    const local=net.connect(port,\\"127.0.0.1\\");
-                    local.on(\\"connect\\",()=>{local.destroy();server.close();});
-                    local.on(\\"error\\",()=>process.exit(11));
+                    const local=net.connect(port,\"127.0.0.1\");
+                    local.on(\"connect\",()=>{local.destroy();server.close();});
+                    local.on(\"error\",()=>process.exit(11));
                   });
                 "
                 node -e "
-                  const net=require(\\"node:net\\");
-                  const c=net.connect({host:\\"1.1.1.1\\",port:443,timeout:1500});
-                  c.on(\\"connect\\",()=>process.exit(12));
-                  c.on(\\"error\\",(e)=>{
-                    if(![\\"ENETUNREACH\\",\\"EHOSTUNREACH\\",\\"EACCES\\",\\"ETIMEDOUT\\"].includes(e.code)) process.exit(13);
+                  const net=require(\"node:net\");
+                  const c=net.connect({host:\"1.1.1.1\",port:443,timeout:1500});
+                  c.on(\"connect\",()=>process.exit(12));
+                  c.on(\"error\",(e)=>{
+                    if(![\"ENETUNREACH\",\"EHOSTUNREACH\",\"EACCES\",\"ETIMEDOUT\"].includes(e.code)) process.exit(13);
                   });
-                  c.on(\\"timeout\\",()=>{c.destroy();process.exit(0);});
+                  c.on(\"timeout\",()=>{c.destroy();process.exit(0);});
                 "
                 mkdir -m 700 /tmp/hf
                 cp /fixtures/index.html /tmp/hf/index.html

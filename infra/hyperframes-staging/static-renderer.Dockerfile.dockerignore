@@ -1,0 +1,8 @@
+# Only the two required renderer files enter this Docker build context.
+# All API source, PostgreSQL adapters, client assets, .env and keys are excluded.
+**
+!infra/
+!infra/hyperframes-staging/
+!infra/hyperframes-staging/static-renderer.Dockerfile
+!infra/hyperframes-staging/static-renderer-standalone.cjs
+!infra/hyperframes-staging/chrome-headless-wrapper.sh

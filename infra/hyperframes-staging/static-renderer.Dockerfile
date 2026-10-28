@@ -33,6 +33,7 @@ RUN set -eu; \
 COPY infra/hyperframes-staging/chrome-headless-wrapper.sh /usr/local/bin/hf-static-chrome
 COPY infra/hyperframes-staging/static-renderer-standalone.cjs /opt/static-renderer.cjs
 RUN chmod 0755 /usr/local/bin/hf-static-chrome \
+    && install -d -o root -g root -m 0755 /input \
     && test ! -e /app/apps/api \
     && test ! -e /run/hyperframes/db-password
 

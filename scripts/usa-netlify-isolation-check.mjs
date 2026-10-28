@@ -27,11 +27,9 @@ const redirects = readFileSync(root + "/_redirects", "utf8").trim().split(/\r?\n
 assert.deepEqual(redirects, [
   "/ /index.html 200",
   "/us /index.html 200",
-  "/us/smartbots /index.html 200",
   "/us/demo /index.html 200",
-  "/us/smartbots/demo /index.html 200",
   "/* /404.html 404",
-], "Only the four US routes and the root may serve the USA app; all other routes must 404");
+], "Only the MODO US routes and the root may serve the USA app; all other routes must 404");
 
 const unavailable = readFileSync(root + "/404.html", "utf8");
 assert.match(unavailable, /Page unavailable/);
@@ -60,9 +58,10 @@ for (const forbidden of ["modo-api-3m10.onrender.com", "WOOVI_APP_ID", "NEXTGEN_
   assert.ok(!bundle.includes(forbidden), "Forbidden reference in USA bundle: " + forbidden);
 }
 const entry = readFileSync("apps/web/src/usa-main.tsx", "utf8");
-for (const route of ["/us", "/us/smartbots", "/us/demo", "/us/smartbots/demo"]) {
+for (const route of ["/us", "/us/demo"]) {
   assert.ok(entry.includes('"' + route + '"'), "Missing US route " + route);
 }
+assert.ok(!entry.includes('"/us/smartbots"') && !entry.includes('"/us/smartbots/demo"'), "SmartBots routes must not be present in MODO deployment");
 assert.ok(!entry.includes('from "./Root"'), "USA must not load Brazilian Root");
 assert.ok(!entry.includes("PwaChrome"), "USA must not register Brazilian PWA");
 const landing = readFileSync("apps/web/src/UsLanding.tsx", "utf8");

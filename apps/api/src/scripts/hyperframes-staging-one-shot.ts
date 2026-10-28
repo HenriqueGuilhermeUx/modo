@@ -1,4 +1,5 @@
-import { readFile, stat } from "node:fs/promises";
+import { open } from "node:fs/promises";
+import { constants } from "node:fs";
 import { isAbsolute } from "node:path";
 import { timingSafeEqual } from "node:crypto";
 import pg from "pg";
@@ -63,11 +64,20 @@ async function main() {
     throw new Error("HYPERFRAMES_ONE_SHOT_EXPECTS_PRIVATE_ABSOLUTE_ORDER_FILE");
   }
   const orderPath = process.argv[2];
-  const file = await stat(orderPath);
-  if (!file.isFile() || file.size < 80 || file.size > 8_192 ||
-      // Do not load a work order readable by another unix user.
-      (file.mode & 0o077) !== 0) {
-    throw new Error("HYPERFRAMES_ONE_SHOT_UNSAFE_ORDER_FILE");
+  // Open once, refuse symlinks and inspect the SAME inode we read.
+  // A stat-then-read path check would allow a swapped symlink to bypass
+  // private-order-file policy on a shared staging mount.
+  const file = await open(orderPath, constants.O_RDONLY | constants.O_NOFOLLOW);
+  let orderJson: string;
+  try {
+    const details = await file.stat();
+    if (!details.isFile() || details.size < 80 || details.size > 8_192 ||
+        (details.mode & 0o077) !== 0) {
+      throw new Error("HYPERFRAMES_ONE_SHOT_UNSAFE_ORDER_FILE");
+    }
+    orderJson = await file.readFile({ encoding: "utf8" });
+  } finally {
+    await file.close();
   }
   const localWorkerId = process.env.MODO_HYPERFRAMES_LOCAL_WORKER_ID;
   const hyperframesExecutable = process.env.MODO_HYPERFRAMES_BIN;
@@ -91,7 +101,7 @@ async function main() {
     }
     let signed: SignedStagingWorkOrder;
     try {
-      signed = JSON.parse(await readFile(orderPath, "utf8")) as SignedStagingWorkOrder;
+      signed = JSON.parse(orderJson) as SignedStagingWorkOrder;
     } catch {
       throw new Error("HYPERFRAMES_ONE_SHOT_INVALID_ORDER_FILE");
     }

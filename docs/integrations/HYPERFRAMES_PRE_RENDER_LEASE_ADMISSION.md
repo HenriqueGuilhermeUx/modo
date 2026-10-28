@@ -11,12 +11,18 @@
 5. O workflow rejeita admissões alteradas e expiradas **dentro da própria imagem isolada**, sem gerar arquivo. O caso válido produz MP4 H.264 1080×1920 de 150 quadros em rede Docker interna.
 6. O verifier confiável posterior usa o **mesmo UUID/lease reivindicado previamente**, confere autorização assinada, envelope original, registro persistente da emissão no PostgreSQL, hash dos bytes do MP4 e FFprobe. Assina recibo independente (chave diferente, em memória) com a identidade do job/lease e recusa adulterações/revogação e perda do fence. Arquivos sintéticos são eliminados ao final do workflow.
 
+## Registro transacional da evidência (007, sem publicação)
+
+A migração adicional `007_synthetic_receipt_attestations.sql` cria tabela descartável de metadados assinados com `PRIMARY KEY(receipt_sha256)`, `UNIQUE(job_id,lease_fence)` e chaves estrangeiras contra a fila e o ledger de despacho. A função `commit_synthetic_mp4_receipt`, definida com `SECURITY DEFINER`, busca o lease ainda vigente com `FOR SHARE`, confere tenant/projeto/job/worker/versão/fence e digest do despacho, consulta o relógio do banco **após adquirir o lock** e insere uma única atestação. O dispatcher restrito só recebe `EXECUTE`; não recebe acesso a tabelas ou poderes de publicação. O módulo Node `static-synthetic-mp4-pg-receipt-ledger.mjs` verifica o recibo Ed25519 e a medição independente do MP4 antes da chamada SQL.
+
+No E2E há casos positivos, duplicidade, adulteração de hash, revogação de chave, tentativa de UPDATE sem permissão e recusa após perda de lease. **Importante:** a transação confirma apenas a autenticidade/atestado do recibo, não a permanência do arquivo MP4. O job continua `running` durante o teste e é explicitamente invalidado depois; `succeeded` exige armazenamento de mídia criptografada e commit com fencing próprio, fora deste escopo.
+
 ## Isolamento e limites
 
 - Nenhum segredo, credencial PostgreSQL, chave de assinatura privada ou backend MODO é montado no container. A imagem inclui exclusivamente um verificador CommonJS de **chave pública** adicional.
 - A tabela de despacho permanece separada e o papel restrito continua sem permissão de modificar a fila. O Chrome continua com `--no-sandbox` internamente e **não deve renderizar HTML ou ativos de clientes**.
 - **A autorização no navegador é uma atestação de curta duração pelo scheduler, não uma consulta online ao estado do lease.** Não impede, por si, reutilização de um certificado válido em múltiplos containers; esse risco requer dispatch de uso único autenticado e fencing no commit final.
-- O recibo pós-render ainda é **uma verificação contra um snapshot do PostgreSQL**, não uma transação que confirme atomicamente a gravação de um objeto de mídia durável. Não marcar job como `succeeded` nem publicar artefato sem esse passo.
+- O recibo pós-render pode ser registrado **atomicamente como evidência metadata-only** enquanto o lease estiver ativo, mas ainda não existe transação que confirme a gravação de um **objeto de mídia durável**. Não marcar job como `succeeded` nem publicar artefato sem esse passo.
 - Próximas lacunas: commit atômico/criptografado em storage com fence ativo, auditoria imutável, lifecycle de chaves, autenticação entre serviços, isolamento do browser e comparação visual com Remotion. O CLI HyperFrames antigo no Docker restrito segue com falha independente.
 
 Nenhum novo endpoint HTTP, banco comercial, Publisher V2 ou fluxo de produção foi criado.

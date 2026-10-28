@@ -70,7 +70,7 @@ jobs:
           set -euo pipefail
           test "$PGDATABASE" = modo_hyperframes_staging
           psql -v ON_ERROR_STOP=1 -Atc "SELECT current_database()" | grep -x modo_hyperframes_staging
-          for n in 001_render_jobs 002_encrypted_render_artifacts 003_encrypted_render_snapshots 004_worker_role 005_synthetic_handoff_nonces 006_synthetic_lease_handoffs; do
+          for n in 001_render_jobs 002_encrypted_render_artifacts 003_encrypted_render_snapshots 004_worker_role 005_synthetic_handoff_nonces 006_synthetic_lease_handoffs 007_synthetic_receipt_attestations; do
             psql -v ON_ERROR_STOP=1 -f "infra/hyperframes-staging/$n.sql"
           done
 
@@ -156,6 +156,7 @@ jobs:
           set -euo pipefail
           node --check infra/hyperframes-staging/static-lease-mp4-receipt-v2.mjs
           node --check infra/hyperframes-staging/static-real-mp4-receipt-e2e.mjs
+          node --check infra/hyperframes-staging/static-synthetic-mp4-pg-receipt-ledger.mjs
           node --import tsx infra/hyperframes-staging/static-real-mp4-receipt-e2e.mjs \
             "$RUNNER_TEMP/hf-receipt-signed-input" "$RUNNER_TEMP/hf-receipt-real-output"
           test -s "$RUNNER_TEMP/hf-receipt-real-output/receipt.json"

@@ -79,6 +79,9 @@ jobs:
       - name: Create synthetic lease-bound handoff ledger
         run: psql -v ON_ERROR_STOP=1 -f infra/hyperframes-staging/006_synthetic_lease_handoffs.sql
 
+      - name: Create synthetic receipt attestation ledger (no media storage)
+        run: psql -v ON_ERROR_STOP=1 -f infra/hyperframes-staging/007_synthetic_receipt_attestations.sql
+
       - name: Assert minimal worker privileges
         shell: bash
         run: |

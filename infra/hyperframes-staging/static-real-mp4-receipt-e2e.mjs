@@ -15,6 +15,7 @@ import {signSyntheticLeaseOrder,acceptSyntheticLeaseOrder} from "./static-handof
 import {createSyntheticLeasePgClaim} from "./static-handoff-pg-lease.mjs";
 import {signSyntheticMp4LeaseReceipt,verifySyntheticMp4LeaseReceipt} from "./static-lease-mp4-receipt-v2.mjs";
 import admissionVerifier from "./static-renderer-admission.cjs";
+import {commitVerifiedSyntheticMp4Receipt} from "./static-synthetic-mp4-pg-receipt-ledger.mjs";
 const {verifySyntheticRendererAdmission}=admissionVerifier;
 
 const EXEC=promisify(execFile);
@@ -164,10 +165,52 @@ try {
  assert.equal(verifySyntheticMp4LeaseReceipt({...verifyOptions,
   envelope:diskEnvelope,publicKeys:{[receiptKeyId]:diskPublic}}).receiptSha256,
   valid.receiptSha256);
+ // The signed receipt is ONLY committed as proof metadata after the real MP4
+ // was measured and the queue fence was verified. The database rechecks the
+ // live lock atomically. No final MP4 storage or published/succeeded flag.
+ const restricted=new Pool({connectionString:DB_URL,ssl:false,max:1});
+ try{
+  const client=await restricted.connect();
+  try{await client.query("SET ROLE hf_staging_nonce_dispatcher");}
+  finally{client.release();}
+  const ack=await commitVerifiedSyntheticMp4Receipt({
+   pool:restricted,...verifyOptions
+  });
+  assert.equal(ack.recorded,true);
+  assert.equal(ack.receiptSha256,valid.receiptSha256);
+  const duplicate=await commitVerifiedSyntheticMp4Receipt({
+   pool:restricted,...verifyOptions
+  });
+  assert.equal(duplicate.recorded,false);
+  await assert.rejects(commitVerifiedSyntheticMp4Receipt({
+   pool:restricted,...verifyOptions,observed:badSha
+  }),/HF_SYNTHETIC_MP4_RECEIPT_DENIED/);
+  await assert.rejects(commitVerifiedSyntheticMp4Receipt({
+   pool:restricted,...verifyOptions,revokedKeyIds:[receiptKeyId]
+  }),/HF_SYNTHETIC_MP4_RECEIPT_DENIED/);
+  await assert.rejects(restricted.query(
+   "UPDATE modo_hyperframes_staging.render_jobs SET status='queued' WHERE job_id=$1::uuid",
+   [lease.jobId]
+  ),/permission denied/);
+ }finally{await restricted.end();}
+ const receiptLedger=await pool.query(
+  "SELECT receipt_sha256,output_sha256,output_bytes "+
+  "FROM modo_hyperframes_staging.synthetic_receipt_attestations "+
+  "WHERE job_id=$1::uuid AND lease_fence=$2::uuid",
+  [lease.jobId,lease.lease.fence]
+ );
+ assert.equal(receiptLedger.rowCount,1);
+ assert.equal(receiptLedger.rows[0].receipt_sha256.trim(),valid.receiptSha256);
+ assert.equal(receiptLedger.rows[0].output_sha256.trim(),outputSha256);
+ assert.equal(receiptLedger.rows[0].output_bytes,video.length);
+ assert.equal((await queue.get(lease.jobId,tenant)).status,"running");
  // Lease loss after rendering invalidates even a perfectly signed receipt.
  const failed=await queue.fail(lease.jobId,tenant,workerId,lease.lease.fence);
  assert.equal(failed?.status,"queued");
  const staleJob=await queue.get(lease.jobId,tenant);
+ await assert.rejects(commitVerifiedSyntheticMp4Receipt({
+  pool,...verifyOptions,currentJob:staleJob
+ }),/HF_SYNTHETIC_MP4_RECEIPT_DENIED/);
  assert.throws(()=>verifySyntheticMp4LeaseReceipt({
   ...verifyOptions,currentJob:staleJob
  }),/HF_SYNTHETIC_MP4_RECEIPT_DENIED/);
@@ -181,7 +224,7 @@ try {
   frames:observed.frames,codec:observed.codec,
   outputBytes:observed.outputBytes,mp4Sha256:outputSha256,
   signedReceiptSha256:valid.receiptSha256,
-  verifiedLeaseFence:true,authorizedBeforeRender:true,rejectedTamper:true,rejectedStaleFence:true,
+  verifiedLeaseFence:true,authorizedBeforeRender:true,receiptLedgerAtomic:true,rejectedTamper:true,rejectedStaleFence:true,
   noPublication:true,noSecretsInRenderer:true
  })+"\n");
 }finally{

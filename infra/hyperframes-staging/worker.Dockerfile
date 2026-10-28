@@ -22,6 +22,7 @@ COPY infra/hyperframes-staging/chrome-headless-wrapper.sh /usr/local/bin/hf-chro
 RUN chmod 0755 /usr/local/bin/hf-chrome
 COPY infra/hyperframes-staging/chrome-cdp-preflight.cjs /opt/hf-chrome-preflight.cjs
 COPY infra/hyperframes-staging/cdp-ffmpeg-synthetic.cjs /opt/hf-cdp-ffmpeg-synthetic.cjs
+COPY infra/hyperframes-staging/modo-static-storyboard-synthetic.cjs /opt/hf-modo-storyboard-synthetic.cjs
 
 # Exact experimental CLI version, not a floating latest tag.
 RUN npm install --prefix /opt/hyperframes --no-audit --no-fund \

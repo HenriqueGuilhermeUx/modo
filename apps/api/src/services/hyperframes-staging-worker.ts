@@ -51,11 +51,18 @@ export async function renderHyperframesStagingPreview(
     execFileAsync(command, args, options).then(({ stdout, stderr }) =>
       ({ stdout: String(stdout), stderr: String(stderr) })));
   // Only pass nonsecret worker variables, never production keys/tokens.
+  const browserPath = process.env.HYPERFRAMES_BROWSER_PATH;
+  if (browserPath && !isAbsolute(browserPath)) {
+    throw new Error("HYPERFRAMES_WORKER_BROWSER_NOT_PINNED");
+  }
   const environment: NodeJS.ProcessEnv = {
     PATH: process.env.PATH || "/usr/bin:/bin",
     HOME: workdir,
     TMPDIR: workdir,
     LANG: "C.UTF-8",
+    // The image preinstalls this binary. Pass only its absolute path, never
+    // the server environment or any network/telemetry credentials.
+    ...(browserPath ? { HYPERFRAMES_BROWSER_PATH: browserPath } : {}),
   };
   const options = {
     cwd: workdir, timeout: TIMEOUT_MS, maxBuffer: 250_000,

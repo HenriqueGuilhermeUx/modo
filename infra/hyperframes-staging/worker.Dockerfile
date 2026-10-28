@@ -21,6 +21,7 @@ RUN apt-get update -qq \
 COPY infra/hyperframes-staging/chrome-headless-wrapper.sh /usr/local/bin/hf-chrome
 RUN chmod 0755 /usr/local/bin/hf-chrome
 COPY infra/hyperframes-staging/chrome-cdp-preflight.cjs /opt/hf-chrome-preflight.cjs
+COPY infra/hyperframes-staging/cdp-ffmpeg-synthetic.cjs /opt/hf-cdp-ffmpeg-synthetic.cjs
 
 # Exact experimental CLI version, not a floating latest tag.
 RUN npm install --prefix /opt/hyperframes --no-audit --no-fund \

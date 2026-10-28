@@ -17,6 +17,11 @@ RUN apt-get update -qq \
     && useradd --uid 10001 --create-home --shell /usr/sbin/nologin hfworker \
     && install -d -o 10001 -g 10001 -m 0700 /home/hfworker
 
+# Chrome's nested sandbox cannot create namespaces under the stronger outer
+# Docker sandbox. This wrapper is SYNTHETIC STAGING ONLY; no customer media.
+COPY infra/hyperframes-staging/chrome-headless-wrapper.sh /usr/local/bin/hf-chrome
+RUN chmod 0755 /usr/local/bin/hf-chrome
+
 # Exact experimental CLI version, not a floating latest tag.
 RUN npm install --prefix /opt/hyperframes --no-audit --no-fund \
     --ignore-scripts --save-exact hyperframes@0.8.207 \
@@ -33,7 +38,7 @@ ENV NODE_ENV=test \
     HOME=/home/hfworker \
     MODO_HYPERFRAMES_BIN=/opt/hyperframes/node_modules/.bin/hyperframes \
     MODO_HYPERFRAMES_FFPROBE_BIN=/usr/bin/ffprobe \
-    HYPERFRAMES_BROWSER_PATH=/usr/bin/chromium-headless-shell
+    HYPERFRAMES_BROWSER_PATH=/usr/local/bin/hf-chrome
 
 # A container is NOT itself a sandbox: docker run/Compose MUST set
 # --network none, --read-only, --cap-drop ALL, no-new-privileges, tmpfs /tmp,

@@ -73,6 +73,9 @@ jobs:
       - name: Constrain isolated worker role to staging data only
         run: psql -v ON_ERROR_STOP=1 -f infra/hyperframes-staging/004_worker_role.sql
 
+      - name: Create synthetic-only PostgreSQL nonce claims
+        run: psql -v ON_ERROR_STOP=1 -f infra/hyperframes-staging/005_synthetic_handoff_nonces.sql
+
       - name: Assert minimal worker privileges
         shell: bash
         run: |
@@ -99,6 +102,14 @@ jobs:
           npm test --workspace=@modo/api -- src/services/hyperframes-staging-pg-artifacts.test.ts
           npm test --workspace=@modo/api -- src/services/hyperframes-staging-pg-render-runner.test.ts
           npm test --workspace=@modo/api -- src/services/hyperframes-staging-pg-snapshots.test.ts
+
+      - name: Durable Ed25519 synthetic handoff replay checks
+        env:
+          MODO_HF_HANDOFF_MODE: synthetic-ci-only
+        run: |
+          node --check infra/hyperframes-staging/static-handoff-pg-nonce.mjs
+          node --check infra/hyperframes-staging/static-handoff-pg-nonce.test.mjs
+          node --test infra/hyperframes-staging/static-handoff-pg-nonce.test.mjs
 
       - name: Signed worker identity and expiry unit tests
         run: npm test --workspace=@modo/api -- src/services/hyperframes-staging-pg-work-order.test.ts

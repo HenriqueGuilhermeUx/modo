@@ -18,7 +18,7 @@ const modoCapabilities = [
   },
   {
     title: "Lead follow-up",
-    copy: "Turn marketing interest into organized contacts and suggested follow-up actions with SmartBots.",
+    copy: "Connect campaign interest to organized next steps for your team.",
   },
 ];
 
@@ -90,7 +90,6 @@ export default function UsLanding({ product }: { product: UsProduct }) {
         </a>
         <nav aria-label="United States product navigation">
           <a href="/us" aria-current={!isSmartBots ? "page" : undefined}>MODO</a>
-          <a href="/us/smartbots" aria-current={isSmartBots ? "page" : undefined}>SmartBots</a>
           <a href="#features">Features</a>
           <a href="#availability">Availability</a>
         </nav>
@@ -109,9 +108,7 @@ export default function UsLanding({ product }: { product: UsProduct }) {
             <div className="av-us-actions">
               
               <a className="av-us-primary" href={isSmartBots ? "/us/smartbots/demo" : "/us/demo"}>Try an interactive demo ↗</a>
-              <a className="av-us-secondary" href={isSmartBots ? "/us" : "/us/smartbots"}>
-                {isSmartBots ? "Explore MODO" : "See SmartBots"}
-              </a>
+
             </div>
             <p className="av-us-preview-note">US preview · No US account activation or checkout is available on this page.</p>
           </div>
@@ -152,9 +149,7 @@ export default function UsLanding({ product }: { product: UsProduct }) {
             <h2>Built on an existing product. Being localized for the United States.</h2>
             <p>This preview introduces current product capabilities, not a promise that local payments, integrations, support or contracts are live in the US. Availability will be confirmed after localization and release checks.</p>
           </div>
-          <a href={isSmartBots ? "/us" : "/us/smartbots"}>
-            {isSmartBots ? "Explore MODO →" : "Explore SmartBots →"}
-          </a>
+
         </section>
       </main>
 

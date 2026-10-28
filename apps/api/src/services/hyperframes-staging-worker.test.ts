@@ -72,6 +72,49 @@ describe("isolated HyperFrames staging runner", () => {
     } finally { restore(); }
   });
 
+  it("passes only a pinned local Headless Shell path to the renderer subprocess", async () => {
+    const before = process.env.HYPERFRAMES_BROWSER_PATH;
+    const oldSecret = process.env.MODO_HYPERFRAMES_CONTENT_KEY_B64;
+    process.env.MODO_HYPERFRAMES_WORKER_MODE = "isolated-staging";
+    process.env.HYPERFRAMES_BROWSER_PATH = "/usr/bin/chromium-headless-shell";
+    process.env.MODO_HYPERFRAMES_CONTENT_KEY_B64 = "not-for-subprocess";
+    try {
+      const mock = async (command: string, args: string[], opt: {
+        cwd: string; env: NodeJS.ProcessEnv;
+      }) => {
+        expect(opt.env.HYPERFRAMES_BROWSER_PATH).toBe(
+          "/usr/bin/chromium-headless-shell");
+        expect(opt.env.MODO_HYPERFRAMES_CONTENT_KEY_B64).toBeUndefined();
+        if (args[0] === "render") {
+          await writeFile(join(opt.cwd, "sample.mp4"), Buffer.alloc(5000, 1));
+        }
+        if (command.includes("ffprobe")) return {
+          stdout: JSON.stringify({ streams: [{
+            codec_type: "video", width: 1080, height: 1920,
+            r_frame_rate: "30/1",
+          }], format: { duration: "15.000000" } }),
+        };
+        return { stdout: "" };
+      };
+      const output = await renderHyperframesStagingPreview(sample(), "Marca", {
+        hyperframesExecutable: "/opt/hyperframes/node_modules/.bin/hyperframes",
+        ffprobeExecutable: "/usr/bin/ffprobe", execute: mock,
+      }, "sandbox-only");
+      expect(output.previewOnly).toBe(true);
+      process.env.HYPERFRAMES_BROWSER_PATH = "relative-browser";
+      await expect(renderHyperframesStagingPreview(sample(), "Marca", {
+        hyperframesExecutable: "/opt/hyperframes/node_modules/.bin/hyperframes",
+        ffprobeExecutable: "/usr/bin/ffprobe", execute: mock,
+      }, "sandbox-only")).rejects.toThrow(/WORKER_BROWSER_NOT_PINNED/);
+    } finally {
+      restore();
+      if (before === undefined) delete process.env.HYPERFRAMES_BROWSER_PATH;
+      else process.env.HYPERFRAMES_BROWSER_PATH = before;
+      if (oldSecret === undefined) delete process.env.MODO_HYPERFRAMES_CONTENT_KEY_B64;
+      else process.env.MODO_HYPERFRAMES_CONTENT_KEY_B64 = oldSecret;
+    }
+  });
+
   it("rejects cross-tenant preview before any subprocess or file creation", async () => {
     process.env.MODO_HYPERFRAMES_WORKER_MODE = "isolated-staging";
     try {

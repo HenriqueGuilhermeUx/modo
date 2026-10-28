@@ -4,8 +4,8 @@ import pg from "pg";
 import {generateKeyPairSync,randomUUID} from "node:crypto";
 import {createSyntheticPgNonceConsumer} from "./static-handoff-pg-nonce.mjs";
 import {acceptSyntheticHandoff,signSyntheticHandoff,sha256} from "./static-handoff-contract.mjs";
-const URL=process.env.MODO_HYPERFRAMES_PG_TEST_DATABASE_URL;
-if(!URL)throw Error("HF_SYNTHETIC_NONCE_TEST_REQUIRES_STAGING_DB");
+const DB_URL=process.env.MODO_HYPERFRAMES_PG_TEST_DATABASE_URL;
+if(!DB_URL)throw Error("HF_SYNTHETIC_NONCE_TEST_REQUIRES_STAGING_DB");
 process.env.MODO_HF_HANDOFF_MODE="synthetic-ci-only";
 process.env.MODO_HYPERFRAMES_DB_MODE="isolated-staging";
 const {Pool}=pg,keys=generateKeyPairSync("ed25519"),hash=s=>sha256(Buffer.from(s));
@@ -24,7 +24,7 @@ const opt=(x,consumeNonce,identityOverride=identity())=>({
  nowMs:Date.now(),consumeNonce
 });
 before(async()=>{
- pool=new Pool({connectionString:URL,ssl:false,max:12});
+ pool=new Pool({connectionString:DB_URL,ssl:false,max:12});
  const q=await pool.query("SELECT current_database() AS name");
  assert.equal(q.rows[0].name,"modo_hyperframes_staging");
 });
@@ -32,7 +32,7 @@ after(async()=>{await pool?.end();});
 test("durable replay is rejected after new Pool/client",async()=>{
  const x=order(),first=opt(x,consumer(pool));
  await acceptSyntheticHandoff(first);
- const another=new Pool({connectionString:URL,ssl:false,max:2});
+ const another=new Pool({connectionString:DB_URL,ssl:false,max:2});
  try{await assert.rejects(acceptSyntheticHandoff({...first,consumeNonce:consumer(another)}),/HANDOFF_DENIED/);}
  finally{await another.end();}
  const q=await pool.query("SELECT count(*)::int AS n FROM modo_hyperframes_staging.synthetic_handoff_nonces WHERE nonce=$1::uuid",[x.nonce]);
@@ -68,7 +68,7 @@ test("gate refuses production and disabled database mode",async()=>{
  }
 });
 test("wrong database name fails before insert",async()=>{
- const url=new URL(URL);url.pathname="/postgres";
+ const url=new URL(DB_URL);url.pathname="/postgres";
  const wrong=new Pool({connectionString:url.toString(),ssl:false,max:1}),x=order();
  try{await assert.rejects(consumer(wrong)(x.tenantId,x.nonce,x.expiresAtMs),/NONCE_DENIED/);}
  finally{await wrong.end();}

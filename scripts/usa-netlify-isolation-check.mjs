@@ -5,6 +5,17 @@ import { execFileSync } from "node:child_process";
 import { join, relative } from "node:path";
 
 const root = "apps/web/dist-usa";
+// Fail closed if the dedicated Netlify package configuration is accidentally
+// changed back to the Brazilian default. This is an offline source guard;
+// Netlify project package-directory settings still require independent review.
+const siteConfig = readFileSync("deploy/netlify/modo/netlify.toml", "utf8");
+assert.match(siteConfig, /publish\s*=\s*"apps\/web\/dist-usa"/,
+  "USA Netlify config must publish only dist-usa");
+assert.match(siteConfig, /command\s*=\s*"[^"\n]*scripts\/build-usa-netlify\.mjs"/,
+  "USA Netlify config must run the isolated USA builder");
+for (const forbidden of ["VITE_API_URL", "modo-api-3m10.onrender.com", 'publish = "apps/web/dist"', 'to = "/index.html"']) {
+  assert.ok(!siteConfig.includes(forbidden), "Brazilian Netlify setting in USA config: " + forbidden);
+}
 const html = readFileSync(root + "/index.html", "utf8");
 assert.match(html, /noindex,nofollow/);
 

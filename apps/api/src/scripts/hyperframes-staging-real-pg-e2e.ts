@@ -16,6 +16,8 @@ const ORG = "isolated-real-cli-ci";
 const PROJECT = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const BRAND = "MODO synthetic E2E";
 const WORKER = "isolated-ci-worker-one";
+// Only fixed, non-sensitive stage names are printed on failure.
+let ciStage: "preflight" | "database" | "snapshot" | "signed_order" | "worker" | "artifact" | "replay" | "cleanup" = "preflight";
 
 function requireSafeCI(): string {
   if (process.env.NODE_ENV === "production" ||
@@ -105,16 +107,19 @@ async function run() {
   const artifacts = new HyperframesStagingPgArtifacts(pool, { key: contentKey });
   const queue = new HyperframesStagingPgQueue(pool);
   try {
+    ciStage = "database";
     const database = await pool.query("SELECT current_database() AS db");
     if (database.rows[0]?.db !== "modo_hyperframes_staging") {
       throw new Error("HYPERFRAMES_REAL_PG_CI_WRONG_DATABASE");
     }
+    ciStage = "snapshot";
     const job = await snapshots.enqueue({
       project: syntheticProject,
       brandName: BRAND,
       idempotencyKey: "real-cli-e2e-fixture-20261027",
       authorizedOrganizationId: ORG,
     });
+    ciStage = "signed_order";
     const order = signStagingWorkOrder({
       jobId: job.jobId, organizationId: ORG,
       workerId: WORKER, requestSha256: job.requestSha256,
@@ -141,6 +146,7 @@ async function run() {
     // The only process allowed to run the actual CLI. Its script and worker
     // executable paths are absolute and its stdout is restricted/sanitized.
     const worker = resolve("apps/api/dist/scripts/hyperframes-staging-one-shot.js");
+    ciStage = "worker";
     const { stdout } = await execute(process.execPath, [worker, orderPath], {
       cwd: process.cwd(), env: childEnvironment,
       timeout: 540_000, maxBuffer: 8_192, windowsHide: true,
@@ -150,6 +156,7 @@ async function run() {
         !("kind" in output) || output.kind !== "completed") {
       throw new Error("HYPERFRAMES_REAL_PG_CI_INCOMPLETE");
     }
+    ciStage = "artifact";
     const status = await queue.get(job.jobId, ORG);
     if (status?.status !== "succeeded" || !status.artifact ||
         status.previewOnly !== true || status.published !== false ||
@@ -168,6 +175,7 @@ async function run() {
       throw new Error("HYPERFRAMES_REAL_PG_CI_TENANT_LEAK");
     }
     // A second run with the same signed order must not rerender.
+    ciStage = "replay";
     const again = await execute(process.execPath, [worker, orderPath], {
       cwd: process.cwd(), env: childEnvironment, timeout: 15_000,
       maxBuffer: 8_192, windowsHide: true,
@@ -182,6 +190,7 @@ async function run() {
       previewOnly: true, published: false,
     }) + "\n");
   } finally {
+    ciStage = "cleanup";
     await pool.query(
       "DELETE FROM modo_hyperframes_staging.render_jobs WHERE organization_id=$1",
       [ORG],
@@ -196,7 +205,12 @@ async function run() {
 }
 void run().catch((error: unknown) => {
   const safe = error instanceof Error && /^HYPERFRAMES_[A-Z0-9_]+$/.test(error.message)
-    ? error.message : "HYPERFRAMES_REAL_PG_CI_FAILED";
-  process.stderr.write(safe + "\n");
+    ? error.message : `HYPERFRAMES_REAL_PG_CI_${ciStage.toUpperCase()}_FAILED`;
+  // The one-shot executable deliberately emits only whitelisted error codes.
+  // Never show a raw execFile error, stderr, stdout, customer payload, path or key.
+  const childCode = error && typeof error === "object" && "stderr" in error &&
+    typeof error.stderr === "string" && /^HYPERFRAMES_[A-Z0-9_]+\n?$/.test(error.stderr)
+    ? error.stderr.trim() : null;
+  process.stderr.write(safe + (childCode ? ` (${childCode})` : "") + "\n");
   process.exitCode = 1;
 });

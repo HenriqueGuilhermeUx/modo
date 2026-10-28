@@ -86,9 +86,9 @@ async function stagingDatabaseConfig(): Promise<pg.PoolConfig> {
         info.uid !== process.getuid()) {
       throw new Error("HYPERFRAMES_ONE_SHOT_UNSAFE_DB_PASSWORD_FILE");
     }
-    password = (await handle.readFile({ encoding: "utf8" })).replace(/\\r?\\n$/, "");
+    password = (await handle.readFile({ encoding: "utf8" })).replace(/\r?\n$/, "");
     if (password.length < 16 || password.length > 512 ||
-        /[\\r\\n\\0]/.test(password)) {
+        /[\r\n\0]/.test(password)) {
       throw new Error("HYPERFRAMES_ONE_SHOT_INVALID_DB_PASSWORD");
     }
     return {

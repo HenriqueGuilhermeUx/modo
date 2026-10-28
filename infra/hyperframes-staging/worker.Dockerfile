@@ -11,7 +11,8 @@ FROM node:22-bookworm-slim AS runtime
 # allowed to fetch binaries or npm packages while executing video jobs.
 RUN apt-get update -qq \
     && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends \
-      ffmpeg chromium ca-certificates fontconfig fonts-dejavu-core \
+      ffmpeg chromium chromium-headless-shell ca-certificates fontconfig fonts-dejavu-core \
+    && test -x /usr/bin/chromium-headless-shell \
     && rm -rf /var/lib/apt/lists/* \
     && useradd --uid 10001 --create-home --shell /usr/sbin/nologin hfworker \
     && install -d -o 10001 -g 10001 -m 0700 /home/hfworker
@@ -31,7 +32,8 @@ COPY --from=build /build/apps/api/package.json /app/apps/api/package.json
 ENV NODE_ENV=test \
     HOME=/home/hfworker \
     MODO_HYPERFRAMES_BIN=/opt/hyperframes/node_modules/.bin/hyperframes \
-    MODO_HYPERFRAMES_FFPROBE_BIN=/usr/bin/ffprobe
+    MODO_HYPERFRAMES_FFPROBE_BIN=/usr/bin/ffprobe \
+    HYPERFRAMES_BROWSER_PATH=/usr/bin/chromium-headless-shell
 
 # A container is NOT itself a sandbox: docker run/Compose MUST set
 # --network none, --read-only, --cap-drop ALL, no-new-privileges, tmpfs /tmp,

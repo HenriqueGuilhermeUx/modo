@@ -33,9 +33,9 @@ jobs:
           docker run --rm \
             --network none --read-only \
             --cap-drop ALL --security-opt no-new-privileges \
-            --pids-limit=128 --memory=2g --cpus=2 \
+            --pids-limit=128 --memory=4g --cpus=2 \
             --shm-size=256m \
-            --tmpfs /tmp:rw,nosuid,size=512m,mode=1777 \
+            --tmpfs /tmp:rw,nosuid,size=2g,mode=1777 \
             --tmpfs /home/hfworker:rw,nosuid,size=64m,mode=0700,uid=10001,gid=10001 \
             --entrypoint /usr/local/bin/node \
             modo-hf-staging:ci \

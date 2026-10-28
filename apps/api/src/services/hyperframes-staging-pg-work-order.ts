@@ -65,7 +65,8 @@ function validPayload(value: unknown): value is StagingWorkOrder {
     typeof x.workerId === "string" && ID.test(x.workerId) &&
     typeof x.requestSha256 === "string" && DIGEST.test(x.requestSha256) &&
     typeof x.nonce === "string" && UUID.test(x.nonce) &&
-    Number.isSafeInteger(x.issuedAt) && Number.isSafeInteger(x.expiresAt) &&
+    typeof x.issuedAt === "number" && Number.isSafeInteger(x.issuedAt) &&
+    typeof x.expiresAt === "number" && Number.isSafeInteger(x.expiresAt) &&
     (x.issuedAt as number) > 0 &&
     (x.expiresAt as number) > (x.issuedAt as number) &&
     (x.expiresAt as number) - (x.issuedAt as number) <= MAX_TTL;

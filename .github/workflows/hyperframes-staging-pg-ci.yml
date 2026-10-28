@@ -76,6 +76,9 @@ jobs:
       - name: Create synthetic-only PostgreSQL nonce claims
         run: psql -v ON_ERROR_STOP=1 -f infra/hyperframes-staging/005_synthetic_handoff_nonces.sql
 
+      - name: Create synthetic lease-bound handoff ledger
+        run: psql -v ON_ERROR_STOP=1 -f infra/hyperframes-staging/006_synthetic_lease_handoffs.sql
+
       - name: Assert minimal worker privileges
         shell: bash
         run: |
@@ -110,6 +113,15 @@ jobs:
           node --check infra/hyperframes-staging/static-handoff-pg-nonce.mjs
           node --check infra/hyperframes-staging/static-handoff-pg-nonce.test.mjs
           node --test infra/hyperframes-staging/static-handoff-pg-nonce.test.mjs
+
+      - name: Verify Ed25519 v2 against a current PostgreSQL staging lease
+        env:
+          MODO_HF_HANDOFF_MODE: synthetic-ci-only
+        run: |
+          node --check infra/hyperframes-staging/static-handoff-lease-v2.mjs
+          node --check infra/hyperframes-staging/static-handoff-pg-lease.mjs
+          node --check infra/hyperframes-staging/static-handoff-pg-lease.test.mjs
+          node --import tsx --test infra/hyperframes-staging/static-handoff-pg-lease.test.mjs
 
       - name: Signed worker identity and expiry unit tests
         run: npm test --workspace=@modo/api -- src/services/hyperframes-staging-pg-work-order.test.ts

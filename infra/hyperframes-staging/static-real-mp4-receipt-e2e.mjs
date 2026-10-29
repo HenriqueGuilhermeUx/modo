@@ -253,7 +253,7 @@ try {
   await assert.rejects(vault.finishWithVideo({
    jobId:lease.jobId,authorizedOrganizationId:tenant,
    workerId,fence:lease.lease.fence,video:invalid
-  }),/HF_SYNTHETIC_ENCRYPTED_FINALIZATION_MISSING_RECEIPT/);
+  }),/HF_SYNTHETIC_(?:ENCRYPTED_FINALIZATION_MISSING_RECEIPT|LAUNCH_FINALIZATION_NOT_CLAIMED)/);
   assert.equal((await queue.get(lease.jobId,tenant)).status,"running");
   assert.equal((await pool.query(
    "SELECT count(*)::int AS n FROM modo_hyperframes_staging.render_artifacts WHERE job_id=$1::uuid",

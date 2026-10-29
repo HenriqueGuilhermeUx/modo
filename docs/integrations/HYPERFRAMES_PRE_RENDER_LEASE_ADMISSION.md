@@ -37,6 +37,16 @@ Um segundo gatilho `BEFORE INSERT` na tabela de MP4s exige para o único tenant 
 
 **Limite decisivo:** isto fornece um **controle de execução única pelo lançador confiável**, não é uma garantia de que um invasor com os mesmos mounts assinados não possa executar manualmente o container duas vezes durante a validade do certificado. Resolver essa ameaça de forma completa exige autenticação entre scheduler e worker, capacidade efêmera por instância / broker de execução e proibir a invocação direta do Chrome fora do serviço confiável. A fila e o armazenamento já impedem dupla confirmação final sob a mesma lease; renderizações duplicadas ilegítimas podem, contudo, consumir CPU antes desse commit.
 
+## Broker interativo de execução vinculada à instância (experimento CI)
+
+Depois do controle PostgreSQL de uso único (009), o laboratório adiciona um **broker externo ao Chrome** sobre socket Unix. O broker confiável, iniciado no runner antes da imagem derivada, mantém uma chave privada **Ed25519 exclusivamente na memória do processo**, grava somente sua chave pública e a incorpora à imagem do renderer em um layer derivado de CI. A imagem original continua funcionando no smoke sintético sem exportação.
+
+Para exportar MP4, \`MODO_HF_STATIC_BROKER_MODE=synthetic-ci-only\` passa a ser obrigatório além da autorização Ed25519 original. Antes de abrir Chrome, o cliente rootless gera um desafio aleatório de 256 bits e o envia por socket Unix local ao broker. O broker confere o digest da autorização, o hash exato do pedido, UUID/fencing, e consome **uma única** autorização atômica no PostgreSQL através do papel NOLOGIN. Apenas o vencedor recebe assinatura vinculada ao desafio, pedido, tarefa e lease, válida por até 8 segundos. O cliente confere essa assinatura usando a chave pública **fixada na imagem**, não uma chave pública arbitrária fornecida por bind mount. A ausência do socket ou da resposta assinada é uma recusa anterior ao render.
+
+A nova suíte testa assinatura de resposta, desafio copiado para outro container, identidade e digest diferentes, chave substituída, expiração e alteração de payload. O E2E verifica um container iniciado **somente com arquivos assinados, mas sem o socket**: deve falhar sem produzir MP4; depois monta o socket exclusivamente no container válido, obtém um grant e persiste a confirmação de lançamento apenas no runner. O backend/DB, a chave privada do broker e qualquer senha jamais entram na imagem.
+
+**Limites:** uma pessoa com privilégios para modificar arbitrariamente a imagem do Docker ou controlar o broker/host consegue contornar qualquer proteção dentro da própria imagem; esse cenário continua fora da garantia. O broker é de CI e usa socket montado, não mTLS ou autenticação de serviço de produção. Um atacante com acesso ao mesmo socket ativo pode competir pelo lançamento legítimo, causando indisponibilidade; contenção da montagem, UID/ACL e identidade de runtime exigem revisão antes de produção. O Chrome interno ainda usa modo sem sandbox e não aceita HTML de clientes.
+
 ## Isolamento e limites
 
 - Nenhum segredo, credencial PostgreSQL, chave de assinatura privada ou backend MODO é montado no container. A imagem inclui exclusivamente um verificador CommonJS de **chave pública** adicional.

@@ -13,6 +13,7 @@ const os = require("node:os");
 const path = require("node:path");
 const { promisify } = require("node:util");
 const {verifySyntheticRendererAdmissionFiles} = require("/opt/static-renderer-admission.cjs");
+const {requireSyntheticBrokerGrant} = require("/opt/static-renderer-broker-client.cjs");
 const puppeteer = require("/opt/static-browser/node_modules/puppeteer-core");
 const exec = promisify(cp.execFile);
 const BROWSER = "/usr/local/bin/hf-static-chrome";
@@ -77,6 +78,10 @@ function failClosedEnvironment() {
   if(exportEnabled!==admissionEnabled ||
      (process.env.MODO_HF_STATIC_ADMISSION_MODE!==undefined && !admissionEnabled))
     denial("ADMISSION_REQUIRED");
+  const brokerEnabled=process.env.MODO_HF_STATIC_BROKER_MODE==="synthetic-ci-only";
+  if(exportEnabled!==brokerEnabled ||
+     (process.env.MODO_HF_STATIC_BROKER_MODE!==undefined && !brokerEnabled))
+    denial("BROKER_REQUIRED");
   // Output is never enabled by default, only explicitly for disposable CI.
   if(process.env.MODO_HF_STATIC_EXPORT_MODE!==undefined &&
      process.env.MODO_HF_STATIC_EXPORT_MODE!=="synthetic-ci-artifact") denial("EXPORT_DISABLED");
@@ -271,6 +276,10 @@ void (async()=>{
   // Admission check MUST precede any Chrome launch, HTML construction or MP4.
   if(process.env.MODO_HF_STATIC_ADMISSION_MODE==="synthetic-ci-only")
     verifySyntheticRendererAdmissionFiles(verified.orderBytes,verified.payload);
+  // Online one-shot broker challenge uses a trusted pubkey pinned in the
+  // image, not the public key that a caller can substitute in a bind mount.
+  if(process.env.MODO_HF_STATIC_BROKER_MODE==="synthetic-ci-only")
+    await requireSyntheticBrokerGrant(verified.orderBytes);
   await render(verified.payload);
 })()
   .catch(error=>{

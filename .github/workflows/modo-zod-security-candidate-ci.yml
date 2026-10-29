@@ -1,0 +1,68 @@
+name: MODO API Zod security candidate (isolated)
+on:
+  push:
+    branches: ['security/modo-zod-466-staging-20261026']
+    paths:
+      - 'apps/api/package.json'
+      - 'scripts/validate-zod-security-candidate.mjs'
+      - '.github/workflows/modo-zod-security-candidate-ci.yml'
+  pull_request:
+    branches: ['feat/hyperframes-pilot-20261025']
+
+permissions:
+  contents: read
+
+jobs:
+  zod-security-candidate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_DB: modo_ci
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres -d modo_ci"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install isolated candidate (no live deployment or automatic fixes)
+        run: npm install --include=dev --no-audit --no-fund
+      - name: Audit API runtime dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          set +e
+          npm audit --json --omit=dev --workspace=@modo/api > "$RUNNER_TEMP/modo-api-zod-audit.json"
+          status=$?
+          set -e
+          if [ "$status" -gt 1 ]; then
+            echo "npm audit errored; candidate cannot pass"
+            exit "$status"
+          fi
+          node scripts/validate-zod-security-candidate.mjs "$RUNNER_TEMP/modo-api-zod-audit.json"
+      - name: Typecheck all workspaces
+        run: npm run typecheck
+      - name: API regression tests
+        run: npm test
+      - name: Build API and client applications
+        run: npm run build
+      - name: Remotion rendering regression smoke
+        run: npm run smoke:video --workspace=@modo/api
+      - name: Archive candidate audit (no customer data)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: modo-api-zod-466-candidate-audit
+          path: ${{ runner.temp }}/modo-api-zod-audit.json
+          retention-days: 1
+          if-no-files-found: ignore

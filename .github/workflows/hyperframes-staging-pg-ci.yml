@@ -85,6 +85,9 @@ jobs:
       - name: Add synthetic-only encrypted artifact receipt/fence guard
         run: psql -v ON_ERROR_STOP=1 -f infra/hyperframes-staging/008_synthetic_encrypted_finalization.sql
 
+      - name: Create synthetic one-shot browser launch barrier
+        run: psql -v ON_ERROR_STOP=1 -f infra/hyperframes-staging/009_synthetic_browser_launch_once.sql
+
       - name: Assert minimal worker privileges
         shell: bash
         run: |

@@ -27,6 +27,16 @@ O teste E2E usa os **bytes reais do MP4**; prova falha/rollback com MP4 adultera
 
 **Escopo estrito:** apenas prova sintética em PostgreSQL efêmero. O gatilho não autentica sozinho serviços externos, não resolve replay da autorização do navegador durante o prazo, não constitui objeto de mídia/CDN comercial e não certifica equivalência visual com Remotion. O arquivo é descartado após o workflow, sem URL pública.
 
+## Controle de uso único do launcher confiável (009)
+
+A migração manual `009_synthetic_browser_launch_once.sql`, aplicável somente ao PostgreSQL descartável `modo_hyperframes_staging`, adiciona o ledger `synthetic_browser_launches` com **nonce global, admission_sha256 globalmente único e UNIQUE(job_id,lease_fence)**. A função restrita `consume_synthetic_browser_launch`, executável apenas pelo papel dispatcher NOLOGIN por meio de processo confiável, confere *após bloquear a linha da tarefa* o estado `running`, tenant exclusivamente sintético, worker, versão, tentativa, digest, fencing, prazo do lease, despacho Ed25519 previamente consumido e relógio do PostgreSQL. Concorrência converge para exatamente um vencedor. Duplicatas são recusadas sem apagar nem reutilizar o nonce.
+
+O novo `static-browser-launch-gate.mjs` revalida a assinatura Ed25519, o digest exato do pedido original e os metadados esperados **independentemente fornecidos pelo scheduler**, antes de executar a função SQL. A prova `static-browser-launch-claim-ci.mjs` é chamada **entre a autorização do scheduler e o comando válido `docker run`**, testa 20 lançamentos simultâneos, replay, assinatura inválida, digest divergente e poderes do papel restrito. Somente se uma disputa tiver exatamente um vencedor, grava `launch-confirmation.json` na área temporária **exclusiva do runner**. O comando de render válido exige esse arquivo e o verificador pós-render confere a linha persistida, associada ao recibo e ao mesmo lease. O arquivo de confirmação NÃO é montado no Chrome.
+
+Um segundo gatilho `BEFORE INSERT` na tabela de MP4s exige para o único tenant de laboratório um lançamento consumido. Atua na mesma transação que a verificação de recibo 008, a escrita AES-256-GCM e a mudança terminal da tarefa. Sem lançamento, a transação é recusada e nenhum artefato é persistido.
+
+**Limite decisivo:** isto fornece um **controle de execução única pelo lançador confiável**, não é uma garantia de que um invasor com os mesmos mounts assinados não possa executar manualmente o container duas vezes durante a validade do certificado. Resolver essa ameaça de forma completa exige autenticação entre scheduler e worker, capacidade efêmera por instância / broker de execução e proibir a invocação direta do Chrome fora do serviço confiável. A fila e o armazenamento já impedem dupla confirmação final sob a mesma lease; renderizações duplicadas ilegítimas podem, contudo, consumir CPU antes desse commit.
+
 ## Isolamento e limites
 
 - Nenhum segredo, credencial PostgreSQL, chave de assinatura privada ou backend MODO é montado no container. A imagem inclui exclusivamente um verificador CommonJS de **chave pública** adicional.

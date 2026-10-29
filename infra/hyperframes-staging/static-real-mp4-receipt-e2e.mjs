@@ -99,7 +99,13 @@ try {
  assert.equal(authorized.requestSha256,requestSha256);
  assert.equal(preflight.rendererOrderSha256,rendererOrderSha256);
  assert.equal(preflight.rendererJobId,source.jobId);
+ const launchMarker=JSON.parse(await readFile(join(inputDir,"launch-confirmation.json"),"utf8"));
+ assert.equal(launchMarker.oneShotClaimed,true);
+ assert.equal(launchMarker.syntheticOnly,true);
+ assert.equal(launchMarker.admissionSha256,preflight.admissionSha256);
  const expectedLease=preflight.expectedLease;
+ assert.equal(launchMarker.jobId,expectedLease.jobId);
+ assert.equal(launchMarker.leaseFence,expectedLease.leaseFence);
  const {organizationId:tenant,projectId,jobId:authorizedJob,workerId}=expectedLease;
  const queue=new HyperframesStagingPgQueue(pool);
  const lease=await queue.get(authorizedJob,tenant);
@@ -118,6 +124,16 @@ try {
  );
  assert.equal(claim.rowCount,1);
  assert.equal(claim.rows[0].signed_order_sha256.trim(),preflight.leaseOrderSha256);
+ const launches=await pool.query(
+  "SELECT admission_sha256,renderer_order_sha256,dispatch_sha256 "+
+  "FROM modo_hyperframes_staging.synthetic_browser_launches "+
+  "WHERE job_id=$1::uuid AND lease_fence=$2::uuid",
+  [authorizedJob,lease.lease.fence]
+ );
+ assert.equal(launches.rowCount,1);
+ assert.equal(launches.rows[0].admission_sha256.trim(),preflight.admissionSha256);
+ assert.equal(launches.rows[0].renderer_order_sha256.trim(),rendererOrderSha256);
+ assert.equal(launches.rows[0].dispatch_sha256.trim(),preflight.leaseOrderSha256);
  const accepted={signedRequestSha256:preflight.leaseOrderSha256};
  const receiptKeys=generateKeyPairSync("ed25519");
  const receiptKeyId="trusted-attestor-ci-v2";
@@ -226,7 +242,7 @@ try {
   await assert.rejects(vault.finishWithVideo({
    jobId:withoutReceipt.jobId,authorizedOrganizationId:tenant,
    workerId,fence:withoutLease.lease.fence,video
-  }),/HF_SYNTHETIC_ENCRYPTED_FINALIZATION_MISSING_RECEIPT/);
+  }),/HF_SYNTHETIC_LAUNCH_FINALIZATION_NOT_CLAIMED/);
   assert.equal((await queue.get(withoutReceipt.jobId,tenant)).status,"running");
   assert.equal((await pool.query(
    "SELECT count(*)::int AS n FROM modo_hyperframes_staging.render_artifacts WHERE job_id=$1::uuid",
@@ -323,7 +339,7 @@ try {
   frames:observed.frames,codec:observed.codec,
   outputBytes:observed.outputBytes,mp4Sha256:outputSha256,
   signedReceiptSha256:valid.receiptSha256,
-  verifiedLeaseFence:true,authorizedBeforeRender:true,receiptLedgerAtomic:true,encryptedVideoAtomic:true,verifiedAfterRestart:true,rejectedTamper:true,rejectedStaleFence:true,
+  verifiedLeaseFence:true,authorizedBeforeRender:true,oneShotLaunchClaim:true,receiptLedgerAtomic:true,encryptedVideoAtomic:true,verifiedAfterRestart:true,rejectedTamper:true,rejectedStaleFence:true,
   noPublication:true,noSecretsInRenderer:true
  })+"\n");
 }finally{

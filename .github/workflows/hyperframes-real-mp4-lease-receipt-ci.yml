@@ -9,6 +9,7 @@ on:
       - 'infra/hyperframes-staging/static-handoff-pg-lease.mjs'
       - 'infra/hyperframes-staging/static-lease-mp4-receipt-v2.mjs'
       - 'infra/hyperframes-staging/static-real-mp4-receipt-e2e.mjs'
+      - 'infra/hyperframes-staging/static-browser-launch*'
       - 'infra/hyperframes-staging/00*.sql'
       - 'apps/api/src/services/hyperframes-static-storyboard.ts'
   workflow_dispatch:
@@ -42,6 +43,7 @@ jobs:
       MODO_HF_HANDOFF_MODE: synthetic-ci-only
       MODO_HF_MP4_RECEIPT_MODE: synthetic-ci-only
       MODO_HF_PREFLIGHT_MODE: synthetic-ci-only
+      MODO_HF_BROWSER_LAUNCH_MODE: synthetic-ci-only
       MODO_HYPERFRAMES_PG_TEST_DATABASE_URL: postgresql://postgres@127.0.0.1:5432/modo_hyperframes_staging
       PGHOST: 127.0.0.1
       PGPORT: "5432"
@@ -71,7 +73,7 @@ jobs:
           set -euo pipefail
           test "$PGDATABASE" = modo_hyperframes_staging
           psql -v ON_ERROR_STOP=1 -Atc "SELECT current_database()" | grep -x modo_hyperframes_staging
-          for n in 001_render_jobs 002_encrypted_render_artifacts 003_encrypted_render_snapshots 004_worker_role 005_synthetic_handoff_nonces 006_synthetic_lease_handoffs 007_synthetic_receipt_attestations 008_synthetic_encrypted_finalization; do
+          for n in 001_render_jobs 002_encrypted_render_artifacts 003_encrypted_render_snapshots 004_worker_role 005_synthetic_handoff_nonces 006_synthetic_lease_handoffs 007_synthetic_receipt_attestations 008_synthetic_encrypted_finalization 009_synthetic_browser_launch_once; do
             psql -v ON_ERROR_STOP=1 -f "infra/hyperframes-staging/$n.sql"
           done
 
@@ -128,11 +130,22 @@ jobs:
             test ! -e "$RUNNER_TEMP/hf-receipt-real-output/synthetic.mp4"
           done
 
+      - name: Claim ONE trusted browser launch under live lease before Chrome
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check infra/hyperframes-staging/static-browser-launch-gate.mjs
+          node --check infra/hyperframes-staging/static-browser-launch-claim-ci.mjs
+          node --import tsx infra/hyperframes-staging/static-browser-launch-claim-ci.mjs "$RUNNER_TEMP/hf-receipt-signed-input"
+          test -s "$RUNNER_TEMP/hf-receipt-signed-input/launch-confirmation.json"
+          test ! -e "$RUNNER_TEMP/hf-receipt-real-output/synthetic.mp4"
+
       - name: Produce true 150-frame MP4 with no outward browser network
         shell: bash
         run: |
           set -euo pipefail
           test "$(docker network inspect -f '{{.Internal}}' hf-real-receipt-only)" = true
+          test -s "$RUNNER_TEMP/hf-receipt-signed-input/launch-confirmation.json"
           timeout --signal=TERM --kill-after=5s 145s docker run --rm \
             --network hf-real-receipt-only --read-only --cap-drop ALL \
             --security-opt no-new-privileges --pids-limit=128 \

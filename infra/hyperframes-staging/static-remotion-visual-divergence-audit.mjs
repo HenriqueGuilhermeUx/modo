@@ -70,7 +70,7 @@ try{
   scenes:source.scenes.map((s,i)=>({
    index:i+1,startFrame:s.startFrame,endFrame:s.endFrame,
    headline:s.headline,caption:s.caption,
-   visual:"synthetic-native-static-no-customer-asset",
+   visual:s.caption, // same signed text, no invented reference copy
    visualType:"kinetic_text",imageUrl:null,videoUrl:null,
    motion:"static",transition:"cut",assetRevision:0,audioUrl:null
   }))
@@ -121,7 +121,11 @@ try{
  // A recorded divergence must never be silently promoted as visual parity.
  assert.ok(meanSSIM<0.999999,
   "HF_REMOTION_PARITY_EXPECTED_DIFFERENCE_NOT_OBSERVED");
+ const baselineMeanSSIM=0.62243; // earlier true Remotion-vs-MP4 audit, HEAD b94e1cfd
+ const improvement=Math.round((meanSSIM-baselineMeanSSIM)*1000000)/1000000;
  const result={
+  previousMeanSSIM:baselineMeanSSIM,deltaMeanSSIM:improvement,
+  improvedVersusBaseline:improvement>0,
   passed:true,syntheticOnly:true,source:"real-Remotion-renderStill-and-real-HyperFrames-H264",
   verdict:"NOT_VISUALLY_EQUIVALENT",equivalenceApproved:false,
   releaseAllowed:false,publicationAllowed:false,
@@ -129,7 +133,7 @@ try{
   originalHyperframesDimensions:[1080,1920],
   normalizedForComparison:[720,1280],
   remotionHasSoundtrack:true,hyperframesHasAudio:false,
-  reasons:["Different visual profile, gradient, typography and animation",
+  reasons:["Static per-scene stills cannot reproduce Remotion motion or scene fade",
    "Remotion always includes generated soundtrack; HyperFrames proof is silent",
    "Remotion composition is 720x1280, pilot exports 1080x1920",
    "Screenshots compare scene interior only, not full video/transition semantics"],

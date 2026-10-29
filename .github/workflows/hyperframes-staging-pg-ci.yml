@@ -99,6 +99,11 @@ jobs:
                    has_table_privilege('hf_staging_worker','modo_hyperframes_staging.render_jobs','SELECT')::text
               FROM pg_roles WHERE rolname='hf_staging_worker'" | grep -x 'false:false:false:false:true'
 
+      - name: Verify fail-closed synthetic Remotion-like composition and HTML escaping
+        run: |
+          node --check infra/hyperframes-staging/static-remotion-look-synthetic.cjs
+          node --test infra/hyperframes-staging/static-remotion-look-synthetic.test.cjs
+
       - name: API typecheck
         run: npm run typecheck --workspace=@modo/api
 

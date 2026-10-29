@@ -14,6 +14,7 @@ const path = require("node:path");
 const { promisify } = require("node:util");
 const {verifySyntheticRendererAdmissionFiles} = require("/opt/static-renderer-admission.cjs");
 const {requireSyntheticBrokerGrant} = require("/opt/static-renderer-broker-client.cjs");
+const {generateSyntheticRemotionLook}=require("/opt/static-remotion-look-synthetic.cjs");
 const puppeteer = require("/opt/static-browser/node_modules/puppeteer-core");
 const exec = promisify(cp.execFile);
 const BROWSER = "/usr/local/bin/hf-static-chrome";
@@ -132,25 +133,7 @@ function escapeHtml(text) {
     .replace(/>/g,"&gt;").replace(/"/g,"&quot;")
     .replace(/'/g,"&#39;");
 }
-function htmlFor(p) {
-  // Renderer generates markup from signed allowlisted strings; no HTML,
-  // JavaScript, remote URLs, CSS, clips or user-controlled paths are accepted.
-  const sections=p.scenes.map((s,i)=>
-    '<section class="scene" id="scene-'+(i+1)+'" style="display:none">'+
-    '<div class="brand">'+escapeHtml(p.brandName)+'</div>'+
-    '<h1>'+escapeHtml(s.headline)+'</h1>'+
-    '<p>'+escapeHtml(s.caption)+'</p></section>');
-  return '<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">'+
-    '<meta name="viewport" content="width=device-width,initial-scale=1">'+
-    '<style>*{box-sizing:border-box}html,body{margin:0;padding:0;background:#090e17;font-family:Arial,sans-serif}'+
-    '#root{position:relative;width:1080px;height:1920px;overflow:hidden;background:#090e17;color:white;isolation:isolate}'+
-    '.scene{position:absolute;inset:0;width:100%;height:100%;flex-direction:column;justify-content:center;'+
-    'align-items:flex-start;padding:9%;gap:3%}'+
-    '.brand{color:'+p.accentColor+';font-size:34px;font-weight:800;text-transform:uppercase;letter-spacing:4px}'+
-    'h1{font-size:86px;line-height:1.09;margin:0;max-width:95%;overflow-wrap:break-word}'+
-    'p{font-size:40px;line-height:1.25;max-width:92%;margin:0;opacity:.85;overflow-wrap:break-word}'+
-    '</style></head><body><div id="root">'+sections.join("")+'</div></body></html>';
-}
+function htmlFor(p){return generateSyntheticRemotionLook(p);}
 async function limited(promise,ms,code) {
   let timer;
   try {
@@ -192,7 +175,7 @@ async function render(p) {
     for(let i=0;i<p.scenes.length;i++){
       const chosen=await limited(page.evaluate(({index,total})=>{
         const root=document.querySelector("#root");
-        const scenes=[...document.querySelectorAll("#root > section")];
+        const scenes=[...document.querySelectorAll("#logical > section")];
         if(!root || scenes.length!==total) return null;
         for(let n=0;n<scenes.length;n++) scenes[n].style.display=n===index?"flex":"none";
         return {

@@ -69,7 +69,7 @@ BEGIN
   AND h.worker_id=v_job.document->'lease'->>'workerId';
  IF NOT FOUND THEN RETURN NULL; END IF;
 
- SELECT b.admission_sha256,b.dispatch_sha256,b.launched_ms
+ SELECT b.admission_sha256,b.dispatch_sha256,b.renderer_order_sha256,b.launched_ms
  INTO v_launch
  FROM modo_hyperframes_staging.synthetic_browser_launches b
  WHERE b.job_id=p_job AND b.organization_id=p_tenant
@@ -124,6 +124,7 @@ BEGIN
    'leaseFence',p_fence::text,
    'dispatchSha256',trim(v_launch.dispatch_sha256),
    'admissionSha256',trim(v_launch.admission_sha256),
+   'rendererOrderSha256',trim(v_launch.renderer_order_sha256),
    'launchedMs',v_launch.launched_ms),
   'epochs',v_epochs);
 END

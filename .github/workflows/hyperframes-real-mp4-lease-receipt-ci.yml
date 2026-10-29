@@ -78,7 +78,7 @@ jobs:
           set -euo pipefail
           test "$PGDATABASE" = modo_hyperframes_staging
           psql -v ON_ERROR_STOP=1 -Atc "SELECT current_database()" | grep -x modo_hyperframes_staging
-          for n in 001_render_jobs 002_encrypted_render_artifacts 003_encrypted_render_snapshots 004_worker_role 005_synthetic_handoff_nonces 006_synthetic_lease_handoffs 007_synthetic_receipt_attestations 008_synthetic_encrypted_finalization 009_synthetic_browser_launch_once 010_synthetic_lease_renewal_epochs 011_synthetic_v3_continuation_snapshot; do
+          for n in 001_render_jobs 002_encrypted_render_artifacts 003_encrypted_render_snapshots 004_worker_role 005_synthetic_handoff_nonces 006_synthetic_lease_handoffs 007_synthetic_receipt_attestations 008_synthetic_encrypted_finalization 009_synthetic_browser_launch_once 010_synthetic_lease_renewal_epochs 011_synthetic_v3_continuation_snapshot 012_synthetic_mp4_output_receipts_v3; do
             psql -v ON_ERROR_STOP=1 -f "infra/hyperframes-staging/$n.sql"
           done
 

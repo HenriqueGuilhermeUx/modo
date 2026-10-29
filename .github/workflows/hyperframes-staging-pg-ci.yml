@@ -115,6 +115,9 @@ jobs:
       - name: Add trusted-host-only, locked continuation v3 database snapshot
         run: psql -v ON_ERROR_STOP=1 -f infra/hyperframes-staging/011_synthetic_v3_continuation_snapshot.sql
 
+      - name: Add v3 synthetic MP4 output receipt ledger (proof metadata only)
+        run: psql -v ON_ERROR_STOP=1 -f infra/hyperframes-staging/012_synthetic_mp4_output_receipts_v3.sql
+
       - name: API typecheck
         run: npm run typecheck --workspace=@modo/api
 
@@ -173,6 +176,14 @@ jobs:
           node --check infra/hyperframes-staging/static-lease-continuation-v3.mjs
           node --check infra/hyperframes-staging/static-lease-continuation-v3.test.mjs
           node --test infra/hyperframes-staging/static-lease-continuation-v3.test.mjs
+
+      - name: Validate v3 renewed MP4 receipt signer, signature and ledger contracts
+        env:
+          MODO_HF_CONTINUATION_V3_MODE: synthetic-ci-only
+          MODO_HF_MP4_RECEIPT_MODE: synthetic-ci-only
+        run: |
+          node --check infra/hyperframes-staging/static-lease-mp4-receipt-v3.mjs
+          node --check infra/hyperframes-staging/static-synthetic-mp4-pg-receipt-ledger-v3.mjs
 
       - name: Sign and verify v3 from real PostgreSQL locked snapshot and reject stale epochs
         env:

@@ -11,6 +11,10 @@ import {HyperframesStagingPgQueue} from
 import {issueSyntheticLeaseContinuationV3FromPg,
  verifySyntheticLeaseContinuationV3AgainstPg}
  from "./static-lease-continuation-v3-pg.mjs";
+import {signSyntheticMp4OutputReceiptV3,verifySyntheticMp4OutputReceiptV3}
+ from "./static-lease-mp4-receipt-v3.mjs";
+import {commitVerifiedSyntheticMp4OutputV3}
+ from "./static-synthetic-mp4-pg-receipt-ledger-v3.mjs";
 const url=process.env.MODO_HYPERFRAMES_PG_TEST_DATABASE_URL;
 if(!url)throw Error("HF_SYNTHETIC_V3_PG_TEST_DB_REQUIRED");
 const {Pool}=pg,tenant="synthetic-tenant-mp4-receipt",worker="worker-ci-one";
@@ -184,4 +188,158 @@ test("database snapshot waits behind row lock, refuses stale queue after conflic
   if(locked)await client.query("ROLLBACK").catch(()=>{});
   client.release();
  }
+});
+
+const receiptKeys=generateKeyPairSync("ed25519"),receiptKeyId="trusted-renewed-mp4-v3-ci";
+async function createOutputV3(f){
+ const continuation=await issued(f);
+ const {rows}=await pool.query("SELECT "+
+  "modo_hyperframes_staging.read_synthetic_v3_continuation_snapshot("+
+  "$1::uuid,$2::text,$3::uuid) AS snapshot",
+  [f.lease.jobId,tenant,f.lease.lease.fence]);
+ const context=rows[0]?.snapshot;
+ assert.ok(context,"live locked continuation snapshot missing");
+ const c=JSON.parse(Buffer.from(continuation.envelope.payloadB64,"base64url").toString("utf8"));
+ const observed={outputSha256:sha("synthetic-test-only-mp4-"+randomUUID()),
+  outputBytes:46049,codec:"h264",width:1080,height:1920,fps:30,frames:150};
+ const payload={version:3,audience:"modo-hf-mp4-output-renewed-synthetic-v3",
+  issuer:"trusted-synthetic-renewed-mp4-attestor",keyId:receiptKeyId,
+  organizationId:c.organizationId,projectId:c.projectId,jobId:c.jobId,
+  workerId:c.workerId,leaseFence:c.leaseFence,
+  leaseVersion:c.leaseVersion,attempts:c.attempts,
+  requestSha256:c.requestSha256,dispatchSha256:c.dispatchSha256,
+  admissionSha256:c.admissionSha256,
+  continuationSha256:continuation.verified.continuationSha256,epoch:c.epoch,
+  rendererJobId:"synthetic-"+randomUUID(),
+  rendererOrderSha256:context.launch.rendererOrderSha256,
+  ...observed,issuedAtMs:context.nowMs};
+ const options={continuationEnvelope:continuation.envelope,
+  continuationPublicKeys:{[keyId]:keys.publicKey},
+  context,observed,nowMs:context.nowMs};
+ const envelope=signSyntheticMp4OutputReceiptV3({
+  payload,privateKey:receiptKeys.privateKey,...options});
+ const v=verifySyntheticMp4OutputReceiptV3({
+  envelope,publicKeys:{[receiptKeyId]:receiptKeys.publicKey},...options});
+ assert.equal(v.continuationSha256,continuation.verified.continuationSha256);
+ return {envelope,observed,options,continuation,payload};
+}
+function commitOutput(f,out){
+ return commitVerifiedSyntheticMp4OutputV3({
+  ...args(f),envelope:out.envelope,observed:out.observed,
+  publicKeys:{[receiptKeyId]:receiptKeys.publicKey},
+  continuationEnvelope:out.continuation.envelope,
+  continuationPublicKeys:{[keyId]:keys.publicKey}
+ });
+}
+test("v3 MP4 proof requires a real prior renewal; signed output after a live epoch is acknowledged once",async()=>{
+ const f=await fixture();
+ await assert.rejects(createOutputV3(f),/HF_SYNTHETIC_V3_DB_ATTESTATION_DENIED/);
+ assert.equal((await renew(f.params)).renewed,true);
+ const out=await createOutputV3(f);
+ const first=await commitOutput(f,out);
+ assert.equal(first.recorded,true);
+ assert.equal(first.storageAllowed,false);
+ assert.equal(first.publicationAllowed,false);
+ assert.equal(first.epoch,1);
+ const duplicate=await commitOutput(f,out);
+ assert.equal(duplicate.recorded,false,"one receipt per job/fence");
+ const {rows}=await pool.query(
+  "SELECT receipt_sha256,epoch,lease_version,output_sha256,output_bytes "+
+  "FROM modo_hyperframes_staging.synthetic_mp4_output_receipts_v3 "+
+  "WHERE job_id=$1::uuid",[f.lease.jobId]);
+ assert.equal(rows.length,1);
+ assert.equal(rows[0].receipt_sha256.trim(),first.receiptSha256);
+ assert.equal(rows[0].output_sha256.trim(),out.observed.outputSha256);
+ assert.equal(rows[0].epoch,1);
+ assert.equal((await pool.query("SELECT count(*)::int AS n "+
+  "FROM modo_hyperframes_staging.render_artifacts WHERE job_id=$1::uuid",
+  [f.lease.jobId])).rows[0].n,0);
+ // Once v3 output is attested, no new epoch may be appended.
+ const next=[...f.params];next[5]=first.epoch+f.lease.version;
+ await assert.rejects(renew(next),/HF_SYNTHETIC_V3_OUTPUT_ALREADY_ATTESTED/);
+ assert.equal((await queue.get(f.lease.jobId,tenant)).version,
+  first.epoch+f.lease.version);
+});
+test("second renewed epoch invalidates prior v3 MP4 receipt and only latest can be acknowledged",async()=>{
+ const f=await fixture();const one=await renew(f.params);
+ assert.equal(one.renewed,true);
+ const old=await createOutputV3(f);
+ const args2=[...f.params];args2[5]=one.lease_version;
+ const two=await renew(args2);assert.equal(two.renewed,true);
+ await assert.rejects(commitOutput(f,old),/HF_SYNTHETIC_LEASE_CONTINUATION_V3_DENIED/);
+ const fresh=await createOutputV3(f);
+ const ack=await commitOutput(f,fresh);
+ assert.equal(ack.recorded,true);assert.equal(ack.epoch,2);
+ assert.equal((await commitOutput(f,fresh)).recorded,false);
+});
+test("MP4 output Ed25519 signature tamper, wrong measured hash and wrong Chrome order deny",async()=>{
+ const f=await fixture();assert.equal((await renew(f.params)).renewed,true);
+ const out=await createOutputV3(f);
+ const s=out.envelope.signatureB64;
+ const forged={...out.envelope,signatureB64:(s[0]==="A"?"B":"A")+s.slice(1)};
+ await assert.rejects(commitVerifiedSyntheticMp4OutputV3({
+  ...args(f),envelope:forged,observed:out.observed,
+  publicKeys:{[receiptKeyId]:receiptKeys.publicKey},
+  continuationEnvelope:out.continuation.envelope,
+  continuationPublicKeys:{[keyId]:keys.publicKey}
+ }),/HF_SYNTHETIC_MP4_RECEIPT_V3_DENIED/);
+ assert.throws(()=>verifySyntheticMp4OutputReceiptV3({
+  envelope:out.envelope,publicKeys:{[receiptKeyId]:receiptKeys.publicKey},
+  ...out.options,observed:{...out.observed,outputSha256:sha("tamper")}
+ }),/HF_SYNTHETIC_MP4_RECEIPT_V3_DENIED/);
+ const bad={...out.payload,rendererOrderSha256:sha("not-rendered-by-chrome")};
+ assert.throws(()=>signSyntheticMp4OutputReceiptV3({
+  payload:bad,privateKey:receiptKeys.privateKey,...out.options
+ }),/HF_SYNTHETIC_MP4_RECEIPT_V3_DENIED/);
+ assert.throws(()=>verifySyntheticMp4OutputReceiptV3({
+  envelope:out.envelope,publicKeys:{[receiptKeyId]:receiptKeys.publicKey},
+  revokedKeyIds:[receiptKeyId],...out.options
+ }),/HF_SYNTHETIC_MP4_RECEIPT_V3_DENIED/);
+ assert.equal((await commitOutput(f,out)).recorded,true);
+});
+test("concurrent v3 MP4 output receipts compete on one job and one is committed",async()=>{
+ const f=await fixture();assert.equal((await renew(f.params)).renewed,true);
+ const out=await createOutputV3(f);
+ const rows=await Promise.all(Array.from({length:12},()=>commitOutput(f,out)));
+ assert.equal(rows.filter(x=>x.recorded).length,1);
+ assert.equal(rows.filter(x=>!x.recorded).length,11);
+});
+test("old legacy v2 ledger and encrypted artifact remain barred after renewed v3 proof",async()=>{
+ const f=await fixture();assert.equal((await renew(f.params)).renewed,true);
+ const out=await createOutputV3(f);
+ assert.equal((await commitOutput(f,out)).recorded,true);
+ const {rows}=await pool.query(
+  "SELECT count(*)::int AS n FROM modo_hyperframes_staging.synthetic_receipt_attestations "+
+  "WHERE job_id=$1::uuid",[f.lease.jobId]);
+ assert.equal(rows[0].n,0);
+ const client=await pool.connect();
+ try{
+  await client.query("BEGIN");
+  await client.query("SET LOCAL ROLE hf_staging_nonce_dispatcher");
+  await assert.rejects(client.query("SELECT "+
+   "modo_hyperframes_staging.commit_synthetic_mp4_receipt("+
+   "$1::uuid,$2::text,$3::text,$4::text,$5::uuid,"+
+   "$6::integer,$7::smallint,$8::text,$9::text,$10::text,"+
+   "$11::text,$12::integer)",
+   [f.lease.jobId,tenant,f.lease.projectId,worker,f.lease.lease.fence,
+    f.lease.version+1,f.lease.attempts,f.lease.requestSha256,
+    f.params[8],sha("legacy-v2-receipt"),out.observed.outputSha256,
+    out.observed.outputBytes]),/HF_SYNTHETIC_RENEWAL_RECEIPT_V3_REQUIRED/);
+  await client.query("ROLLBACK");
+ }finally{client.release();}
+});
+test("old worker cannot write v3 receipt ledger and dispatcher has no direct insert",async()=>{
+ const {rows}=await pool.query(
+  "SELECT has_function_privilege('hf_staging_nonce_dispatcher',"+
+  "'modo_hyperframes_staging.commit_synthetic_mp4_output_v3("+
+  "uuid,text,text,text,uuid,integer,smallint,text,text,text,smallint,text,text,text,integer)',"+
+  "'EXECUTE') AS dispatcher_execute,"+
+  "has_function_privilege('hf_staging_worker',"+
+  "'modo_hyperframes_staging.commit_synthetic_mp4_output_v3("+
+  "uuid,text,text,text,uuid,integer,smallint,text,text,text,smallint,text,text,text,integer)',"+
+  "'EXECUTE') AS worker_execute,"+
+  "has_table_privilege('hf_staging_nonce_dispatcher',"+
+  "'modo_hyperframes_staging.synthetic_mp4_output_receipts_v3','INSERT') AS dispatcher_insert");
+ assert.deepEqual(rows,[{dispatcher_execute:true,worker_execute:false,
+  dispatcher_insert:false}]);
 });

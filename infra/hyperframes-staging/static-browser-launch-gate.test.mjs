@@ -15,10 +15,10 @@ const schedulerKeyId="scheduler-ci-v2";
 const admitKeyId="trusted-scheduler-admission-ci";
 const scheduler=generateKeyPairSync("ed25519");
 const key=generateKeyPairSync("ed25519");
-let pool,queue;
+let pool,restrictedPool,queue;
 const protectedPool={
  connect:async()=>{
-  const c=await pool.connect();
+  const c=await restrictedPool.connect();
   try{await c.query("SET ROLE hf_staging_nonce_dispatcher");}
   catch(e){c.release();throw e;}
   return c;
@@ -76,12 +76,13 @@ before(async()=>{
  process.env.MODO_HF_PREFLIGHT_MODE="synthetic-ci-only";
  process.env.MODO_HF_HANDOFF_MODE="synthetic-ci-only";
  process.env.MODO_HYPERFRAMES_DB_MODE="isolated-staging";
- pool=new Pool({connectionString:DB_URL,ssl:false,max:14});
+ pool=new Pool({connectionString:DB_URL,ssl:false,max:6});
+ restrictedPool=new Pool({connectionString:DB_URL,ssl:false,max:14});
  assert.equal((await pool.query("SELECT current_database() AS name")).rows[0].name,
   "modo_hyperframes_staging");
  queue=new HyperframesStagingPgQueue(pool);
 });
-after(async()=>await pool?.end());
+after(async()=>{await restrictedPool?.end();await pool?.end();});
 
 test("20 concurrent signed launches of one live fence yield exactly one true",async()=>{
  const f=await fixture();

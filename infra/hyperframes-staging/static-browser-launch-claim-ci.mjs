@@ -19,10 +19,11 @@ if(process.argv.length!==3||!process.argv[2].startsWith("/")||!DB_URL||
  throw Error("HF_SYNTHETIC_BROWSER_LAUNCH_CI_DISABLED");
 const dir=resolve(process.argv[2]),digest=b=>createHash("sha256").update(b).digest("hex");
 const {Pool}=pg;
-const pool=new Pool({connectionString:DB_URL,ssl:false,max:15});
+const pool=new Pool({connectionString:DB_URL,ssl:false,max:4});
+const restrictedPool=new Pool({connectionString:DB_URL,ssl:false,max:15});
 const scoped={
  connect:async()=>{
-  const client=await pool.connect();
+  const client=await restrictedPool.connect();
   try{await client.query("SET ROLE hf_staging_nonce_dispatcher");}
   catch(e){client.release();throw e;}
   return client;
@@ -98,4 +99,4 @@ try{
    admissionSha256:expected.admissionSha256}),{flag:"wx",mode:0o600});
  process.stdout.write(JSON.stringify({trustedLaunchClaim:true,syntheticOnly:true,
   exactlyOneWinnerOf20:true,noBrowserDb:true,noProduction:true})+"\n");
-}finally{await pool.end();}
+}finally{await restrictedPool.end();await pool.end();}

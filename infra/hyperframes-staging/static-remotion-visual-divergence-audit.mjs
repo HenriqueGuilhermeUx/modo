@@ -72,7 +72,7 @@ try{
    headline:s.headline,caption:s.caption,
    visual:"synthetic-native-static-no-customer-asset",
    visualType:"kinetic_text",imageUrl:null,videoUrl:null,
-   motion:"static",pace:"steady",transition:"cut",assetRevision:0,audioUrl:null
+   motion:"static",transition:"cut",assetRevision:0,audioUrl:null
   }))
  };
  const entryPoint=fileURLToPath(new URL(

@@ -188,6 +188,7 @@ jobs:
       - name: Sign and verify v3 from real PostgreSQL locked snapshot and reject stale epochs
         env:
           MODO_HF_CONTINUATION_V3_MODE: synthetic-ci-only
+          MODO_HF_MP4_RECEIPT_MODE: synthetic-ci-only
         run: |
           node --check infra/hyperframes-staging/static-lease-continuation-v3-pg.mjs
           node --check infra/hyperframes-staging/static-lease-continuation-v3-pg.test.mjs

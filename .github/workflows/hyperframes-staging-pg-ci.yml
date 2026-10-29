@@ -163,6 +163,14 @@ jobs:
           node --check infra/hyperframes-staging/static-lease-renewal-epochs.test.mjs
           node --import tsx --test infra/hyperframes-staging/static-lease-renewal-epochs.test.mjs
 
+      - name: Verify Ed25519 v3 continuation proof stays bound to latest fenced renewal epoch
+        env:
+          MODO_HF_CONTINUATION_V3_MODE: synthetic-ci-only
+        run: |
+          node --check infra/hyperframes-staging/static-lease-continuation-v3.mjs
+          node --check infra/hyperframes-staging/static-lease-continuation-v3.test.mjs
+          node --test infra/hyperframes-staging/static-lease-continuation-v3.test.mjs
+
       - name: Verify pinned Ed25519 broker grant binds browser challenge
         run: |
           node --check infra/hyperframes-staging/static-renderer-broker-client.cjs

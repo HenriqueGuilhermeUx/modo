@@ -112,6 +112,9 @@ jobs:
           node --check infra/hyperframes-staging/static-temporal-zoompan-synthetic.cjs
           node --test infra/hyperframes-staging/static-temporal-zoompan-synthetic.test.cjs
 
+      - name: Add trusted-host-only, locked continuation v3 database snapshot
+        run: psql -v ON_ERROR_STOP=1 -f infra/hyperframes-staging/011_synthetic_v3_continuation_snapshot.sql
+
       - name: API typecheck
         run: npm run typecheck --workspace=@modo/api
 
@@ -170,6 +173,14 @@ jobs:
           node --check infra/hyperframes-staging/static-lease-continuation-v3.mjs
           node --check infra/hyperframes-staging/static-lease-continuation-v3.test.mjs
           node --test infra/hyperframes-staging/static-lease-continuation-v3.test.mjs
+
+      - name: Sign and verify v3 from real PostgreSQL locked snapshot and reject stale epochs
+        env:
+          MODO_HF_CONTINUATION_V3_MODE: synthetic-ci-only
+        run: |
+          node --check infra/hyperframes-staging/static-lease-continuation-v3-pg.mjs
+          node --check infra/hyperframes-staging/static-lease-continuation-v3-pg.test.mjs
+          node --import tsx --test infra/hyperframes-staging/static-lease-continuation-v3-pg.test.mjs
 
       - name: Verify pinned Ed25519 broker grant binds browser challenge
         run: |

@@ -6,6 +6,7 @@ import {before,after,test} from "node:test";
 import assert from "node:assert/strict";
 import {randomUUID,generateKeyPairSync,createHash} from "node:crypto";
 import pg from "pg";
+import {HyperframesStagingPgArtifacts} from "../../apps/api/src/services/hyperframes-staging-pg-artifacts.ts";
 import {HyperframesStagingPgQueue} from
  "../../apps/api/src/services/hyperframes-staging-pg-queue.ts";
 import {issueSyntheticLeaseContinuationV3FromPg,
@@ -24,6 +25,8 @@ let pool,queue;
 before(async()=>{
  process.env.MODO_HF_CONTINUATION_V3_MODE="synthetic-ci-only";
  process.env.MODO_HYPERFRAMES_DB_MODE="isolated-staging";
+ process.env.MODO_HYPERFRAMES_STORAGE_MODE="isolated-staging";
+ process.env.MODO_HF_RENEWED_V3_FINALIZE_MODE="synthetic-ci-only";
  process.env.MODO_HYPERFRAMES_RECOVERY_MODE="isolated-staging";
  pool=new Pool({connectionString:url,ssl:false,max:12});
  queue=new HyperframesStagingPgQueue(pool);
@@ -191,7 +194,7 @@ test("database snapshot waits behind row lock, refuses stale queue after conflic
 });
 
 const receiptKeys=generateKeyPairSync("ed25519"),receiptKeyId="trusted-renewed-mp4-v3-ci";
-async function createOutputV3(f){
+async function createOutputV3(f,video=null){
  const continuation=await issued(f);
  const {rows}=await pool.query("SELECT "+
   "modo_hyperframes_staging.read_synthetic_v3_continuation_snapshot("+
@@ -200,8 +203,8 @@ async function createOutputV3(f){
  const context=rows[0]?.snapshot;
  assert.ok(context,"live locked continuation snapshot missing");
  const c=JSON.parse(Buffer.from(continuation.envelope.payloadB64,"base64url").toString("utf8"));
- const observed={outputSha256:sha("synthetic-test-only-mp4-"+randomUUID()),
-  outputBytes:46049,codec:"h264",width:1080,height:1920,fps:30,frames:150};
+ const observed={outputSha256:video?sha(video):sha("synthetic-test-only-mp4-"+randomUUID()),
+  outputBytes:video?video.length:46049,codec:"h264",width:1080,height:1920,fps:30,frames:150};
  const payload={version:3,audience:"modo-hf-mp4-output-renewed-synthetic-v3",
   issuer:"trusted-synthetic-renewed-mp4-attestor",keyId:receiptKeyId,
   organizationId:c.organizationId,projectId:c.projectId,jobId:c.jobId,
@@ -342,4 +345,126 @@ test("old worker cannot write v3 receipt ledger and dispatcher has no direct ins
   "'modo_hyperframes_staging.synthetic_mp4_output_receipts_v3','INSERT') AS dispatcher_insert");
  assert.deepEqual(rows,[{dispatcher_execute:true,worker_execute:false,
   dispatcher_insert:false}]);
+});
+
+function syntheticCiphertextFixture(){
+ // Deliberately not a real MP4: this proves AES-GCM/receipt atomicity in PG;
+ // a later E2E must prove the real FFprobe-validated MP4 after renewal.
+ const video=Buffer.alloc(46_049,37);
+ video.write("ftyp",4,"ascii");
+ return video;
+}
+test("V3 encrypted AES-GCM finalization is disabled without explicit synthetic-only opt-in",async()=>{
+ const f=await fixture();assert.equal((await renew(f.params)).renewed,true);
+ const video=syntheticCiphertextFixture(),o=await createOutputV3(f,video);
+ const ack=await commitOutput(f,o);assert.equal(ack.recorded,true);
+ const vault=new HyperframesStagingPgArtifacts(pool,{key:Buffer.alloc(32,23),retentionMs:300000,maxTotalBytes:50000000});
+ try{
+  const before=process.env.MODO_HF_RENEWED_V3_FINALIZE_MODE;
+  delete process.env.MODO_HF_RENEWED_V3_FINALIZE_MODE;
+  await assert.rejects(vault.finishWithVideo({
+   jobId:f.lease.jobId,authorizedOrganizationId:tenant,workerId:worker,
+   fence:f.lease.lease.fence,video,v3ReceiptSha256:ack.receiptSha256
+  }),/HF_SYNTHETIC_V3_ENCRYPTED_FINALIZATION_DISABLED/);
+  if(before!==undefined)process.env.MODO_HF_RENEWED_V3_FINALIZE_MODE=before;
+  else process.env.MODO_HF_RENEWED_V3_FINALIZE_MODE="synthetic-ci-only";
+  assert.equal((await queue.get(f.lease.jobId,tenant)).status,"running");
+ }finally{vault.close();}
+});
+test("AES-GCM vault + renewed v3 receipt/fence/epoch commit atomically, decrypts after restart",async()=>{
+ const f=await fixture();assert.equal((await renew(f.params)).renewed,true);
+ const video=syntheticCiphertextFixture();
+ const o=await createOutputV3(f,video);
+ const ack=await commitOutput(f,o);assert.equal(ack.recorded,true);
+ const key=Buffer.alloc(32,29);
+ const vault=new HyperframesStagingPgArtifacts(pool,{
+  key,retentionMs:300000,maxTotalBytes:50000000});
+ try{
+  // No V3 marker: the original V2 triggers must still reject this job.
+  await assert.rejects(vault.finishWithVideo({
+   jobId:f.lease.jobId,authorizedOrganizationId:tenant,
+   workerId:worker,fence:f.lease.lease.fence,video
+  }),/HF_SYNTHETIC_(?:LAUNCH_FINALIZATION_NOT_CLAIMED|ENCRYPTED_FINALIZATION_MISSING_RECEIPT)/);
+  // A mismatched, otherwise valid MP4-shaped buffer cannot pass digest gate.
+  const changed=Buffer.from(video);changed[changed.length-1]^=1;
+  await assert.rejects(vault.finishWithVideo({
+   jobId:f.lease.jobId,authorizedOrganizationId:tenant,
+   workerId:worker,fence:f.lease.lease.fence,video:changed,
+   v3ReceiptSha256:ack.receiptSha256
+  }),/HF_SYNTHETIC_V3_ENCRYPTED_PROOF_MISMATCH/);
+  assert.equal((await pool.query("SELECT count(*)::integer AS n FROM "+
+   "modo_hyperframes_staging.render_artifacts WHERE job_id=$1::uuid",
+   [f.lease.jobId])).rows[0].n,0);
+  assert.equal((await queue.get(f.lease.jobId,tenant)).status,"running");
+  assert.equal(await vault.finishWithVideo({
+   jobId:f.lease.jobId,authorizedOrganizationId:tenant,
+   workerId:worker,fence:randomUUID(),video,
+   v3ReceiptSha256:ack.receiptSha256
+  }),null);
+  const finished=await vault.finishWithVideo({
+   jobId:f.lease.jobId,authorizedOrganizationId:tenant,
+   workerId:worker,fence:f.lease.lease.fence,video,
+   v3ReceiptSha256:ack.receiptSha256
+  });
+  assert.equal(finished.status,"succeeded");
+  assert.equal(finished.published,false);
+  assert.equal(finished.previewOnly,true);
+  assert.deepEqual(await vault.read(f.lease.jobId,tenant),video);
+  assert.equal(await vault.finishWithVideo({
+   jobId:f.lease.jobId,authorizedOrganizationId:tenant,workerId:worker,
+   fence:f.lease.lease.fence,video,v3ReceiptSha256:ack.receiptSha256
+  }),null);
+  const {rows}=await pool.query(
+   "SELECT r.receipt_sha256,r.output_sha256,r.output_bytes,r.lease_version,r.epoch,"+
+   " a.v3_receipt_sha256,a.ciphertext,a.iv,a.auth_tag "+
+   "FROM modo_hyperframes_staging.synthetic_renewed_encrypted_finalizations_v3 r "+
+   "JOIN modo_hyperframes_staging.render_artifacts a ON a.job_id=r.job_id "+
+   "WHERE r.job_id=$1::uuid",[f.lease.jobId]);
+  assert.equal(rows.length,1);
+  assert.equal(rows[0].receipt_sha256.trim(),ack.receiptSha256);
+  assert.equal(rows[0].v3_receipt_sha256.trim(),ack.receiptSha256);
+  assert.equal(rows[0].output_sha256.trim(),sha(video));
+  assert.equal(rows[0].output_bytes,video.length);
+  assert.equal(rows[0].lease_version,f.lease.version+1);
+  assert.equal(rows[0].epoch,1);
+  assert.equal(rows[0].ciphertext.equals(video),false);
+  assert.equal(rows[0].iv.length,12);
+  assert.equal(rows[0].auth_tag.length,16);
+  assert.equal((await pool.query("SELECT count(*)::integer AS n "+
+   "FROM modo_hyperframes_staging.synthetic_encrypted_finalizations "+
+   "WHERE job_id=$1::uuid",[f.lease.jobId])).rows[0].n,0);
+  vault.close();
+  const restarted=new HyperframesStagingPgArtifacts(pool,{
+   key,retentionMs:300000,maxTotalBytes:50000000});
+  try{
+   assert.deepEqual(await restarted.read(f.lease.jobId,tenant),video);
+   assert.equal(await restarted.read(f.lease.jobId,"synthetic-other-tenant"),null);
+  }finally{restarted.close();}
+ }finally{vault.close();}
+});
+test("expired or wrong-fence signed v3 output can never become encrypted artifact",async()=>{
+ const f=await fixture();assert.equal((await renew(f.params)).renewed,true);
+ const video=syntheticCiphertextFixture();
+ const output=await createOutputV3(f,video);
+ const ack=await commitOutput(f,output);assert.equal(ack.recorded,true);
+ const vault=new HyperframesStagingPgArtifacts(pool,{
+  key:Buffer.alloc(32,31),retentionMs:300000,maxTotalBytes:50000000});
+ try{
+  assert.equal(await vault.finishWithVideo({
+   jobId:f.lease.jobId,authorizedOrganizationId:tenant,workerId:worker,
+   fence:randomUUID(),video,v3ReceiptSha256:ack.receiptSha256
+  }),null);
+  const expiry=Date.now()-1000;
+  await pool.query("UPDATE modo_hyperframes_staging.render_jobs "+
+   "SET lease_expires_ms=$2,document=jsonb_set(document,"+
+   "'{lease,expiresAt}',to_jsonb($2::bigint)) "+
+   "WHERE job_id=$1::uuid",[f.lease.jobId,expiry]);
+  assert.equal(await vault.finishWithVideo({
+   jobId:f.lease.jobId,authorizedOrganizationId:tenant,workerId:worker,
+   fence:f.lease.lease.fence,video,v3ReceiptSha256:ack.receiptSha256
+  }),null);
+  assert.equal((await pool.query("SELECT count(*)::integer AS n "+
+   "FROM modo_hyperframes_staging.render_artifacts WHERE job_id=$1::uuid",
+   [f.lease.jobId])).rows[0].n,0);
+ }finally{vault.close();}
 });

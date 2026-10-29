@@ -118,6 +118,9 @@ jobs:
       - name: Add v3 synthetic MP4 output receipt ledger (proof metadata only)
         run: psql -v ON_ERROR_STOP=1 -f infra/hyperframes-staging/012_synthetic_mp4_output_receipts_v3.sql
 
+      - name: Add fail-closed V3 renewed AES-GCM artifact guard (synthetic only)
+        run: psql -v ON_ERROR_STOP=1 -f infra/hyperframes-staging/013_synthetic_v3_encrypted_finalization.sql
+
       - name: API typecheck
         run: npm run typecheck --workspace=@modo/api
 
@@ -189,6 +192,8 @@ jobs:
         env:
           MODO_HF_CONTINUATION_V3_MODE: synthetic-ci-only
           MODO_HF_MP4_RECEIPT_MODE: synthetic-ci-only
+          MODO_HYPERFRAMES_STORAGE_MODE: isolated-staging
+          MODO_HF_RENEWED_V3_FINALIZE_MODE: synthetic-ci-only
         run: |
           node --check infra/hyperframes-staging/static-lease-continuation-v3-pg.mjs
           node --check infra/hyperframes-staging/static-lease-continuation-v3-pg.test.mjs

@@ -93,6 +93,8 @@ export class HyperframesStagingPgArtifacts {
   async finishWithVideo(input: Readonly<{
     jobId: string; authorizedOrganizationId: string;
     workerId: string; fence: string; video: Buffer;
+    /** Synthetic renewed MP4 receipt only, NEVER a production-mode flag. */
+    v3ReceiptSha256?: string;
   }>): Promise<RecoveryJob | null> {
     this.active();
     if (!input || !Buffer.isBuffer(input.video) ||
@@ -102,6 +104,19 @@ export class HyperframesStagingPgArtifacts {
     }
     if (!input.authorizedOrganizationId) {
       throw new Error("HYPERFRAMES_STAGING_PG_ARTIFACTS_TENANT_DENIED");
+    }
+    // V3 is opt-in exclusively for the disposable test tenant. This value
+    // must identify a separately verified, committed, signed V3 MP4 receipt.
+    // The database triggers recheck receipt+lease+fence under the SAME lock as
+    // the existing AES-GCM ciphertext insert and terminal job transition.
+    const v3 = input.v3ReceiptSha256 !== undefined;
+    if (v3 && (process.env.NODE_ENV === "production" ||
+      process.env.MODO_HF_RENEWED_V3_FINALIZE_MODE !== "synthetic-ci-only" ||
+      process.env.MODO_HF_CONTINUATION_V3_MODE !== "synthetic-ci-only" ||
+      process.env.MODO_HF_MP4_RECEIPT_MODE !== "synthetic-ci-only" ||
+      input.authorizedOrganizationId !== "synthetic-tenant-mp4-receipt" ||
+      !/^[a-f0-9]{64}$/.test(input.v3ReceiptSha256!))) {
+      throw new Error("HF_SYNTHETIC_V3_ENCRYPTED_FINALIZATION_DISABLED");
     }
     const client = await this.pool.connect();
     try {
@@ -150,13 +165,21 @@ export class HyperframesStagingPgArtifacts {
       }));
       const ciphertext = Buffer.concat([cipher.update(input.video), cipher.final()]);
       const tag = cipher.getAuthTag();
+      // Preserve the existing V2 insert SQL byte-for-byte for every legacy
+      // and non-renewed render. Only the explicit, gated V3 opt-in sets the
+      // new column, switching to the disjoint V3 PostgreSQL triggers.
+      const baseColumns =
+        " (job_id,organization_id,storage_key,ciphertext,iv,auth_tag," +
+        " sha256,byte_length,expires_ms,created_ms";
+      const values = [current.jobId, current.organizationId, storageKey,
+        ciphertext, iv, tag, checksum, input.video.byteLength, expiresAt, now];
       await client.query(
         "INSERT INTO " + ARTIFACTS +
-        " (job_id,organization_id,storage_key,ciphertext,iv,auth_tag," +
-        " sha256,byte_length,expires_ms,created_ms)" +
-        " VALUES ($1::uuid,$2,$3::uuid,$4,$5,$6,$7,$8,$9,$10)",
-        [current.jobId, current.organizationId, storageKey, ciphertext,
-          iv, tag, checksum, input.video.byteLength, expiresAt, now]);
+        baseColumns +
+        (v3 ? ",v3_receipt_sha256)" : ")") +
+        " VALUES ($1::uuid,$2,$3::uuid,$4,$5,$6,$7,$8,$9,$10" +
+        (v3 ? ",$11)" : ")"),
+        v3 ? [...values, input.v3ReceiptSha256] : values);
       const updated = await client.query(
         "UPDATE " + JOBS +
         " SET document=$1::jsonb,version=$2,status=$3,attempts=$4," +

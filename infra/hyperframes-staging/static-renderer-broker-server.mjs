@@ -120,7 +120,7 @@ async function main(){
  });
  server.on("error",error=>{process.stderr.write("HF_SYNTHETIC_BROKER_SOCKET_FAILED\n");});
  await new Promise((resolve,reject)=>server.listen(sock,error=>error?reject(error):resolve()));
- await chmod(sock,0o666); // Bound only into specific synthetic container in CI.
+ await chmod(sock,0o600); // Trusted workflow transfers ownership to the single rootless renderer UID.
  process.stdout.write("HF_SYNTHETIC_BROKER_SOCKET_READY\n");
 }
 async function stop(){

@@ -153,6 +153,16 @@ jobs:
           done
           test -S "$BROKER/launch.sock"
           test -s "$BROKER/attest-public.pem"
+          # Bind only to isolated renderer UID, never a world-writable socket.
+          sudo chown 10001:10001 "$BROKER/launch.sock"
+          sudo chmod 0600 "$BROKER/launch.sock"
+          test "$(stat -c '%u:%g:%a' "$BROKER/launch.sock")" = '10001:10001:600'
+          # A different local UID cannot connect, even knowing the socket path.
+          if sudo -u nobody python3 -c 'import socket,sys; s=socket.socket(socket.AF_UNIX); s.connect(sys.argv[1])' "$BROKER/launch.sock" 2>"$BROKER/other-uid.err"; then
+            echo 'Unexpected socket access for foreign UID'
+            exit 1
+          fi
+          grep -F 'PermissionError' "$BROKER/other-uid.err"
           test ! -e "$RUNNER_TEMP/hf-receipt-signed-input/launch-confirmation.json"
           printf '*\n!attest-public.pem\n' > "$BROKER/.dockerignore"
           docker build -f - -t modo-hf-pinned-broker:ci "$BROKER" \

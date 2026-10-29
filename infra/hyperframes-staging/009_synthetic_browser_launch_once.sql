@@ -45,6 +45,9 @@ REVOKE ALL ON modo_hyperframes_staging.synthetic_browser_launches
  FROM hf_staging_nonce_dispatcher,hf_staging_worker;
 GRANT INSERT ON modo_hyperframes_staging.synthetic_browser_launches
  TO hf_staging_lease_claim_owner;
+-- The claim function validates dispatch expiry after the queue row lock.
+GRANT SELECT (expires_ms) ON modo_hyperframes_staging.synthetic_lease_handoffs
+ TO hf_staging_lease_claim_owner;
 GRANT SELECT (nonce,job_id,organization_id,lease_fence,admission_sha256,
  renderer_order_sha256,dispatch_sha256,launched_ms,expires_ms)
  ON modo_hyperframes_staging.synthetic_browser_launches

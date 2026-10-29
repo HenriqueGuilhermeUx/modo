@@ -13,6 +13,8 @@ on:
       - 'infra/hyperframes-staging/static-renderer-broker*'
       - 'infra/hyperframes-staging/00*.sql'
       - 'apps/api/src/services/hyperframes-static-storyboard.ts'
+      - 'infra/hyperframes-staging/static-remotion-visual-divergence-audit.mjs'
+      - 'apps/api/src/video-remotion-entry.ts'
   workflow_dispatch:
 
 permissions:
@@ -46,6 +48,7 @@ jobs:
       MODO_HF_PREFLIGHT_MODE: synthetic-ci-only
       MODO_HF_BROWSER_LAUNCH_MODE: synthetic-ci-only
       MODO_HF_BROKER_SERVER_MODE: synthetic-ci-only
+      MODO_HF_VISUAL_PARITY_MODE: synthetic-ci-only
       MODO_HYPERFRAMES_PG_TEST_DATABASE_URL: postgresql://postgres@127.0.0.1:5432/modo_hyperframes_staging
       PGHOST: 127.0.0.1
       PGPORT: "5432"
@@ -259,6 +262,19 @@ jobs:
           test -s "$RUNNER_TEMP/hf-receipt-real-output/receipt-public-key.pem"
           test ! -e "$RUNNER_TEMP/hf-receipt-signed-input/private-key.pem"
           test ! -e "$RUNNER_TEMP/hf-receipt-real-output/private-key.pem"
+
+      - name: Compare actual Remotion frames against synthetic HyperFrames video (parity NOT approved)
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s "$RUNNER_TEMP/hf-receipt-real-output/synthetic.mp4"
+          test -s "$RUNNER_TEMP/hf-receipt-signed-input/order.json"
+          node --check infra/hyperframes-staging/static-remotion-visual-divergence-audit.mjs
+          node --import tsx infra/hyperframes-staging/static-remotion-visual-divergence-audit.mjs \
+            "$RUNNER_TEMP/hf-receipt-signed-input" \
+            "$RUNNER_TEMP/hf-receipt-real-output/synthetic.mp4"
+          test -s "$RUNNER_TEMP/hf-receipt-real-output/synthetic.mp4"
+          test ! -e "$RUNNER_TEMP/hf-receipt-real-output/remotion-reference.mp4"
 
       - name: Destroy temporary video, public receipt, test inputs and network
         if: always()

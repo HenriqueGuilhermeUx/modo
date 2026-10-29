@@ -45,6 +45,11 @@ export function buildStaticStoryboardPlan(project: VideoProject, brandName: stri
     planSha256: digest,
     previewOnly: true as const,
     publishingAllowed: false as const,
+    // Preserve the commercial Remotion renderer: synthetic static text is
+    // not pixel-equivalent, motion-equivalent or soundtrack-equivalent.
+    remotionVisualParity: "not-equivalent" as const,
+    remotionAudioParity: "not-equivalent" as const,
+    replacesRemotion: false as const,
     // No tenant, project IDs, banking credentials or provider URLs are
     // included in the browser handoff. The calling scheduler is responsible
     // for authorization BEFORE constructing the plan.

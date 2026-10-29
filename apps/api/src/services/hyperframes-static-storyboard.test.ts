@@ -40,6 +40,9 @@ describe("MODO static CDP/FFmpeg storyboard pilot", () => {
     expect(plan.html).toContain("Terceira cena sintética");
     expect(plan.previewOnly).toBe(true);
     expect(plan.publishingAllowed).toBe(false);
+    expect(plan.remotionVisualParity).toBe("not-equivalent");
+    expect(plan.remotionAudioParity).toBe("not-equivalent");
+    expect(plan.replacesRemotion).toBe(false);
     expect(plan.renderer).toBe("cdp-ffmpeg-static-pilot");
     expect(plan.planSha256).toMatch(/^[a-f0-9]{64}$/);
     expect(JSON.stringify(plan)).not.toContain("synthetic-organization-only");

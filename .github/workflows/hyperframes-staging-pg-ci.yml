@@ -88,6 +88,9 @@ jobs:
       - name: Create synthetic one-shot browser launch barrier
         run: psql -v ON_ERROR_STOP=1 -f infra/hyperframes-staging/009_synthetic_browser_launch_once.sql
 
+      - name: Add synthetic-only versioned lease-renewal epochs (no v2 receipts allowed)
+        run: psql -v ON_ERROR_STOP=1 -f infra/hyperframes-staging/010_synthetic_lease_renewal_epochs.sql
+
       - name: Assert minimal worker privileges
         shell: bash
         run: |
@@ -151,6 +154,14 @@ jobs:
           node --check infra/hyperframes-staging/static-browser-launch-gate.mjs
           node --check infra/hyperframes-staging/static-browser-launch-gate.test.mjs
           node --import tsx --test infra/hyperframes-staging/static-browser-launch-gate.test.mjs
+
+      - name: Verify atomic renewal epochs, race fencing, expiry and old receipt rejection
+        env:
+          MODO_HF_HANDOFF_MODE: synthetic-ci-only
+          MODO_HF_MP4_RECEIPT_MODE: synthetic-ci-only
+        run: |
+          node --check infra/hyperframes-staging/static-lease-renewal-epochs.test.mjs
+          node --import tsx --test infra/hyperframes-staging/static-lease-renewal-epochs.test.mjs
 
       - name: Verify pinned Ed25519 broker grant binds browser challenge
         run: |

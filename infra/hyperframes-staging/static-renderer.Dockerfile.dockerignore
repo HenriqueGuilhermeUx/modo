@@ -8,4 +8,5 @@
 !infra/hyperframes-staging/static-renderer-admission.cjs
 !infra/hyperframes-staging/static-renderer-broker-client.cjs
 !infra/hyperframes-staging/static-remotion-look-synthetic.cjs
+!infra/hyperframes-staging/static-temporal-zoompan-synthetic.cjs
 !infra/hyperframes-staging/chrome-headless-wrapper.sh

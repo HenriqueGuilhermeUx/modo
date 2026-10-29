@@ -15,6 +15,7 @@ const { promisify } = require("node:util");
 const {verifySyntheticRendererAdmissionFiles} = require("/opt/static-renderer-admission.cjs");
 const {requireSyntheticBrokerGrant} = require("/opt/static-renderer-broker-client.cjs");
 const {generateSyntheticRemotionLook}=require("/opt/static-remotion-look-synthetic.cjs");
+const {syntheticTemporalFilter}=require("/opt/static-temporal-zoompan-synthetic.cjs");
 const puppeteer = require("/opt/static-browser/node_modules/puppeteer-core");
 const exec = promisify(cp.execFile);
 const BROWSER = "/usr/local/bin/hf-static-chrome";
@@ -210,8 +211,7 @@ async function render(p) {
         "-i",paths[i]);
     }
     args.push("-filter_complex",
-      paths.map((_,i)=>"["+i+":v]").join("")+
-      "concat=n="+paths.length+":v=1:a=0,format=yuv420p[v]",
+      syntheticTemporalFilter(p.scenes),
       "-map","[v]","-r","30","-c:v","libx264","-preset","veryfast",
       "-crf","28","-movflags","+faststart","-y",video);
     await exec("/usr/bin/ffmpeg",args,{timeout:60_000,maxBuffer:8192});

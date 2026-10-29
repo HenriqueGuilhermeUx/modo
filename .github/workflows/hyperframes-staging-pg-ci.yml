@@ -104,6 +104,11 @@ jobs:
           node --check infra/hyperframes-staging/static-remotion-look-synthetic.cjs
           node --test infra/hyperframes-staging/static-remotion-look-synthetic.test.cjs
 
+      - name: Validate bounded animated synthetic 30fps filter and timing
+        run: |
+          node --check infra/hyperframes-staging/static-temporal-zoompan-synthetic.cjs
+          node --test infra/hyperframes-staging/static-temporal-zoompan-synthetic.test.cjs
+
       - name: API typecheck
         run: npm run typecheck --workspace=@modo/api
 

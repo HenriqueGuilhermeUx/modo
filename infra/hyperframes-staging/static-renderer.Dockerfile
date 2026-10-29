@@ -35,6 +35,7 @@ COPY infra/hyperframes-staging/static-renderer-standalone.cjs /opt/static-render
 COPY infra/hyperframes-staging/static-renderer-admission.cjs /opt/static-renderer-admission.cjs
 COPY infra/hyperframes-staging/static-renderer-broker-client.cjs /opt/static-renderer-broker-client.cjs
 COPY infra/hyperframes-staging/static-remotion-look-synthetic.cjs /opt/static-remotion-look-synthetic.cjs
+COPY infra/hyperframes-staging/static-temporal-zoompan-synthetic.cjs /opt/static-temporal-zoompan-synthetic.cjs
 RUN chmod 0755 /usr/local/bin/hf-static-chrome \
     && install -d -o root -g root -m 0755 /input \
     && test ! -e /app/apps/api \

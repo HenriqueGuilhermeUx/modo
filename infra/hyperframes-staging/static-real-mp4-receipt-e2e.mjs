@@ -62,6 +62,29 @@ try {
  assert.equal(stream.r_frame_rate,"30/1");
  assert.equal(Number(stream.nb_frames),150);
  assert.ok(Math.abs(Number(probe.format?.duration)-5)<0.05);
+ // Verify true temporal progression INSIDE each scene, not merely that
+ // each of three static scene boundaries differs. FFmpeg decodes raw frames;
+ // scene-local pixel changes cannot be spoofed by MP4 timestamps alone.
+ const temporalFrameSets=[[0,15,30],[31,63,94],[95,122,149]];
+ const temporalFrames=temporalFrameSets.flat();
+ const temporalSelect=temporalFrames.map(n=>"eq(n\\,"+n+")").join("+");
+ const {stdout:temporalMd5}=await EXEC("/usr/bin/ffmpeg",[
+  "-hide_banner","-loglevel","error","-nostdin","-i",videoPath,
+  "-vf","select="+temporalSelect,"-vsync","0","-f","framemd5","-"
+ ],{timeout:20000,maxBuffer:24000});
+ const temporalRows=temporalMd5.split("\n").map(x=>x.trim())
+  .filter(x=>x&&!x.startsWith("#")).map(x=>x.split(",").map(z=>z.trim()));
+ assert.equal(temporalRows.length,9,"HF_TEMPORAL_NINE_DECODED_FRAMES_REQUIRED");
+ for(let i=0;i<temporalFrames.length;i++){
+  assert.equal(Number(temporalRows[i][1]),temporalFrames[i],
+   "HF_TEMPORAL_FRAME_INDEX_MISMATCH");
+  assert.match(temporalRows[i].at(-1),/^[0-9a-f]{32}$/);
+ }
+ for(let i=0;i<3;i++){
+  const hashes=temporalRows.slice(i*3,i*3+3).map(x=>x.at(-1));
+  assert.ok(new Set(hashes).size>=2,
+   "HF_TEMPORAL_SCENE_HAS_NO_INTRA_SCENE_MOTION_"+(i+1));
+ }
  const observed={outputSha256,outputBytes:video.length,codec:"h264",
   width:1080,height:1920,fps:30,frames:150};
  // Verify the ORIGINAL signer (which has no private key on disk) independently
@@ -339,7 +362,7 @@ try {
   frames:observed.frames,codec:observed.codec,
   outputBytes:observed.outputBytes,mp4Sha256:outputSha256,
   signedReceiptSha256:valid.receiptSha256,
-  verifiedLeaseFence:true,authorizedBeforeRender:true,oneShotLaunchClaim:true,receiptLedgerAtomic:true,encryptedVideoAtomic:true,verifiedAfterRestart:true,rejectedTamper:true,rejectedStaleFence:true,
+  verifiedLeaseFence:true,authorizedBeforeRender:true,oneShotLaunchClaim:true,temporalMotionVerified:true,temporalFramesSampled:9,receiptLedgerAtomic:true,encryptedVideoAtomic:true,verifiedAfterRestart:true,rejectedTamper:true,rejectedStaleFence:true,
   noPublication:true,noSecretsInRenderer:true
  })+"\n");
 }finally{

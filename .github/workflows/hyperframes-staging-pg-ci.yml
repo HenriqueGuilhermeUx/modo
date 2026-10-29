@@ -132,6 +132,16 @@ jobs:
           node --check infra/hyperframes-staging/static-handoff-pg-lease.test.mjs
           node --import tsx --test infra/hyperframes-staging/static-handoff-pg-lease.test.mjs
 
+      - name: Prove one-shot signed browser launch, replay and fencing
+        env:
+          MODO_HF_HANDOFF_MODE: synthetic-ci-only
+          MODO_HF_PREFLIGHT_MODE: synthetic-ci-only
+          MODO_HF_BROWSER_LAUNCH_MODE: synthetic-ci-only
+        run: |
+          node --check infra/hyperframes-staging/static-browser-launch-gate.mjs
+          node --check infra/hyperframes-staging/static-browser-launch-gate.test.mjs
+          node --import tsx --test infra/hyperframes-staging/static-browser-launch-gate.test.mjs
+
       - name: Signed worker identity and expiry unit tests
         run: npm test --workspace=@modo/api -- src/services/hyperframes-staging-pg-work-order.test.ts
 

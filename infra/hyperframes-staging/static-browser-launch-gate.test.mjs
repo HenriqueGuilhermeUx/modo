@@ -64,7 +64,7 @@ async function fixture(){
  const bytes=Buffer.from(JSON.stringify(admission));
  const envelope={payloadB64:bytes.toString("base64url"),
   signatureB64:sign(null,bytes,key.privateKey).toString("base64url")};
- const params={envelope,publicKey:key.publicKey,
+ const params={envelope,publicKey:key.publicKey.export({format:"pem",type:"spki"}),
   rendererOrderBytes:orderBytes,rendererPayload:orderPayload};
  const expected={expectedLease,admissionSha256:hash(bytes),
   rendererJobId:orderPayload.jobId,rendererOrderSha256:hash(orderBytes),

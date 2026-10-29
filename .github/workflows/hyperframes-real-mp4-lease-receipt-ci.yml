@@ -187,7 +187,8 @@ jobs:
         run: |
           set -euo pipefail
           test "$(docker network inspect -f '{{.Internal}}' hf-real-receipt-only)" = true
-          test -s "$RUNNER_TEMP/hf-receipt-signed-input/launch-confirmation.json"
+          # Proof is created only AFTER the running container wins broker grant.
+          test ! -e "$RUNNER_TEMP/hf-receipt-signed-input/launch-confirmation.json"
           timeout --signal=TERM --kill-after=5s 145s docker run --rm \
             --network hf-real-receipt-only --read-only --cap-drop ALL \
             --security-opt no-new-privileges --pids-limit=128 \
@@ -208,6 +209,32 @@ jobs:
           test -s "$RUNNER_TEMP/hf-receipt-real-output/synthetic.mp4"
           test -s "$RUNNER_TEMP/hf-receipt-signed-input/launch-confirmation.json"
           test ! -e "$RUNNER_TEMP/hf-receipt-real-output/receipt.json"
+
+      - name: Reject SECOND Chrome process with SAME valid admission and live broker
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s "$RUNNER_TEMP/hf-receipt-signed-input/launch-confirmation.json"
+          HASH_BEFORE="$(sha256sum "$RUNNER_TEMP/hf-receipt-real-output/synthetic.mp4" | cut -d' ' -f1)"
+          set +e
+          OUT="$(timeout --signal=TERM --kill-after=3s 15s docker run --rm \
+            --network hf-real-receipt-only --read-only --cap-drop ALL \
+            --security-opt no-new-privileges --pids-limit=128 --memory=4g --cpus=2 \
+            -e MODO_HF_STATIC_EXPORT_MODE=synthetic-ci-artifact \
+            -e MODO_HF_STATIC_ADMISSION_MODE=synthetic-ci-only \
+            -e MODO_HF_STATIC_BROKER_MODE=synthetic-ci-only \
+            --mount "type=bind,source=$RUNNER_TEMP/hf-receipt-host-broker,target=/broker" \
+            --mount "type=bind,source=$RUNNER_TEMP/hf-receipt-signed-input/order.json,target=/input/order.json,readonly" \
+            --mount "type=bind,source=$RUNNER_TEMP/hf-receipt-signed-input/public-key.pem,target=/input/public-key.pem,readonly" \
+            --mount "type=bind,source=$RUNNER_TEMP/hf-receipt-signed-input/admission.json,target=/input/admission.json,readonly" \
+            --mount "type=bind,source=$RUNNER_TEMP/hf-receipt-signed-input/admission-public-key.pem,target=/input/admission-public-key.pem,readonly" \
+            --mount "type=bind,source=$RUNNER_TEMP/hf-receipt-real-output,target=/output" \
+            modo-hf-pinned-broker:ci 2>&1)"
+          CODE="$?"
+          set -e
+          test "$CODE" -ne 0
+          printf '%s\n' "$OUT" | grep -F HF_STATIC_RENDERER_BROKER_GRANT_DENIED
+          test "$(sha256sum "$RUNNER_TEMP/hf-receipt-real-output/synthetic.mp4" | cut -d' ' -f1)" = "$HASH_BEFORE"
 
       - name: Independently verify real bytes and sign receipt tied to PostgreSQL lease
         shell: bash

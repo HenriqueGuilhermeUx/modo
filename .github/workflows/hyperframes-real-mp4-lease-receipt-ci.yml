@@ -202,6 +202,14 @@ jobs:
           test "$(docker network inspect -f '{{.Internal}}' hf-real-receipt-only)" = true
           # Proof is created only AFTER the running container wins broker grant.
           test ! -e "$RUNNER_TEMP/hf-receipt-signed-input/launch-confirmation.json"
+          # Give a precise failure signal without exposing signed input, keys or DB values.
+          if ! test -S "$RUNNER_TEMP/hf-receipt-host-broker/launch.sock"; then
+            echo 'BROKER_SOCKET_MISSING_BEFORE_RENDER'
+            exit 1
+          fi
+          test "$(stat -c '%u:%g:%a' "$RUNNER_TEMP/hf-receipt-host-broker/launch.sock")" = '10001:10001:600'
+          kill -0 "$(cat "$RUNNER_TEMP/hf-receipt-host-broker/broker.pid")"
+          set +e
           timeout --signal=TERM --kill-after=5s 145s docker run --rm \
             --network hf-real-receipt-only --read-only --cap-drop ALL \
             --security-opt no-new-privileges --pids-limit=128 \
@@ -218,6 +226,24 @@ jobs:
             --mount type=bind,source="$RUNNER_TEMP/hf-receipt-signed-input/public-key.pem",target=/input/public-key.pem,readonly \
             --mount type=bind,source="$RUNNER_TEMP/hf-receipt-real-output",target=/output \
             modo-hf-pinned-broker:ci
+          RENDER_STATUS="$?"
+          set -e
+          if test "$RENDER_STATUS" -ne 0; then
+            echo "BROKER_RENDER_CONTAINER_EXIT=$RENDER_STATUS"
+            test -S "$RUNNER_TEMP/hf-receipt-host-broker/launch.sock" && echo 'BROKER_SOCKET_PRESENT_AFTER_FAILURE' || echo 'BROKER_SOCKET_MISSING_AFTER_FAILURE'
+            if kill -0 "$(cat "$RUNNER_TEMP/hf-receipt-host-broker/broker.pid")" 2>/dev/null; then
+              echo 'BROKER_HOST_PROCESS_ALIVE'
+            else
+              echo 'BROKER_HOST_PROCESS_EXITED'
+            fi
+            if test -e "$RUNNER_TEMP/hf-receipt-signed-input/launch-confirmation.json"; then
+              echo 'BROKER_DB_CLAIM_CONFIRMED'
+            else
+              echo 'BROKER_DB_CLAIM_NOT_CONFIRMED'
+            fi
+            # Only diagnostic markers: never print private inputs or broker log contents.
+            exit "$RENDER_STATUS"
+          fi
           sudo chown -R "$(id -u):$(id -g)" "$RUNNER_TEMP/hf-receipt-real-output"
           test -s "$RUNNER_TEMP/hf-receipt-real-output/synthetic.mp4"
           test -s "$RUNNER_TEMP/hf-receipt-signed-input/launch-confirmation.json"

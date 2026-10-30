@@ -72,6 +72,10 @@ async function outputAlreadyExists(file){
  catch(e){
   if(e?.code==="ENOENT")return false;
   if(e?.code!=="EACCES")FAIL();
+  // Never expose a general-purpose privileged filesystem probe. This fixed
+  // CI-only path is the synthetic renderer output, not any user-supplied path.
+  if(process.env.GITHUB_ACTIONS!=="true"||!process.env.RUNNER_TEMP||
+     file!==join(process.env.RUNNER_TEMP,"hf-receipt-real-output","synthetic.mp4"))FAIL();
   try{
    await execute("/usr/bin/sudo",["-n","/usr/bin/stat","-c","%F",file],{
     timeout:3000,maxBuffer:2048,env:{...process.env,LC_ALL:"C"}});

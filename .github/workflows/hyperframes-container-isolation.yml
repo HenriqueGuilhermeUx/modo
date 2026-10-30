@@ -109,9 +109,16 @@ jobs:
                 echo HF_CDP_SAME_CONTAINER_PREFLIGHT_START
                 node /opt/hf-chrome-preflight.cjs
                 echo HF_CDP_SAME_CONTAINER_PREFLIGHT_OK
-                # Isolated alternate capture strategy: exercise vendor CLI without forced screenshot.
-                # Keep codec, duration, network and privilege assertions unchanged.
-                PRODUCER_FORCE_SCREENSHOT=false /opt/hyperframes/node_modules/.bin/hyperframes render --fps 30 --quality draft --workers 1 --no-browser-gpu --protocol-timeout 15000 --output synthetic.mp4
+                # Verify direct CDP -> FFmpeg actually creates the synthetic MP4
+                # under these EXACT outer-container constraints first.
+                # This does not count as the vendor CLI succeeding.
+                echo HF_DIRECT_CDP_FFMPEG_SAME_CONTAINER_START
+                MODO_HF_SYNTHETIC_CI=only-fixture node /opt/hf-cdp-ffmpeg-synthetic.cjs
+                echo HF_DIRECT_CDP_FFMPEG_SAME_CONTAINER_OK
+                # Prior experiment with PRODUCER_FORCE_SCREENSHOT=false still
+                # reported forceScreenshot=true in HyperFrames 0.8.207.
+                # Preserve an explicitly red vendor CLI gate (no bypass).
+                PRODUCER_FORCE_SCREENSHOT=true /opt/hyperframes/node_modules/.bin/hyperframes render --fps 30 --quality draft --workers 1 --no-browser-gpu --protocol-timeout 15000 --output synthetic.mp4
                 ffprobe -v error -show_entries stream=codec_type,codec_name,width,height,r_frame_rate:format=duration -of json synthetic.mp4 >result.json
                 node -e "
                   const fs=require(\"node:fs\");

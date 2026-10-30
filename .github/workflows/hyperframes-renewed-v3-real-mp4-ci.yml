@@ -5,6 +5,7 @@ on:
     paths:
       - '.github/workflows/hyperframes-renewed-v3-real-mp4-ci.yml'
       - 'infra/hyperframes-staging/static-real-renewed-v3-mp4-e2e.mjs'
+      - 'infra/hyperframes-staging/static-live-host-lease-supervisor.mjs'
       - 'infra/hyperframes-staging/static-lease-continuation-v3*'
       - 'infra/hyperframes-staging/static-lease-mp4-receipt-v3.mjs'
       - 'infra/hyperframes-staging/static-synthetic-mp4-pg-receipt-ledger-v3.mjs'
@@ -52,6 +53,7 @@ jobs:
       MODO_HF_MP4_RECEIPT_MODE: synthetic-ci-only
       MODO_HF_CONTINUATION_V3_MODE: synthetic-ci-only
       MODO_HF_RENEWED_V3_FINALIZE_MODE: synthetic-ci-only
+      MODO_HF_LIVE_RENEWAL_MODE: synthetic-ci-only
       MODO_HF_PREFLIGHT_MODE: synthetic-ci-only
       MODO_HF_BROWSER_LAUNCH_MODE: synthetic-ci-only
       MODO_HF_BROKER_SERVER_MODE: synthetic-ci-only
@@ -224,7 +226,26 @@ jobs:
             --mount type=bind,source="$RUNNER_TEMP/hf-receipt-signed-input/order.json",target=/input/order.json,readonly \
             --mount type=bind,source="$RUNNER_TEMP/hf-receipt-signed-input/public-key.pem",target=/input/public-key.pem,readonly \
             --mount type=bind,source="$RUNNER_TEMP/hf-receipt-real-output",target=/output \
-            modo-hf-pinned-broker:ci
+            modo-hf-pinned-broker:ci &
+          RENDER_PID=$!
+          # Only the trusted CI HOST opens the PostgreSQL role session.
+          # The renderer cannot see this process or its credentials.
+          node --check infra/hyperframes-staging/static-live-host-lease-supervisor.mjs
+          node --import tsx infra/hyperframes-staging/static-live-host-lease-supervisor.mjs \
+            "$RUNNER_TEMP/hf-receipt-signed-input" \
+            "$RUNNER_TEMP/hf-receipt-real-output" "$RENDER_PID" \
+            > "$RUNNER_TEMP/hf-receipt-signed-input/live-renewal-proof.json" &
+          SUP_PID=$!
+          set +e
+          wait "$RENDER_PID"
+          RENDER_EXIT=$?
+          wait "$SUP_PID"
+          SUP_EXIT=$?
+          set -e
+          test "$RENDER_EXIT" -eq 0
+          test "$SUP_EXIT" -eq 0
+          node -e 'const fs=require("fs"); const p=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); if(p.renewedWhileRendererAlive!==true||p.epoch!==1||p.noPublication!==true) process.exit(1)' \
+            "$RUNNER_TEMP/hf-receipt-signed-input/live-renewal-proof.json"
           sudo chown -R "$(id -u):$(id -g)" "$RUNNER_TEMP/hf-receipt-real-output"
           test -s "$RUNNER_TEMP/hf-receipt-real-output/synthetic.mp4"
           test -s "$RUNNER_TEMP/hf-receipt-signed-input/launch-confirmation.json"
@@ -256,7 +277,7 @@ jobs:
           printf '%s\n' "$OUT" | grep -F HF_STATIC_RENDERER_BROKER_GRANT_DENIED
           test "$(sha256sum "$RUNNER_TEMP/hf-receipt-real-output/synthetic.mp4" | cut -d' ' -f1)" = "$HASH_BEFORE"
 
-      - name: Renew original live browser lease and finish REAL signed H264 through V3 AES-GCM
+      - name: Verify HOST-renewed real H264 and finish V3 AES-GCM with no further renewal
         shell: bash
         run: |
           set -euo pipefail
@@ -265,6 +286,7 @@ jobs:
           node --check infra/hyperframes-staging/static-lease-mp4-receipt-v3.mjs
           node --check infra/hyperframes-staging/static-synthetic-mp4-pg-receipt-ledger-v3.mjs
           node --check infra/hyperframes-staging/static-real-renewed-v3-mp4-e2e.mjs
+          test -s "$RUNNER_TEMP/hf-receipt-signed-input/live-renewal-proof.json"
           node --import tsx infra/hyperframes-staging/static-real-renewed-v3-mp4-e2e.mjs \
             "$RUNNER_TEMP/hf-receipt-signed-input" "$RUNNER_TEMP/hf-receipt-real-output"
           test -s "$RUNNER_TEMP/hf-receipt-real-output/synthetic.mp4"

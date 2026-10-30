@@ -6,6 +6,11 @@ import {before,after,test} from "node:test";
 import assert from "node:assert/strict";
 import {randomUUID,generateKeyPairSync,createHash} from "node:crypto";
 import pg from "pg";
+import {mkdtemp,writeFile,rm} from "node:fs/promises";
+import {tmpdir} from "node:os";
+import {join} from "node:path";
+import {renewLiveSyntheticLeaseFromPg,superviseSyntheticRendererLiveLease}
+ from "./static-live-host-lease-supervisor.mjs";
 import {HyperframesStagingPgArtifacts} from "../../apps/api/src/services/hyperframes-staging-pg-artifacts.ts";
 import {HyperframesStagingPgQueue} from
  "../../apps/api/src/services/hyperframes-staging-pg-queue.ts";
@@ -27,6 +32,8 @@ before(async()=>{
  process.env.MODO_HYPERFRAMES_DB_MODE="isolated-staging";
  process.env.MODO_HYPERFRAMES_STORAGE_MODE="isolated-staging";
  process.env.MODO_HF_RENEWED_V3_FINALIZE_MODE="synthetic-ci-only";
+ process.env.MODO_HF_LIVE_RENEWAL_MODE="synthetic-ci-only";
+ process.env.MODO_HF_BROWSER_LAUNCH_MODE="synthetic-ci-only";
  process.env.MODO_HYPERFRAMES_RECOVERY_MODE="isolated-staging";
  pool=new Pool({connectionString:url,ssl:false,max:12});
  queue=new HyperframesStagingPgQueue(pool);
@@ -467,4 +474,93 @@ test("expired or wrong-fence signed v3 output can never become encrypted artifac
    "FROM modo_hyperframes_staging.render_artifacts WHERE job_id=$1::uuid",
    [f.lease.jobId])).rows[0].n,0);
  }finally{vault.close();}
+});
+
+const liveArgs=f=>({pool,expectedLease:{
+ jobId:f.lease.jobId,organizationId:tenant,projectId:f.lease.projectId,
+ workerId:worker,leaseFence:f.lease.lease.fence,
+ leaseVersion:f.lease.version,attempts:f.lease.attempts,
+ requestSha256:f.lease.requestSha256},
+ dispatchSha256:f.params[8],admissionSha256:f.params[9]});
+test("host-only live supervisor renews exactly one fenced epoch and stale version is denied",async()=>{
+ const f=await fixture();
+ const arg=liveArgs(f);
+ const first=await renewLiveSyntheticLeaseFromPg(arg);
+ assert.equal(first.epoch,1);
+ assert.equal(first.leaseVersion,f.lease.version+1);
+ const latest=await queue.get(f.lease.jobId,tenant);
+ assert.equal(latest.version,first.leaseVersion);
+ assert.equal(latest.lease.fence,f.lease.lease.fence);
+ await assert.rejects(renewLiveSyntheticLeaseFromPg(arg),
+  /HF_SYNTHETIC_LIVE_HOST_RENEWAL_DENIED/);
+});
+test("two concurrent host renewal attempts cannot both increment the original lease",async()=>{
+ const f=await fixture();const a=liveArgs(f);
+ const values=await Promise.allSettled(Array.from({length:10},()=>
+  renewLiveSyntheticLeaseFromPg(a)));
+ assert.equal(values.filter(v=>v.status==="fulfilled").length,1);
+ assert.equal(values.filter(v=>v.status==="rejected").length,9);
+ assert.equal((await queue.get(f.lease.jobId,tenant)).version,f.lease.version+1);
+});
+test("supervisor observes trusted broker launch while renderer active, never after exit or visible output",async()=>{
+ const f=await fixture();
+ const dir=await mkdtemp(join(tmpdir(),"hf-live-input-"));
+ const out=await mkdtemp(join(tmpdir(),"hf-live-output-"));
+ try{
+  const a=liveArgs(f);
+  await writeFile(join(dir,"preflight-meta.json"),JSON.stringify({
+   expectedLease:a.expectedLease,leaseOrderSha256:a.dispatchSha256,
+   admissionSha256:a.admissionSha256}),{flag:"wx",mode:0o600});
+  await writeFile(join(dir,"launch-confirmation.json"),JSON.stringify({
+   oneShotClaimed:true,syntheticOnly:true,
+   jobId:f.lease.jobId,leaseFence:f.lease.lease.fence,
+   admissionSha256:a.admissionSha256}),{flag:"wx",mode:0o600});
+  await assert.rejects(superviseSyntheticRendererLiveLease({
+   pool,inputDir:dir,outputDir:out,renderPid:101,
+   renderAlive:()=>false
+  }),/HF_SYNTHETIC_LIVE_HOST_RENEWAL_DENIED/);
+  assert.equal((await queue.get(f.lease.jobId,tenant)).version,f.lease.version);
+  const value=await superviseSyntheticRendererLiveLease({
+   pool,inputDir:dir,outputDir:out,renderPid:101,
+   renderAlive:()=>true
+  });
+  assert.equal(value.renewedWhileRendererAlive,true);
+  assert.equal(value.epoch,1);
+  assert.equal((await queue.get(f.lease.jobId,tenant)).version,f.lease.version+1);
+ }finally{
+  await rm(dir,{recursive:true,force:true});
+  await rm(out,{recursive:true,force:true});
+ }
+});
+test("supervisor rejects forged launch confirmation and already-written output, never extends lease",async()=>{
+ const f=await fixture();
+ const dir=await mkdtemp(join(tmpdir(),"hf-live-negative-input-"));
+ const out=await mkdtemp(join(tmpdir(),"hf-live-negative-output-"));
+ try{
+  const a=liveArgs(f);
+  await writeFile(join(dir,"preflight-meta.json"),JSON.stringify({
+   expectedLease:a.expectedLease,leaseOrderSha256:a.dispatchSha256,
+   admissionSha256:a.admissionSha256}),{flag:"wx",mode:0o600});
+  await writeFile(join(dir,"launch-confirmation.json"),JSON.stringify({
+   oneShotClaimed:true,syntheticOnly:true,jobId:f.lease.jobId,
+   leaseFence:f.lease.lease.fence,admissionSha256:sha("forged")
+  }),{flag:"wx",mode:0o600});
+  await assert.rejects(superviseSyntheticRendererLiveLease({
+   pool,inputDir:dir,outputDir:out,renderPid:102,renderAlive:()=>true
+  }),/HF_SYNTHETIC_LIVE_HOST_RENEWAL_DENIED/);
+  assert.equal((await queue.get(f.lease.jobId,tenant)).version,f.lease.version);
+  const marker={oneShotClaimed:true,syntheticOnly:true,
+   jobId:f.lease.jobId,leaseFence:f.lease.lease.fence,
+   admissionSha256:a.admissionSha256};
+  await writeFile(join(dir,"launch-confirmation.json"),
+   JSON.stringify(marker));
+  await writeFile(join(out,"synthetic.mp4"),Buffer.alloc(46049));
+  await assert.rejects(superviseSyntheticRendererLiveLease({
+   pool,inputDir:dir,outputDir:out,renderPid:102,renderAlive:()=>true
+  }),/HF_SYNTHETIC_LIVE_HOST_RENEWAL_DENIED/);
+  assert.equal((await queue.get(f.lease.jobId,tenant)).version,f.lease.version);
+ }finally{
+  await rm(dir,{recursive:true,force:true});
+  await rm(out,{recursive:true,force:true});
+ }
 });

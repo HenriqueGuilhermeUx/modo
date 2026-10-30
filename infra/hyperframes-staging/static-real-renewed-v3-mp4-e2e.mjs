@@ -146,7 +146,17 @@ try {
  assert.equal(lease?.requestSha256,requestSha256);
  assert.equal(lease?.organizationId,tenant);
  assert.equal(lease?.projectId,projectId);
- assert.equal(lease?.version,expectedLease.leaseVersion);
+ // The trusted HOST supervisor must have renewed THIS job while Chrome
+ // remained alive, BEFORE this post-render verification phase starts.
+ const renewalProof=JSON.parse(await readFile(join(inputDir,
+  "live-renewal-proof.json"),"utf8"));
+ assert.equal(renewalProof.renewedWhileRendererAlive,true);
+ assert.equal(renewalProof.syntheticOnly,true);
+ assert.equal(renewalProof.noPublication,true);
+ assert.equal(renewalProof.epoch,1);
+ assert.equal(lease?.version,expectedLease.leaseVersion+1);
+ assert.equal(lease?.version,renewalProof.leaseVersion);
+ assert.equal(lease?.lease?.expiresAt,renewalProof.expiresAtMs);
  assert.equal(lease?.attempts,expectedLease.attempts);
  assert.ok(lease.lease.expiresAt>Date.now());
  const claim=await pool.query(
@@ -167,32 +177,21 @@ try {
  assert.equal(launches.rows[0].renderer_order_sha256.trim(),rendererOrderSha256);
  assert.equal(launches.rows[0].dispatch_sha256.trim(),preflight.leaseOrderSha256);
 
- // Actual signed Chrome rendering has already completed; ONLY now can
- // the HOST dispatcher renew that SAME PostgreSQL job / fence.
- const dispatch=await pool.connect();let active=false;
- let renewal;
- try{
-  await dispatch.query("BEGIN");active=true;
-  await dispatch.query("SET LOCAL ROLE hf_staging_nonce_dispatcher");
-  const updated=await dispatch.query(
-   "SELECT renewed,lease_version,expires_ms FROM "+
-   "modo_hyperframes_staging.renew_synthetic_lease_epoch("+
-   "$1::uuid,$2::text,$3::text,$4::text,$5::uuid,"+
-   "$6::integer,$7::smallint,$8::text,$9::text,$10::text,$11::integer)",
-   [lease.jobId,tenant,projectId,workerId,lease.lease.fence,lease.version,
-    lease.attempts,lease.requestSha256,preflight.leaseOrderSha256,
-    preflight.admissionSha256,60000]);
-  renewal=updated.rows[0];
-  assert.equal(renewal?.renewed,true,"REAL_RENDER_RENEWAL_DENIED");
-  await dispatch.query("COMMIT");active=false;
- }finally{
-  if(active)await dispatch.query("ROLLBACK").catch(()=>{});
-  dispatch.release();
- }
+ // No renewal is permitted here. A trusted host-side process must have
+ // committed exactly one epoch while Chrome/FFmpeg was STILL RUNNING.
+ const evidence=(await pool.query(
+  "SELECT from_version,to_version,expires_ms FROM "+
+  "modo_hyperframes_staging.synthetic_lease_renewal_epochs "+
+  "WHERE job_id=$1::uuid AND lease_fence=$2::uuid",
+  [lease.jobId,lease.lease.fence])).rows;
+ assert.equal(evidence.length,1);
+ assert.equal(evidence[0].from_version,expectedLease.leaseVersion);
+ assert.equal(evidence[0].to_version,lease.version);
+ assert.equal(Number(evidence[0].expires_ms),renewalProof.expiresAtMs);
  const live=await queue.get(lease.jobId,tenant);
- assert.equal(live.version,lease.version+1);
+ assert.equal(live.version,expectedLease.leaseVersion+1);
  assert.equal(live.lease.fence,lease.lease.fence);
- assert.equal(live.lease.expiresAt,Number(renewal.expires_ms));
+ assert.equal(live.lease.expiresAt,renewalProof.expiresAtMs);
  const continuationKeys=generateKeyPairSync("ed25519");
  const continuationKeyId="synthetic-renewed-v3-ci";
  const continuation=await issueSyntheticLeaseContinuationV3FromPg({
@@ -286,21 +285,21 @@ try {
    jobId:lease.jobId,authorizedOrganizationId:tenant,
    workerId,fence:lease.lease.fence,video,v3ReceiptSha256:ack.receiptSha256
   }),null);
-  const evidence=(await pool.query(
+  const finalEvidence=(await pool.query(
    "SELECT r.receipt_sha256,r.epoch,r.lease_version,r.output_sha256,"+
    " a.v3_receipt_sha256,a.iv,a.auth_tag,a.ciphertext "+
    "FROM modo_hyperframes_staging.synthetic_renewed_encrypted_finalizations_v3 r "+
    "JOIN modo_hyperframes_staging.render_artifacts a ON a.job_id=r.job_id "+
    "WHERE r.job_id=$1::uuid",[lease.jobId])).rows;
-  assert.equal(evidence.length,1);
-  assert.equal(evidence[0].receipt_sha256.trim(),ack.receiptSha256);
-  assert.equal(evidence[0].v3_receipt_sha256.trim(),ack.receiptSha256);
-  assert.equal(evidence[0].epoch,1);
-  assert.equal(evidence[0].lease_version,live.version);
-  assert.equal(evidence[0].output_sha256.trim(),outputSha256);
-  assert.equal(evidence[0].iv.length,12);
-  assert.equal(evidence[0].auth_tag.length,16);
-  assert.equal(evidence[0].ciphertext.equals(video),false);
+  assert.equal(finalEvidence.length,1);
+  assert.equal(finalEvidence[0].receipt_sha256.trim(),ack.receiptSha256);
+  assert.equal(finalEvidence[0].v3_receipt_sha256.trim(),ack.receiptSha256);
+  assert.equal(finalEvidence[0].epoch,1);
+  assert.equal(finalEvidence[0].lease_version,live.version);
+  assert.equal(finalEvidence[0].output_sha256.trim(),outputSha256);
+  assert.equal(finalEvidence[0].iv.length,12);
+  assert.equal(finalEvidence[0].auth_tag.length,16);
+  assert.equal(finalEvidence[0].ciphertext.equals(video),false);
   assert.equal((await pool.query(
    "SELECT count(*)::integer AS n FROM "+
    "modo_hyperframes_staging.synthetic_encrypted_finalizations "+
@@ -322,7 +321,7 @@ try {
  assert.equal(await queue.fail(lease.jobId,tenant,workerId,lease.lease.fence),null);
  passed=true;
  process.stdout.write(JSON.stringify({
-  passed:true,syntheticOnly:true,realMp4:true,renewedSameLiveLease:true,
+  passed:true,syntheticOnly:true,realMp4:true,renewedSameLiveLease:true,renewedDuringChromeRender:true,
   rendererLaunchSignedAndOneShot:true,mp4Sha256:outputSha256,
   outputBytes:video.length,codec:"h264",frames:150,temporalMotionVerified:true,
   v3ContinuationSigned:true,v3OutputReceiptSigned:true,leaseEpoch:1,

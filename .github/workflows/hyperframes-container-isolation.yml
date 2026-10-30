@@ -1,0 +1,137 @@
+name: HyperFrames bounded offline worker container smoke
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/hyperframes-container-isolation.yml'
+      - 'infra/hyperframes-staging/worker.Dockerfile'
+      - 'infra/hyperframes-staging/worker.Dockerfile.dockerignore'
+      - 'infra/hyperframes-staging/chrome-cdp-preflight.cjs'
+      - 'infra/hyperframes-staging/chrome-headless-wrapper.sh'
+      - 'infra/hyperframes-staging/fixtures/**'
+      - 'apps/api/src/scripts/hyperframes-staging-one-shot.ts'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  offline-nonroot-container:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build isolated worker, no runtime secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker build --file infra/hyperframes-staging/worker.Dockerfile \
+            --tag modo-hf-staging:ci .
+
+      - name: Assert worker container runs offline with dropped privileges
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm \
+            --network none --read-only \
+            --cap-drop ALL --security-opt no-new-privileges \
+            --pids-limit=128 --memory=4g --cpus=2 \
+            --shm-size=256m \
+            --tmpfs /tmp:rw,nosuid,size=2g,mode=1777 \
+            --tmpfs /home/hfworker:rw,nosuid,size=64m,mode=0700,uid=10001,gid=10001 \
+            --entrypoint /usr/local/bin/node \
+            modo-hf-staging:ci \
+            -e 'const fs=require("node:fs");const os=require("node:os");const net=require("node:net");if(process.getuid()!==10001)process.exit(2);if(!fs.readFileSync("/proc/self/status","utf8").includes("CapEff:\t0000000000000000"))process.exit(3);if(!fs.statSync("/tmp").isDirectory())process.exit(4);const c=net.connect({host:"1.1.1.1",port:443,timeout:1500});c.on("connect",()=>process.exit(5));c.on("error",(e)=>{if(!["ENETUNREACH","EHOSTUNREACH","EACCES"].includes(e.code))process.exit(6);console.log("nonroot-no-network-no-linux-caps");});c.on("timeout",()=>process.exit(7));'
+
+      - name: Create isolated Docker bridge with loopback but no external routing
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker network create --driver bridge --internal hf-offline-ci
+
+      - name: Preflight real Chrome CDP page/screenshot with a 30s hard limit
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout --signal=TERM --kill-after=5s 30s \
+            docker run --rm --network hf-offline-ci --read-only \
+              --cap-drop ALL --security-opt no-new-privileges \
+              --pids-limit=128 --memory=4g --cpus=2 \
+              --shm-size=256m \
+              --tmpfs /tmp:rw,nosuid,size=512m,mode=1777 \
+              --tmpfs /home/hfworker:rw,nosuid,size=64m,mode=0700,uid=10001,gid=10001 \
+              --entrypoint /usr/local/bin/node \
+              modo-hf-staging:ci /opt/hf-chrome-preflight.cjs
+
+      - name: Actually render synthetic MP4 offline under strict limits
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout --signal=TERM --kill-after=10s 90s \
+            docker run --rm \
+              --network hf-offline-ci --read-only \
+              --cap-drop ALL --security-opt no-new-privileges \
+              --pids-limit=128 --memory=4g --cpus=2 \
+              --shm-size=256m \
+              --tmpfs /tmp:rw,nosuid,size=2g,mode=1777 \
+              --tmpfs /home/hfworker:rw,nosuid,size=64m,mode=0700,uid=10001,gid=10001 \
+              --mount type=bind,source="${PWD}/infra/hyperframes-staging/fixtures/synthetic-2sec",target=/fixtures,readonly \
+              --entrypoint /bin/sh \
+              modo-hf-staging:ci -ec '
+                set -eu
+                # Docker internal bridge has loopback for Chrome DevTools,
+                # but no external gateway; fail if internet is reachable.
+                node -e "
+                  const net=require(\"node:net\");
+                  const server=net.createServer(()=>{}).listen(0,\"127.0.0.1\",()=>{
+                    const port=server.address().port;
+                    const local=net.connect(port,\"127.0.0.1\");
+                    local.on(\"connect\",()=>{local.destroy();server.close();});
+                    local.on(\"error\",()=>process.exit(11));
+                  });
+                "
+                node -e "
+                  const net=require(\"node:net\");
+                  const c=net.connect({host:\"1.1.1.1\",port:443,timeout:1500});
+                  c.on(\"connect\",()=>process.exit(12));
+                  c.on(\"error\",(e)=>{
+                    if(![\"ENETUNREACH\",\"EHOSTUNREACH\",\"EACCES\",\"ETIMEDOUT\"].includes(e.code)) process.exit(13);
+                  });
+                  c.on(\"timeout\",()=>{c.destroy();process.exit(0);});
+                "
+                mkdir -m 700 /tmp/hf
+                cp /fixtures/index.html /tmp/hf/index.html
+                cd /tmp/hf
+                /opt/hyperframes/node_modules/.bin/hyperframes lint
+                /opt/hyperframes/node_modules/.bin/hyperframes check
+                # Verify the exact container can complete Chrome CDP screenshot
+                # immediately before the third-party CLI; keep the render gate strict.
+                echo HF_CDP_SAME_CONTAINER_PREFLIGHT_START
+                node /opt/hf-chrome-preflight.cjs
+                echo HF_CDP_SAME_CONTAINER_PREFLIGHT_OK
+                # Verify direct CDP -> FFmpeg actually creates the synthetic MP4
+                # under these EXACT outer-container constraints first.
+                # This does not count as the vendor CLI succeeding.
+                echo HF_DIRECT_CDP_FFMPEG_SAME_CONTAINER_START
+                MODO_HF_SYNTHETIC_CI=only-fixture node /opt/hf-cdp-ffmpeg-synthetic.cjs
+                echo HF_DIRECT_CDP_FFMPEG_SAME_CONTAINER_OK
+                # Prior experiment with PRODUCER_FORCE_SCREENSHOT=false still
+                # reported forceScreenshot=true in HyperFrames 0.8.207.
+                # Preserve an explicitly red vendor CLI gate (no bypass).
+                PRODUCER_FORCE_SCREENSHOT=true /opt/hyperframes/node_modules/.bin/hyperframes render --fps 30 --quality draft --workers 1 --no-browser-gpu --protocol-timeout 15000 --output synthetic.mp4
+                ffprobe -v error -show_entries stream=codec_type,codec_name,width,height,r_frame_rate:format=duration -of json synthetic.mp4 >result.json
+                node -e "
+                  const fs=require(\"node:fs\");
+                  const x=JSON.parse(fs.readFileSync(\"result.json\",\"utf8\"));
+                  const stream=x.streams?.[0],duration=Number(x.format?.duration);
+                  if(x.streams?.length!==1||stream.codec_type!==\"video\"||stream.codec_name!==\"h264\"||
+                      stream.width!==1080||stream.height!==1920||stream.r_frame_rate!==\"30/1\"||
+                      !Number.isFinite(duration)||Math.abs(duration-2)>0.16||
+                      fs.statSync(\"synthetic.mp4\").size<4000) process.exit(8);
+                  console.log(\"offline bounded container MP4 validated\");
+                "              '
+
+      - name: Remove isolated Docker network
+        if: always()
+        shell: bash
+        run: docker network rm hf-offline-ci || true

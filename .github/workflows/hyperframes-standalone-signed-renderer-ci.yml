@@ -1,0 +1,146 @@
+name: HyperFrames separate Ed25519-signed static renderer gate
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/hyperframes-standalone-signed-renderer-ci.yml'
+      - 'infra/hyperframes-staging/static-renderer*'
+      - 'infra/hyperframes-staging/chrome-headless-wrapper.sh'
+      - 'infra/hyperframes-staging/static-renderer.Dockerfile'
+      - 'apps/api/src/services/hyperframes-static-storyboard.ts'
+      - 'apps/api/src/services/hyperframes-project-preview.ts'
+      - 'apps/api/src/services/hyperframes-pilot.ts'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  standalone-renderer:
+    runs-on: ubuntu-latest
+    timeout-minutes: 17
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Compile MODO read-only exporter and build standalone image
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --include=dev --no-audit --no-fund
+          npm run build --workspace=@modo/api
+          docker build -f infra/hyperframes-staging/static-renderer.Dockerfile \
+            -t modo-static-standalone:ci .
+
+      - name: Check image has no API/database/signing dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm --network none --read-only \
+            --cap-drop ALL --security-opt no-new-privileges \
+            --pids-limit=128 --memory=4g --cpus=2 \
+            --tmpfs /tmp:rw,nosuid,size=64m,mode=1777 \
+            --entrypoint /usr/local/bin/node modo-static-standalone:ci \
+            -e '
+              const fs=require("node:fs");
+              if(process.getuid()!==10001)process.exit(2);
+              for(const p of ["/app/apps/api","/app/node_modules/pg",
+                "/run/hyperframes/db-password","/input/private-key.pem"]) {
+                if(fs.existsSync(p)) process.exit(3);
+              }
+              try { require("pg");process.exit(4); }
+              catch(e) { if(e.code!=="MODULE_NOT_FOUND")process.exit(5); }
+              console.log("standalone-image-no-api-no-db");
+            '
+
+      - name: Generate signed, tampered and expired requests outside browser
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "${RUNNER_TEMP}/hf-signed-input"
+          chmod 0755 "${RUNNER_TEMP}/hf-signed-input"
+          MODO_HF_STATIC_SIGN_FIXTURE=synthetic-ci-only \
+            node infra/hyperframes-staging/static-renderer-sign-synthetic.mjs \
+            "${RUNNER_TEMP}/hf-signed-input"
+          test ! -e "${RUNNER_TEMP}/hf-signed-input/private-key.pem"
+          test "$(find "${RUNNER_TEMP}/hf-signed-input" -maxdepth 1 -type f | wc -l)" -eq 4
+
+      - name: Start single-purpose internal-only network
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker network create --driver bridge --internal hf-standalone-only
+          test "$(docker network inspect -f '{{.Internal}}' hf-standalone-only)" = true
+
+      - name: Prove network has loopback but cannot reach public IP
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 12s docker run --rm --network hf-standalone-only --read-only \
+            --cap-drop ALL --security-opt no-new-privileges \
+            --pids-limit=128 --memory=4g --cpus=2 \
+            --entrypoint /usr/local/bin/node modo-static-standalone:ci \
+            -e '
+              const net=require("node:net");
+              const local=net.createServer(()=>{}).listen(0,"127.0.0.1",()=>{
+                const c=net.connect(local.address().port,"127.0.0.1");
+                c.once("connect",()=>{console.log("loopback-ok");c.destroy();local.close();});
+                c.once("error",()=>process.exit(41));
+              });
+              const external=net.connect({host:"1.1.1.1",port:443,timeout:1500});
+              external.once("connect",()=>process.exit(42));
+              external.once("error",e=>{
+                if(!["ENETUNREACH","EHOSTUNREACH","EACCES","ETIMEDOUT"].includes(e.code)) process.exit(43);
+                console.log("external-egress-denied");
+              });
+              external.once("timeout",()=>{external.destroy();console.log("external-egress-timeout-denied");});
+            '
+
+      - name: Reject tampered and expired Ed25519 signed requests
+        shell: bash
+        run: |
+          set -euo pipefail
+          for case in tampered expired; do
+            set +e
+            OUTPUT="$(timeout --signal=TERM --kill-after=3s 16s docker run --rm \
+              --network hf-standalone-only --read-only \
+              --cap-drop ALL --security-opt no-new-privileges \
+              --pids-limit=128 --memory=4g --cpus=2 \
+              --mount type=bind,source="${RUNNER_TEMP}/hf-signed-input/${case}.json",target=/input/order.json,readonly \
+              --mount type=bind,source="${RUNNER_TEMP}/hf-signed-input/public-key.pem",target=/input/public-key.pem,readonly \
+              modo-static-standalone:ci 2>&1)"
+            STATUS="$?"
+            set -e
+            test "${STATUS}" -ne 0
+            if [ "${case}" = tampered ]; then
+              printf '%s' "${OUTPUT}" | grep -F HF_STATIC_RENDERER_SIGNATURE_DENIED
+            else
+              printf '%s' "${OUTPUT}" | grep -F HF_STATIC_RENDERER_INVALID_ORDER
+            fi
+          done
+
+      - name: Verify valid signed three-scene synthetic MP4 offline
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout --signal=TERM --kill-after=5s 130s docker run --rm \
+            --network hf-standalone-only --read-only \
+            --cap-drop ALL --security-opt no-new-privileges \
+            --pids-limit=128 --memory=4g --cpus=2 --shm-size=256m \
+            --tmpfs /tmp:rw,nosuid,size=2g,mode=1777 \
+            --tmpfs /home/renderonly:rw,nosuid,size=64m,mode=0700,uid=10001,gid=10001 \
+            --mount type=bind,source="${RUNNER_TEMP}/hf-signed-input/order.json",target=/input/order.json,readonly \
+            --mount type=bind,source="${RUNNER_TEMP}/hf-signed-input/public-key.pem",target=/input/public-key.pem,readonly \
+            modo-static-standalone:ci
+
+      - name: Erase synthetic orders and isolated network
+        if: always()
+        shell: bash
+        run: |
+          docker ps -aq --filter network=hf-standalone-only | xargs -r docker rm -f || true
+          docker network rm hf-standalone-only || true
+          rm -rf "${RUNNER_TEMP}/hf-signed-input"
+          echo "No private keys on disk; no real media, deployment or artifact upload"

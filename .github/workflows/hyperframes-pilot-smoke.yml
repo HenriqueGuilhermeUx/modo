@@ -1,0 +1,54 @@
+name: MODO HyperFrames isolated smoke
+
+on:
+  push:
+    branches: ['feat/hyperframes-pilot-20261025']
+    paths:
+      - 'scripts/hyperframes-preview-smoke.ts'
+      - 'scripts/verify-hyperframes-smoke.mjs'
+      - 'apps/api/src/services/hyperframes-pilot.ts'
+      - 'apps/api/src/services/hyperframes-project-preview.ts'
+      - 'apps/api/src/services/hyperframes-project-preview.test.ts'
+      - 'apps/api/src/services/hyperframes-pilot.test.ts'
+      - '.github/workflows/hyperframes-pilot-smoke.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install test tooling without production deploy
+        run: npm install --include=dev
+      - name: Generate synthetic MODO HTML composition
+        run: npx tsx scripts/hyperframes-preview-smoke.ts "$RUNNER_TEMP/hyperframes-smoke"
+      - name: Install FFmpeg in disposable runner
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg
+      - name: Check FFmpeg
+        run: ffmpeg -version
+      - name: HyperFrames lint and project check (pinned CLI)
+        working-directory: ${{ runner.temp }}/hyperframes-smoke
+        run: |
+          npx -y hyperframes@0.8.200 lint
+          npx -y hyperframes@0.8.200 check
+      - name: Render synthetic MP4 (no publish)
+        working-directory: ${{ runner.temp }}/hyperframes-smoke
+        run: npx -y hyperframes@0.8.200 render --quality draft --output sample.mp4
+      - name: Validate MP4 metadata and scene transitions
+        run: node scripts/verify-hyperframes-smoke.mjs "$RUNNER_TEMP/hyperframes-smoke/sample.mp4"
+      - name: Upload isolated test artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: hyperframes-modo-smoke
+          path: ${{ runner.temp }}/hyperframes-smoke/sample.mp4
+          retention-days: 1
+          if-no-files-found: error

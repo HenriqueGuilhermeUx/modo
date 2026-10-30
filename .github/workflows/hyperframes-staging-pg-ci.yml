@@ -1,0 +1,219 @@
+name: HyperFrames isolated Postgres recovery CI
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/hyperframes-staging-pg-ci.yml'
+      - 'infra/hyperframes-staging/**'
+      - 'apps/api/src/services/hyperframes-staging-pg-queue*'
+      - 'apps/api/src/services/hyperframes-staging-pg-artifacts*'
+      - 'apps/api/src/services/hyperframes-staging-pg-render-runner*'
+      - 'apps/api/src/services/hyperframes-staging-pg-snapshots*'
+      - 'apps/api/src/services/hyperframes-staging-pg-work-order*'
+      - 'apps/api/src/services/hyperframes-staging-worker*'
+      - 'apps/api/src/services/hyperframes-staging-recovery-protocol*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  staging-postgres-recovery:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_DB: modo_hyperframes_staging
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres -d modo_hyperframes_staging"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=8
+
+    env:
+      NODE_ENV: test
+      MODO_HYPERFRAMES_RECOVERY_MODE: isolated-staging
+      MODO_HYPERFRAMES_DB_MODE: isolated-staging
+      MODO_HYPERFRAMES_PG_TEST_DATABASE_URL: postgresql://postgres@127.0.0.1:5432/modo_hyperframes_staging
+      PGHOST: 127.0.0.1
+      PGPORT: "5432"
+      PGUSER: postgres
+      PGDATABASE: modo_hyperframes_staging
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install dependencies (same as MODO main CI)
+        run: npm install --include=dev
+
+      - name: Refuse using production database
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${PGDATABASE}" = "modo_hyperframes_staging"
+          psql -v ON_ERROR_STOP=1 -Atc "SELECT current_database()" | grep -x modo_hyperframes_staging
+
+      - name: Create isolated temporary staging schema
+        run: psql -v ON_ERROR_STOP=1 -f infra/hyperframes-staging/001_render_jobs.sql
+
+      - name: Add staging-only encrypted MP4 schema
+        run: psql -v ON_ERROR_STOP=1 -f infra/hyperframes-staging/002_encrypted_render_artifacts.sql
+
+      - name: Add encrypted restart-recovery source schema
+        run: psql -v ON_ERROR_STOP=1 -f infra/hyperframes-staging/003_encrypted_render_snapshots.sql
+
+      - name: Constrain isolated worker role to staging data only
+        run: psql -v ON_ERROR_STOP=1 -f infra/hyperframes-staging/004_worker_role.sql
+
+      - name: Create synthetic-only PostgreSQL nonce claims
+        run: psql -v ON_ERROR_STOP=1 -f infra/hyperframes-staging/005_synthetic_handoff_nonces.sql
+
+      - name: Create synthetic lease-bound handoff ledger
+        run: psql -v ON_ERROR_STOP=1 -f infra/hyperframes-staging/006_synthetic_lease_handoffs.sql
+
+      - name: Create synthetic receipt attestation ledger (no media storage)
+        run: psql -v ON_ERROR_STOP=1 -f infra/hyperframes-staging/007_synthetic_receipt_attestations.sql
+
+      - name: Add synthetic-only encrypted artifact receipt/fence guard
+        run: psql -v ON_ERROR_STOP=1 -f infra/hyperframes-staging/008_synthetic_encrypted_finalization.sql
+
+      - name: Create synthetic one-shot browser launch barrier
+        run: psql -v ON_ERROR_STOP=1 -f infra/hyperframes-staging/009_synthetic_browser_launch_once.sql
+
+      - name: Add synthetic-only versioned lease-renewal epochs (no v2 receipts allowed)
+        run: psql -v ON_ERROR_STOP=1 -f infra/hyperframes-staging/010_synthetic_lease_renewal_epochs.sql
+
+      - name: Assert minimal worker privileges
+        shell: bash
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 -Atc "
+            SELECT rolcanlogin::text || ':' || rolsuper::text || ':' ||
+                   has_schema_privilege('hf_staging_worker','modo_hyperframes_staging','CREATE')::text || ':' ||
+                   has_table_privilege('hf_staging_worker','modo_hyperframes_staging.render_jobs','TRUNCATE')::text || ':' ||
+                   has_table_privilege('hf_staging_worker','modo_hyperframes_staging.render_jobs','SELECT')::text
+              FROM pg_roles WHERE rolname='hf_staging_worker'" | grep -x 'false:false:false:false:true'
+
+      - name: Verify fail-closed synthetic Remotion-like composition and HTML escaping
+        run: |
+          node --check infra/hyperframes-staging/static-remotion-look-synthetic.cjs
+          node --test infra/hyperframes-staging/static-remotion-look-synthetic.test.cjs
+
+      - name: Validate bounded animated synthetic 30fps filter and timing
+        run: |
+          node --check infra/hyperframes-staging/static-temporal-zoompan-synthetic.cjs
+          node --test infra/hyperframes-staging/static-temporal-zoompan-synthetic.test.cjs
+
+      - name: Add trusted-host-only, locked continuation v3 database snapshot
+        run: psql -v ON_ERROR_STOP=1 -f infra/hyperframes-staging/011_synthetic_v3_continuation_snapshot.sql
+
+      - name: Add v3 synthetic MP4 output receipt ledger (proof metadata only)
+        run: psql -v ON_ERROR_STOP=1 -f infra/hyperframes-staging/012_synthetic_mp4_output_receipts_v3.sql
+
+      - name: Add fail-closed V3 renewed AES-GCM artifact guard (synthetic only)
+        run: psql -v ON_ERROR_STOP=1 -f infra/hyperframes-staging/013_synthetic_v3_encrypted_finalization.sql
+
+      - name: API typecheck
+        run: npm run typecheck --workspace=@modo/api
+
+      - name: PostgreSQL concurrency and lease tests (synthetic tenants only)
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Suites share one disposable PostgreSQL instance with a GLOBAL
+          # encrypted-byte quota. Keep files sequential to prevent unrelated
+          # tenant fixtures from changing another suite's quota assertions.
+          # Each individual suite still performs real concurrent PG claims.
+          npm test --workspace=@modo/api -- src/services/hyperframes-staging-pg-queue.test.ts
+          npm test --workspace=@modo/api -- src/services/hyperframes-staging-pg-artifacts.test.ts
+          npm test --workspace=@modo/api -- src/services/hyperframes-staging-pg-render-runner.test.ts
+          npm test --workspace=@modo/api -- src/services/hyperframes-staging-pg-snapshots.test.ts
+
+      - name: Durable Ed25519 synthetic handoff replay checks
+        env:
+          MODO_HF_HANDOFF_MODE: synthetic-ci-only
+        run: |
+          node --check infra/hyperframes-staging/static-handoff-pg-nonce.mjs
+          node --check infra/hyperframes-staging/static-handoff-pg-nonce.test.mjs
+          node --test infra/hyperframes-staging/static-handoff-pg-nonce.test.mjs
+
+      - name: Verify Ed25519 v2 against a current PostgreSQL staging lease
+        env:
+          MODO_HF_HANDOFF_MODE: synthetic-ci-only
+        run: |
+          node --check infra/hyperframes-staging/static-handoff-lease-v2.mjs
+          node --check infra/hyperframes-staging/static-handoff-pg-lease.mjs
+          node --check infra/hyperframes-staging/static-handoff-pg-lease.test.mjs
+          node --import tsx --test infra/hyperframes-staging/static-handoff-pg-lease.test.mjs
+
+      - name: Prove one-shot signed browser launch, replay and fencing
+        env:
+          MODO_HF_HANDOFF_MODE: synthetic-ci-only
+          MODO_HF_PREFLIGHT_MODE: synthetic-ci-only
+          MODO_HF_BROWSER_LAUNCH_MODE: synthetic-ci-only
+        run: |
+          node --check infra/hyperframes-staging/static-browser-launch-gate.mjs
+          node --check infra/hyperframes-staging/static-browser-launch-gate.test.mjs
+          node --import tsx --test infra/hyperframes-staging/static-browser-launch-gate.test.mjs
+
+      - name: Verify atomic renewal epochs, race fencing, expiry and old receipt rejection
+        env:
+          MODO_HF_HANDOFF_MODE: synthetic-ci-only
+          MODO_HF_MP4_RECEIPT_MODE: synthetic-ci-only
+        run: |
+          node --check infra/hyperframes-staging/static-lease-renewal-epochs.test.mjs
+          node --import tsx --test infra/hyperframes-staging/static-lease-renewal-epochs.test.mjs
+
+      - name: Verify Ed25519 v3 continuation proof stays bound to latest fenced renewal epoch
+        env:
+          MODO_HF_CONTINUATION_V3_MODE: synthetic-ci-only
+        run: |
+          node --check infra/hyperframes-staging/static-lease-continuation-v3.mjs
+          node --check infra/hyperframes-staging/static-lease-continuation-v3.test.mjs
+          node --test infra/hyperframes-staging/static-lease-continuation-v3.test.mjs
+
+      - name: Validate v3 renewed MP4 receipt signer, signature and ledger contracts
+        env:
+          MODO_HF_CONTINUATION_V3_MODE: synthetic-ci-only
+          MODO_HF_MP4_RECEIPT_MODE: synthetic-ci-only
+        run: |
+          node --check infra/hyperframes-staging/static-lease-mp4-receipt-v3.mjs
+          node --check infra/hyperframes-staging/static-synthetic-mp4-pg-receipt-ledger-v3.mjs
+
+      - name: Sign and verify v3 from real PostgreSQL locked snapshot and reject stale epochs
+        env:
+          MODO_HF_CONTINUATION_V3_MODE: synthetic-ci-only
+          MODO_HF_MP4_RECEIPT_MODE: synthetic-ci-only
+          MODO_HYPERFRAMES_STORAGE_MODE: isolated-staging
+          MODO_HF_RENEWED_V3_FINALIZE_MODE: synthetic-ci-only
+        run: |
+          node --check infra/hyperframes-staging/static-lease-continuation-v3-pg.mjs
+          node --check infra/hyperframes-staging/static-lease-continuation-v3-pg.test.mjs
+          node --import tsx --test infra/hyperframes-staging/static-lease-continuation-v3-pg.test.mjs
+
+      - name: Verify pinned Ed25519 broker grant binds browser challenge
+        run: |
+          node --check infra/hyperframes-staging/static-renderer-broker-client.cjs
+          node --check infra/hyperframes-staging/static-renderer-broker-client.test.cjs
+          node --test infra/hyperframes-staging/static-renderer-broker-client.test.cjs
+
+      - name: Signed worker identity and expiry unit tests
+        run: npm test --workspace=@modo/api -- src/services/hyperframes-staging-pg-work-order.test.ts
+
+      - name: Reconfirm no production publish endpoints were introduced
+        shell: bash
+        run: |
+          set -euo pipefail
+          if grep -Ei '/api/v[0-9]+/|app\.(get|post)|registerVideoRoutes|registerNativePublisherV2Routes|\.publish\(' apps/api/src/services/hyperframes-staging-pg-queue.ts apps/api/src/services/hyperframes-staging-pg-artifacts.ts apps/api/src/services/hyperframes-staging-pg-render-runner.ts apps/api/src/services/hyperframes-staging-pg-snapshots.ts apps/api/src/services/hyperframes-staging-pg-work-order.ts; then
+            echo "A staging PostgreSQL adapter must not expose HTTP routes or publisher calls"
+            exit 1
+          fi
+          echo "PostgreSQL recovery adapter isolated from HTTP and publication"

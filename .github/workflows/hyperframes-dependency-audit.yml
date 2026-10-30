@@ -1,0 +1,71 @@
+name: MODO dependency security review (report only)
+on:
+  workflow_dispatch:
+  push:
+    branches: ['feat/hyperframes-pilot-20261025']
+    paths:
+      - 'package.json'
+      - 'package-lock.json'
+      - 'apps/api/package.json'
+      - 'apps/web/package.json'
+      - 'apps/mobile/package.json'
+      - 'scripts/hyperframes-dependency-audit.mjs'
+      - 'scripts/hyperframes-dependency-audit-triage.mjs'
+      - 'scripts/hyperframes-dependency-audit-triage.test.mjs'
+      - '.github/workflows/hyperframes-dependency-audit.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify fail-closed audit categorization
+        run: node --test scripts/hyperframes-dependency-audit-triage.test.mjs
+      - name: Install without script execution or automatic fixes
+        run: npm install --include=dev --ignore-scripts --no-audit --no-fund
+      - name: Audit full monorepo and runtime-only dependency scopes
+        shell: bash
+        run: |
+          set -euo pipefail
+          run_audit() {
+            label="$1"
+            shift
+            set +e
+            npm audit --json "$@" > "$RUNNER_TEMP/modo-audit-$label.json"
+            status=$?
+            set -e
+            if [ "$status" -gt 1 ]; then
+              echo "npm audit failed to complete for $label (exit $status)"
+              exit "$status"
+            fi
+            test -s "$RUNNER_TEMP/modo-audit-$label.json"
+          }
+          run_audit all
+          run_audit api --omit=dev --workspace=@modo/api
+          run_audit web --omit=dev --workspace=@modo/web
+          run_audit mobile --omit=dev --workspace=@modo/mobile
+      - name: Build scoped triage and release blocker report
+        run: |
+          node scripts/hyperframes-dependency-audit.mjs "$RUNNER_TEMP/modo-audit-all.json"
+          node scripts/hyperframes-dependency-audit-triage.mjs \
+            "$RUNNER_TEMP/modo-audit-all.json" \
+            "$RUNNER_TEMP/modo-audit-api.json" \
+            "$RUNNER_TEMP/modo-audit-web.json" \
+            "$RUNNER_TEMP/modo-audit-mobile.json"
+      - name: Keep sanitized reports for one day
+        uses: actions/upload-artifact@v4
+        with:
+          name: modo-dependency-audit-sanitized
+          path: |
+            ${{ runner.temp }}/modo-audit-summary.json
+            ${{ runner.temp }}/modo-audit-scoped-triage.json
+            ${{ runner.temp }}/modo-audit-scoped-triage.md
+          retention-days: 1
+          if-no-files-found: error

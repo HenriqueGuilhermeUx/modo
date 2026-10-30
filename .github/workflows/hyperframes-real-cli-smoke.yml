@@ -1,0 +1,100 @@
+name: HyperFrames real CLI offline synthetic MP4 smoke
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/hyperframes-real-cli-smoke.yml'
+      - 'infra/hyperframes-staging/fixtures/**'
+      - 'apps/api/src/services/hyperframes-staging-worker.ts'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  real-synthetic-render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      NODE_ENV: test
+      # Never load MODO/Render/Publisher credentials into this experiment.
+      HYPERFRAMES_RENDER_DETACHED: "0"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install FFmpeg only in disposable CI runner
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq ffmpeg
+
+      - name: Check local ffprobe and headless browser dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          command -v ffmpeg
+          command -v ffprobe
+          if command -v google-chrome >/dev/null; then
+            google-chrome --version
+          elif command -v chromium >/dev/null; then
+            chromium --version
+          else
+            echo "Chrome must be provisioned in the isolated image before actual render"
+          fi
+
+      - name: Install exact experimental CLI version into ephemeral runner
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --prefix "$RUNNER_TEMP/hyperframes-cli" \
+            --no-audit --no-fund --ignore-scripts --save-exact \
+            hyperframes@0.8.207
+          test -x "$RUNNER_TEMP/hyperframes-cli/node_modules/.bin/hyperframes"
+
+      - name: Lint/check/render offline synthetic composition
+        shell: bash
+        run: |
+          set -euo pipefail
+          export HF_BIN="$RUNNER_TEMP/hyperframes-cli/node_modules/.bin/hyperframes"
+          cd infra/hyperframes-staging/fixtures/synthetic-2sec
+          timeout --signal=TERM --kill-after=10s 45s "$HF_BIN" lint
+          timeout --signal=TERM --kill-after=10s 120s "$HF_BIN" check
+          timeout --signal=TERM --kill-after=10s 360s "$HF_BIN" render \
+            --fps 30 --quality draft --output synthetic.mp4
+          test -s synthetic.mp4
+
+      - name: Validate actual MP4 tracks and 1080x1920 30fps duration
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd infra/hyperframes-staging/fixtures/synthetic-2sec
+          ffprobe -v error \
+            -show_entries stream=codec_type,codec_name,width,height,r_frame_rate:format=duration \
+            -of json synthetic.mp4 > result.json
+          node --input-type=module <<'NODE'
+          import { readFileSync, statSync } from 'node:fs';
+          const info = JSON.parse(readFileSync('result.json', 'utf8'));
+          const streams = info.streams ?? [];
+          const video = streams[0];
+          const duration = Number(info.format?.duration);
+          const size = statSync('synthetic.mp4').size;
+          if (streams.length !== 1 || video?.codec_type !== 'video' ||
+              video?.codec_name !== 'h264' || video?.width !== 1080 ||
+              video?.height !== 1920 || video?.r_frame_rate !== '30/1' ||
+              !Number.isFinite(duration) || Math.abs(duration - 2) > 0.16 ||
+              size < 4000 || size > 25_000_000) {
+            throw new Error('HYPERFRAMES_REAL_SMOKE_BAD_MP4');
+          }
+          console.log('Synthetic MP4 valid:', { duration, size, fps: video.r_frame_rate });
+          NODE
+
+      - name: Delete generated files before runner teardown
+        if: always()
+        shell: bash
+        run: |
+          rm -f infra/hyperframes-staging/fixtures/synthetic-2sec/synthetic.mp4
+          rm -f infra/hyperframes-staging/fixtures/synthetic-2sec/result.json

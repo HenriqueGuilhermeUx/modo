@@ -1,0 +1,54 @@
+name: MODO HyperFrames staging worker E2E
+
+on:
+  push:
+    branches: ['feat/hyperframes-pilot-20261025']
+    paths:
+      - 'apps/api/src/services/hyperframes-staging-worker.ts'
+      - 'apps/api/src/services/hyperframes-staging-worker.test.ts'
+      - 'apps/api/src/services/hyperframes-project-preview.ts'
+      - 'scripts/hyperframes-worker-staging-e2e.ts'
+      - '.github/workflows/hyperframes-staging-worker-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  staging-worker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      MODO_HYPERFRAMES_WORKER_MODE: isolated-staging
+      NODE_ENV: test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install MODO test tooling
+        run: npm install --include=dev --ignore-scripts
+      - name: Install exact HyperFrames CLI in disposable directory
+        run: |
+          npm install --prefix "$RUNNER_TEMP/hf-cli" --no-save --ignore-scripts hyperframes@0.8.200
+          test -x "$RUNNER_TEMP/hf-cli/node_modules/.bin/hyperframes"
+      - name: Provision isolated runner tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg
+          command -v ffprobe
+      - name: Test one-shot staging worker (no credentials, synthetic only)
+        run: |
+          npx tsx scripts/hyperframes-worker-staging-e2e.ts \
+            "$RUNNER_TEMP/hf-cli/node_modules/.bin/hyperframes" \
+            "$(command -v ffprobe)" \
+            "$RUNNER_TEMP/hyperframes-staging/sample.mp4"
+      - name: Verify MP4 has two distinct scenes
+        run: node scripts/verify-hyperframes-smoke.mjs "$RUNNER_TEMP/hyperframes-staging/sample.mp4" 15
+      - name: Upload synthetic preview only
+        uses: actions/upload-artifact@v4
+        with:
+          name: modo-hyperframes-staging-worker-e2e
+          path: ${{ runner.temp }}/hyperframes-staging/sample.mp4
+          retention-days: 1
+          if-no-files-found: error

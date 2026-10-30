@@ -6,6 +6,8 @@
  * A stopped/missing renderer MUST NOT cause a host-side renewal.
  */
 import {readFile,lstat} from "node:fs/promises";
+import {execFile} from "node:child_process";
+import {promisify} from "node:util";
 import {resolve,join} from "node:path";
 import pg from "pg";
 import {HyperframesStagingPgQueue} from "../../apps/api/src/services/hyperframes-staging-pg-queue.ts";
@@ -58,6 +60,29 @@ export async function renewLiveSyntheticLeaseFromPg({pool,expectedLease,
   client.release();
  }
 }
+const execute=promisify(execFile);
+/**
+ * The renderer's 0700 output directory MUST remain owned by UID 10001.
+ * On EACCES, let the trusted GitHub HOST use a bounded, noninteractive root
+ * stat of this one fixed MP4 path. Never chmod/chown the active render mount.
+ * Only confirmed ENOENT is treated as absent; all other sudo errors deny.
+ */
+async function outputAlreadyExists(file){
+ try{await lstat(file);return true;}
+ catch(e){
+  if(e?.code==="ENOENT")return false;
+  if(e?.code!=="EACCES")FAIL();
+  try{
+   await execute("/usr/bin/sudo",["-n","/usr/bin/stat","-c","%F",file],{
+    timeout:3000,maxBuffer:2048,env:{...process.env,LC_ALL:"C"}});
+   return true;
+  }catch(err){
+   if(err?.code===1 && /No such file or directory/.test(err?.stderr||""))
+    return false;
+   FAIL();
+  }
+ }
+}
 const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 async function safeFile(p){
  try{
@@ -103,7 +128,7 @@ export async function superviseSyntheticRendererLiveLease({
     launched.jobId!==expectedLease.jobId||
     launched.leaseFence!==expectedLease.leaseFence||
     launched.admissionSha256!==metadata.admissionSha256||
-    await safeFile(join(outputDir,"synthetic.mp4")))FAIL();
+    await outputAlreadyExists(join(outputDir,"synthetic.mp4")))FAIL();
    // The renewal SQL independently enforces one-shot browser launch,
    // pre-existing handoff digest, live job row and <=120s total horizon.
    const value=await renewLiveSyntheticLeaseFromPg({

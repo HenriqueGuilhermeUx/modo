@@ -109,7 +109,9 @@ jobs:
                 echo HF_CDP_SAME_CONTAINER_PREFLIGHT_START
                 node /opt/hf-chrome-preflight.cjs
                 echo HF_CDP_SAME_CONTAINER_PREFLIGHT_OK
-                PRODUCER_FORCE_SCREENSHOT=true /opt/hyperframes/node_modules/.bin/hyperframes render --fps 30 --quality draft --workers 1 --no-browser-gpu --protocol-timeout 15000 --output synthetic.mp4
+                # Isolated alternate capture strategy: exercise vendor CLI without forced screenshot.
+                # Keep codec, duration, network and privilege assertions unchanged.
+                PRODUCER_FORCE_SCREENSHOT=false /opt/hyperframes/node_modules/.bin/hyperframes render --fps 30 --quality draft --workers 1 --no-browser-gpu --protocol-timeout 15000 --output synthetic.mp4
                 ffprobe -v error -show_entries stream=codec_type,codec_name,width,height,r_frame_rate:format=duration -of json synthetic.mp4 >result.json
                 node -e "
                   const fs=require(\"node:fs\");

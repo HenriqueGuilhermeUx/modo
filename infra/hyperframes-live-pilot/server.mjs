@@ -19,7 +19,7 @@ const srv=http.createServer(async(req,res)=>{
   if(busy||Date.now()-last<1500)return send(res,429,'Busy');
   const chunks=[];let size=0;try{for await(const part of req){size+=part.length;if(size>2048)throw Error('too big');chunks.push(part)}}catch{return send(res,413,'Payload too large')}
   let data;try{data=JSON.parse(Buffer.concat(chunks).toString('utf8'))}catch{return send(res,400,'Bad JSON')}
-  if(!data||!valid(data.title,64)||data.title.length===0||!valid(data.subtitle,80)||!valid(data.scene2??data.subtitle,80)||!valid(data.scene3??data.title,64)||!Object.hasOwn(theme,data.theme))return send(res,400,'Invalid input');
+  if(!data||!valid(data.title,64)||data.title.length===0||!valid(data.subtitle,80)||!valid(data.scene2??data.subtitle,80)||!valid(data.scene3??data.title,64)||!Object.hasOwn(theme,data.theme)||!['clean','frame','spotlight'].includes(data.style??'clean'))return send(res,400,'Invalid input');
   busy=true;last=Date.now();let tmp;
   try{
     tmp=await mkdtemp(path.join(os.tmpdir(),'modo-video-'));
@@ -30,6 +30,13 @@ const srv=http.createServer(async(req,res)=>{
     // exclusively through temporary files; untrusted text never enters a filter expression.
     const filters=[
       'drawbox=x=0:y=0:w=iw:h=16:color=0xa58cff@0.95:t=fill',
+      ...(data.style==='frame'?[
+        'drawbox=x=44:y=190:w=632:h=900:color=0xa58cff@0.8:t=6',
+        'drawbox=x=70:y=225:w=580:h=6:color=white@0.4:t=fill'
+      ]:data.style==='spotlight'?[
+        'drawbox=x=0:y=440:w=iw:h=420:color=black@0.35:t=fill',
+        'drawbox=x=95:y=500:w=530:h=7:color=0xa58cff@0.9:t=fill'
+      ]:[]),
       'drawtext=fontfile='+font+':textfile='+escape(title)+':fontcolor=white:fontsize=44:x=(w-text_w)/2:y=590:fix_bounds=1:enable=between(t\\,0\\,1.65)',
       'drawtext=fontfile='+font+':textfile='+escape(subtitle)+':fontcolor=white:fontsize=30:x=(w-text_w)/2:y=610:fix_bounds=1:enable=between(t\\,1.65\\,3.35)',
       'drawtext=fontfile='+font+':textfile='+escape(closing)+':fontcolor=white:fontsize=40:x=(w-text_w)/2:y=555:fix_bounds=1:enable=gte(t\\,3.35)',

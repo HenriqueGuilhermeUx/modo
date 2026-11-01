@@ -46,9 +46,22 @@ const srv=http.createServer(async(req,res)=>{
     ].join(',');
     await render(['-hide_banner','-loglevel','error','-nostdin','-f','lavfi','-i','color=c=0x'+theme[data.theme]+':s=720x1280:r=24:d=5','-vf',filters,'-c:v','libx264','-preset','ultrafast','-crf','30','-pix_fmt','yuv420p','-t','5','-movflags','+faststart','-y',file]);
     const info=await stat(file);if(info.size<2000||info.size>12_000_000)throw Error('bad video');
+    // Verify the actual encoded stream rather than trusting only the MP4 header.
+    const probe=await new Promise((resolve,reject)=>{
+      const p=spawn('/usr/bin/ffprobe',['-v','error','-show_entries','stream=codec_name,width,height,nb_frames:format=duration','-of','json',file],{stdio:['ignore','pipe','pipe']});
+      let out='',error=''; const timer=setTimeout(()=>{p.kill('SIGKILL');reject(Error('probe timeout'))},10000);
+      p.stdout.on('data',b=>{out+=b;if(out.length>12000)p.kill('SIGKILL')});
+      p.stderr.on('data',b=>{error+=b;if(error.length>2000)p.kill('SIGKILL')});
+      p.on('error',e=>{clearTimeout(timer);reject(e)});
+      p.on('close',code=>{clearTimeout(timer);code===0?resolve(out):reject(Error('ffprobe failed'))});
+    });
+    const meta=JSON.parse(probe),stream=meta.streams?.[0];
+    if(stream?.codec_name!=='h264'||stream.width!==720||stream.height!==1280||
+       Number(stream.nb_frames)!==120||Math.abs(Number(meta.format?.duration)-5)>0.1)throw Error('MP4 metadata invalid');
     const video=await readFile(file);
+    console.log('MODO_RENDER_SUCCESS',JSON.stringify({bytes:video.length,scenes:3,style:data.style??'clean'}));
     res.writeHead(200,{'Content-Type':'video/mp4','Content-Length':video.length,'Content-Disposition':'attachment; filename="modo-video.mp4"','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});res.end(video);
-  }catch{send(res,503,'Rendering unavailable')}finally{busy=false;if(tmp)await rm(tmp,{recursive:true,force:true}).catch(()=>{})}
+  }catch(err){console.error('MODO_RENDER_FAILED',err instanceof Error?err.message:'unknown');send(res,503,'Rendering unavailable')}finally{busy=false;if(tmp)await rm(tmp,{recursive:true,force:true}).catch(()=>{})}
 });
 srv.requestTimeout=120000;
 srv.listen(port,'0.0.0.0',async()=>{

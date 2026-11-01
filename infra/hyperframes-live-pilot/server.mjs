@@ -26,9 +26,15 @@ const srv=http.createServer(async(req,res)=>{
     const title=path.join(tmp,'title.txt'),subtitle=path.join(tmp,'subtitle.txt'),file=path.join(tmp,'out.mp4');
     await Promise.all([writeFile(title,data.title,{mode:0o600}),writeFile(subtitle,data.subtitle,{mode:0o600})]);
     const escape=(s)=>s.replaceAll('\\','\\\\').replaceAll(':','\\:').replaceAll("'","\\'");
+    // Three timed scenes, one fixed 5-second output. Text is supplied
+    // exclusively through temporary files; untrusted text never enters a filter expression.
     const filters=[
-      'drawtext=fontfile='+font+':textfile='+escape(title)+':fontcolor=white:fontsize=44:x=(w-text_w)/2:y=580:fix_bounds=1',
-      'drawtext=fontfile='+font+':textfile='+escape(subtitle)+':fontcolor=white@0.85:fontsize=23:x=(w-text_w)/2:y=690:fix_bounds=1'
+      'drawbox=x=0:y=0:w=iw:h=16:color=0xa58cff@0.95:t=fill',
+      'drawtext=fontfile='+font+':textfile='+escape(title)+':fontcolor=white:fontsize=44:x=(w-text_w)/2:y=590:fix_bounds=1:enable=between(t\\,0\\,1.65)',
+      'drawtext=fontfile='+font+':textfile='+escape(subtitle)+':fontcolor=white:fontsize=30:x=(w-text_w)/2:y=610:fix_bounds=1:enable=between(t\\,1.65\\,3.35)',
+      'drawtext=fontfile='+font+':textfile='+escape(title)+':fontcolor=white:fontsize=40:x=(w-text_w)/2:y=555:fix_bounds=1:enable=gte(t\\,3.35)',
+      'drawtext=fontfile='+font+':textfile='+escape(subtitle)+':fontcolor=white@0.85:fontsize=22:x=(w-text_w)/2:y=665:fix_bounds=1:enable=gte(t\\,3.35)',
+      'fade=t=in:st=0:d=0.25','fade=t=out:st=4.65:d=0.35'
     ].join(',');
     await render(['-hide_banner','-loglevel','error','-nostdin','-f','lavfi','-i','color=c=0x'+theme[data.theme]+':s=720x1280:r=24:d=5','-vf',filters,'-c:v','libx264','-preset','ultrafast','-crf','30','-pix_fmt','yuv420p','-t','5','-movflags','+faststart','-y',file]);
     const info=await stat(file);if(info.size<2000||info.size>12_000_000)throw Error('bad video');

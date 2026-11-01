@@ -1,0 +1,49 @@
+name: MODO Video Lab — live MP4 acceptance
+on:
+  push:
+    branches:
+      - deploy/hyperframes-mp4-pilot-20261101
+    paths:
+      - 'infra/hyperframes-live-pilot/**'
+      - '.github/workflows/modo-video-lab-live-smoke.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  live-mp4:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - name: Check service health and generate real MP4
+        shell: bash
+        run: |
+          set -euo pipefail
+          API='https://modo-video-lab.onrender.com'
+          work="$(mktemp -d)"
+          trap 'rm -rf "$work"' EXIT
+          echo 'Checking live health'
+          curl --fail --show-error --silent --retry 3 --retry-delay 3 --max-time 80 "$API/health" > "$work/health.json"
+          python3 - "$work/health.json" <<'PY'
+          import json,sys
+          v=json.load(open(sys.argv[1]))
+          assert v.get('ok') is True and v.get('engine') == 'ffmpeg-text-pilot'
+          PY
+          echo 'Rendering sample (synthetic data only)'
+          curl --fail --show-error --silent --max-time 110 \
+            -H 'Content-Type: application/json' \
+            --data '{"title":"MODO Video Lab","subtitle":"Teste de MP4 em produção","theme":"purple"}' \
+            "$API/api/render" --output "$work/video.mp4"
+          test "$(stat -c '%s' "$work/video.mp4")" -gt 2000
+          ffprobe -v error -show_entries stream=codec_name,width,height,nb_frames:format=duration \
+            -of json "$work/video.mp4" > "$work/probe.json"
+          python3 - "$work/probe.json" <<'PY'
+          import json,sys
+          d=json.load(open(sys.argv[1]))
+          v=d['streams'][0]
+          assert v['codec_name']=='h264'
+          assert (v['width'],v['height'])==(720,1280)
+          assert int(v['nb_frames'])==120
+          assert abs(float(d['format']['duration'])-5)<0.1
+          print('LIVE_MP4_ACCEPTANCE_PASS')
+          PY
+          # Never upload generated media or customer information.

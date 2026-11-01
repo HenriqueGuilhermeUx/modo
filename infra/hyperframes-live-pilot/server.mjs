@@ -19,12 +19,12 @@ const srv=http.createServer(async(req,res)=>{
   if(busy||Date.now()-last<1500)return send(res,429,'Busy');
   const chunks=[];let size=0;try{for await(const part of req){size+=part.length;if(size>2048)throw Error('too big');chunks.push(part)}}catch{return send(res,413,'Payload too large')}
   let data;try{data=JSON.parse(Buffer.concat(chunks).toString('utf8'))}catch{return send(res,400,'Bad JSON')}
-  if(!data||!valid(data.title,64)||data.title.length===0||!valid(data.subtitle,80)||!Object.hasOwn(theme,data.theme))return send(res,400,'Invalid input');
+  if(!data||!valid(data.title,64)||data.title.length===0||!valid(data.subtitle,80)||!valid(data.scene2??data.subtitle,80)||!valid(data.scene3??data.title,64)||!Object.hasOwn(theme,data.theme))return send(res,400,'Invalid input');
   busy=true;last=Date.now();let tmp;
   try{
     tmp=await mkdtemp(path.join(os.tmpdir(),'modo-video-'));
-    const title=path.join(tmp,'title.txt'),subtitle=path.join(tmp,'subtitle.txt'),file=path.join(tmp,'out.mp4');
-    await Promise.all([writeFile(title,data.title,{mode:0o600}),writeFile(subtitle,data.subtitle,{mode:0o600})]);
+    const title=path.join(tmp,'title.txt'),subtitle=path.join(tmp,'subtitle.txt'),closing=path.join(tmp,'closing.txt'),file=path.join(tmp,'out.mp4');
+    await Promise.all([writeFile(title,data.title,{mode:0o600}),writeFile(subtitle,data.scene2??data.subtitle,{mode:0o600}),writeFile(closing,data.scene3??data.title,{mode:0o600})]);
     const escape=(s)=>s.replaceAll('\\','\\\\').replaceAll(':','\\:').replaceAll("'","\\'");
     // Three timed scenes, one fixed 5-second output. Text is supplied
     // exclusively through temporary files; untrusted text never enters a filter expression.
@@ -32,7 +32,7 @@ const srv=http.createServer(async(req,res)=>{
       'drawbox=x=0:y=0:w=iw:h=16:color=0xa58cff@0.95:t=fill',
       'drawtext=fontfile='+font+':textfile='+escape(title)+':fontcolor=white:fontsize=44:x=(w-text_w)/2:y=590:fix_bounds=1:enable=between(t\\,0\\,1.65)',
       'drawtext=fontfile='+font+':textfile='+escape(subtitle)+':fontcolor=white:fontsize=30:x=(w-text_w)/2:y=610:fix_bounds=1:enable=between(t\\,1.65\\,3.35)',
-      'drawtext=fontfile='+font+':textfile='+escape(title)+':fontcolor=white:fontsize=40:x=(w-text_w)/2:y=555:fix_bounds=1:enable=gte(t\\,3.35)',
+      'drawtext=fontfile='+font+':textfile='+escape(closing)+':fontcolor=white:fontsize=40:x=(w-text_w)/2:y=555:fix_bounds=1:enable=gte(t\\,3.35)',
       'drawtext=fontfile='+font+':textfile='+escape(subtitle)+':fontcolor=white@0.85:fontsize=22:x=(w-text_w)/2:y=665:fix_bounds=1:enable=gte(t\\,3.35)',
       'fade=t=in:st=0:d=0.25','fade=t=out:st=4.65:d=0.35'
     ].join(',');

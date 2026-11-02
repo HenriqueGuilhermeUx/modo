@@ -104,7 +104,7 @@ export default function App() {
     <div className="site-shell fishing-landing">
       <header className="header container fishing-header">
         <a href="#top"><Logo /></a>
-        <nav className="nav"><a href="#como-funciona">Como funciona</a><a href="#entregas">O que a MODO faz</a><a href="#crescimento">Crescimento</a><a href="#teste">Teste grátis</a><a href="#planos">Planos</a></nav>
+        <nav className="nav"><a href="https://modo-video-lab.onrender.com/" target="_blank" rel="noopener noreferrer">Criar vídeo</a><a href="#como-funciona">Como funciona</a><a href="#entregas">O que a MODO faz</a><a href="#crescimento">Crescimento</a><a href="#teste">Teste grátis</a><a href="#planos">Planos</a></nav>
         <div className="header-actions"><a className="header-login" href="/app">Entrar</a><a className="button button-small button-primary" href="/app">Começar grátis</a></div>
       </header>
 
@@ -114,7 +114,7 @@ export default function App() {
             <div className="eyebrow"><span /> Marketing e crescimento, do plano ao cliente</div>
             <h1>Você cuida do seu negócio. <strong>A MODO ajuda a fazer ele crescer.</strong></h1>
             <p>Uma operação de marketing com IA que entende sua marca, cria conteúdo, estrutura campanhas, ajuda a prospectar, organiza páginas e leads e aprende com os resultados — sem obrigar você a virar especialista em marketing.</p>
-            <div className="hero-actions"><a className="button button-primary" href="/app">Testar grátis por 7 dias <span>↗</span></a><a className="text-link" href="#diagnostico">Analisar minha marca primeiro ↓</a></div>
+            <div className="hero-actions"><a className="button button-primary" href="/app">Testar grátis por 7 dias <span>↗</span></a><a className="text-link" href="https://modo-video-lab.onrender.com/" target="_blank" rel="noopener noreferrer">Criar vídeo MP4 no Video Lab ↗</a><a className="text-link" href="#diagnostico">Analisar minha marca primeiro ↓</a></div>
             <div className="hero-proof"><span>Sem cartão</span><span>3 créditos incluídos</span><span>Você aprova antes de publicar</span></div>
           </div>
           <div className="fishing-transformation" aria-label="Exemplo do fluxo MODO">

@@ -284,6 +284,61 @@ export async function createApp(options: CreateAppOptions) {
     paymentsProvider: payments.enabled ? "woovi" : "disabled",
   }));
 
+  // Video Lab BFF: sessions, subscription and credits are enforced by MODO.
+  // Lab itself never receives an end-user session, account ID or billing data.
+  app.post("/api/v1/video-lab/render", {
+    config: { rateLimit: { max: 3, timeWindow: "5 minutes" } },
+    bodyLimit: 2048,
+  }, async (request, reply) => {
+    const current = await auth.authenticate(bearerToken(request));
+    if (process.env.MODO_VIDEO_LAB_COMMERCIAL_ENABLED !== "true" ||
+        !process.env.MODO_VIDEO_LAB_SERVICE_KEY) {
+      return reply.code(503).send({ message: "O Video Lab está temporariamente indisponível." });
+    }
+    const input = (await import("zod")).z.object({
+      title: (await import("zod")).z.string().min(1).max(64),
+      subtitle: (await import("zod")).z.string().max(80),
+      scene2: (await import("zod")).z.string().max(80),
+      scene3: (await import("zod")).z.string().max(64),
+      theme: (await import("zod")).z.enum(["purple", "blue", "dark", "green"]),
+      style: (await import("zod")).z.enum(["clean", "frame", "spotlight"]),
+    }).strict().parse(request.body);
+    const usage = await billing.getUsage(current.organization.id);
+    if (!["active", "retrying"].includes(usage.status) ||
+        usage.creditsRemaining < contentCreditCost.short_video_script ||
+        usage.usageByType.short_video_script >= usage.entitlements.maxShortVideoScriptsPerMonth) {
+      return reply.code(402).send({ message: "Limite de vídeos ou créditos do plano atingido. Consulte seu plano MODO." });
+    }
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 85000);
+    let video: Buffer;
+    try {
+      const rendered = await fetch("https://modo-video-lab.onrender.com/api/render", {
+        method: "POST", signal: controller.signal,
+        headers: { "content-type": "application/json", "x-modo-service-key": process.env.MODO_VIDEO_LAB_SERVICE_KEY },
+        body: JSON.stringify(input),
+      });
+      if (!rendered.ok) return reply.code(503).send({ message: "Motor de vídeo ocupado. Nenhum crédito foi consumido." });
+      const bytes = Buffer.from(await rendered.arrayBuffer());
+      if (bytes.length < 3000 || bytes.length > 12000000 || bytes.toString("ascii",4,8) !== "ftyp") {
+        return reply.code(502).send({ message: "Exportação inválida. Nenhum crédito foi consumido." });
+      }
+      video = bytes;
+    } catch {
+      return reply.code(503).send({ message: "Falha na renderização. Nenhum crédito foi consumido." });
+    } finally { clearTimeout(timeout); }
+    // Existing transaction-safe billing ledger serializes charges per organization.
+    await billing.consume(current.organization.id, {
+      contentType: "short_video_script",
+      referenceId: "video_lab:" + randomUUID(),
+      metadata: { source: "video_lab", output: "mp4", durationSeconds: 5 },
+    });
+    return reply.header("content-type","video/mp4")
+      .header("cache-control","private, no-store")
+      .header("content-disposition",'attachment; filename="modo-video.mp4"')
+      .send(video);
+  });
+
   app.get("/api/v1/plans", async () => ({
     plans: {
       start: planEntitlements.start,

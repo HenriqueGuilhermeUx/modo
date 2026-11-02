@@ -17,6 +17,15 @@ const srv=http.createServer(async(req,res)=>{
   if(!ready && !(req.url==='/api/render' && req.headers['x-modo-startup-check']==='local-fixture' && req.socket.remoteAddress?.includes('127.0.0.1')))return send(res,503,'Starting');
   if(req.method==='GET' && (req.url==='/'||req.url==='/index.html'))return send(res,200,await readFile(path.join(dir,'index.html')),'text/html; charset=utf-8');
   if(req.url!=='/api/render'||req.method!=='POST')return send(res,404,'Not found');
+  // No anonymous rendering: only the authenticated MODO API can render.
+  // The loopback startup probe remains restricted to the container itself.
+  const loopbackProbe=req.headers['x-modo-startup-check']==='local-fixture'&&req.socket.remoteAddress?.includes('127.0.0.1');
+  const serviceKey=process.env.MODO_VIDEO_LAB_SERVICE_KEY;
+  const supplied=req.headers['x-modo-service-key'];
+  if(!loopbackProbe&&(!serviceKey||typeof supplied!=='string'||
+      Buffer.byteLength(supplied)!==Buffer.byteLength(serviceKey)||
+      !(await import('node:crypto')).timingSafeEqual(Buffer.from(supplied),Buffer.from(serviceKey))))
+    return send(res,401,'Faça login no MODO para gerar vídeos.');
   if(busy||Date.now()-last<1500)return send(res,429,'Busy');
   const chunks=[];let size=0;try{for await(const part of req){size+=part.length;if(size>2048)throw Error('too big');chunks.push(part)}}catch{return send(res,413,'Payload too large')}
   let data;try{data=JSON.parse(Buffer.concat(chunks).toString('utf8'))}catch{return send(res,400,'Bad JSON')}

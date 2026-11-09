@@ -42,7 +42,9 @@ jobs:
           WORKSPACE="$(find ios -maxdepth 2 -name '*.xcworkspace' -type d | head -1)"
           test -n "$WORKSPACE"
           export WORKSPACE
-          SCHEME="$(xcodebuild -list -json -workspace "$WORKSPACE" | node -e 'let t="";process.stdin.on("data",d=>t+=d);process.stdin.on("end",()=>{let a=JSON.parse(t).workspace?.schemes||[];let s=a.find(x=>!x.includes("Pods"));if(!s)process.exit(1);process.stdout.write(s)})')"
+          SCHEME="$(basename "$WORKSPACE" .xcworkspace)"
+          xcodebuild -list -workspace "$WORKSPACE"
+          echo "Building app scheme: $SCHEME"
           xcodebuild -workspace "$WORKSPACE" -scheme "$SCHEME" -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO -derivedDataPath "$RUNNER_TEMP/modo-derived" build 2>&1 | tee ios-native-build.log
       - name: Upload build log
         if: always()

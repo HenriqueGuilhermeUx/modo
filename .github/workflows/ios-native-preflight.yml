@@ -1,0 +1,62 @@
+name: MODO native iOS simulator preflight (unsigned)
+
+on:
+  pull_request:
+    paths:
+      - 'apps/mobile/**'
+      - 'packages/contracts/**'
+      - '.github/workflows/ios-native-preflight.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: modo-native-ios-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  native-simulator:
+    runs-on: macos-15
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install monorepo dependencies
+        run: npm install --no-audit --no-fund
+      - name: Generate native iOS project (no credentials)
+        working-directory: apps/mobile
+        env:
+          CI: '1'
+        run: npx expo prebuild --platform ios --no-install
+      - name: Install native CocoaPods dependencies
+        working-directory: apps/mobile/ios
+        run: pod install
+      - name: Compile unsigned iOS simulator application
+        working-directory: apps/mobile
+        shell: bash
+        run: |
+          set -euo pipefail
+          WORKSPACE="$(find ios -maxdepth 2 -name '*.xcworkspace' -type d | head -1)"
+          test -n "$WORKSPACE"
+          export WORKSPACE
+          SCHEME="$(xcodebuild -list -json -workspace "$WORKSPACE" | node -e 'let t="";process.stdin.on("data",d=>t+=d);process.stdin.on("end",()=>{let a=JSON.parse(t).workspace?.schemes||[];let s=a.find(x=>!x.includes("Pods"));if(!s)process.exit(1);process.stdout.write(s)})')"
+          xcodebuild -workspace "$WORKSPACE" -scheme "$SCHEME" -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO -derivedDataPath "$RUNNER_TEMP/modo-derived" build 2>&1 | tee ios-native-build.log
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: modo-native-ios-log
+          path: apps/mobile/ios-native-build.log
+          if-no-files-found: ignore
+          retention-days: 7
+      - name: Upload unsigned simulator app
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: modo-ios-simulator-app
+          path: ${{ runner.temp }}/modo-derived/Build/Products/Debug-iphonesimulator/*.app
+          if-no-files-found: error
+          retention-days: 7

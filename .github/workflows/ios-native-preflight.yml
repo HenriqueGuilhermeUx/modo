@@ -17,13 +17,18 @@ concurrency:
 
 jobs:
   native-simulator:
-    runs-on: macos-15
+    runs-on: macos-26
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - name: Verify Swift toolchain for Expo native dependencies
+        run: |
+          xcodebuild -version
+          swift --version
+          swift --version | grep -E 'Swift version 6\\.[2-9]|Swift version [7-9]\\.'
       - name: Install monorepo dependencies
         run: npm install --no-audit --no-fund
       - name: Generate native iOS project (no credentials)

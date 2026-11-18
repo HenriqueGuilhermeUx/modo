@@ -79,6 +79,33 @@ jobs:
           DEVICE_FAMILY="$(/usr/libexec/PlistBuddy -c 'Print :UIDeviceFamily' "$APP_PATH/Info.plist")"
           echo "$DEVICE_FAMILY" | grep -Eq '(^|[^0-9])2([^0-9]|$)'
           echo "PASS: iPad device family declared in compiled app"
+      - name: Install and launch on iPad simulator
+        shell: bash
+        timeout-minutes: 14
+        run: |
+          set -euo pipefail
+          APP_PATH="$(find "$RUNNER_TEMP/modo-derived/Build/Products/Debug-iphonesimulator" -maxdepth 1 -type d -name '*.app' | head -n 1)"
+          test -n "$APP_PATH"
+          BUNDLE_ID="$(/usr/libexec/PlistBuddy -c 'Print CFBundleIdentifier' "$APP_PATH/Info.plist")"
+          test "$BUNDLE_ID" = "br.com.alternativeventures.modo"
+          DEVICE_ID="$(xcrun simctl list devices available -j | node -e 'let x="";process.stdin.on("data",d=>x+=d);process.stdin.on("end",()=>{const ds=Object.values(JSON.parse(x).devices).flat();const d=ds.find(x=>x.isAvailable&&x.name.startsWith("iPad"));if(!d)process.exit(1);console.log(d.udid)})')"
+          xcrun simctl boot "$DEVICE_ID" || true
+          xcrun simctl bootstatus "$DEVICE_ID" -b
+          xcrun simctl install "$DEVICE_ID" "$APP_PATH"
+          xcrun simctl launch "$DEVICE_ID" "$BUNDLE_ID"
+          sleep 5
+          xcrun simctl io "$DEVICE_ID" screenshot "$RUNNER_TEMP/modo-ipad-launch.png"
+          xcrun simctl terminate "$DEVICE_ID" "$BUNDLE_ID" || true
+          xcrun simctl shutdown "$DEVICE_ID" || true
+          echo "PASS: iPad native install/launch/screenshot smoke (not functional QA)"
+      - name: Upload iPad simulator screenshot
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: modo-ipad-launch-screenshot
+          path: ${{ runner.temp }}/modo-ipad-launch.png
+          if-no-files-found: ignore
+          retention-days: 7
       - name: Upload simulator launch screenshot
         if: always()
         uses: actions/upload-artifact@v4

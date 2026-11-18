@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-const PRIVACY_EMAIL = "henriquecampos66@gmail.com";
+const PRIVACY_EMAIL = "corporate@alternativeventures.com.br";
 
 function LegalShell({
   eyebrow,

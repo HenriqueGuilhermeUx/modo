@@ -18,7 +18,7 @@ assert(app?.ios?.bundleIdentifier === 'br.com.alternativeventures.modo',
 assert(app?.android?.package === 'br.com.alternativeventures.modo',
   'Android source package differs: reconcile with Google Play AAB before release');
 assert(app?.ios?.supportsTablet === true, 'iPad support missing from manifest');
-assert(/^\\d+$/.test(String(app?.ios?.buildNumber ?? '')),
+assert(/^\d+$/.test(String(app?.ios?.buildNumber ?? '')),
   'iOS buildNumber must be numeric');
 assert(typeof app?.extra?.eas?.projectId === 'string' && /^[0-9a-f-]{36}$/i.test(app.extra.eas.projectId),
   'EAS project ID missing/invalid; verify ownership in EAS');
@@ -27,7 +27,7 @@ assert(typeof app?.owner === 'string' && app.owner.length > 0,
 assert(isHttps(app?.extra?.apiUrl), 'API URL must use HTTPS');
 assert(isHttps(app?.extra?.privacyUrl), 'Privacy policy URL must use HTTPS');
 assert(isHttps(app?.extra?.deletionUrl), 'Account deletion URL must use HTTPS');
-assert(typeof app?.extra?.supportEmail === 'string' && /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(app.extra.supportEmail),
+assert(typeof app?.extra?.supportEmail === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(app.extra.supportEmail),
   'Support email missing/invalid');
 assert(eas?.build?.preview?.ios?.simulator === true,
   'Preview profile is expected to be an unsigned simulator build');

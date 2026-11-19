@@ -27,8 +27,9 @@ jobs:
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
       - name: Start MODO web on loopback (no production deploy)
+        working-directory: apps/web
         run: |
-          npm run dev:web -- --host 127.0.0.1 > "$RUNNER_TEMP/modo-legal-vite.log" 2>&1 &
+          ../../node_modules/.bin/vite --host 127.0.0.1 --port 5173 > "$RUNNER_TEMP/modo-legal-vite.log" 2>&1 &
       - name: Test distinct rendered legal pages
         run: node scripts/ios/test-legal-pages.mjs
       - name: Verify current live legal routes without deployment

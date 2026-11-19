@@ -4,6 +4,16 @@
 import { chromium } from 'playwright';
 
 const base = process.env.MODO_LEGAL_BASE_URL || 'http://127.0.0.1:5173';
+// Vite may need a few seconds to bind after the background process starts.
+let ready = false;
+for (let attempt = 0; attempt < 30; attempt++) {
+  try {
+    const response = await fetch(base + '/politica-de-privacidade', { signal: AbortSignal.timeout(3000) });
+    if (response.ok) { ready = true; break; }
+  } catch { /* server still starting */ }
+  await new Promise(resolve => setTimeout(resolve, 1000));
+}
+if (!ready) throw new Error('Legal site did not become reachable: ' + base);
 const browser = await chromium.launch({ headless: true });
 try {
   const page = await browser.newPage({ viewport: {width: 390, height: 844} });

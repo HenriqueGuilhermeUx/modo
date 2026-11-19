@@ -31,3 +31,7 @@ jobs:
           npm run dev:web -- --host 127.0.0.1 > "$RUNNER_TEMP/modo-legal-vite.log" 2>&1 &
       - name: Test distinct rendered legal pages
         run: node scripts/ios/test-legal-pages.mjs
+      - name: Verify current live legal routes without deployment
+        env:
+          MODO_LEGAL_BASE_URL: https://modo1.netlify.app
+        run: node scripts/ios/test-legal-pages.mjs

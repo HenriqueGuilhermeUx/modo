@@ -60,3 +60,14 @@ O primeiro run de homologação [#44652374157](https://github.com/HenriqueGuilhe
 Preflight nativo anterior [#44646136159](https://github.com/HenriqueGuilhermeUx/modo/actions/runs/44646136159) compilou e lançou no iPhone, e conseguiu gravar screenshot, mas a etapa foi marcada FAIL por **timeout de 12 minutos**, depois da captura, durante teardown lento do simulador. Atualizado workflow em `8a457e6` para dar 18 minutos e não bloquear a aprovação depois da captura em `simctl terminate/shutdown`, ainda exigindo os resultados de iPhone e iPad. Isso não comprova o preflight nativo do novo commit enquanto não houver SUCCESS.
 
 **Pendente:** finalizar HTTP/auth CI corrigido, simulador iOS mais novo, homologaçao de exclusão efetiva/operacional, Apple Developer/ASC/signing. Nenhum merge, deploy ou dados reais afetados.
+
+## Reconhecimento operacional sem exclusão automática — 19/11
+
+Foi implementada a ação autenticada **`POST /api/v1/admin/privacy/deletion-requests/:id/start-review`**:
+- Exige **sessão de plataforma admin** e identificador UUID validado; cliente comum recebe 401, ID malformado recebe 400.
+- Registra `review_started_at` em `modo_account_deletion_requests` por `ALTER TABLE ... ADD COLUMN IF NOT EXISTS`, de forma aditiva. A listagem já inclui o horário de início da análise.
+- Na **mesma transação PostgreSQL**, grava o evento `privacy.deletion_review_started` em `modo_admin_audit_log` sem e-mail, nome ou conteúdo do cliente. Repetições devolvem o mesmo horário e não duplicam evento de auditoria.
+- O status do pedido continua `pending`: **não marca como concluído**, não altera permissões do usuário, não executa eliminação e não envia e-mail. Fila operacional ainda requer atendimento humano e procedimento de conclusão validado.
+- O teste HTTP passou a conferir a ação, a idempotência, a unicidade do evento e a permanência da conta. Workflow [#44653221323](https://github.com/HenriqueGuilhermeUx/modo/actions/runs/44653221323); resultado a confirmar.
+
+**Não implantar sem preparar operador responsável**, revisar política de retenção e validar fim-a-fim em staging; produção segue intocada.

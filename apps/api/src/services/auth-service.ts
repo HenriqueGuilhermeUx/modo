@@ -271,6 +271,42 @@ export class AuthService {
     return request;
   }
 
+  /** Latest pending request for the authenticated user only. */
+  async getPendingAccountDeletion(userId: string) {
+    if (this.pool) {
+      const result = await this.pool.query<{ id: string; status: "pending"; created_at: Date }>(
+        `SELECT id, status, created_at FROM modo_account_deletion_requests
+         WHERE user_id = $1 AND status = 'pending' ORDER BY created_at DESC LIMIT 1`,
+        [userId],
+      );
+      const row = result.rows[0];
+      return row ? { id: row.id, status: row.status, createdAt: new Date(row.created_at).toISOString() } : null;
+    }
+    return this.deletionRequests.get(userId) ?? null;
+  }
+
+  /** Administrative read-only queue; callers MUST authenticate platform-admin session. */
+  async listPendingDeletionRequests(limit = 50) {
+    if (!this.pool) throw new AuthError("DELETION_QUEUE_UNAVAILABLE", 503, "A fila operacional exige PostgreSQL.");
+    const capped = Math.max(1, Math.min(100, Math.floor(limit)));
+    const result = await this.pool.query<{
+      id: string; user_id: string; organization_id: string;
+      status: "pending"; created_at: Date; email: string;
+    }>(
+      `SELECT r.id, r.user_id, r.organization_id, r.status, r.created_at, u.email
+       FROM modo_account_deletion_requests r
+       JOIN modo_users u ON u.id = r.user_id
+       WHERE r.status = 'pending'
+       ORDER BY r.created_at ASC, r.id ASC LIMIT $1`,
+      [capped],
+    );
+    return result.rows.map(row => ({
+      requestId: row.id, userId: row.user_id,
+      organizationId: row.organization_id, status: row.status,
+      email: row.email, createdAt: new Date(row.created_at).toISOString(),
+    }));
+  }
+
   async listBrands(organizationId: string): Promise<Brand[]> {
     if (this.pool) {
       const result = await this.pool.query<BrandRow>(

@@ -642,6 +642,7 @@ export async function createApp(options: CreateAppOptions) {
   app.setErrorHandler((error, _request, reply) => {
     if (
       error instanceof BillingError ||
+      error instanceof PlatformAdminError ||
       error instanceof AuthError ||
       error instanceof PaymentError ||
       error instanceof ContentError ||

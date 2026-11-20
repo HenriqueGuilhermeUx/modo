@@ -85,3 +85,23 @@ Cada consulta gera evento `privacy.deletion_impact_previewed` em auditoria admin
 Validação adicional: `apps/api/src/account-deletion-http.test.ts` verifica a resposta 401 a usuário comum, 400 para identificador inválido, 200 para admin, existência das contagens, auditoria e a permanência do status `pending`. Workflow de integração no PostgreSQL isolado: [#44654992312](https://github.com/HenriqueGuilhermeUx/modo/actions/runs/44654992312) (confirmar conclusão antes de afirmar aprovado).
 
 **Próximo bloqueio de operação:** definir instruções específicas para exclusão real por fonte de dados e retenção necessária; não automatizar deletes por FK/cascata, sobretudo em organizações com múltiplos membros e histórico financeiro. Exigir revisão de terceiros e procedimento controlado de conclusão e confirmação ao titular.
+
+## Matriz de decisão por tabela — 19/11/2026
+
+A auditoria read-only `scripts/privacy/audit-deletion-dependencies.mjs` agora gera **dois artefatos**:
+- `tmp/modo-privacy-source-inventory.json`: nomes de tabelas e referências externas identificadas no código;
+- `tmp/modo-privacy-table-review-matrix.csv`: **uma linha por tabela**, com arquivo(s) de origem, categoria heurística, classe de revisão obrigatória, indicador de organização compartilhada, necessidade de examinar provedores externos, prazo de retenção e base legal.
+
+**Evidência:** [CI #44659689678 — SUCCESS](https://github.com/HenriqueGuilhermeUx/modo/actions/runs/44659689678) e [artefato #14595450445](https://github.com/HenriqueGuilhermeUx/modo/actions/runs/44659689678/artifacts/14595450445). Foram detectados **58 nomes de tabelas em 223 arquivos**, com 11 tabelas críticas previamente conhecidas presentes. O arquivo CSV integra o mesmo ZIP do relatório JSON.
+
+A classificação em `inferredDomain` é uma regra de nomes, **não uma avaliação jurídica**. Cada linha exige `action=REVIEW_REQUIRED`, `retentionPeriod=UNDETERMINED`, `lawfulBasis=UNDETERMINED`, `externalProcessorVerified=NO`, `sharedOrganizationSafe=UNVERIFIED` e `deletionAutomationAllowed=NO`. O gerador falha se algum registro for alterado para aparentar aprovação automática antes de revisão.
+
+### Aprovação necessária por conjunto de dados
+
+1. **Identidade e titularidade:** distinguir remoção de acesso de usuário individual de exclusão de organização compartilhada, verificando outros membros, múltiplos vínculos e sessões.
+2. **Financeiro e pagamentos:** validar registros exigidos por obrigações legais, conciliação, estornos e provedores de pagamento antes de definir anonimização, exclusão ou retenção.
+3. **Conteúdo e mídia:** verificar arquivos públicos, históricos de geração, links e ativos remotos antes de qualquer ação.
+4. **Integrações e credenciais:** inventariar tokens, OAuth, redes sociais, webhooks, automações e provedores externos; planejar revogação e execução com confirmação.
+5. **Auditoria, segurança e backups:** estabelecer políticas de retenção mínima, acesso restrito, restauração e eventual reintrodução de dados por backup.
+
+**Nenhuma política, prazo ou base legal foram presumidos.** A matriz não inspeciona tabelas efetivamente existentes no PostgreSQL nem dados em plataformas externas. Não existe endpoint de exclusão de conta que utilize a matriz para executar `DELETE`.

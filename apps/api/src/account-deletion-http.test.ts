@@ -112,5 +112,40 @@ suite("privacy deletion API / full HTTP authorization with isolated PostgreSQL",
     );
     expect(audit.rows.length).toBe(1);
     expect(JSON.stringify(audit.rows[0].metadata)).not.toContain("@example.invalid");
+    const targetRequest = requests[0];
+    const invalidId = await app.inject({
+      method: "POST", url: "/api/v1/admin/privacy/deletion-requests/not-a-uuid/start-review",
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(invalidId.statusCode).toBe(400);
+
+    const firstReview = await app.inject({
+      method: "POST",
+      url: `/api/v1/admin/privacy/deletion-requests/${targetRequest.requestId}/start-review`,
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(firstReview.statusCode).toBe(200);
+    const review = firstReview.json().request;
+    expect(review.status).toBe("pending");
+    expect(review.reviewStartedAt).toBeTruthy();
+    const againReview = await app.inject({
+      method: "POST",
+      url: `/api/v1/admin/privacy/deletion-requests/${targetRequest.requestId}/start-review`,
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(againReview.statusCode).toBe(200);
+    expect(againReview.json().request).toEqual(review);
+    const reviewedAudit = await pool.query<{ count: string }>(
+      "SELECT COUNT(*)::text AS count FROM modo_admin_audit_log WHERE action='privacy.deletion_review_started' AND target_id=$1",
+      [targetRequest.requestId],
+    );
+    expect(reviewedAudit.rows[0]?.count).toBe("1");
+    const stored = await pool.query<{ status: string; review_started_at: Date | null }>(
+      "SELECT status, review_started_at FROM modo_account_deletion_requests WHERE id=$1",
+      [targetRequest.requestId],
+    );
+    expect(stored.rows[0]?.status).toBe("pending");
+    expect(stored.rows[0]?.review_started_at).not.toBeNull();
+
   });
 });

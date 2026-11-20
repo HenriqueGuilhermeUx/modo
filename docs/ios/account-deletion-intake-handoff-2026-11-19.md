@@ -71,3 +71,17 @@ Foi implementada a ação autenticada **`POST /api/v1/admin/privacy/deletion-req
 - O teste HTTP passou a conferir a ação, a idempotência, a unicidade do evento e a permanência da conta. Workflow [#44653221323](https://github.com/HenriqueGuilhermeUx/modo/actions/runs/44653221323); resultado a confirmar.
 
 **Não implantar sem preparar operador responsável**, revisar política de retenção e validar fim-a-fim em staging; produção segue intocada.
+
+## Prévia de impacto não destrutiva para o operador — 19/11
+
+Endpoint: `GET /api/v1/admin/privacy/deletion-requests/:id/impact-preview`, disponível exclusivamente com sessão de plataforma admin, UUID válido e limite de taxa. O endpoint não retorna o conteúdo de arquivos ou informações financeiras; devolve somente **contagens agregadas** relacionadas ao titular e à organização:
+- Vínculos do usuário e número de membros da organização (detectar compartilhamento com outros titulares);
+- Sessões, marcas, solicitações de conteúdo e ativos de conteúdo;
+- Assinaturas e lançamentos de créditos;
+- Eventos de ativação vinculados ao usuário ou organização.
+
+Cada consulta gera evento `privacy.deletion_impact_previewed` em auditoria administrativa sem e-mail do cliente no metadado. O retorno sempre declara `completeDataInventory: false` e `safeToDeleteAutomatically: false`, além de bloqueios expressos para dados de terceiros e fornecedores, retenções legais e verificação de identidade. O endpoint **não altera nem apaga registros**, não produz parecer jurídico e **não é uma varredura completa** do banco; tabelas de integrações, pagamentos, OAuth, provedores de mídia, armazenamento remoto, backups e outros sistemas precisam de inventário separado.
+
+Validação adicional: `apps/api/src/account-deletion-http.test.ts` verifica a resposta 401 a usuário comum, 400 para identificador inválido, 200 para admin, existência das contagens, auditoria e a permanência do status `pending`. Workflow de integração no PostgreSQL isolado: [#44654992312](https://github.com/HenriqueGuilhermeUx/modo/actions/runs/44654992312) (confirmar conclusão antes de afirmar aprovado).
+
+**Próximo bloqueio de operação:** definir instruções específicas para exclusão real por fonte de dados e retenção necessária; não automatizar deletes por FK/cascata, sobretudo em organizações com múltiplos membros e histórico financeiro. Exigir revisão de terceiros e procedimento controlado de conclusão e confirmação ao titular.

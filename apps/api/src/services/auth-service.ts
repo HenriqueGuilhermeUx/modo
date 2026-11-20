@@ -356,6 +356,59 @@ export class AuthService {
     }
   }
 
+  /**
+   * Read-only dependency preview. This is not a complete personal-data map and
+   * MUST NOT be used to authorize deletion without a verified operator review.
+   */
+  async previewAccountDeletionImpact(requestId: string) {
+    if (!this.pool) throw new AuthError("DELETION_QUEUE_UNAVAILABLE", 503, "Prévia exige PostgreSQL.");
+    const result = await this.pool.query<{
+      request_id: string; status: string; user_id: string; organization_id: string;
+      memberships: string; org_members: string; sessions: string; brands: string;
+      content_requests: string; content_assets: string; subscriptions: string;
+      ledger_entries: string; activation_events: string;
+    }>(
+      `SELECT r.id AS request_id, r.status, r.user_id, r.organization_id,
+       (SELECT COUNT(*)::text FROM modo_memberships m WHERE m.user_id = r.user_id) AS memberships,
+       (SELECT COUNT(*)::text FROM modo_memberships m WHERE m.organization_id = r.organization_id) AS org_members,
+       (SELECT COUNT(*)::text FROM modo_sessions s WHERE s.user_id = r.user_id) AS sessions,
+       (SELECT COUNT(*)::text FROM modo_brands b WHERE b.organization_id = r.organization_id) AS brands,
+       (SELECT COUNT(*)::text FROM modo_content_requests c WHERE c.organization_id = r.organization_id) AS content_requests,
+       (SELECT COUNT(*)::text FROM modo_content_assets a WHERE a.organization_id = r.organization_id) AS content_assets,
+       (SELECT COUNT(*)::text FROM modo_subscriptions sub WHERE sub.account_id = r.organization_id) AS subscriptions,
+       (SELECT COUNT(*)::text FROM modo_credit_ledger l WHERE l.account_id = r.organization_id) AS ledger_entries,
+       (SELECT COUNT(*)::text FROM modo_activation_events a WHERE a.user_id = r.user_id OR a.organization_id = r.organization_id) AS activation_events
+       FROM modo_account_deletion_requests r WHERE r.id = $1 LIMIT 1`,
+      [requestId],
+    );
+    const row = result.rows[0];
+    if (!row) return null;
+    return {
+      requestId: row.request_id,
+      status: row.status,
+      counts: {
+        userMemberships: Number(row.memberships),
+        organizationMembers: Number(row.org_members),
+        activeSessions: Number(row.sessions),
+        brands: Number(row.brands),
+        contentRequests: Number(row.content_requests),
+        contentAssets: Number(row.content_assets),
+        subscriptions: Number(row.subscriptions),
+        creditLedgerEntries: Number(row.ledger_entries),
+        activationEvents: Number(row.activation_events),
+      },
+      // Never infer automatic erasure safety from internal database counts.
+      completeDataInventory: false,
+      safeToDeleteAutomatically: false,
+      blockers: [
+        "Review shared organization ownership and memberships",
+        "Review third-party data, social tokens, media assets, payments and retention",
+        "Verify identity, cancellation, statutory retention and external processor deletion",
+        "Audit effective deletion separately; this preview performs no deletion",
+      ],
+    };
+  }
+
   async listBrands(organizationId: string): Promise<Brand[]> {
     if (this.pool) {
       const result = await this.pool.query<BrandRow>(

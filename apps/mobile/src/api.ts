@@ -115,3 +115,16 @@ export async function approveContent(token: string, id: string): Promise<Content
     await request<unknown>(`/api/v1/content-requests/${id}/approve`, { method: "POST" }, token),
   );
 }
+
+/** Creates or retrieves a durable authenticated request. Does NOT delete account data. */
+export async function requestAccountDeletion(token: string): Promise<{ requestId: string; status: "pending"; createdAt: string }> {
+  const response = await request<{ requestId: string; status: "pending"; createdAt: string }>(
+    "/api/v1/auth/account-deletion-requests",
+    { method: "POST", body: "{}" },
+    token,
+  );
+  if (!response.requestId || response.status !== "pending") {
+    throw new Error("Não foi possível confirmar o protocolo de solicitação.");
+  }
+  return response;
+}

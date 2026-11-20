@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Alert, Linking, Pressable, StyleSheet, Text, View } from "react-native";
+import { requestAccountDeletion } from "../../src/api";
 import { useSession } from "../../src/session";
 import { BrandMark, Button, Card, Pill, Screen, SectionHeading, typography } from "../../src/ui";
 import { colors, radii, spacing } from "../../src/theme";
@@ -28,18 +29,18 @@ const statusLabels = {
 } as const;
 
 export default function AccountScreen() {
-  const { dashboard, signOut } = useSession();
-  const [requestOpened, setRequestOpened] = useState(false);
+  const { dashboard, signOut, token } = useSession();
+  const [submittingDeletion, setSubmittingDeletion] = useState(false);
+  const [deletionTicket, setDeletionTicket] = useState("");
   const [requestError, setRequestError] = useState("");
 
   if (!dashboard) return <Screen><Text style={typography.body}>Sincronizando sua conta...</Text></Screen>;
   const accountEmail = dashboard.user.email;
-  const organizationName = dashboard.organization.name;
 
   function confirmDeletion() {
     Alert.alert(
       "Iniciar exclusão da conta?",
-      "Vamos preparar um e-mail com os dados da sua conta. Para registrar a solicitação, você precisa confirmar o envio no aplicativo de e-mail. Se não houver e-mail configurado, exibiremos as instruções públicas.",
+      "A MODO registrará um pedido associado à sua sessão e apresentará um protocolo. Isso inicia a análise; não apaga dados automaticamente. Confirme para continuar.",
       [
         { text: "Voltar", style: "cancel" },
         { text: "Continuar", style: "destructive", onPress: () => void openDeletionRequest() },
@@ -48,29 +49,20 @@ export default function AccountScreen() {
   }
 
   async function openDeletionRequest() {
-    setRequestOpened(false);
     setRequestError("");
-    const subject = encodeURIComponent("Solicitação de exclusão da conta MODO");
-    const body = encodeURIComponent([
-      "Solicito a exclusão da minha conta e dos dados vinculados na MODO.",
-      "",
-      `E-mail da conta: ${accountEmail}`,
-      `Organização: ${organizationName}`,
-      "",
-      "Confirmarei a solicitação conforme as orientações de segurança.",
-    ].join("\n"));
-    const mailto = `mailto:${SUPPORT_EMAIL}?subject=${subject}&body=${body}`;
+    if (!token) {
+      setRequestError("Entre novamente na MODO para solicitar a exclusão.");
+      return;
+    }
+    setSubmittingDeletion(true);
     try {
-      if (await Linking.canOpenURL(mailto)) {
-        await Linking.openURL(mailto);
-        // Opening the composer does not prove the message was sent or received.
-        setRequestOpened(true);
-      } else {
-        await Linking.openURL(DELETION_URL);
-        setRequestError("Não encontramos um aplicativo de e-mail configurado. Use as instruções abertas para enviar seu pedido.");
-      }
+      const ticket = await requestAccountDeletion(token);
+      setDeletionTicket(ticket.requestId);
     } catch {
-      setRequestError("Não foi possível abrir o canal de exclusão. Consulte as instruções de exclusão ou contate o suporte.");
+      // No false success: the API must acknowledge and persist the request.
+      setRequestError("Não conseguimos registrar o pedido agora. Sua conta não foi alterada. Use as instruções públicas ou fale com o suporte.");
+    } finally {
+      setSubmittingDeletion(false);
     }
   }
 
@@ -100,10 +92,10 @@ export default function AccountScreen() {
 
       <Card style={styles.safetyCard}>
         <Text style={styles.label}>CONTROLE DA CONTA</Text>
-        <Text style={typography.body}>Você pode preparar sua solicitação pelo aplicativo. O pedido somente é recebido após você enviar o e-mail e concluir a verificação de identidade com o suporte.</Text>
-        {requestOpened ? <View style={styles.success}><Text style={styles.successText}>E-mail preparado. Confirme o envio no seu aplicativo de e-mail. A solicitação ainda não foi registrada automaticamente.</Text></View> : null}
+        <Text style={typography.body}>Você pode registrar uma solicitação autenticada neste aplicativo. Receberá um protocolo; a análise e a exclusão efetiva são etapas separadas, sujeitas à verificação e à retenção legal.</Text>
+        {deletionTicket ? <View style={styles.success}><Text style={styles.successText}>Solicitação registrada. Protocolo: {deletionTicket}. A conta ainda não foi excluída; aguarde a análise e confirmação do suporte.</Text></View> : null}
         {requestError ? <Text accessibilityRole="alert" style={styles.errorText}>{requestError}</Text> : null}
-        <Button variant="danger" onPress={confirmDeletion}>Iniciar pedido de exclusão</Button>
+        <Button variant="danger" onPress={confirmDeletion} loading={submittingDeletion} disabled={submittingDeletion || Boolean(deletionTicket)}>Solicitar exclusão da conta</Button>
       </Card>
 
       <Button variant="ghost" onPress={() => void signOut()}>Sair deste dispositivo</Button>

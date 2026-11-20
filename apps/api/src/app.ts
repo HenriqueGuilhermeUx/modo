@@ -393,6 +393,24 @@ export async function createApp(options: CreateAppOptions) {
     },
   );
 
+  app.post(
+    "/api/v1/admin/privacy/deletion-requests/:id/start-review",
+    { config: { rateLimit: { max: 12, timeWindow: "1 minute" } } },
+    async (request, reply) => {
+      const header = request.headers.authorization;
+      if (!header?.startsWith("Bearer ")) return reply.code(401).send({ code: "ADMIN_UNAUTHORIZED" });
+      await admin.authenticate(header.slice(7).trim());
+      const id = (request.params as { id: string }).id;
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)) {
+        return reply.code(400).send({ code: "INVALID_REQUEST_ID" });
+      }
+      const result = await auth.startDeletionReview(id);
+      if (!result) return reply.code(404).send({ code: "DELETION_REQUEST_NOT_FOUND" });
+      // Acknowledgement only. No completion, deletion or change to customer access.
+      return { request: result };
+    },
+  );
+
   app.post("/api/v1/auth/logout", async (request, reply) => {
     await auth.logout(bearerToken(request));
     return reply.code(204).send();

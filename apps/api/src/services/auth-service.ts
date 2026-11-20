@@ -136,6 +136,7 @@ export class AuthService {
   private readonly memberships = new Map<string, MemoryMembership[]>();
   private readonly sessions = new Map<string, MemorySession>();
   private readonly brands = new Map<string, Brand[]>();
+  private readonly deletionRequests = new Map<string, { id: string; status: "pending"; createdAt: string }>();
 
   constructor(options: AuthServiceOptions = {}) {
     this.sessionDays = options.sessionDays ?? 30;
@@ -201,6 +202,17 @@ export class AuthService {
       );
 
       CREATE INDEX IF NOT EXISTS modo_brands_organization_idx ON modo_brands(organization_id);
+
+      CREATE TABLE IF NOT EXISTS modo_account_deletion_requests (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL REFERENCES modo_users(id) ON DELETE CASCADE,
+        organization_id TEXT NOT NULL REFERENCES modo_organizations(id) ON DELETE CASCADE,
+        status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'in_review', 'completed', 'rejected')),
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+      CREATE UNIQUE INDEX IF NOT EXISTS modo_account_deletion_requests_pending_user_idx
+        ON modo_account_deletion_requests(user_id) WHERE status = 'pending';
     `);
   }
 
@@ -231,6 +243,32 @@ export class AuthService {
       return;
     }
     this.sessions.delete(tokenHash);
+  }
+
+  /**
+   * Record an authenticated account-deletion request. This DOES NOT delete data:
+   * the verified, audited fulfillment process is separate from intake.
+   * Repeated requests while pending return the original reference.
+   */
+  async requestAccountDeletion(userId: string, organizationId: string) {
+    if (this.pool) {
+      const id = randomUUID();
+      const result = await this.pool.query<{ id: string; status: "pending"; created_at: Date }>(
+        `INSERT INTO modo_account_deletion_requests(id, user_id, organization_id, status)
+         VALUES ($1, $2, $3, 'pending')
+         ON CONFLICT (user_id) WHERE status = 'pending'
+         DO UPDATE SET updated_at = modo_account_deletion_requests.updated_at
+         RETURNING id, status, created_at`,
+        [id, userId, organizationId],
+      );
+      const row = result.rows[0];
+      return { id: row.id, status: row.status, createdAt: new Date(row.created_at).toISOString() };
+    }
+    const existing = this.deletionRequests.get(userId);
+    if (existing) return existing;
+    const request = { id: randomUUID(), status: "pending" as const, createdAt: new Date().toISOString() };
+    this.deletionRequests.set(userId, request);
+    return request;
   }
 
   async listBrands(organizationId: string): Promise<Brand[]> {

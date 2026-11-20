@@ -209,8 +209,10 @@ export class AuthService {
         organization_id TEXT NOT NULL REFERENCES modo_organizations(id) ON DELETE CASCADE,
         status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'in_review', 'completed', 'rejected')),
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        review_started_at TIMESTAMPTZ
       );
+      ALTER TABLE modo_account_deletion_requests ADD COLUMN IF NOT EXISTS review_started_at TIMESTAMPTZ;
       CREATE UNIQUE INDEX IF NOT EXISTS modo_account_deletion_requests_pending_user_idx
         ON modo_account_deletion_requests(user_id) WHERE status = 'pending';
     `);
@@ -291,9 +293,9 @@ export class AuthService {
     const capped = Math.max(1, Math.min(100, Math.floor(limit)));
     const result = await this.pool.query<{
       id: string; user_id: string; organization_id: string;
-      status: "pending"; created_at: Date; email: string;
+      status: "pending"; created_at: Date; email: string; review_started_at: Date | null;
     }>(
-      `SELECT r.id, r.user_id, r.organization_id, r.status, r.created_at, u.email
+      `SELECT r.id, r.user_id, r.organization_id, r.status, r.created_at, r.review_started_at, u.email
        FROM modo_account_deletion_requests r
        JOIN modo_users u ON u.id = r.user_id
        WHERE r.status = 'pending'
@@ -304,7 +306,54 @@ export class AuthService {
       requestId: row.id, userId: row.user_id,
       organizationId: row.organization_id, status: row.status,
       email: row.email, createdAt: new Date(row.created_at).toISOString(),
+      reviewStartedAt: row.review_started_at ? new Date(row.review_started_at).toISOString() : null,
     }));
+  }
+
+  /**
+   * Mark a pending request as acknowledged by an authorized operator.
+   * This changes no account data, does not complete the request, and
+   * writes the privacy audit event in the same PostgreSQL transaction.
+   */
+  async startDeletionReview(requestId: string) {
+    if (!this.pool) throw new AuthError("DELETION_QUEUE_UNAVAILABLE", 503, "Fila exige PostgreSQL.");
+    const client = await this.pool.connect();
+    try {
+      await client.query("BEGIN");
+      const result = await client.query<{ id: string; review_started_at: Date; status: "pending" }>(
+        `UPDATE modo_account_deletion_requests
+         SET review_started_at = COALESCE(review_started_at, NOW()),
+             updated_at = CASE WHEN review_started_at IS NULL THEN NOW() ELSE updated_at END
+         WHERE id = $1 AND status = 'pending'
+         RETURNING id, review_started_at, status`,
+        [requestId],
+      );
+      const row = result.rows[0];
+      if (!row) {
+        await client.query("ROLLBACK");
+        return null;
+      }
+      // Only first acknowledgement generates an audit; retries are idempotent.
+      const auditExists = await client.query(
+        `SELECT 1 FROM modo_admin_audit_log
+         WHERE action = 'privacy.deletion_review_started' AND target_id = $1 LIMIT 1`,
+        [requestId],
+      );
+      if (!auditExists.rowCount) {
+        await client.query(
+          `INSERT INTO modo_admin_audit_log(id, action, target_type, target_id, metadata)
+           VALUES ($1,'privacy.deletion_review_started','privacy_deletion_request',$2,$3::jsonb)`,
+          [randomUUID(), requestId, JSON.stringify({ status: "pending" })],
+        );
+      }
+      await client.query("COMMIT");
+      return { requestId: row.id, status: row.status, reviewStartedAt: new Date(row.review_started_at).toISOString() };
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
   }
 
   async listBrands(organizationId: string): Promise<Brand[]> {

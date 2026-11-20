@@ -5,6 +5,7 @@ on:
     paths:
       - 'apps/api/src/services/auth-service.ts'
       - 'apps/api/src/services/account-deletion-postgres.test.ts'
+      - 'apps/api/src/account-deletion-http.test.ts'
       - 'apps/api/src/app.ts'
       - '.github/workflows/ios-account-deletion-postgres.yml'
   workflow_dispatch:
@@ -41,3 +42,5 @@ jobs:
         run: npm install --no-audit --no-fund
       - name: Test durable authenticated deletion request with isolated PostgreSQL
         run: npm run test --workspace=@modo/api -- src/services/account-deletion-postgres.test.ts
+      - name: Test HTTP permissions, customer isolation, admin audit and queue
+        run: npm run test --workspace=@modo/api -- src/account-deletion-http.test.ts

@@ -44,3 +44,9 @@ Sem autenticação: erro 401. **Não é endpoint de apagamento e não executa ex
 - Novo teste PostgreSQL verifica status isolado por usuário e fila pending; a comprovação do CI deve ser anexada quando terminar.
 
 **Não confundir** a fila read-only com um console de tratamento completo. Sem operador responsável e execução auditável da exclusão, o processo permanece parcial. A presença de rota de consulta não dá acesso ao App Store Connect nem autoriza deploy.
+
+## Evidência adicional e auditoria da fila
+
+A suíte de integração ampliada concluiu **SUCCESS, 2 testes**, no runner [#44645863507](https://github.com/HenriqueGuilhermeUx/modo/actions/runs/44645863507), incluindo recuperação da solicitação por outra instância do `AuthService` e visualização na fila read-only de tickets pendentes. O acesso à fila por token administrativo agora registra evento `privacy.deletion_queue_viewed` na tabela interna `modo_admin_audit_log`, sem colocar e-mail de cliente no metadado do evento. Mudança de auditoria: commit `180c279`; CI dessa revisão ainda não validado no momento desta nota.
+
+**Não interpretar o teste de repositório como validação de permissão HTTP ponta a ponta**. Antes de deploy, homologar via API 401 com token ausente/de cliente e 200 com sessão administrativa legítima, com auditoria, limites e retenção da fila. A lista não executa exclusão e não automatiza comunicação com clientes.

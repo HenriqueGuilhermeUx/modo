@@ -30,6 +30,7 @@ const statusLabels = {
 export default function AccountScreen() {
   const { dashboard, signOut } = useSession();
   const [requestOpened, setRequestOpened] = useState(false);
+  const [requestError, setRequestError] = useState("");
 
   if (!dashboard) return <Screen><Text style={typography.body}>Sincronizando sua conta...</Text></Screen>;
   const accountEmail = dashboard.user.email;
@@ -38,7 +39,7 @@ export default function AccountScreen() {
   function confirmDeletion() {
     Alert.alert(
       "Iniciar exclusão da conta?",
-      "Abriremos um pedido identificado pelo e-mail da sua conta. Você receberá as orientações sobre confirmação, dados envolvidos e prazo de exclusão.",
+      "Vamos preparar um e-mail com os dados da sua conta. Para registrar a solicitação, você precisa confirmar o envio no aplicativo de e-mail. Se não houver e-mail configurado, exibiremos as instruções públicas.",
       [
         { text: "Voltar", style: "cancel" },
         { text: "Continuar", style: "destructive", onPress: () => void openDeletionRequest() },
@@ -47,6 +48,8 @@ export default function AccountScreen() {
   }
 
   async function openDeletionRequest() {
+    setRequestOpened(false);
+    setRequestError("");
     const subject = encodeURIComponent("Solicitação de exclusão da conta MODO");
     const body = encodeURIComponent([
       "Solicito a exclusão da minha conta e dos dados vinculados na MODO.",
@@ -57,13 +60,18 @@ export default function AccountScreen() {
       "Confirmarei a solicitação conforme as orientações de segurança.",
     ].join("\n"));
     const mailto = `mailto:${SUPPORT_EMAIL}?subject=${subject}&body=${body}`;
-    const supported = await Linking.canOpenURL(mailto);
-    if (supported) {
-      await Linking.openURL(mailto);
-    } else {
-      await Linking.openURL(DELETION_URL);
+    try {
+      if (await Linking.canOpenURL(mailto)) {
+        await Linking.openURL(mailto);
+        // Opening the composer does not prove the message was sent or received.
+        setRequestOpened(true);
+      } else {
+        await Linking.openURL(DELETION_URL);
+        setRequestError("Não encontramos um aplicativo de e-mail configurado. Use as instruções abertas para enviar seu pedido.");
+      }
+    } catch {
+      setRequestError("Não foi possível abrir o canal de exclusão. Consulte as instruções de exclusão ou contate o suporte.");
     }
-    setRequestOpened(true);
   }
 
   return (
@@ -92,8 +100,9 @@ export default function AccountScreen() {
 
       <Card style={styles.safetyCard}>
         <Text style={styles.label}>CONTROLE DA CONTA</Text>
-        <Text style={typography.body}>Você pode iniciar a exclusão pelo aplicativo. O pedido usa o e-mail autenticado e precisa ser confirmado para impedir exclusões indevidas.</Text>
-        {requestOpened ? <View style={styles.success}><Text style={styles.successText}>✓ Canal de exclusão aberto. Conclua o envio ou siga as instruções exibidas.</Text></View> : null}
+        <Text style={typography.body}>Você pode preparar sua solicitação pelo aplicativo. O pedido somente é recebido após você enviar o e-mail e concluir a verificação de identidade com o suporte.</Text>
+        {requestOpened ? <View style={styles.success}><Text style={styles.successText}>E-mail preparado. Confirme o envio no seu aplicativo de e-mail. A solicitação ainda não foi registrada automaticamente.</Text></View> : null}
+        {requestError ? <Text accessibilityRole="alert" style={styles.errorText}>{requestError}</Text> : null}
         <Button variant="danger" onPress={confirmDeletion}>Iniciar pedido de exclusão</Button>
       </Card>
 
@@ -133,5 +142,6 @@ const styles = StyleSheet.create({
   safetyCard: { gap: spacing.md, borderColor: "#FECDCA" },
   success: { borderRadius: radii.medium, backgroundColor: colors.greenSoft, padding: spacing.md },
   successText: { color: "#087A56", fontSize: 13, lineHeight: 20, fontWeight: "900" },
+  errorText: { color: colors.danger, fontSize: 13, lineHeight: 20 },
   footer: { color: colors.subtle, fontSize: 10, lineHeight: 16, textAlign: "center", paddingHorizontal: spacing.lg },
 });

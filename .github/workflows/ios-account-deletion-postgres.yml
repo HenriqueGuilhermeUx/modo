@@ -6,6 +6,8 @@ on:
       - 'apps/api/src/services/auth-service.ts'
       - 'apps/api/src/services/account-deletion-postgres.test.ts'
       - 'apps/api/src/account-deletion-http.test.ts'
+      - 'scripts/privacy/audit-deletion-dependencies.mjs'
+      - 'scripts/privacy/compare-ephemeral-postgres.mjs'
       - 'apps/api/src/app.ts'
       - '.github/workflows/ios-account-deletion-postgres.yml'
   workflow_dispatch:
@@ -44,3 +46,15 @@ jobs:
         run: npm run test --workspace=@modo/api -- src/services/account-deletion-postgres.test.ts
       - name: Test HTTP permissions, customer isolation, admin audit and queue
         run: npm run test --workspace=@modo/api -- src/account-deletion-http.test.ts
+      - name: Discover source schema inventory (no secrets or customer data)
+        run: node scripts/privacy/audit-deletion-dependencies.mjs
+      - name: Compare read-only catalog against disposable CI database
+        run: node scripts/privacy/compare-ephemeral-postgres.mjs
+      - name: Upload schema comparison for manual review
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: modo-privacy-ci-schema-diff
+          path: tmp/modo-privacy-ci-schema-diff.json
+          retention-days: 14
+          if-no-files-found: ignore

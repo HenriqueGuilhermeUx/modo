@@ -105,3 +105,11 @@ A classificação em `inferredDomain` é uma regra de nomes, **não uma avaliaç
 5. **Auditoria, segurança e backups:** estabelecer políticas de retenção mínima, acesso restrito, restauração e eventual reintrodução de dados por backup.
 
 **Nenhuma política, prazo ou base legal foram presumidos.** A matriz não inspeciona tabelas efetivamente existentes no PostgreSQL nem dados em plataformas externas. Não existe endpoint de exclusão de conta que utilize a matriz para executar `DELETE`.
+
+## Comparação auditável com esquema PostgreSQL efêmero — 20/11/2026
+
+Foi preparada uma etapa adicional de CI em `scripts/privacy/compare-ephemeral-postgres.mjs`, integrada ao workflow `.github/workflows/ios-account-deletion-postgres.yml`. Depois dos testes que inicializam o PostgreSQL descartável, ela consulta **somente `pg_catalog.pg_tables` em transação `READ ONLY`** e compara com as 58 tabelas extraídas do código-fonte. Gera o artefato `modo-privacy-ci-schema-diff.json`, distinguindo tabelas encontradas nas duas fontes, tabelas apenas no código e tabelas presentes somente no banco efêmero.
+
+**Trava contra produção:** recusa host diferente de `localhost`/`127.0.0.1` e banco diferente de `modo_deletion_ci`; nenhum dado de clientes ou linha de tabela operacional é consultado. Serviços que não são inicializados na suíte deixam tabelas ausentes no banco temporário, sem significar ausência no staging/produção. Essa etapa não pretende comparar com ambiente corporativo ainda.
+
+Aprovação para exclusão continua bloqueada até inventário completo, fornecedores externos, organizações compartilhadas e retenção legal. O relatório não efetua `DELETE`, não autoriza automatizar eliminação e não substitui homologação de staging, iOS, Apple signing ou TestFlight.

@@ -373,6 +373,24 @@ export async function createApp(options: CreateAppOptions) {
       return reply.code(202).send({ requestId: ticket.id, status: ticket.status, createdAt: ticket.createdAt });
     },
   );
+  app.get("/api/v1/auth/account-deletion-requests/current", async (request) => {
+    const context = await auth.authenticate(bearerToken(request));
+    const ticket = await auth.getPendingAccountDeletion(context.user.id);
+    return { request: ticket ? { requestId: ticket.id, status: ticket.status, createdAt: ticket.createdAt } : null };
+  });
+
+  app.get(
+    "/api/v1/admin/privacy/deletion-requests",
+    { config: { rateLimit: { max: 12, timeWindow: "1 minute" } } },
+    async (request, reply) => {
+      const header = request.headers.authorization;
+      if (!header?.startsWith("Bearer ")) return reply.code(401).send({ code: "ADMIN_UNAUTHORIZED" });
+      await admin.authenticate(header.slice(7).trim());
+      // Never expose a queue using an ordinary customer token.
+      return { requests: await auth.listPendingDeletionRequests(50) };
+    },
+  );
+
   app.post("/api/v1/auth/logout", async (request, reply) => {
     await auth.logout(bearerToken(request));
     return reply.code(204).send();

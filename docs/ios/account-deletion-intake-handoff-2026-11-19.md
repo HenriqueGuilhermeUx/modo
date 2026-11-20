@@ -35,3 +35,12 @@ Sem autenticação: erro 401. **Não é endpoint de apagamento e não executa ex
 - O pedido pendente é um registro de intenção; **não prova tratamento, conclusão ou exclusão de dados**.
 - O armazenamento de tickets não deve ser usado como dado de marketing, e acesso deve ser restrito e auditado.
 - Como a implementação está em PR isolado, **nenhuma conta real foi alterada, nenhum usuário foi excluído e nenhum IPA foi enviado**.
+
+## Complemento — leitura do protocolo e fila administrativa (19/11)
+
+- `GET /api/v1/auth/account-deletion-requests/current`: requer sessão Bearer de usuário e retorna `{ request: {requestId,status,createdAt} | null }`, restrito ao `user_id` autenticado. Permite recuperar protocolo depois de fechar e abrir novamente o app.
+- `GET /api/v1/admin/privacy/deletion-requests`: requer **token de plataforma admin** já suportado pelo MODO (`admin.authenticate`), e não aceita token comum de cliente. Resposta `{requests: [...]} ` com no máximo 50 solicitações `pending`, em ordem cronológica, incluindo identificadores de operação e contato para tratamento manual. Protegido por rate limit e **somente leitura**, sem endpoint de exclusão/alteração de status.
+- A consulta administrativa inclui e-mail do solicitante, dado pessoal: restringir acesso a operadores autorizados, auditar acesso, definir rotina de atendimento e prazo de retenção. Não reutilizar dados para marketing.
+- Novo teste PostgreSQL verifica status isolado por usuário e fila pending; a comprovação do CI deve ser anexada quando terminar.
+
+**Não confundir** a fila read-only com um console de tratamento completo. Sem operador responsável e execução auditável da exclusão, o processo permanece parcial. A presença de rota de consulta não dá acesso ao App Store Connect nem autoriza deploy.

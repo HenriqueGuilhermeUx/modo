@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Alert, Linking, Pressable, StyleSheet, Text, View } from "react-native";
-import { requestAccountDeletion } from "../../src/api";
+import { getPendingAccountDeletion, requestAccountDeletion } from "../../src/api";
 import { useSession } from "../../src/session";
 import { BrandMark, Button, Card, Pill, Screen, SectionHeading, typography } from "../../src/ui";
 import { colors, radii, spacing } from "../../src/theme";
@@ -33,6 +33,15 @@ export default function AccountScreen() {
   const [submittingDeletion, setSubmittingDeletion] = useState(false);
   const [deletionTicket, setDeletionTicket] = useState("");
   const [requestError, setRequestError] = useState("");
+  useEffect(() => {
+    let live = true;
+    if (!token) return;
+    getPendingAccountDeletion(token)
+      .then(({ request }) => { if (live) setDeletionTicket(request?.requestId ?? ""); })
+      .catch(() => { /* Status readback failure does not imply no pending request. */ });
+    return () => { live = false; };
+  }, [token]);
+
 
   if (!dashboard) return <Screen><Text style={typography.body}>Sincronizando sua conta...</Text></Screen>;
   const accountEmail = dashboard.user.email;

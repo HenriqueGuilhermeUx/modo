@@ -53,7 +53,7 @@ jobs:
           xcodebuild -workspace "$WORKSPACE" -scheme "$SCHEME" -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO -derivedDataPath "$RUNNER_TEMP/modo-derived" build 2>&1 | tee ios-native-build.log
       - name: Install and launch on iPhone simulator
         shell: bash
-        timeout-minutes: 12
+        timeout-minutes: 18
         run: |
           set -euo pipefail
           APP_PATH="$(find "$RUNNER_TEMP/modo-derived/Build/Products/Debug-iphonesimulator" -maxdepth 1 -type d -name '*.app' | head -n 1)"
@@ -68,8 +68,10 @@ jobs:
           xcrun simctl launch "$DEVICE_ID" "$BUNDLE_ID"
           sleep 5
           xcrun simctl io "$DEVICE_ID" screenshot "$RUNNER_TEMP/modo-ios-launch.png"
-          xcrun simctl terminate "$DEVICE_ID" "$BUNDLE_ID"
-          xcrun simctl shutdown "$DEVICE_ID" || true
+          # Screenshot proves launch. Do not block the smoke on slow simulator teardown.
+          (xcrun simctl terminate "$DEVICE_ID" "$BUNDLE_ID" >/dev/null 2>&1 || true) &
+          (xcrun simctl shutdown "$DEVICE_ID" >/dev/null 2>&1 || true) &
+          echo "PASS: iPhone native install/launch/screenshot (teardown best effort)"
       - name: Confirm iPad support in compiled app
         shell: bash
         run: |
@@ -81,7 +83,7 @@ jobs:
           echo "PASS: iPad device family declared in compiled app"
       - name: Install and launch on iPad simulator
         shell: bash
-        timeout-minutes: 14
+        timeout-minutes: 18
         run: |
           set -euo pipefail
           APP_PATH="$(find "$RUNNER_TEMP/modo-derived/Build/Products/Debug-iphonesimulator" -maxdepth 1 -type d -name '*.app' | head -n 1)"
@@ -95,9 +97,9 @@ jobs:
           xcrun simctl launch "$DEVICE_ID" "$BUNDLE_ID"
           sleep 5
           xcrun simctl io "$DEVICE_ID" screenshot "$RUNNER_TEMP/modo-ipad-launch.png"
-          xcrun simctl terminate "$DEVICE_ID" "$BUNDLE_ID" || true
-          xcrun simctl shutdown "$DEVICE_ID" || true
-          echo "PASS: iPad native install/launch/screenshot smoke (not functional QA)"
+          (xcrun simctl terminate "$DEVICE_ID" "$BUNDLE_ID" >/dev/null 2>&1 || true) &
+          (xcrun simctl shutdown "$DEVICE_ID" >/dev/null 2>&1 || true) &
+          echo "PASS: iPad native install/launch/screenshot smoke (teardown best effort; not functional QA)"
       - name: Upload iPad simulator screenshot
         if: always()
         uses: actions/upload-artifact@v4

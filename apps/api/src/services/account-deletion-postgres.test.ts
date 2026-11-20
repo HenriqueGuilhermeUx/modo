@@ -62,6 +62,12 @@ suite("account deletion intake / PostgreSQL isolation", () => {
     expect(result.rows[0]?.count).toBe("1");
     expect((await second.authenticate(session.token)).user.id).toBe(session.user.id);
     expect((await pool.query("SELECT 1 FROM modo_users WHERE id=$1", [session.user.id])).rowCount).toBe(1);
+    const current = await second.getPendingAccountDeletion(session.user.id);
+    expect(current).toEqual(a);
+    expect(await second.getPendingAccountDeletion(randomUUID())).toBeNull();
+    const adminQueue = await second.listPendingDeletionRequests(50);
+    expect(adminQueue.some(item => item.requestId === a.id && item.userId === session.user.id)).toBe(true);
+    expect(adminQueue.every(item => item.status === "pending")).toBe(true);
   });
 
   it("isolates different users and rejects orphaned requests with a foreign-key error", async () => {

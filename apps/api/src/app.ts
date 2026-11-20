@@ -387,7 +387,9 @@ export async function createApp(options: CreateAppOptions) {
       if (!header?.startsWith("Bearer ")) return reply.code(401).send({ code: "ADMIN_UNAUTHORIZED" });
       await admin.authenticate(header.slice(7).trim());
       // Never expose a queue using an ordinary customer token.
-      return { requests: await auth.listPendingDeletionRequests(50) };
+      const requests = await auth.listPendingDeletionRequests(50);
+      await admin.audit("privacy.deletion_queue_viewed", "privacy_deletion_queue", null, { count: requests.length });
+      return { requests };
     },
   );
 

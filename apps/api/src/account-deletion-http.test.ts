@@ -146,6 +146,39 @@ suite("privacy deletion API / full HTTP authorization with isolated PostgreSQL",
     );
     expect(stored.rows[0]?.status).toBe("pending");
     expect(stored.rows[0]?.review_started_at).not.toBeNull();
+    const deniedPreview = await app.inject({
+      method: "GET",
+      url: `/api/v1/admin/privacy/deletion-requests/${targetRequest.requestId}/impact-preview`,
+      headers: { authorization: `Bearer ${(await signUp())}` },
+    });
+    expect(deniedPreview.statusCode).toBe(401);
+    const invalidPreview = await app.inject({
+      method: "GET",
+      url: "/api/v1/admin/privacy/deletion-requests/not-a-uuid/impact-preview",
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(invalidPreview.statusCode).toBe(400);
+    const preview = await app.inject({
+      method: "GET",
+      url: `/api/v1/admin/privacy/deletion-requests/${targetRequest.requestId}/impact-preview`,
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(preview.statusCode).toBe(200);
+    const impact = preview.json().impact;
+    expect(impact.requestId).toBe(targetRequest.requestId);
+    expect(impact.completeDataInventory).toBe(false);
+    expect(impact.safeToDeleteAutomatically).toBe(false);
+    expect(impact.counts.organizationMembers).toBeGreaterThanOrEqual(1);
+    expect(impact.counts.activeSessions).toBeGreaterThanOrEqual(1);
+    expect(impact.blockers.length).toBeGreaterThanOrEqual(3);
+    const auditPreview = await pool.query<{ metadata: unknown }>(
+      "SELECT metadata FROM modo_admin_audit_log WHERE action='privacy.deletion_impact_previewed' AND target_id=$1 ORDER BY created_at DESC LIMIT 1",
+      [targetRequest.requestId],
+    );
+    expect(auditPreview.rows.length).toBe(1);
+    expect(JSON.stringify(auditPreview.rows[0].metadata)).not.toContain("@example.invalid");
+    expect((await pool.query("SELECT status FROM modo_account_deletion_requests WHERE id=$1", [targetRequest.requestId])).rows[0].status).toBe("pending");
+
 
   });
 });

@@ -363,6 +363,16 @@ export async function createApp(options: CreateAppOptions) {
     async (request) => auth.login(LoginRequestSchema.parse(request.body)),
   );
   app.get("/api/v1/auth/me", async (request) => auth.authenticate(bearerToken(request)));
+  app.post(
+    "/api/v1/auth/account-deletion-requests",
+    { config: { rateLimit: { max: 3, timeWindow: "1 hour" } } },
+    async (request, reply) => {
+      const context = await auth.authenticate(bearerToken(request));
+      const ticket = await auth.requestAccountDeletion(context.user.id, context.organization.id);
+      // No account data is deleted here; staff must verify and fulfill requests.
+      return reply.code(202).send({ requestId: ticket.id, status: ticket.status, createdAt: ticket.createdAt });
+    },
+  );
   app.post("/api/v1/auth/logout", async (request, reply) => {
     await auth.logout(bearerToken(request));
     return reply.code(204).send();

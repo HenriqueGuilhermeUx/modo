@@ -12,6 +12,7 @@ const paths = execFileSync("git", ["ls-files", "apps/api/src", "apps/web/src", "
   .split("\n").filter(p => /\.(ts|tsx|js|mjs|sql)$/.test(p) && !/\.test\.|__snapshots__|node_modules/.test(p));
 const tableNames = new Set();
 const foreignKeys = new Set();
+const sourcesByTable = new Map();
 const linkedDomains = [];
 const patterns = [
   [/\b(woovi|openpix|payment|subscription|billing)\b/i, "payments"],
@@ -24,7 +25,12 @@ const categories = Object.fromEntries(patterns.map(([, label]) => [label, []]));
 for (const path of paths) {
   const src = readFileSync(path, "utf8");
   for (const match of src.matchAll(/CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?(?:public\.)?([a-z][a-z0-9_]*)/gi)) {
-    if (match[1].startsWith("modo_")) tableNames.add(match[1]);
+    if (match[1].startsWith("modo_")) {
+      tableNames.add(match[1]);
+      const found = sourcesByTable.get(match[1]) || new Set();
+      found.add(path);
+      sourcesByTable.set(match[1], found);
+    }
   }
   for (const match of src.matchAll(/REFERENCES\s+(?:public\.)?([a-z][a-z0-9_]*)/gi)) {
     if (match[1].startsWith("modo_")) foreignKeys.add(match[1]);
@@ -42,6 +48,41 @@ const required = [
   "modo_content_assets", "modo_activation_events",
 ];
 const discovered = [...tableNames].sort();
+// Heuristics are NOT legal retention decisions and never authorize automatic erasure.
+const rules = [
+  [/audit|log|security|fraud|compliance|incident/i, "security_audit", "SECURITY_AND_LEGAL_REVIEW"],
+  [/payment|transaction|subscription|invoice|credit|ledger|billing|checkout|discount|charge|woovi/i, "financial", "FINANCE_AND_RETENTION_REVIEW"],
+  [/organization|membership|team|invitation|staff|user|session|auth|profile/i, "identity_or_access", "SHARED_ORGANIZATION_REVIEW"],
+  [/oauth|token|instagram|linkedin|canva|social|publisher|smartbots|integration/i, "external_integration", "PROVIDER_AND_TOKEN_REVOCATION_REVIEW"],
+  [/asset|media|video|file|content|creative|upload/i, "content_or_media", "REMOTE_ASSET_AND_RIGHTS_REVIEW"],
+  [/lead|diagnostic|intelligence|analytics|tracking|activation|event/i, "analytics_and_leads", "LAWFUL_BASIS_AND_RETENTION_REVIEW"],
+];
+const tableRows = discovered.map(table => {
+  const match = rules.find(([regex]) => regex.test(table));
+  return {
+    table,
+    inferredDomain: match?.[1] || "unclassified",
+    mandatoryReview: match?.[2] || "OWNER_AND_SCHEMA_REVIEW",
+    sourceFiles: [...(sourcesByTable.get(table) || [])].sort().join(";"),
+    action: "REVIEW_REQUIRED",
+    retentionPeriod: "UNDETERMINED",
+    lawfulBasis: "UNDETERMINED",
+    externalProcessorVerified: "NO",
+    sharedOrganizationSafe: "UNVERIFIED",
+    deletionAutomationAllowed: "NO",
+  };
+});
+const toCsv = cells => cells.map(value => {
+  const str = String(value ?? "");
+  return /[",\r\n]/.test(str) ? '"' + str.replaceAll('"','""') + '"' : str;
+}).join(",");
+const csvFile = process.env.MODO_PRIVACY_MATRIX_PATH || "tmp/modo-privacy-table-review-matrix.csv";
+mkdirSync(dirname(csvFile), { recursive: true });
+const columns = ["table","inferredDomain","mandatoryReview","sourceFiles","action","retentionPeriod","lawfulBasis","externalProcessorVerified","sharedOrganizationSafe","deletionAutomationAllowed"];
+writeFileSync(csvFile,[toCsv(columns), ...tableRows.map(row => toCsv(columns.map(col => row[col])))].join("\n")+"\n");
+if (tableRows.length !== discovered.length || tableRows.some(r => r.action !== "REVIEW_REQUIRED" || r.deletionAutomationAllowed !== "NO" || r.retentionPeriod !== "UNDETERMINED")) {
+  throw new Error("Privacy safety gate: inventory matrix is incomplete or claims approval prematurely");
+}
 const report = {
   kind: "static_code_inventory_not_a_deletion_plan",
   includesCustomerData: false,
@@ -50,6 +91,9 @@ const report = {
   generatedAt: new Date().toISOString(),
   trackedSourceFilesScanned: paths.length,
   discoveredModoTables: discovered,
+  tableReviewMatrixPath: csvFile,
+  tableReviewRows: tableRows.length,
+  tableReviewCompleted: false,
   referencedModoTables: [...foreignKeys].sort(),
   knownCriticalTablesMissingFromScan: required.filter(x => !tableNames.has(x)),
   externalIntegrationSourceFiles: Object.fromEntries(
@@ -70,5 +114,6 @@ console.log("Privacy static audit", JSON.stringify({
   integrations: Object.fromEntries(Object.entries(report.externalIntegrationSourceFiles).map(([k,v])=>[k,v.length])),
 }));
 console.log("REPORT: " + dest);
+console.log("MATRIX: " + csvFile + " (all tables require individual review)");
 console.log("BLOCKED: not a complete data inventory; automatic deletion forbidden");
 if (report.knownCriticalTablesMissingFromScan.length) process.exitCode = 1;

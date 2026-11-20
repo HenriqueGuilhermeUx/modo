@@ -27,6 +27,8 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: modo-privacy-dependency-audit
-          path: tmp/modo-privacy-source-inventory.json
+          path: |
+            tmp/modo-privacy-source-inventory.json
+            tmp/modo-privacy-table-review-matrix.csv
           retention-days: 14
           if-no-files-found: ignore

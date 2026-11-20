@@ -128,3 +128,12 @@ export async function requestAccountDeletion(token: string): Promise<{ requestId
   }
   return response;
 }
+
+/** Read back the pending request scoped to the authenticated user. */
+export async function getPendingAccountDeletion(token: string): Promise<{ request: { requestId: string; status: "pending"; createdAt: string } | null }> {
+  return request<{ request: { requestId: string; status: "pending"; createdAt: string } | null }>(
+    "/api/v1/auth/account-deletion-requests/current",
+    undefined,
+    token,
+  );
+}

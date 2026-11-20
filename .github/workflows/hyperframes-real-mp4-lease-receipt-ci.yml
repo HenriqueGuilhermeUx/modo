@@ -1,0 +1,316 @@
+name: HyperFrames real synthetic MP4 lease-signed receipt E2E
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/hyperframes-real-mp4-lease-receipt-ci.yml'
+      - 'infra/hyperframes-staging/static-renderer*'
+      - 'infra/hyperframes-staging/static-handoff-lease-v2.mjs'
+      - 'infra/hyperframes-staging/static-handoff-pg-lease.mjs'
+      - 'infra/hyperframes-staging/static-lease-mp4-receipt-v2.mjs'
+      - 'infra/hyperframes-staging/static-real-mp4-receipt-e2e.mjs'
+      - 'infra/hyperframes-staging/static-browser-launch*'
+      - 'infra/hyperframes-staging/static-renderer-broker*'
+      - 'infra/hyperframes-staging/0*.sql'
+      - 'apps/api/src/services/hyperframes-static-storyboard.ts'
+      - 'infra/hyperframes-staging/static-remotion-visual-divergence-audit.mjs'
+      - 'apps/api/src/video-remotion-entry.ts'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  offline-real-mp4-receipt:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_DB: modo_hyperframes_staging
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres -d modo_hyperframes_staging"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=8
+    env:
+      NODE_ENV: test
+      MODO_HYPERFRAMES_RECOVERY_MODE: isolated-staging
+      MODO_HYPERFRAMES_DB_MODE: isolated-staging
+      MODO_HYPERFRAMES_STORAGE_MODE: isolated-staging
+      MODO_HF_HANDOFF_MODE: synthetic-ci-only
+      MODO_HF_MP4_RECEIPT_MODE: synthetic-ci-only
+      MODO_HF_PREFLIGHT_MODE: synthetic-ci-only
+      MODO_HF_BROWSER_LAUNCH_MODE: synthetic-ci-only
+      MODO_HF_BROKER_SERVER_MODE: synthetic-ci-only
+      MODO_HF_VISUAL_PARITY_MODE: synthetic-ci-only
+      MODO_HYPERFRAMES_PG_TEST_DATABASE_URL: postgresql://postgres@127.0.0.1:5432/modo_hyperframes_staging
+      PGHOST: 127.0.0.1
+      PGPORT: "5432"
+      PGUSER: postgres
+      PGDATABASE: modo_hyperframes_staging
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install MODO synthetic exporter and build isolated renderer
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --include=dev --no-audit --no-fund
+          npm run build --workspace=@modo/api
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends ffmpeg
+          command -v ffprobe
+          docker build -f infra/hyperframes-staging/static-renderer.Dockerfile -t modo-hf-static-receipt:ci .
+
+      - name: Guard disposable database and apply existing isolated migrations
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$PGDATABASE" = modo_hyperframes_staging
+          psql -v ON_ERROR_STOP=1 -Atc "SELECT current_database()" | grep -x modo_hyperframes_staging
+          for n in 001_render_jobs 002_encrypted_render_artifacts 003_encrypted_render_snapshots 004_worker_role 005_synthetic_handoff_nonces 006_synthetic_lease_handoffs 007_synthetic_receipt_attestations 008_synthetic_encrypted_finalization 009_synthetic_browser_launch_once 010_synthetic_lease_renewal_epochs 011_synthetic_v3_continuation_snapshot 012_synthetic_mp4_output_receipts_v3 013_synthetic_v3_encrypted_finalization; do
+            psql -v ON_ERROR_STOP=1 -f "infra/hyperframes-staging/$n.sql"
+          done
+
+      - name: Prepare ephemeral order and private output mount
+        shell: bash
+        run: |
+          set -euo pipefail
+          IN="$RUNNER_TEMP/hf-receipt-signed-input"
+          OUT="$RUNNER_TEMP/hf-receipt-real-output"
+          test ! -e "$IN" && test ! -e "$OUT"
+          mkdir -m 0755 -p "$IN"
+          mkdir -m 0700 -p "$OUT"
+          MODO_HF_STATIC_SIGN_FIXTURE=synthetic-ci-only node infra/hyperframes-staging/static-renderer-sign-synthetic.mjs "$IN"
+          test ! -e "$IN/private-key.pem"
+          test "$(find "$IN" -maxdepth 1 -type f | wc -l)" -eq 4
+          sudo chown 10001:10001 "$OUT"
+
+      - name: Authorize a staging lease BEFORE the renderer starts
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check infra/hyperframes-staging/static-renderer-admission.cjs
+          node --check infra/hyperframes-staging/static-renderer-preflight-synthetic.mjs
+          node --import tsx infra/hyperframes-staging/static-renderer-preflight-synthetic.mjs "$RUNNER_TEMP/hf-receipt-signed-input"
+          for f in preflight-meta.json admission.json admission-public-key.pem admission-tampered.json admission-expired.json; do
+            test -s "$RUNNER_TEMP/hf-receipt-signed-input/$f"
+          done
+          test ! -e "$RUNNER_TEMP/hf-receipt-signed-input/private-key.pem"
+          test ! -e "$RUNNER_TEMP/hf-receipt-real-output/synthetic.mp4"
+
+      - name: Reject tampered and expired admissions before Chrome
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker network create --driver bridge --internal hf-real-receipt-only
+          test "$(docker network inspect -f '{{.Internal}}' hf-real-receipt-only)" = true
+          for case in admission-tampered admission-expired; do
+            set +e
+            OUT="$(timeout --signal=TERM --kill-after=3s 20s docker run --rm \
+              --network hf-real-receipt-only --read-only --cap-drop ALL \
+              --security-opt no-new-privileges --pids-limit=128 --memory=4g --cpus=2 \
+              -e MODO_HF_STATIC_EXPORT_MODE=synthetic-ci-artifact \
+              -e MODO_HF_STATIC_ADMISSION_MODE=synthetic-ci-only \
+              -e MODO_HF_STATIC_BROKER_MODE=synthetic-ci-only \
+              --mount "type=bind,source=$RUNNER_TEMP/hf-receipt-signed-input/order.json,target=/input/order.json,readonly" \
+              --mount "type=bind,source=$RUNNER_TEMP/hf-receipt-signed-input/public-key.pem,target=/input/public-key.pem,readonly" \
+              --mount "type=bind,source=$RUNNER_TEMP/hf-receipt-signed-input/admission-public-key.pem,target=/input/admission-public-key.pem,readonly" \
+              --mount "type=bind,source=$RUNNER_TEMP/hf-receipt-signed-input/$case.json,target=/input/admission.json,readonly" \
+              --mount "type=bind,source=$RUNNER_TEMP/hf-receipt-real-output,target=/output" \
+              modo-hf-static-receipt:ci 2>&1)"
+            STATUS="$?"
+            set -e
+            test "$STATUS" -ne 0
+            printf '%s\n' "$OUT" | grep -F HF_STATIC_RENDERER_ADMISSION_DENIED
+            test ! -e "$RUNNER_TEMP/hf-receipt-real-output/synthetic.mp4"
+          done
+
+      - name: Start trusted host broker and bake ephemeral public key into renderer image
+        shell: bash
+        run: |
+          set -euo pipefail
+          BROKER="$RUNNER_TEMP/hf-receipt-host-broker"
+          test ! -e "$BROKER"
+          mkdir -m 0755 "$BROKER"
+          node --check infra/hyperframes-staging/static-renderer-broker-server.mjs
+          node --check infra/hyperframes-staging/static-renderer-broker-client.cjs
+          nohup node --import tsx infra/hyperframes-staging/static-renderer-broker-server.mjs \
+            "$RUNNER_TEMP/hf-receipt-signed-input" "$BROKER" \
+            > "$BROKER/broker.log" 2>&1 </dev/null &
+          echo "$!" > "$BROKER/broker.pid"
+          for i in $(seq 1 70); do
+            if test -S "$BROKER/launch.sock" && test -s "$BROKER/attest-public.pem"; then break; fi
+            kill -0 "$(cat "$BROKER/broker.pid")" || { cat "$BROKER/broker.log"; exit 1; }
+            sleep 0.2
+          done
+          test -S "$BROKER/launch.sock"
+          test -s "$BROKER/attest-public.pem"
+          # Bind only to isolated renderer UID, never a world-writable socket.
+          sudo chown 10001:10001 "$BROKER/launch.sock"
+          sudo chmod 0600 "$BROKER/launch.sock"
+          test "$(stat -c '%u:%g:%a' "$BROKER/launch.sock")" = '10001:10001:600'
+          # A different local UID cannot connect, even knowing the socket path.
+          if sudo -u nobody python3 -c 'import socket,sys; s=socket.socket(socket.AF_UNIX); s.connect(sys.argv[1])' "$BROKER/launch.sock" 2>"$BROKER/other-uid.err"; then
+            echo 'Unexpected socket access for foreign UID'
+            exit 1
+          fi
+          grep -F 'PermissionError' "$BROKER/other-uid.err"
+          test ! -e "$RUNNER_TEMP/hf-receipt-signed-input/launch-confirmation.json"
+          printf '*\n!attest-public.pem\n' > "$BROKER/.dockerignore"
+          docker build -f - -t modo-hf-pinned-broker:ci "$BROKER" \
+            < infra/hyperframes-staging/static-renderer-broker.Dockerfile
+
+      - name: Copied signed admission WITHOUT broker fails before Chrome
+        shell: bash
+        run: |
+          set -euo pipefail
+          set +e
+          OUTPUT="$(timeout --signal=TERM --kill-after=3s 12s docker run --rm \
+            --network hf-real-receipt-only --read-only --cap-drop ALL \
+            --security-opt no-new-privileges --pids-limit=128 --memory=4g --cpus=2 \
+            -e MODO_HF_STATIC_EXPORT_MODE=synthetic-ci-artifact \
+            -e MODO_HF_STATIC_ADMISSION_MODE=synthetic-ci-only \
+            -e MODO_HF_STATIC_BROKER_MODE=synthetic-ci-only \
+            --mount "type=bind,source=$RUNNER_TEMP/hf-receipt-signed-input/order.json,target=/input/order.json,readonly" \
+            --mount "type=bind,source=$RUNNER_TEMP/hf-receipt-signed-input/public-key.pem,target=/input/public-key.pem,readonly" \
+            --mount "type=bind,source=$RUNNER_TEMP/hf-receipt-signed-input/admission.json,target=/input/admission.json,readonly" \
+            --mount "type=bind,source=$RUNNER_TEMP/hf-receipt-signed-input/admission-public-key.pem,target=/input/admission-public-key.pem,readonly" \
+            --mount "type=bind,source=$RUNNER_TEMP/hf-receipt-real-output,target=/output" \
+            modo-hf-pinned-broker:ci 2>&1)"
+          STATUS="$?"
+          set -e
+          test "$STATUS" -ne 0
+          printf '%s\n' "$OUTPUT" | grep -F HF_STATIC_RENDERER_BROKER_GRANT_DENIED
+          test ! -e "$RUNNER_TEMP/hf-receipt-real-output/synthetic.mp4"
+          test ! -e "$RUNNER_TEMP/hf-receipt-signed-input/launch-confirmation.json"
+
+      - name: Produce true 150-frame MP4 with no outward browser network
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(docker network inspect -f '{{.Internal}}' hf-real-receipt-only)" = true
+          # Proof is created only AFTER the running container wins broker grant.
+          test ! -e "$RUNNER_TEMP/hf-receipt-signed-input/launch-confirmation.json"
+          # Give a precise failure signal without exposing signed input, keys or DB values.
+          if ! test -S "$RUNNER_TEMP/hf-receipt-host-broker/launch.sock"; then
+            echo 'BROKER_SOCKET_MISSING_BEFORE_RENDER'
+            exit 1
+          fi
+          test "$(stat -c '%u:%g:%a' "$RUNNER_TEMP/hf-receipt-host-broker/launch.sock")" = '10001:10001:600'
+          kill -0 "$(cat "$RUNNER_TEMP/hf-receipt-host-broker/broker.pid")"
+          set +e
+          timeout --signal=TERM --kill-after=5s 145s docker run --rm \
+            --network hf-real-receipt-only --read-only --cap-drop ALL \
+            --security-opt no-new-privileges --pids-limit=128 \
+            --memory=4g --cpus=2 --shm-size=256m \
+            --tmpfs /tmp:rw,nosuid,size=2g,mode=1777 \
+            --tmpfs /home/renderonly:rw,nosuid,size=64m,mode=0700,uid=10001,gid=10001 \
+            -e MODO_HF_STATIC_EXPORT_MODE=synthetic-ci-artifact \
+            -e MODO_HF_STATIC_ADMISSION_MODE=synthetic-ci-only \
+            -e MODO_HF_STATIC_BROKER_MODE=synthetic-ci-only \
+            --mount type=bind,source="$RUNNER_TEMP/hf-receipt-host-broker",target=/broker \
+            --mount type=bind,source="$RUNNER_TEMP/hf-receipt-signed-input/admission.json",target=/input/admission.json,readonly \
+            --mount type=bind,source="$RUNNER_TEMP/hf-receipt-signed-input/admission-public-key.pem",target=/input/admission-public-key.pem,readonly \
+            --mount type=bind,source="$RUNNER_TEMP/hf-receipt-signed-input/order.json",target=/input/order.json,readonly \
+            --mount type=bind,source="$RUNNER_TEMP/hf-receipt-signed-input/public-key.pem",target=/input/public-key.pem,readonly \
+            --mount type=bind,source="$RUNNER_TEMP/hf-receipt-real-output",target=/output \
+            modo-hf-pinned-broker:ci
+          RENDER_STATUS="$?"
+          set -e
+          if test "$RENDER_STATUS" -ne 0; then
+            echo "BROKER_RENDER_CONTAINER_EXIT=$RENDER_STATUS"
+            test -S "$RUNNER_TEMP/hf-receipt-host-broker/launch.sock" && echo 'BROKER_SOCKET_PRESENT_AFTER_FAILURE' || echo 'BROKER_SOCKET_MISSING_AFTER_FAILURE'
+            if kill -0 "$(cat "$RUNNER_TEMP/hf-receipt-host-broker/broker.pid")" 2>/dev/null; then
+              echo 'BROKER_HOST_PROCESS_ALIVE'
+            else
+              echo 'BROKER_HOST_PROCESS_EXITED'
+            fi
+            if test -e "$RUNNER_TEMP/hf-receipt-signed-input/launch-confirmation.json"; then
+              echo 'BROKER_DB_CLAIM_CONFIRMED'
+            else
+              echo 'BROKER_DB_CLAIM_NOT_CONFIRMED'
+            fi
+            # Only diagnostic markers: never print private inputs or broker log contents.
+            exit "$RENDER_STATUS"
+          fi
+          sudo chown -R "$(id -u):$(id -g)" "$RUNNER_TEMP/hf-receipt-real-output"
+          test -s "$RUNNER_TEMP/hf-receipt-real-output/synthetic.mp4"
+          test -s "$RUNNER_TEMP/hf-receipt-signed-input/launch-confirmation.json"
+          test ! -e "$RUNNER_TEMP/hf-receipt-real-output/receipt.json"
+
+      - name: Reject SECOND Chrome process with SAME valid admission and live broker
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s "$RUNNER_TEMP/hf-receipt-signed-input/launch-confirmation.json"
+          HASH_BEFORE="$(sha256sum "$RUNNER_TEMP/hf-receipt-real-output/synthetic.mp4" | cut -d' ' -f1)"
+          set +e
+          OUT="$(timeout --signal=TERM --kill-after=3s 15s docker run --rm \
+            --network hf-real-receipt-only --read-only --cap-drop ALL \
+            --security-opt no-new-privileges --pids-limit=128 --memory=4g --cpus=2 \
+            -e MODO_HF_STATIC_EXPORT_MODE=synthetic-ci-artifact \
+            -e MODO_HF_STATIC_ADMISSION_MODE=synthetic-ci-only \
+            -e MODO_HF_STATIC_BROKER_MODE=synthetic-ci-only \
+            --mount "type=bind,source=$RUNNER_TEMP/hf-receipt-host-broker,target=/broker" \
+            --mount "type=bind,source=$RUNNER_TEMP/hf-receipt-signed-input/order.json,target=/input/order.json,readonly" \
+            --mount "type=bind,source=$RUNNER_TEMP/hf-receipt-signed-input/public-key.pem,target=/input/public-key.pem,readonly" \
+            --mount "type=bind,source=$RUNNER_TEMP/hf-receipt-signed-input/admission.json,target=/input/admission.json,readonly" \
+            --mount "type=bind,source=$RUNNER_TEMP/hf-receipt-signed-input/admission-public-key.pem,target=/input/admission-public-key.pem,readonly" \
+            --mount "type=bind,source=$RUNNER_TEMP/hf-receipt-real-output,target=/output" \
+            modo-hf-pinned-broker:ci 2>&1)"
+          CODE="$?"
+          set -e
+          test "$CODE" -ne 0
+          printf '%s\n' "$OUT" | grep -F HF_STATIC_RENDERER_BROKER_GRANT_DENIED
+          test "$(sha256sum "$RUNNER_TEMP/hf-receipt-real-output/synthetic.mp4" | cut -d' ' -f1)" = "$HASH_BEFORE"
+
+      - name: Independently verify real bytes and sign receipt tied to PostgreSQL lease
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check infra/hyperframes-staging/static-lease-mp4-receipt-v2.mjs
+          node --check infra/hyperframes-staging/static-real-mp4-receipt-e2e.mjs
+          node --check infra/hyperframes-staging/static-synthetic-mp4-pg-receipt-ledger.mjs
+          node --import tsx infra/hyperframes-staging/static-real-mp4-receipt-e2e.mjs \
+            "$RUNNER_TEMP/hf-receipt-signed-input" "$RUNNER_TEMP/hf-receipt-real-output"
+          test -s "$RUNNER_TEMP/hf-receipt-real-output/receipt.json"
+          test -s "$RUNNER_TEMP/hf-receipt-real-output/receipt-public-key.pem"
+          test ! -e "$RUNNER_TEMP/hf-receipt-signed-input/private-key.pem"
+          test ! -e "$RUNNER_TEMP/hf-receipt-real-output/private-key.pem"
+
+      - name: Compare actual Remotion frames against synthetic HyperFrames video (parity NOT approved)
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s "$RUNNER_TEMP/hf-receipt-real-output/synthetic.mp4"
+          test -s "$RUNNER_TEMP/hf-receipt-signed-input/order.json"
+          node --check infra/hyperframes-staging/static-remotion-visual-divergence-audit.mjs
+          node --import tsx infra/hyperframes-staging/static-remotion-visual-divergence-audit.mjs \
+            "$RUNNER_TEMP/hf-receipt-signed-input" \
+            "$RUNNER_TEMP/hf-receipt-real-output/synthetic.mp4"
+          test -s "$RUNNER_TEMP/hf-receipt-real-output/synthetic.mp4"
+          test ! -e "$RUNNER_TEMP/hf-receipt-real-output/remotion-reference.mp4"
+
+      - name: Destroy temporary video, public receipt, test inputs and network
+        if: always()
+        shell: bash
+        run: |
+          docker ps -aq --filter network=hf-real-receipt-only | xargs -r docker rm -f || true
+          docker network rm hf-real-receipt-only || true
+          if test -s "$RUNNER_TEMP/hf-receipt-host-broker/broker.pid"; then
+            kill "$(cat "$RUNNER_TEMP/hf-receipt-host-broker/broker.pid")" || true
+          fi
+          sudo rm -rf "$RUNNER_TEMP/hf-receipt-host-broker"
+          sudo rm -rf "$RUNNER_TEMP/hf-receipt-signed-input" "$RUNNER_TEMP/hf-receipt-real-output"
+          echo "No media, receipt, keys, customer data or deployment retained"

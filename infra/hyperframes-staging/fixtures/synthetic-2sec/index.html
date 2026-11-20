@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<style>
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; background: #090e17; font-family: Arial, sans-serif; }
+#root { position: relative; width: 1080px; height: 1920px; overflow: hidden; background: #090e17; color: white; isolation: isolate; }
+.clip { position: absolute; inset: 0; width: 100%; height: 100%; }
+.scene { display: flex; flex-direction: column; justify-content: center; padding: 9%; gap: 3%; }
+.brand { color: #2ED19A; font-size: 34px; font-weight: 800; letter-spacing: 4px; }
+h1 { font-size: 90px; line-height: 1.1; margin: 0; }
+p { font-size: 40px; opacity: .85; }
+</style>
+</head>
+<body>
+<div id="root" data-composition-id="root" data-no-timeline data-start="0" data-duration="2" data-fps="30" data-width="1080" data-height="1920">
+  <section id="scene-1" class="clip scene" data-start="0" data-duration="2" data-track-index="0">
+    <div class="brand">MODO LAB</div>
+    <h1>Composição sintética</h1>
+    <p>Smoke test isolado · nenhum dado de clientes.</p>
+  </section>
+</div>
+</body>
+</html>

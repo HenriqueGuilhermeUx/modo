@@ -1,0 +1,28 @@
+name: HyperFrames synthetic handoff and signed receipt contract
+on:
+  pull_request:
+    paths:
+      - 'infra/hyperframes-staging/static-handoff-contract.mjs'
+      - 'infra/hyperframes-staging/static-handoff-contract.test.mjs'
+      - '.github/workflows/hyperframes-synthetic-handoff-contract-ci.yml'
+      - 'docs/integrations/HYPERFRAMES_SYNTHETIC_HANDOFF_CONTRACT.md'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  synthetic-handoff:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Isolated signed handoff tests
+        env:
+          NODE_ENV: test
+          MODO_HF_HANDOFF_MODE: synthetic-ci-only
+        run: |
+          node --check infra/hyperframes-staging/static-handoff-contract.mjs
+          node --check infra/hyperframes-staging/static-handoff-contract.test.mjs
+          node --test infra/hyperframes-staging/static-handoff-contract.test.mjs

@@ -1,0 +1,110 @@
+name: HyperFrames real CLI + signed staging Postgres E2E
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/hyperframes-real-pg-e2e.yml'
+      - 'apps/api/src/scripts/hyperframes-staging-one-shot.ts'
+      - 'apps/api/src/scripts/hyperframes-staging-real-pg-e2e.ts'
+      - 'apps/api/src/services/hyperframes-staging-pg-work-order*'
+      - 'apps/api/src/services/hyperframes-staging-pg-recovery.ts'
+      - 'apps/api/src/services/hyperframes-staging-pg-snapshots.ts'
+      - 'apps/api/src/services/hyperframes-staging-pg-artifacts.ts'
+      - 'apps/api/src/services/hyperframes-staging-worker.ts'
+      - 'infra/hyperframes-staging/00*.sql'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  real-signed-one-shot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_DB: modo_hyperframes_staging
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres -d modo_hyperframes_staging"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=8
+    env:
+      NODE_ENV: test
+      MODO_HYPERFRAMES_WORKER_MODE: isolated-staging
+      MODO_HYPERFRAMES_RECOVERY_MODE: isolated-staging
+      MODO_HYPERFRAMES_DB_MODE: isolated-staging
+      MODO_HYPERFRAMES_STORAGE_MODE: isolated-staging
+      MODO_HYPERFRAMES_REAL_PG_CI: isolated-staging
+      MODO_HYPERFRAMES_PG_TEST_DATABASE_URL: postgresql://postgres@127.0.0.1:5432/modo_hyperframes_staging
+      PGHOST: 127.0.0.1
+      PGPORT: "5432"
+      PGUSER: postgres
+      PGDATABASE: modo_hyperframes_staging
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install pinned tools in disposable runner only
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq ffmpeg
+          npm install --prefix "$RUNNER_TEMP/hyperframes-cli" \
+            --no-audit --no-fund --ignore-scripts --save-exact hyperframes@0.8.207
+          command -v ffprobe
+          test -x "$RUNNER_TEMP/hyperframes-cli/node_modules/.bin/hyperframes"
+
+      - name: Install MODO workspace and compile staging-only scripts
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --include=dev
+          npm run typecheck --workspace=@modo/api
+          npm run build --workspace=@modo/api
+
+      - name: Apply isolated Postgres schemas only to named disposable DB
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$PGDATABASE" = modo_hyperframes_staging
+          psql -v ON_ERROR_STOP=1 -Atc "SELECT current_database()" | grep -x modo_hyperframes_staging
+          psql -v ON_ERROR_STOP=1 -f infra/hyperframes-staging/001_render_jobs.sql
+          psql -v ON_ERROR_STOP=1 -f infra/hyperframes-staging/002_encrypted_render_artifacts.sql
+          psql -v ON_ERROR_STOP=1 -f infra/hyperframes-staging/003_encrypted_render_snapshots.sql
+
+      - name: Real signed one-shot render, encrypted storage and duplicate rejection
+        shell: bash
+        env:
+          MODO_HYPERFRAMES_BIN: ${{ runner.temp }}/hyperframes-cli/node_modules/.bin/hyperframes
+          MODO_HYPERFRAMES_FFPROBE_BIN: /usr/bin/ffprobe
+        run: |
+          set -euo pipefail
+          timeout --signal=TERM --kill-after=15s 660s \
+            node apps/api/dist/scripts/hyperframes-staging-real-pg-e2e.js
+
+      - name: Confirm no synthetic task was published
+        shell: bash
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 -Atc \
+            "SELECT count(*) FROM modo_hyperframes_staging.render_jobs WHERE organization_id='isolated-real-cli-ci'" \
+            | grep -x 0
+          echo "Synthetic staging data removed; no public API or Publisher calls"
+
+      - name: Clean generated files
+        if: always()
+        shell: bash
+        run: |
+          rm -rf "$RUNNER_TEMP/hyperframes-cli"
+          echo "Temporary GitHub runner will be discarded; no video artifacts uploaded"

@@ -1,0 +1,107 @@
+name: HyperFrames staging synthetic CDP-FFmpeg isolation proof
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/hyperframes-cdp-ffmpeg-synthetic-ci.yml'
+      - 'infra/hyperframes-staging/worker.Dockerfile'
+      - 'infra/hyperframes-staging/worker.Dockerfile.dockerignore'
+      - 'infra/hyperframes-staging/chrome-headless-wrapper.sh'
+      - 'infra/hyperframes-staging/cdp-ffmpeg-synthetic.cjs'
+      - 'infra/hyperframes-staging/modo-static-storyboard-synthetic.cjs'
+      - 'apps/api/src/services/hyperframes-static-storyboard.ts'
+      - 'apps/api/src/services/hyperframes-static-storyboard.test.ts'
+      - 'apps/api/src/services/hyperframes-project-preview.ts'
+      - 'apps/api/src/services/hyperframes-pilot.ts'
+      - 'infra/hyperframes-staging/fixtures/synthetic-2sec/index.html'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  synthetic-cdp-ffmpeg:
+    runs-on: ubuntu-latest
+    timeout-minutes: 16
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build non-root experimental image without runtime credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker build -f infra/hyperframes-staging/worker.Dockerfile \
+            -t modo-hf-synthetic-cdp:ci .
+
+      - name: Create disposable internal-only Docker network
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker network create --driver bridge --internal hf-cdp-offline
+          test "$(docker network inspect -f '{{.Internal}}' hf-cdp-offline)" = true
+
+      - name: Verify no external egress and localhost TCP works
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 12s docker run --rm --network hf-cdp-offline --read-only \
+            --cap-drop ALL --security-opt no-new-privileges \
+            --pids-limit=128 --memory=4g --cpus=2 \
+            --tmpfs /tmp:rw,nosuid,size=64m,mode=1777 \
+            --entrypoint /usr/local/bin/node modo-hf-synthetic-cdp:ci \
+            -e '
+              const net=require("node:net");
+              let localOk=false, externalDenied=false;
+              const server=net.createServer(()=>{}).listen(0,"127.0.0.1",()=>{
+                const c=net.connect(server.address().port,"127.0.0.1");
+                c.once("connect",()=>{localOk=true;c.destroy();server.close();finish();});
+                c.once("error",()=>process.exit(21));
+              });
+              const x=net.connect({host:"1.1.1.1",port:443,timeout:1500});
+              x.once("connect",()=>process.exit(22));
+              x.once("error",e=>{
+                if(!["ENETUNREACH","EHOSTUNREACH","EACCES","ETIMEDOUT"].includes(e.code))process.exit(23);
+                externalDenied=true;finish();
+              });
+              x.once("timeout",()=>{externalDenied=true;x.destroy();finish();});
+              function finish(){if(localOk&&externalDenied)console.log("offline-loopback-verified");}
+            '
+
+      - name: Render two synthetic Chrome screenshots into verified 2s H264 MP4
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout --signal=TERM --kill-after=5s 120s \
+            docker run --rm --network hf-cdp-offline --read-only \
+              --cap-drop ALL --security-opt no-new-privileges \
+              --pids-limit=128 --memory=4g --cpus=2 --shm-size=256m \
+              --tmpfs /tmp:rw,nosuid,size=2g,mode=1777 \
+              --tmpfs /home/hfworker:rw,nosuid,size=64m,mode=0700,uid=10001,gid=10001 \
+              --mount type=bind,source="${PWD}/infra/hyperframes-staging/fixtures/synthetic-2sec",target=/fixtures,readonly \
+              --env MODO_HF_SYNTHETIC_CI=only-fixture \
+              --entrypoint /usr/local/bin/node \
+              modo-hf-synthetic-cdp:ci /opt/hf-cdp-ffmpeg-synthetic.cjs
+
+      - name: Render validated MODO storyboard with three exact frame-length scenes
+        shell: bash
+        run: |
+          set -euo pipefail
+          # The browser container has NO DB socket, login password, HMAC key,
+          # real VideoProject, customer asset or public service listener.
+          timeout --signal=TERM --kill-after=5s 120s \
+            docker run --rm --network hf-cdp-offline --read-only \
+              --cap-drop ALL --security-opt no-new-privileges \
+              --pids-limit=128 --memory=4g --cpus=2 --shm-size=256m \
+              --tmpfs /tmp:rw,nosuid,size=2g,mode=1777 \
+              --tmpfs /home/hfworker:rw,nosuid,size=64m,mode=0700,uid=10001,gid=10001 \
+              --env MODO_HF_STATIC_STORYBOARD_CI=synthetic-only \
+              --entrypoint /usr/local/bin/node \
+              modo-hf-synthetic-cdp:ci /opt/hf-modo-storyboard-synthetic.cjs
+
+      - name: Dispose network and synthetic data
+        if: always()
+        shell: bash
+        run: |
+          docker ps -aq --filter network=hf-cdp-offline | xargs -r docker rm -f || true
+          docker network rm hf-cdp-offline || true
+          echo "No video artifacts uploaded; ephemeral runner deleted at completion"

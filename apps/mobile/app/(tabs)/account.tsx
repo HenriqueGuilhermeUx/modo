@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Alert, Linking, Pressable, StyleSheet, Text, View } from "react-native";
+import { getPendingAccountDeletion, requestAccountDeletion } from "../../src/api";
 import { useSession } from "../../src/session";
 import { BrandMark, Button, Card, Pill, Screen, SectionHeading, typography } from "../../src/ui";
 import { colors, radii, spacing } from "../../src/theme";
@@ -28,17 +29,27 @@ const statusLabels = {
 } as const;
 
 export default function AccountScreen() {
-  const { dashboard, signOut } = useSession();
-  const [requestOpened, setRequestOpened] = useState(false);
+  const { dashboard, signOut, token } = useSession();
+  const [submittingDeletion, setSubmittingDeletion] = useState(false);
+  const [deletionTicket, setDeletionTicket] = useState("");
+  const [requestError, setRequestError] = useState("");
+  useEffect(() => {
+    let live = true;
+    if (!token) return;
+    getPendingAccountDeletion(token)
+      .then(({ request }) => { if (live) setDeletionTicket(request?.requestId ?? ""); })
+      .catch(() => { /* Status readback failure does not imply no pending request. */ });
+    return () => { live = false; };
+  }, [token]);
+
 
   if (!dashboard) return <Screen><Text style={typography.body}>Sincronizando sua conta...</Text></Screen>;
   const accountEmail = dashboard.user.email;
-  const organizationName = dashboard.organization.name;
 
   function confirmDeletion() {
     Alert.alert(
       "Iniciar exclusão da conta?",
-      "Abriremos um pedido identificado pelo e-mail da sua conta. Você receberá as orientações sobre confirmação, dados envolvidos e prazo de exclusão.",
+      "A MODO registrará um pedido associado à sua sessão e apresentará um protocolo. Isso inicia a análise; não apaga dados automaticamente. Confirme para continuar.",
       [
         { text: "Voltar", style: "cancel" },
         { text: "Continuar", style: "destructive", onPress: () => void openDeletionRequest() },
@@ -47,23 +58,21 @@ export default function AccountScreen() {
   }
 
   async function openDeletionRequest() {
-    const subject = encodeURIComponent("Solicitação de exclusão da conta MODO");
-    const body = encodeURIComponent([
-      "Solicito a exclusão da minha conta e dos dados vinculados na MODO.",
-      "",
-      `E-mail da conta: ${accountEmail}`,
-      `Organização: ${organizationName}`,
-      "",
-      "Confirmarei a solicitação conforme as orientações de segurança.",
-    ].join("\n"));
-    const mailto = `mailto:${SUPPORT_EMAIL}?subject=${subject}&body=${body}`;
-    const supported = await Linking.canOpenURL(mailto);
-    if (supported) {
-      await Linking.openURL(mailto);
-    } else {
-      await Linking.openURL(DELETION_URL);
+    setRequestError("");
+    if (!token) {
+      setRequestError("Entre novamente na MODO para solicitar a exclusão.");
+      return;
     }
-    setRequestOpened(true);
+    setSubmittingDeletion(true);
+    try {
+      const ticket = await requestAccountDeletion(token);
+      setDeletionTicket(ticket.requestId);
+    } catch {
+      // No false success: the API must acknowledge and persist the request.
+      setRequestError("Não conseguimos registrar o pedido agora. Sua conta não foi alterada. Use as instruções públicas ou fale com o suporte.");
+    } finally {
+      setSubmittingDeletion(false);
+    }
   }
 
   return (
@@ -92,9 +101,10 @@ export default function AccountScreen() {
 
       <Card style={styles.safetyCard}>
         <Text style={styles.label}>CONTROLE DA CONTA</Text>
-        <Text style={typography.body}>Você pode iniciar a exclusão pelo aplicativo. O pedido usa o e-mail autenticado e precisa ser confirmado para impedir exclusões indevidas.</Text>
-        {requestOpened ? <View style={styles.success}><Text style={styles.successText}>✓ Canal de exclusão aberto. Conclua o envio ou siga as instruções exibidas.</Text></View> : null}
-        <Button variant="danger" onPress={confirmDeletion}>Iniciar pedido de exclusão</Button>
+        <Text style={typography.body}>Você pode registrar uma solicitação autenticada neste aplicativo. Receberá um protocolo; a análise e a exclusão efetiva são etapas separadas, sujeitas à verificação e à retenção legal.</Text>
+        {deletionTicket ? <View style={styles.success}><Text style={styles.successText}>Solicitação registrada. Protocolo: {deletionTicket}. A conta ainda não foi excluída; aguarde a análise e confirmação do suporte.</Text></View> : null}
+        {requestError ? <Text accessibilityRole="alert" style={styles.errorText}>{requestError}</Text> : null}
+        <Button variant="danger" onPress={confirmDeletion} loading={submittingDeletion} disabled={submittingDeletion || Boolean(deletionTicket)}>Solicitar exclusão da conta</Button>
       </Card>
 
       <Button variant="ghost" onPress={() => void signOut()}>Sair deste dispositivo</Button>
@@ -133,5 +143,6 @@ const styles = StyleSheet.create({
   safetyCard: { gap: spacing.md, borderColor: "#FECDCA" },
   success: { borderRadius: radii.medium, backgroundColor: colors.greenSoft, padding: spacing.md },
   successText: { color: "#087A56", fontSize: 13, lineHeight: 20, fontWeight: "900" },
+  errorText: { color: colors.danger, fontSize: 13, lineHeight: 20 },
   footer: { color: colors.subtle, fontSize: 10, lineHeight: 16, textAlign: "center", paddingHorizontal: spacing.lg },
 });

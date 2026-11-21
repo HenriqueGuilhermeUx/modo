@@ -93,6 +93,7 @@ const report = {
   discoveredModoTables: discovered,
   tableReviewMatrixPath: csvFile,
   tableReviewRows: tableRows.length,
+  tableReviewDetails: tableRows.map(({table, inferredDomain, mandatoryReview, sourceFiles}) => ({table, inferredDomain, mandatoryReview, sourceFiles: sourceFiles.split(';').filter(Boolean)})),
   tableReviewCompleted: false,
   referencedModoTables: [...foreignKeys].sort(),
   knownCriticalTablesMissingFromScan: required.filter(x => !tableNames.has(x)),

@@ -35,6 +35,15 @@ try {
     "modo_account_deletion_requests", "modo_brands"
   ];
   const missingCritical = critical.filter(name => !runtime.includes(name));
+  const tableDetail = new Map((inventory.tableReviewDetails ?? []).map(item => [item.table, item]));
+  const missingModuleReviews = unmatchedSource.map(table => ({
+    table,
+    sourceEvidence: tableDetail.get(table)?.sourceFiles ?? [],
+    inferredDomain: tableDetail.get(table)?.inferredDomain ?? "unclassified",
+    mandatoryReview: tableDetail.get(table)?.mandatoryReview ?? "OWNER_AND_SCHEMA_REVIEW",
+    reason: "Not initialized by this CI fixture; production absence NOT established",
+    deletionAutomationAllowed: false,
+  }));
   const report = {
     kind: "ephemeral_postgresql_schema_diff_not_production",
     containsCustomerRows: false, customerDataRead: false, deletionOperationsPerformed: false,
@@ -42,6 +51,7 @@ try {
     codeDiscoveredTableCount: statics.length, disposableDatabaseTableCount: runtime.length,
     matchedCount: overlap.length,
     sourceOnlyTables: unmatchedSource,
+    sourceOnlyReviewDetails: missingModuleReviews,
     runtimeOnlyTables: unmatchedDatabase,
     missingCritical,
     fullyInitializedProductionEquivalent: false,

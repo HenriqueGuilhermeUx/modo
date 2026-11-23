@@ -1,0 +1,30 @@
+name: MODO iOS release contract (read only)
+
+on:
+  pull_request:
+    paths:
+      - 'apps/mobile/app.json'
+      - 'apps/mobile/eas.json'
+      - 'apps/mobile/src/api.ts'
+      - 'apps/mobile/app/(tabs)/account.tsx'
+      - 'apps/api/src/app.ts'
+      - 'apps/api/src/services/auth-service.ts'
+      - 'apps/api/src/account-deletion-http.test.ts'
+      - 'scripts/ios/check-release-contract.mjs'
+      - '.github/workflows/ios-release-contract.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify mobile-backend account-deletion release contract
+        run: node scripts/ios/check-release-contract.mjs

@@ -12,6 +12,9 @@
       "distribution": "internal",
       "android": {
         "buildType": "apk"
+      },
+      "ios": {
+        "simulator": true
       }
     },
     "production": {
@@ -21,6 +24,9 @@
       },
       "env": {
         "EXPO_PUBLIC_API_URL": "https://modo-api-3m10.onrender.com"
+      },
+      "ios": {
+        "autoIncrement": false
       }
     }
   },
@@ -29,7 +35,8 @@
       "android": {
         "track": "internal",
         "releaseStatus": "draft"
-      }
+      },
+      "ios": {}
     }
   }
 }

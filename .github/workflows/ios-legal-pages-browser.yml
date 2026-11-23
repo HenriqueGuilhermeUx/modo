@@ -1,0 +1,38 @@
+name: MODO legal pages browser QA (read only)
+
+on:
+  pull_request:
+    paths:
+      - 'apps/web/**'
+      - 'scripts/ios/test-legal-pages.mjs'
+      - '.github/workflows/ios-legal-pages-browser.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  legal-pages:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install existing workspace dependencies
+        run: npm install --no-audit --no-fund
+      - name: Install isolated Playwright runner (no manifest edits)
+        run: npm install --no-save --no-package-lock playwright@1.57.0
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Start MODO web on loopback (no production deploy)
+        working-directory: apps/web
+        run: |
+          ../../node_modules/.bin/vite --host 127.0.0.1 --port 5173 > "$RUNNER_TEMP/modo-legal-vite.log" 2>&1 &
+      - name: Test distinct rendered legal pages
+        run: node scripts/ios/test-legal-pages.mjs
+      - name: Verify current live legal routes without deployment
+        env:
+          MODO_LEGAL_BASE_URL: https://modo1.netlify.app
+        run: node scripts/ios/test-legal-pages.mjs

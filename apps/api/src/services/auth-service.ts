@@ -136,6 +136,7 @@ export class AuthService {
   private readonly memberships = new Map<string, MemoryMembership[]>();
   private readonly sessions = new Map<string, MemorySession>();
   private readonly brands = new Map<string, Brand[]>();
+  private readonly deletionRequests = new Map<string, { id: string; status: "pending"; createdAt: string }>();
 
   constructor(options: AuthServiceOptions = {}) {
     this.sessionDays = options.sessionDays ?? 30;
@@ -201,6 +202,19 @@ export class AuthService {
       );
 
       CREATE INDEX IF NOT EXISTS modo_brands_organization_idx ON modo_brands(organization_id);
+
+      CREATE TABLE IF NOT EXISTS modo_account_deletion_requests (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL REFERENCES modo_users(id) ON DELETE CASCADE,
+        organization_id TEXT NOT NULL REFERENCES modo_organizations(id) ON DELETE CASCADE,
+        status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'in_review', 'completed', 'rejected')),
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        review_started_at TIMESTAMPTZ
+      );
+      ALTER TABLE modo_account_deletion_requests ADD COLUMN IF NOT EXISTS review_started_at TIMESTAMPTZ;
+      CREATE UNIQUE INDEX IF NOT EXISTS modo_account_deletion_requests_pending_user_idx
+        ON modo_account_deletion_requests(user_id) WHERE status = 'pending';
     `);
   }
 
@@ -231,6 +245,168 @@ export class AuthService {
       return;
     }
     this.sessions.delete(tokenHash);
+  }
+
+  /**
+   * Record an authenticated account-deletion request. This DOES NOT delete data:
+   * the verified, audited fulfillment process is separate from intake.
+   * Repeated requests while pending return the original reference.
+   */
+  async requestAccountDeletion(userId: string, organizationId: string) {
+    if (this.pool) {
+      const id = randomUUID();
+      const result = await this.pool.query<{ id: string; status: "pending"; created_at: Date }>(
+        `INSERT INTO modo_account_deletion_requests(id, user_id, organization_id, status)
+         VALUES ($1, $2, $3, 'pending')
+         ON CONFLICT (user_id) WHERE status = 'pending'
+         DO UPDATE SET updated_at = modo_account_deletion_requests.updated_at
+         RETURNING id, status, created_at`,
+        [id, userId, organizationId],
+      );
+      const row = result.rows[0];
+      return { id: row.id, status: row.status, createdAt: new Date(row.created_at).toISOString() };
+    }
+    const existing = this.deletionRequests.get(userId);
+    if (existing) return existing;
+    const request = { id: randomUUID(), status: "pending" as const, createdAt: new Date().toISOString() };
+    this.deletionRequests.set(userId, request);
+    return request;
+  }
+
+  /** Latest pending request for the authenticated user only. */
+  async getPendingAccountDeletion(userId: string) {
+    if (this.pool) {
+      const result = await this.pool.query<{ id: string; status: "pending"; created_at: Date }>(
+        `SELECT id, status, created_at FROM modo_account_deletion_requests
+         WHERE user_id = $1 AND status = 'pending' ORDER BY created_at DESC LIMIT 1`,
+        [userId],
+      );
+      const row = result.rows[0];
+      return row ? { id: row.id, status: row.status, createdAt: new Date(row.created_at).toISOString() } : null;
+    }
+    return this.deletionRequests.get(userId) ?? null;
+  }
+
+  /** Administrative read-only queue; callers MUST authenticate platform-admin session. */
+  async listPendingDeletionRequests(limit = 50) {
+    if (!this.pool) throw new AuthError("DELETION_QUEUE_UNAVAILABLE", 503, "A fila operacional exige PostgreSQL.");
+    const capped = Math.max(1, Math.min(100, Math.floor(limit)));
+    const result = await this.pool.query<{
+      id: string; user_id: string; organization_id: string;
+      status: "pending"; created_at: Date; email: string; review_started_at: Date | null;
+    }>(
+      `SELECT r.id, r.user_id, r.organization_id, r.status, r.created_at, r.review_started_at, u.email
+       FROM modo_account_deletion_requests r
+       JOIN modo_users u ON u.id = r.user_id
+       WHERE r.status = 'pending'
+       ORDER BY r.created_at ASC, r.id ASC LIMIT $1`,
+      [capped],
+    );
+    return result.rows.map(row => ({
+      requestId: row.id, userId: row.user_id,
+      organizationId: row.organization_id, status: row.status,
+      email: row.email, createdAt: new Date(row.created_at).toISOString(),
+      reviewStartedAt: row.review_started_at ? new Date(row.review_started_at).toISOString() : null,
+    }));
+  }
+
+  /**
+   * Mark a pending request as acknowledged by an authorized operator.
+   * This changes no account data, does not complete the request, and
+   * writes the privacy audit event in the same PostgreSQL transaction.
+   */
+  async startDeletionReview(requestId: string) {
+    if (!this.pool) throw new AuthError("DELETION_QUEUE_UNAVAILABLE", 503, "Fila exige PostgreSQL.");
+    const client = await this.pool.connect();
+    try {
+      await client.query("BEGIN");
+      const result = await client.query<{ id: string; review_started_at: Date; status: "pending" }>(
+        `UPDATE modo_account_deletion_requests
+         SET review_started_at = COALESCE(review_started_at, NOW()),
+             updated_at = CASE WHEN review_started_at IS NULL THEN NOW() ELSE updated_at END
+         WHERE id = $1 AND status = 'pending'
+         RETURNING id, review_started_at, status`,
+        [requestId],
+      );
+      const row = result.rows[0];
+      if (!row) {
+        await client.query("ROLLBACK");
+        return null;
+      }
+      // Only first acknowledgement generates an audit; retries are idempotent.
+      const auditExists = await client.query(
+        `SELECT 1 FROM modo_admin_audit_log
+         WHERE action = 'privacy.deletion_review_started' AND target_id = $1 LIMIT 1`,
+        [requestId],
+      );
+      if (!auditExists.rowCount) {
+        await client.query(
+          `INSERT INTO modo_admin_audit_log(id, action, target_type, target_id, metadata)
+           VALUES ($1,'privacy.deletion_review_started','privacy_deletion_request',$2,$3::jsonb)`,
+          [randomUUID(), requestId, JSON.stringify({ status: "pending" })],
+        );
+      }
+      await client.query("COMMIT");
+      return { requestId: row.id, status: row.status, reviewStartedAt: new Date(row.review_started_at).toISOString() };
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * Read-only dependency preview. This is not a complete personal-data map and
+   * MUST NOT be used to authorize deletion without a verified operator review.
+   */
+  async previewAccountDeletionImpact(requestId: string) {
+    if (!this.pool) throw new AuthError("DELETION_QUEUE_UNAVAILABLE", 503, "Prévia exige PostgreSQL.");
+    const result = await this.pool.query<{
+      request_id: string; status: string; user_id: string; organization_id: string;
+      memberships: string; org_members: string; sessions: string; brands: string;
+      content_requests: string; content_assets: string; subscriptions: string;
+      ledger_entries: string; activation_events: string;
+    }>(
+      `SELECT r.id AS request_id, r.status, r.user_id, r.organization_id,
+       (SELECT COUNT(*)::text FROM modo_memberships m WHERE m.user_id = r.user_id) AS memberships,
+       (SELECT COUNT(*)::text FROM modo_memberships m WHERE m.organization_id = r.organization_id) AS org_members,
+       (SELECT COUNT(*)::text FROM modo_sessions s WHERE s.user_id = r.user_id) AS sessions,
+       (SELECT COUNT(*)::text FROM modo_brands b WHERE b.organization_id = r.organization_id) AS brands,
+       (SELECT COUNT(*)::text FROM modo_content_requests c WHERE c.organization_id = r.organization_id) AS content_requests,
+       (SELECT COUNT(*)::text FROM modo_content_assets a WHERE a.organization_id = r.organization_id) AS content_assets,
+       (SELECT COUNT(*)::text FROM modo_subscriptions sub WHERE sub.account_id = r.organization_id) AS subscriptions,
+       (SELECT COUNT(*)::text FROM modo_credit_ledger l WHERE l.account_id = r.organization_id) AS ledger_entries,
+       (SELECT COUNT(*)::text FROM modo_activation_events a WHERE a.user_id = r.user_id OR a.organization_id = r.organization_id) AS activation_events
+       FROM modo_account_deletion_requests r WHERE r.id = $1 LIMIT 1`,
+      [requestId],
+    );
+    const row = result.rows[0];
+    if (!row) return null;
+    return {
+      requestId: row.request_id,
+      status: row.status,
+      counts: {
+        userMemberships: Number(row.memberships),
+        organizationMembers: Number(row.org_members),
+        activeSessions: Number(row.sessions),
+        brands: Number(row.brands),
+        contentRequests: Number(row.content_requests),
+        contentAssets: Number(row.content_assets),
+        subscriptions: Number(row.subscriptions),
+        creditLedgerEntries: Number(row.ledger_entries),
+        activationEvents: Number(row.activation_events),
+      },
+      // Never infer automatic erasure safety from internal database counts.
+      completeDataInventory: false,
+      safeToDeleteAutomatically: false,
+      blockers: [
+        "Review shared organization ownership and memberships",
+        "Review third-party data, social tokens, media assets, payments and retention",
+        "Verify identity, cancellation, statutory retention and external processor deletion",
+        "Audit effective deletion separately; this preview performs no deletion",
+      ],
+    };
   }
 
   async listBrands(organizationId: string): Promise<Brand[]> {

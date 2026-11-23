@@ -363,6 +363,74 @@ export async function createApp(options: CreateAppOptions) {
     async (request) => auth.login(LoginRequestSchema.parse(request.body)),
   );
   app.get("/api/v1/auth/me", async (request) => auth.authenticate(bearerToken(request)));
+  app.post(
+    "/api/v1/auth/account-deletion-requests",
+    { config: { rateLimit: { max: 3, timeWindow: "1 hour" } } },
+    async (request, reply) => {
+      const context = await auth.authenticate(bearerToken(request));
+      const ticket = await auth.requestAccountDeletion(context.user.id, context.organization.id);
+      // No account data is deleted here; staff must verify and fulfill requests.
+      return reply.code(202).send({ requestId: ticket.id, status: ticket.status, createdAt: ticket.createdAt });
+    },
+  );
+  app.get("/api/v1/auth/account-deletion-requests/current", async (request) => {
+    const context = await auth.authenticate(bearerToken(request));
+    const ticket = await auth.getPendingAccountDeletion(context.user.id);
+    return { request: ticket ? { requestId: ticket.id, status: ticket.status, createdAt: ticket.createdAt } : null };
+  });
+
+  app.get(
+    "/api/v1/admin/privacy/deletion-requests",
+    { config: { rateLimit: { max: 12, timeWindow: "1 minute" } } },
+    async (request, reply) => {
+      const header = request.headers.authorization;
+      if (!header?.startsWith("Bearer ")) return reply.code(401).send({ code: "ADMIN_UNAUTHORIZED" });
+      await admin.authenticate(header.slice(7).trim());
+      // Never expose a queue using an ordinary customer token.
+      const requests = await auth.listPendingDeletionRequests(50);
+      await admin.audit("privacy.deletion_queue_viewed", "privacy_deletion_queue", null, { count: requests.length });
+      return { requests };
+    },
+  );
+
+  app.post(
+    "/api/v1/admin/privacy/deletion-requests/:id/start-review",
+    { config: { rateLimit: { max: 12, timeWindow: "1 minute" } } },
+    async (request, reply) => {
+      const header = request.headers.authorization;
+      if (!header?.startsWith("Bearer ")) return reply.code(401).send({ code: "ADMIN_UNAUTHORIZED" });
+      await admin.authenticate(header.slice(7).trim());
+      const id = (request.params as { id: string }).id;
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)) {
+        return reply.code(400).send({ code: "INVALID_REQUEST_ID" });
+      }
+      const result = await auth.startDeletionReview(id);
+      if (!result) return reply.code(404).send({ code: "DELETION_REQUEST_NOT_FOUND" });
+      // Acknowledgement only. No completion, deletion or change to customer access.
+      return { request: result };
+    },
+  );
+
+  app.get(
+    "/api/v1/admin/privacy/deletion-requests/:id/impact-preview",
+    { config: { rateLimit: { max: 12, timeWindow: "1 minute" } } },
+    async (request, reply) => {
+      const header = request.headers.authorization;
+      if (!header?.startsWith("Bearer ")) return reply.code(401).send({ code: "ADMIN_UNAUTHORIZED" });
+      await admin.authenticate(header.slice(7).trim());
+      const id = (request.params as { id: string }).id;
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)) {
+        return reply.code(400).send({ code: "INVALID_REQUEST_ID" });
+      }
+      const impact = await auth.previewAccountDeletionImpact(id);
+      if (!impact) return reply.code(404).send({ code: "DELETION_REQUEST_NOT_FOUND" });
+      await admin.audit("privacy.deletion_impact_previewed", "privacy_deletion_request", id, {
+        completeDataInventory: false, safeToDeleteAutomatically: false,
+      });
+      return { impact };
+    },
+  );
+
   app.post("/api/v1/auth/logout", async (request, reply) => {
     await auth.logout(bearerToken(request));
     return reply.code(204).send();
@@ -612,6 +680,7 @@ export async function createApp(options: CreateAppOptions) {
   app.setErrorHandler((error, _request, reply) => {
     if (
       error instanceof BillingError ||
+      error instanceof PlatformAdminError ||
       error instanceof AuthError ||
       error instanceof PaymentError ||
       error instanceof ContentError ||

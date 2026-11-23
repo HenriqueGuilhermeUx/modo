@@ -1,0 +1,40 @@
+name: MODO iOS JS preflight (unsigned)
+on:
+  pull_request:
+    paths:
+      - 'apps/mobile/**'
+      - 'packages/contracts/**'
+      - '.github/workflows/ios-js-preflight.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: modo-ios-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ios-bundle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install monorepo dependencies
+        run: npm install --no-audit --no-fund
+      - name: Typecheck React Native application
+        run: npm run typecheck --workspace=@modo/mobile
+      - name: Generate unsigned iOS JavaScript bundle
+        working-directory: apps/mobile
+        run: npx expo export --platform ios --output-dir dist-ios-preflight
+      - name: Upload iOS bundle diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: modo-ios-js-bundle
+          path: apps/mobile/dist-ios-preflight
+          if-no-files-found: ignore
+          retention-days: 7

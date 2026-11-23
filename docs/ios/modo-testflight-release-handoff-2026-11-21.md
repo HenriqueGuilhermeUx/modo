@@ -64,3 +64,13 @@ node scripts/ios/check-release-contract.mjs
 - Upload TestFlight: **não realizado**
 
 Atualizar somente com IDs reais das execuções, artefatos e evidências. Não marcar o app como `testflight_ready` antes disso.
+
+## Verificação live no Render — 22/11/2026
+
+Foi consultado em **modo somente leitura** o workspace já autorizado `Henrique's workspace` (`tea-d2ebbindiees73fm160g`). O serviço Render `modo-api` (`srv-d9d83s57vvec73esfrl0`) usa `main` com `autoDeploy=yes`, e seu **último deploy LIVE** identificado foi `dep-dbus1kou01pc73feog10`, commit `25b520b0ac008392cc51589892dca48a82c2411e`, de **18/11/2026**. Este commit precede as implementações no branch PR #172 de intake e administração das solicitações de exclusão.
+
+A rota nova **não pode ser presumida disponível** em produção só porque o código passou em CI. Foi adicionado verificador GET-only, sem credenciais, `scripts/ios/probe-production-deletion-api.mjs`, executado por `.github/workflows/ios-live-api-contract.yml`. Ele exige **401** na consulta não autenticada a `GET /api/v1/auth/account-deletion-requests/current` para provar que a rota protegida está publicada; qualquer 404/200/5xx/timeout bloqueia distribuição, sem executar POST, cadastrar usuário ou ler dados pessoais. **Esse teste não substitui QA com usuário autorizado nem tratamento efetivo da exclusão.**
+
+O cliente iOS no PR também passou a exibir a versão vinda da configuração Expo (`Constants.expoConfig?.version`) no lugar do rótulo fixo e desatualizado `1.0.2`; não altera o número do pacote ou dados Android.
+
+**Bloqueio operacional mantido:** não habilitar TestFlight com a nova tela de exclusão apontando para um backend que ainda não foi implantado/homologado. Nenhum deploy/merge, certificado ou dados reais foram modificados nesta consulta.

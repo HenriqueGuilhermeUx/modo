@@ -1,0 +1,24 @@
+name: MODO live API contract blocker (GET only)
+
+on:
+  pull_request:
+    paths:
+      - 'apps/mobile/app.json'
+      - 'scripts/ios/probe-production-deletion-api.mjs'
+      - '.github/workflows/ios-live-api-contract.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  live-route:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check unauthenticated status endpoint on configured production API (read only)
+        run: node scripts/ios/probe-production-deletion-api.mjs

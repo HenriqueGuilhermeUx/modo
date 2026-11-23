@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import Constants from "expo-constants";
 import { Alert, Linking, Pressable, StyleSheet, Text, View } from "react-native";
 import { getPendingAccountDeletion, requestAccountDeletion } from "../../src/api";
 import { useSession } from "../../src/session";
@@ -77,7 +78,7 @@ export default function AccountScreen() {
 
   return (
     <Screen>
-      <View style={styles.top}><BrandMark /><Pill tone="neutral">VERSÃO 1.0.2</Pill></View>
+      <View style={styles.top}><BrandMark /><Pill tone="neutral">VERSÃO {Constants.expoConfig?.version ?? "não informada"}</Pill></View>
       <SectionHeading eyebrow="SUA CONTA" title={dashboard.user.name} copy={accountEmail} />
 
       <Card style={styles.planCard}>

@@ -1,4 +1,5 @@
 import { lazy, Suspense, type ReactNode } from "react";
+import { normalizePath, PORTAL_SHORTCUTS, resolveRoute, type RouteKey } from "./routes";
 const MobilePWA = lazy(() => import("./MobilePWA"));
 const CreativeEngineWorkspace = lazy(() => import("./CreativeEngineWorkspace"));
 const ConnectionCenter = lazy(() => import("./ConnectionCenter"));
@@ -64,143 +65,94 @@ function RouteLoading() {
 function suspended(node: ReactNode) {
   return <Suspense fallback={<RouteLoading />}>{node}</Suspense>;
 }
+function PortalShortcuts() {
+  return (
+    <div className="portal-floating-actions">
+      {PORTAL_SHORTCUTS.map((item) => (
+        <a
+          key={item.href}
+          className={item.kind === "plan" ? "portal-plan-entry" : "portal-workspace-entry"}
+          href={item.href}
+        >
+          {item.label}
+        </a>
+      ))}
+    </div>
+  );
+}
+
+const PAGES: Record<Exclude<RouteKey, "redirectHome">, () => ReactNode> = {
+  demandPublic: () => <DemandPublicLanding />,
+  privacy: () => <PrivacyPolicyPage />,
+  dataDeletion: () => <DataDeletionPage />,
+  forgotPassword: () => <ForgotPasswordPage />,
+  resetPassword: () => <ResetPasswordPage />,
+  agencyApproval: () => <AgencyApprovalPortal />,
+  agencyLanding: () => (
+    <>
+      <AgencyLanding />
+      <PartnerAgencyEntryAddon />
+    </>
+  ),
+  partnerLanding: () => <PartnerLanding />,
+  smartbotsPage: () => <SmartBotsPage />,
+  smartbotsOnboarding: () => <SmartBotsOnboarding />,
+  specialistApplication: () => <SpecialistApplicationPage />,
+  adminSmartbots: () => <SmartBotsAdminWorkspace />,
+  adminPartners: () => <PartnerAdminWorkspace />,
+  adminHumanOps: () => <HumanOperationsAdminWorkspace />,
+  admin: () => <AdminWorkspace />,
+  invitation: () => <InvitationWorkspace />,
+  agencyWorkspace: () => (
+    <>
+      <AgencyWorkspace />
+      <PasswordRecoveryEntry mode="agency" />
+    </>
+  ),
+  mobilePwa: () => <MobilePWA />,
+  onboarding: () => <OnboardingWorkspace />,
+  studio: () => <StudioWorkspace />,
+  videoLab: () => <VideoLabCommercial />,
+  videoHub: () => <VideoHub />,
+  videoWorkspace: () => <VideoWorkspace />,
+  strategy: () => <StrategyWorkspace />,
+  specialistSupport: () => <SpecialistSupportWorkspace />,
+  week: () => <WeekWorkspace />,
+  billing: () => <BillingWorkspace />,
+  director: () => <DirectorWorkspace />,
+  campaigns: () => <CampaignWorkspace />,
+  demand: () => <DemandWorkspace />,
+  connections: () => <ConnectionCenter />,
+  prospector: () => <ProspectorWorkspace />,
+  publisher: () => <PublisherWorkspace />,
+  linkedin: () => <LinkedInWorkspace />,
+  integrations: () => <IntegrationsWorkspace />,
+  intelligence: () => <IntelligenceWorkspace />,
+  signal: () => <SignalWorkspace />,
+  creativeEngine: () => <CreativeEngineWorkspace />,
+  content: () => <ContentWorkspace />,
+  portal: () => (
+    <>
+      <Portal />
+      <PasswordRecoveryEntry mode="business" />
+      <PortalWelcomeGuide />
+      <ProductPathGuideAddon mode="portal" />
+      <PortalShortcuts />
+    </>
+  ),
+  landing: () => <ImpactLanding />,
+};
+
 export default function Root() {
-  const path = window.location.pathname.replace(/\/$/, "") || "/";
+  const path = normalizePath(window.location.pathname);
   const params = new URLSearchParams(window.location.search);
   const agencyMode =
     params.get("mode") === "agency" ||
     window.sessionStorage.getItem("modo.accountMode") === "agency";
-  if (path.startsWith("/go/")) return suspended(<DemandPublicLanding />);
-  if (["/politica-de-privacidade", "/privacy", "/privacy-policy"].includes(path))
-    return suspended(<PrivacyPolicyPage />);
-  if (["/exclusao-de-dados", "/data-deletion"].includes(path))
-    return suspended(<DataDeletionPage />);
-  if (path === "/esqueci-minha-senha" || path === "/forgot-password")
-    return suspended(<ForgotPasswordPage />);
-  if (path === "/redefinir-senha" || path === "/reset-password")
-    return suspended(<ResetPasswordPage />);
-  if (path.startsWith("/approve/")) return suspended(<AgencyApprovalPortal />);
-  if (path === "/agency" || path === "/modo-agency")
-    return suspended(
-      <>
-        <AgencyLanding />
-        <PartnerAgencyEntryAddon />
-      </>,
-    );
-  if (path === "/partners" || path === "/partner" || path === "/modo-partner")
-    return suspended(<PartnerLanding />);
-  if (path === "/smartbots.html" || path === "/smartbots") return suspended(<SmartBotsPage />);
-  if (path === "/onboarding-smartbots.html" || path === "/app/smartbots")
-    return suspended(<SmartBotsOnboarding />);
-  if (path === "/rede-modo/convite") return suspended(<SpecialistApplicationPage />);
-  if (path === "/especialistas" || path === "/rede-modo") {
+  const route = resolveRoute({ path, agencyMode });
+  if (route === "redirectHome") {
     window.location.replace("/");
     return null;
   }
-  if (path === "/admin/smartbots") return suspended(<SmartBotsAdminWorkspace />);
-  if (path === "/admin/partners") return suspended(<PartnerAdminWorkspace />);
-  if (path === "/admin/rede") return suspended(<HumanOperationsAdminWorkspace />);
-  if (path.startsWith("/admin")) return suspended(<AdminWorkspace />);
-  if (path.startsWith("/convite/")) return suspended(<InvitationWorkspace />);
-  if (path === "/app/agency" || (path === "/app" && agencyMode))
-    return suspended(
-      <>
-        <AgencyWorkspace />
-        <PasswordRecoveryEntry mode="agency" />
-      </>,
-    );
-  if (path.startsWith("/app/mobile")) return suspended(<MobilePWA />);
-  if (path.startsWith("/app/onboarding")) return suspended(<OnboardingWorkspace />);
-  if (path.startsWith("/app/studio/")) return suspended(<StudioWorkspace />);
-  if (path === "/app/video-lab") return suspended(<VideoLabCommercial />);
-  if (path === "/app/video") return suspended(<VideoHub />);
-  if (path.startsWith("/app/video/")) return suspended(<VideoWorkspace />);
-  if (path.startsWith("/app/base")) return suspended(<StrategyWorkspace />);
-  if (path.startsWith("/app/especialista")) return suspended(<SpecialistSupportWorkspace />);
-  if (path.startsWith("/app/week")) return suspended(<WeekWorkspace />);
-  if (path.startsWith("/app/planos")) return suspended(<BillingWorkspace />);
-  if (path.startsWith("/app/director")) return suspended(<DirectorWorkspace />);
-  if (path.startsWith("/app/campanhas")) return suspended(<CampaignWorkspace />);
-  if (
-    path.startsWith("/app/demand") ||
-    path.startsWith("/app/ads") ||
-    path.startsWith("/app/growth")
-  )
-    return suspended(<DemandWorkspace />);
-  if (path.startsWith("/app/conexoes") || path.startsWith("/app/media"))
-    return suspended(<ConnectionCenter />);
-  if (path.startsWith("/app/prospector") || path.startsWith("/app/sales"))
-    return suspended(<ProspectorWorkspace />);
-  if (path.startsWith("/app/publisher")) return suspended(<PublisherWorkspace />);
-  if (path.startsWith("/app/linkedin")) return suspended(<LinkedInWorkspace />);
-  if (path.startsWith("/app/settings/integrations") || path.startsWith("/app/meta"))
-    return suspended(<IntegrationsWorkspace />);
-  if (path.startsWith("/app/inteligencia")) return suspended(<IntelligenceWorkspace />);
-  if (path.startsWith("/app/signal")) return suspended(<SignalWorkspace />);
-  if (path.startsWith("/app/create") || path.startsWith("/app/criar"))
-    return suspended(<CreativeEngineWorkspace />);
-  if (path.startsWith("/app/content")) return suspended(<ContentWorkspace />);
-  if (path.startsWith("/app"))
-    return suspended(
-      <>
-        <Portal />
-        <PasswordRecoveryEntry mode="business" />
-        <PortalWelcomeGuide />
-        <ProductPathGuideAddon mode="portal" />
-        <div className="portal-floating-actions">
-          <a className="portal-plan-entry" href="/app/onboarding">
-            Primeiros passos
-          </a>
-          <a className="portal-plan-entry" href="/app/base">
-            Base estratégica
-          </a>
-          <a className="portal-plan-entry" href="/app/week">
-            Minha semana
-          </a>
-          <a className="portal-plan-entry" href="/app/director">
-            Meu próximo movimento
-          </a>
-          <a className="portal-plan-entry" href="/app/campanhas">
-            Campanhas
-          </a>
-          <a className="portal-plan-entry" href="/app/demand">
-            Anunciar & converter
-          </a>
-          <a className="portal-plan-entry" href="/app/conexoes">
-            Conectar contas
-          </a>
-          <a className="portal-plan-entry" href="/app/prospector">
-            Prospector
-          </a>
-          <a className="portal-plan-entry" href="/app/video">
-            MODO Video
-          </a>
-          <a className="portal-plan-entry" href="/app/publisher">
-            Publisher
-          </a>
-          <a className="portal-plan-entry" href="/app/linkedin">
-            LinkedIn
-          </a>
-          <a className="portal-plan-entry" href="/app/settings/integrations">
-            Integrações
-          </a>
-          <a className="portal-plan-entry" href="/app/inteligencia">
-            Inteligência
-          </a>
-          <a className="portal-plan-entry" href="/onboarding-smartbots.html">
-            SmartBots
-          </a>
-          <a className="portal-plan-entry" href="/app/signal">
-            Signal
-          </a>
-          <a className="portal-workspace-entry" href="/app/criar">
-            Criar com MODO ↗
-          </a>
-          <a className="portal-workspace-entry" href="/app/content">
-            Quick Start ↗
-          </a>
-        </div>
-      </>,
-    );
-  return suspended(<ImpactLanding />);
+  return suspended(PAGES[route]());
 }

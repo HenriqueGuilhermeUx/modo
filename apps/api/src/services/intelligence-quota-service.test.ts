@@ -30,20 +30,20 @@ describe("IntelligenceQuotaService", () => {
 
     await service.reserve(organizationId, 10, "create:first-mission");
 
-    await expect(service.reserve(organizationId, 1, "create:second-mission"))
-      .rejects.toMatchObject({
+    await expect(service.reserve(organizationId, 1, "create:second-mission")).rejects.toMatchObject(
+      {
         code: "INTELLIGENCE_MONTHLY_RUNS_EXHAUSTED",
         statusCode: 429,
-      });
+      },
+    );
   });
 
   it("mantém o limite por missão durante o reenvio", async () => {
     const service = new IntelligenceQuotaService();
 
-    await expect(service.assertRetryCapacity("org-invalid-retry", 11))
-      .rejects.toMatchObject({
-        code: "INTELLIGENCE_RUN_LIMIT_EXCEEDED",
-        statusCode: 422,
-      });
+    await expect(service.assertRetryCapacity("org-invalid-retry", 11)).rejects.toMatchObject({
+      code: "INTELLIGENCE_RUN_LIMIT_EXCEEDED",
+      statusCode: 422,
+    });
   });
 });

@@ -44,12 +44,16 @@ export async function getBrandFoundation(brandId: string): Promise<BrandFoundati
   return payload.foundation ? BrandFoundationProfileSchema.parse(payload.foundation) : null;
 }
 
-export async function saveBrandFoundation(input: BrandFoundationUpsert): Promise<BrandFoundationProfile> {
+export async function saveBrandFoundation(
+  input: BrandFoundationUpsert,
+): Promise<BrandFoundationProfile> {
   const parsed = BrandFoundationUpsertSchema.parse(input);
-  return BrandFoundationProfileSchema.parse(await request<unknown>(`/api/v1/brands/${input.brandId}/foundation`, {
-    method: "PUT",
-    body: JSON.stringify(parsed),
-  }));
+  return BrandFoundationProfileSchema.parse(
+    await request<unknown>(`/api/v1/brands/${input.brandId}/foundation`, {
+      method: "PUT",
+      body: JSON.stringify(parsed),
+    }),
+  );
 }
 
 export async function getChannelMap(brandId: string): Promise<ChannelMap | null> {
@@ -59,10 +63,12 @@ export async function getChannelMap(brandId: string): Promise<ChannelMap | null>
 
 export async function saveChannelMap(input: ChannelMapUpsert): Promise<ChannelMap> {
   const parsed = ChannelMapUpsertSchema.parse(input);
-  return ChannelMapSchema.parse(await request<unknown>(`/api/v1/brands/${input.brandId}/channel-map`, {
-    method: "PUT",
-    body: JSON.stringify(parsed),
-  }));
+  return ChannelMapSchema.parse(
+    await request<unknown>(`/api/v1/brands/${input.brandId}/channel-map`, {
+      method: "PUT",
+      body: JSON.stringify(parsed),
+    }),
+  );
 }
 
 export async function getRevenueMap(brandId: string): Promise<RevenueMap | null> {
@@ -72,10 +78,12 @@ export async function getRevenueMap(brandId: string): Promise<RevenueMap | null>
 
 export async function saveRevenueMap(input: RevenueMapUpsert): Promise<RevenueMap> {
   const parsed = RevenueMapUpsertSchema.parse(input);
-  return RevenueMapSchema.parse(await request<unknown>(`/api/v1/brands/${input.brandId}/revenue-map`, {
-    method: "PUT",
-    body: JSON.stringify(parsed),
-  }));
+  return RevenueMapSchema.parse(
+    await request<unknown>(`/api/v1/brands/${input.brandId}/revenue-map`, {
+      method: "PUT",
+      body: JSON.stringify(parsed),
+    }),
+  );
 }
 
 export async function listHumanSupportRequests(): Promise<HumanSupportRequest[]> {
@@ -83,16 +91,28 @@ export async function listHumanSupportRequests(): Promise<HumanSupportRequest[]>
   return payload.requests.map((item) => HumanSupportRequestSchema.parse(item));
 }
 
-export async function createHumanSupportRequest(input: HumanSupportRequestCreate): Promise<HumanSupportRequest> {
-  return HumanSupportRequestSchema.parse(await request<unknown>("/api/v1/human-support-requests", {
-    method: "POST",
-    body: JSON.stringify(HumanSupportRequestCreateSchema.parse(input)),
-  }));
+export async function createHumanSupportRequest(
+  input: HumanSupportRequestCreate,
+): Promise<HumanSupportRequest> {
+  return HumanSupportRequestSchema.parse(
+    await request<unknown>("/api/v1/human-support-requests", {
+      method: "POST",
+      body: JSON.stringify(HumanSupportRequestCreateSchema.parse(input)),
+    }),
+  );
 }
 
-export async function createSpecialistApplication(input: SpecialistApplicationCreate): Promise<SpecialistApplication> {
-  return SpecialistApplicationSchema.parse(await request<unknown>("/api/v1/public/specialist-applications", {
-    method: "POST",
-    body: JSON.stringify(SpecialistApplicationCreateSchema.parse(input)),
-  }, false));
+export async function createSpecialistApplication(
+  input: SpecialistApplicationCreate,
+): Promise<SpecialistApplication> {
+  return SpecialistApplicationSchema.parse(
+    await request<unknown>(
+      "/api/v1/public/specialist-applications",
+      {
+        method: "POST",
+        body: JSON.stringify(SpecialistApplicationCreateSchema.parse(input)),
+      },
+      false,
+    ),
+  );
 }

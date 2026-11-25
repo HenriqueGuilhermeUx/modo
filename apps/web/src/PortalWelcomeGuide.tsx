@@ -40,15 +40,22 @@ export default function PortalWelcomeGuide() {
           <span className="guide-icon">✦</span>
           <div>
             <strong>Conheça o potencial completo da MODO em poucos minutos.</strong>
-            <p>Defina objetivos, LinkedIn e outros canais, pessoas disponíveis e gere seu primeiro plano guiado.</p>
+            <p>
+              Defina objetivos, LinkedIn e outros canais, pessoas disponíveis e gere seu primeiro
+              plano guiado.
+            </p>
           </div>
         </div>
         <div className="portal-welcome-guide-actions">
-          <button type="button" onClick={dismiss}>Agora não</button>
+          <button type="button" onClick={dismiss}>
+            Agora não
+          </button>
           <a href="/app/onboarding">Começar onboarding</a>
         </div>
       </div>
-      <small className="portal-company-note">MODO é uma solução da Alternative Ventures — CNPJ 61.920.356/0001-38.</small>
+      <small className="portal-company-note">
+        MODO é uma solução da Alternative Ventures — CNPJ 61.920.356/0001-38.
+      </small>
     </>
   );
 }

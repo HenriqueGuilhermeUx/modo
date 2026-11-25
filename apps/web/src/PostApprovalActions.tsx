@@ -28,7 +28,8 @@ const derivativeOptions: Array<{
   {
     type: "short_video_script",
     title: "Transformar em Reel",
-    description: "Cria um roteiro de vídeo curto a partir desta aprovação e libera o First Cut no MODO Video.",
+    description:
+      "Cria um roteiro de vídeo curto a partir desta aprovação e libera o First Cut no MODO Video.",
   },
 ];
 
@@ -57,7 +58,10 @@ export default function PostApprovalActions({
           <div>
             <small>MODO VIDEO · FIRST CUT</small>
             <strong>Agora transforme o roteiro em Reel.</strong>
-            <p>A MODO monta o primeiro corte em 9:16 com cenas, mídia própria ou B-roll, imagens, legendas, ritmo e narração opcional. Você pode trocar só a cena que não gostou.</p>
+            <p>
+              A MODO monta o primeiro corte em 9:16 com cenas, mídia própria ou B-roll, imagens,
+              legendas, ritmo e narração opcional. Você pode trocar só a cena que não gostou.
+            </p>
             <div className="video-launch-features">
               <span>15 · 30 · 45s</span>
               <span>Quality Gate</span>
@@ -65,7 +69,9 @@ export default function PostApprovalActions({
               <span>MP4 para o Publisher</span>
             </div>
           </div>
-          <a className="button button-primary" href={`/app/video/${request.id}`}>Montar primeiro corte</a>
+          <a className="button button-primary" href={`/app/video/${request.id}`}>
+            Montar primeiro corte
+          </a>
         </section>
       ) : (
         <>
@@ -78,7 +84,9 @@ export default function PostApprovalActions({
               <small>ACABAMENTO NA MODO</small>
               <strong>Editar e exportar no Studio</strong>
               <p>Aplique título, CTA e ajustes finais. Depois baixe a peça em PNG.</p>
-              <a className="button button-primary" href={`/app/studio/${request.id}`}>Abrir no Studio</a>
+              <a className="button button-primary" href={`/app/studio/${request.id}`}>
+                Abrir no Studio
+              </a>
             </article>
 
             <article className="post-approval-card canva-card">
@@ -90,9 +98,22 @@ export default function PostApprovalActions({
 
       <section className="post-approval-card">
         <small>CENTRAL DE PUBLICAÇÃO</small>
-        <strong>{isVideoScript ? "Publique o MP4 depois da aprovação final" : "Calendário, canais e desempenho"}</strong>
-        <p>{isVideoScript ? "O roteiro não vai direto para a rede. O MODO Video gera o MP4, protege a versão aprovada e só então libera publicação ou agendamento." : "Gerencie conexões por marca, acompanhe agendamentos, falhas, retries e o que a MODO aprendeu com a performance."}</p>
-        <a className="button button-secondary" href={`/app/publisher?brand=${encodeURIComponent(request.brandId)}`}>Abrir Publisher</a>
+        <strong>
+          {isVideoScript
+            ? "Publique o MP4 depois da aprovação final"
+            : "Calendário, canais e desempenho"}
+        </strong>
+        <p>
+          {isVideoScript
+            ? "O roteiro não vai direto para a rede. O MODO Video gera o MP4, protege a versão aprovada e só então libera publicação ou agendamento."
+            : "Gerencie conexões por marca, acompanhe agendamentos, falhas, retries e o que a MODO aprendeu com a performance."}
+        </p>
+        <a
+          className="button button-secondary"
+          href={`/app/publisher?brand=${encodeURIComponent(request.brandId)}`}
+        >
+          Abrir Publisher
+        </a>
       </section>
 
       {available.length > 0 && (
@@ -101,7 +122,10 @@ export default function PostApprovalActions({
             <div>
               <small>DESDOBRAR A CAMPANHA</small>
               <h4>Gerar novas peças a partir desta aprovação</h4>
-              <p>Cada opção cria um novo pedido, com revisão própria e consumo de créditos informado antes da geração.</p>
+              <p>
+                Cada opção cria um novo pedido, com revisão própria e consumo de créditos informado
+                antes da geração.
+              </p>
             </div>
           </div>
           <div className="derivative-grid">
@@ -121,7 +145,11 @@ export default function PostApprovalActions({
                     disabled={Boolean(workingTarget) || insufficient}
                     onClick={() => onGenerate(option.type)}
                   >
-                    {working ? "Criando novo pedido..." : insufficient ? "Saldo insuficiente" : `Gerar · ${cost} crédito${cost > 1 ? "s" : ""}`}
+                    {working
+                      ? "Criando novo pedido..."
+                      : insufficient
+                        ? "Saldo insuficiente"
+                        : `Gerar · ${cost} crédito${cost > 1 ? "s" : ""}`}
                   </button>
                 </article>
               );

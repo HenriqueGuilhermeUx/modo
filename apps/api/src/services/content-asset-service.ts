@@ -101,7 +101,10 @@ export class ContentAssetService {
     };
   }
 
-  async getLatestForRequest(organizationId: string, contentRequestId: string): Promise<{ mimeType: string; data: Buffer } | null> {
+  async getLatestForRequest(
+    organizationId: string,
+    contentRequestId: string,
+  ): Promise<{ mimeType: string; data: Buffer } | null> {
     if (this.pool) {
       const result = await this.pool.query<AssetRow>(
         `SELECT id, public_token, organization_id, content_request_id, mime_type, data
@@ -113,8 +116,10 @@ export class ContentAssetService {
       if (!result.rowCount) return null;
       return { mimeType: result.rows[0].mime_type, data: result.rows[0].data };
     }
-    const matches = [...this.memory.values()]
-      .filter((asset) => asset.organizationId === organizationId && asset.contentRequestId === contentRequestId);
+    const matches = [...this.memory.values()].filter(
+      (asset) =>
+        asset.organizationId === organizationId && asset.contentRequestId === contentRequestId,
+    );
     const asset = matches[matches.length - 1];
     return asset ? { mimeType: asset.mimeType, data: asset.data } : null;
   }
@@ -137,7 +142,11 @@ export class ContentAssetService {
       return { mimeType: result.rows[0].mime_type, data: result.rows[0].data };
     }
     const asset = this.memory.get(publicToken);
-    if (!asset || asset.organizationId !== organizationId || asset.contentRequestId !== contentRequestId) {
+    if (
+      !asset ||
+      asset.organizationId !== organizationId ||
+      asset.contentRequestId !== contentRequestId
+    ) {
       return null;
     }
     return { mimeType: asset.mimeType, data: asset.data };
@@ -169,8 +178,10 @@ export class ContentAssetService {
       return token ? this.urlForToken(token) : null;
     }
 
-    const matches = [...this.memory.values()]
-      .filter((asset) => asset.organizationId === organizationId && asset.contentRequestId === contentRequestId);
+    const matches = [...this.memory.values()].filter(
+      (asset) =>
+        asset.organizationId === organizationId && asset.contentRequestId === contentRequestId,
+    );
     const asset = matches[matches.length - 1];
     return asset ? this.urlForToken(asset.publicToken) : null;
   }

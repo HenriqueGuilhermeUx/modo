@@ -8,9 +8,11 @@ describe("OpenAiVideoVoiceProvider", () => {
 
   it("gera MP3 com instruções de português brasileiro", async () => {
     const audio = Buffer.from([0x49, 0x44, 0x33, 0x04, 0x00, 0x00]);
-    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      new Response(audio, { status: 200, headers: { "content-type": "audio/mpeg" } }),
-    );
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(
+        new Response(audio, { status: 200, headers: { "content-type": "audio/mpeg" } }),
+      );
     const provider = new OpenAiVideoVoiceProvider("test-key", "gpt-4o-mini-tts", "coral");
 
     const result = await provider.synthesize({
@@ -49,10 +51,12 @@ describe("OpenAiVideoVoiceProvider", () => {
     );
     const provider = new OpenAiVideoVoiceProvider("test-key");
 
-    await expect(provider.synthesize({
-      text: "Teste de locução.",
-      targetDurationSeconds: 15,
-      language: "pt-BR",
-    })).rejects.toThrow("quota temporariamente indisponível");
+    await expect(
+      provider.synthesize({
+        text: "Teste de locução.",
+        targetDurationSeconds: 15,
+        language: "pt-BR",
+      }),
+    ).rejects.toThrow("quota temporariamente indisponível");
   });
 });

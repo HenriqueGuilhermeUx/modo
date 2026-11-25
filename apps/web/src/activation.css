@@ -1,14 +1,14 @@
 .activation-card {
   margin: 0 0 28px;
   padding: 28px;
-  border: 1px solid rgba(13, 27, 62, .12);
+  border: 1px solid rgba(13, 27, 62, 0.12);
   border-radius: 24px;
   background: linear-gradient(135deg, #f7fbff 0%, #ffffff 64%);
-  box-shadow: 0 18px 50px rgba(13, 27, 62, .08);
+  box-shadow: 0 18px 50px rgba(13, 27, 62, 0.08);
 }
 
 .activation-card.completed {
-  background: linear-gradient(135deg, rgba(46, 209, 154, .12), #ffffff 70%);
+  background: linear-gradient(135deg, rgba(46, 209, 154, 0.12), #ffffff 70%);
 }
 
 .activation-loading {
@@ -33,7 +33,7 @@
   color: #1f5eff;
   font-size: 11px;
   font-weight: 900;
-  letter-spacing: .12em;
+  letter-spacing: 0.12em;
 }
 
 .activation-heading h2 {
@@ -69,7 +69,7 @@
 .activation-score span {
   display: block;
   margin-top: 2px;
-  color: rgba(255, 255, 255, .72);
+  color: rgba(255, 255, 255, 0.72);
   font-size: 11px;
 }
 
@@ -86,7 +86,7 @@
   height: 100%;
   border-radius: inherit;
   background: linear-gradient(90deg, #1f5eff, #2ed19a);
-  transition: width .35s ease;
+  transition: width 0.35s ease;
 }
 
 .activation-steps {
@@ -119,7 +119,7 @@
 }
 
 .activation-steps article.done > span {
-  background: rgba(46, 209, 154, .16);
+  background: rgba(46, 209, 154, 0.16);
   color: #0b8d64;
 }
 

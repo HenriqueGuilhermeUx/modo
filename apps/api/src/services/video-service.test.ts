@@ -18,12 +18,36 @@ const output: GeneratedContent = {
   imageStatus: "generated",
   visualAssets: [],
   script: [
-    { scene: "Problema", visual: "Empresário olhando várias abas abertas.", voiceover: "Publicar por publicar só aumenta o ruído." },
-    { scene: "Virada", visual: "Tela muda para uma direção única.", voiceover: "Comece pela decisão de marketing." },
-    { scene: "Método", visual: "Três passos aparecem na tela.", voiceover: "A MODO transforma estratégia em roteiro e execução." },
-    { scene: "Prova", visual: "Conteúdos entram em uma agenda.", voiceover: "Você aprova, publica e aprende com o resultado." },
-    { scene: "CTA", visual: "Marca e chamada final.", voiceover: "Faça seu próximo conteúdo com direção." },
-    { scene: "Extra", visual: "Cena que deve ser cortada em 30 segundos.", voiceover: "Cena extra." },
+    {
+      scene: "Problema",
+      visual: "Empresário olhando várias abas abertas.",
+      voiceover: "Publicar por publicar só aumenta o ruído.",
+    },
+    {
+      scene: "Virada",
+      visual: "Tela muda para uma direção única.",
+      voiceover: "Comece pela decisão de marketing.",
+    },
+    {
+      scene: "Método",
+      visual: "Três passos aparecem na tela.",
+      voiceover: "A MODO transforma estratégia em roteiro e execução.",
+    },
+    {
+      scene: "Prova",
+      visual: "Conteúdos entram em uma agenda.",
+      voiceover: "Você aprova, publica e aprende com o resultado.",
+    },
+    {
+      scene: "CTA",
+      visual: "Marca e chamada final.",
+      voiceover: "Faça seu próximo conteúdo com direção.",
+    },
+    {
+      scene: "Extra",
+      visual: "Cena que deve ser cortada em 30 segundos.",
+      voiceover: "Cena extra.",
+    },
   ],
 };
 
@@ -57,7 +81,11 @@ function humanOutput(): GeneratedContent {
     imageUrl: null,
     imageStatus: "not_requested",
     script: [
-      { scene: "Abertura", visual: "Empresária brasileira conversando com um cliente em uma cafeteria.", voiceover: "Estratégia começa entendendo pessoas." },
+      {
+        scene: "Abertura",
+        visual: "Empresária brasileira conversando com um cliente em uma cafeteria.",
+        voiceover: "Estratégia começa entendendo pessoas.",
+      },
       { scene: "CTA", visual: "Marca e chamada final.", voiceover: "Planeje com direção." },
     ],
   };
@@ -135,7 +163,9 @@ describe("MODO Video", () => {
     expect(project.voiceProvider).toBeNull();
     expect(project.visualProvider).toBeNull();
     expect(project.brollProvider).toBeNull();
-    expect((await service.latestForContent("organization-one", project.contentRequestId))?.id).toBe(project.id);
+    expect((await service.latestForContent("organization-one", project.contentRequestId))?.id).toBe(
+      project.id,
+    );
     expect(await service.latestForContent("organization-two", project.contentRequestId)).toBeNull();
 
     const cancelled = await service.cancel(project.id, "organization-one");
@@ -184,11 +214,19 @@ describe("MODO Video", () => {
 
     const first = await (service as any).renderScenes(row, "MODO");
     expect(synthesize).toHaveBeenCalledTimes(project.scenes.length);
-    expect(first.scenes.every((scene: any) => typeof scene.audioUrl === "string" && scene.audioUrl.startsWith("data:audio/mpeg;base64,"))).toBe(true);
+    expect(
+      first.scenes.every(
+        (scene: any) =>
+          typeof scene.audioUrl === "string" &&
+          scene.audioUrl.startsWith("data:audio/mpeg;base64,"),
+      ),
+    ).toBe(true);
 
     const second = await (service as any).renderScenes(row, "MODO");
     expect(synthesize).toHaveBeenCalledTimes(project.scenes.length);
-    expect(second.scenes.map((scene: any) => scene.audioUrl)).toEqual(first.scenes.map((scene: any) => scene.audioUrl));
+    expect(second.scenes.map((scene: any) => scene.audioUrl)).toEqual(
+      first.scenes.map((scene: any) => scene.audioUrl),
+    );
   });
 
   it("ao editar a locução, invalida somente o áudio daquela cena", async () => {
@@ -261,7 +299,9 @@ describe("MODO Video", () => {
         authorName: "Ana Criadora",
       },
     });
-    expect(prepared.scenes[0].videoUrl).toMatch(/^https:\/\/modo\.example\.com\/api\/v1\/public\/video-scene-assets\//);
+    expect(prepared.scenes[0].videoUrl).toMatch(
+      /^https:\/\/modo\.example\.com\/api\/v1\/public\/video-scene-assets\//,
+    );
   });
 
   it("regenera somente o B-roll escolhido e preserva as demais cenas", async () => {
@@ -305,16 +345,20 @@ describe("MODO Video", () => {
       assetRevision: 1,
       stockCredit: { authorName: "Criador 1" },
     });
-    expect(updated.scenes[0].videoUrl).toMatch(/^https:\/\/modo\.example\.com\/api\/v1\/public\/video-scene-assets\//);
+    expect(updated.scenes[0].videoUrl).toMatch(
+      /^https:\/\/modo\.example\.com\/api\/v1\/public\/video-scene-assets\//,
+    );
     expect(updated.scenes.slice(1)).toEqual(before.slice(1));
   });
 
   it("regenera somente o visual escolhido e preserva as demais cenas", async () => {
-    const generate = vi.fn(async ({ sceneIndex, revision }: { sceneIndex: number; revision: number }) => ({
-      provider: "openai" as const,
-      mimeType: "image/png" as const,
-      data: Buffer.from(`image:${sceneIndex}:${revision}`),
-    }));
+    const generate = vi.fn(
+      async ({ sceneIndex, revision }: { sceneIndex: number; revision: number }) => ({
+        provider: "openai" as const,
+        mimeType: "image/png" as const,
+        data: Buffer.from(`image:${sceneIndex}:${revision}`),
+      }),
+    );
     const service = new VideoService({
       publicApiUrl: "https://modo.example.com",
       visualProvider: { name: "openai", generate },
@@ -345,7 +389,9 @@ describe("MODO Video", () => {
       assetSource: "generated",
       assetRevision: 1,
     });
-    expect(updated.scenes[1].imageUrl).toMatch(/^https:\/\/modo\.example\.com\/api\/v1\/public\/video-scene-assets\//);
+    expect(updated.scenes[1].imageUrl).toMatch(
+      /^https:\/\/modo\.example\.com\/api\/v1\/public\/video-scene-assets\//,
+    );
     expect(updated.scenes[0]).toEqual(before[0]);
     expect(updated.scenes.slice(2)).toEqual(before.slice(2));
   });
@@ -387,12 +433,14 @@ describe("MODO Video", () => {
       captions: true,
     });
     await service.cancel(created.id, "organization-one");
-    await expect(service.regenerateScene({
-      id: created.id,
-      organizationId: "organization-one",
-      sceneIndex: 2,
-      brandName: "MODO",
-    })).rejects.toMatchObject<Partial<VideoError>>({ code: "VIDEO_VISUAL_UNAVAILABLE" });
+    await expect(
+      service.regenerateScene({
+        id: created.id,
+        organizationId: "organization-one",
+        sceneIndex: 2,
+        brandName: "MODO",
+      }),
+    ).rejects.toMatchObject<Partial<VideoError>>({ code: "VIDEO_VISUAL_UNAVAILABLE" });
   });
 
   it("não promete troca de B-roll quando o ambiente não possui Pexels", async () => {
@@ -404,32 +452,38 @@ describe("MODO Video", () => {
       captions: true,
     });
     await service.cancel(created.id, "organization-one");
-    await expect(service.regenerateScene({
-      id: created.id,
-      organizationId: "organization-one",
-      sceneIndex: 1,
-      brandName: "MODO",
-    })).rejects.toMatchObject<Partial<VideoError>>({ code: "VIDEO_BROLL_UNAVAILABLE" });
+    await expect(
+      service.regenerateScene({
+        id: created.id,
+        organizationId: "organization-one",
+        sceneIndex: 1,
+        brandName: "MODO",
+      }),
+    ).rejects.toMatchObject<Partial<VideoError>>({ code: "VIDEO_BROLL_UNAVAILABLE" });
   });
 
   it("não aceita narração quando o ambiente não possui provider", async () => {
     const service = new VideoService();
-    await expect(service.createProject({
-      organizationId: "organization-one",
-      content: contentRequest(),
-      durationSeconds: 30,
-      captions: true,
-      voiceover: true,
-    })).rejects.toMatchObject<Partial<VideoError>>({ code: "VIDEO_VOICE_UNAVAILABLE" });
+    await expect(
+      service.createProject({
+        organizationId: "organization-one",
+        content: contentRequest(),
+        durationSeconds: 30,
+        captions: true,
+        voiceover: true,
+      }),
+    ).rejects.toMatchObject<Partial<VideoError>>({ code: "VIDEO_VOICE_UNAVAILABLE" });
   });
 
   it("recusa tipos de conteúdo que não são roteiro de vídeo", async () => {
     const service = new VideoService();
-    await expect(service.createProject({
-      organizationId: "organization-one",
-      content: contentRequest({ contentType: "carousel" }),
-      durationSeconds: 30,
-      captions: true,
-    })).rejects.toMatchObject<Partial<VideoError>>({ code: "VIDEO_CONTENT_TYPE_REQUIRED" });
+    await expect(
+      service.createProject({
+        organizationId: "organization-one",
+        content: contentRequest({ contentType: "carousel" }),
+        durationSeconds: 30,
+        captions: true,
+      }),
+    ).rejects.toMatchObject<Partial<VideoError>>({ code: "VIDEO_CONTENT_TYPE_REQUIRED" });
   });
 });

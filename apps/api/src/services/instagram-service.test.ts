@@ -10,8 +10,10 @@ function jsonResponse(payload: unknown, status = 200) {
 }
 
 function signedRequest(clientSecret: string, payload: Record<string, unknown>) {
-  const encoded = Buffer.from(JSON.stringify({ algorithm: "HMAC-SHA256", ...payload }), "utf8")
-    .toString("base64url");
+  const encoded = Buffer.from(
+    JSON.stringify({ algorithm: "HMAC-SHA256", ...payload }),
+    "utf8",
+  ).toString("base64url");
   const signature = createHmac("sha256", clientSecret).update(encoded).digest("base64url");
   return `${signature}.${encoded}`;
 }
@@ -22,7 +24,8 @@ function configuredService() {
     clientSecret: "instagram-client-secret",
     redirectUri: "https://api.example.com/api/v1/instagram/callback",
     encryptionSecret: "instagram-token-encryption-secret-with-entropy",
-    scopes: "instagram_business_basic,instagram_business_content_publish,instagram_business_manage_insights,instagram_business_manage_comments",
+    scopes:
+      "instagram_business_basic,instagram_business_content_publish,instagram_business_manage_insights,instagram_business_manage_comments",
     webUrl: "https://modo.example.com",
     apiVersion: "v21.0",
     graphBaseUrl: "https://graph.instagram.com",
@@ -72,7 +75,8 @@ describe("InstagramService", () => {
     const fetchMock = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
       const url = String(input);
       const method = init?.method || "GET";
-      const body = init?.body instanceof URLSearchParams ? init.body.toString() : String(init?.body || "");
+      const body =
+        init?.body instanceof URLSearchParams ? init.body.toString() : String(init?.body || "");
       requests.push({ url, method, body });
 
       if (url === "https://api.instagram.com/oauth/access_token") {
@@ -124,9 +128,7 @@ describe("InstagramService", () => {
     const state = new URL(authorization.authorizationUrl).searchParams.get("state")!;
     const redirect = await service.completeAuthorization({ state, code: "authorization-code" });
 
-    expect(redirect).toBe(
-      "https://modo.example.com/app/settings/integrations?instagram=connected",
-    );
+    expect(redirect).toBe("https://modo.example.com/app/settings/integrations?instagram=connected");
     await expect(service.getStatus("account-publish")).resolves.toMatchObject({
       connected: true,
       instagramUserId: "17841499999999999",
@@ -148,23 +150,32 @@ describe("InstagramService", () => {
       permalink: "https://www.instagram.com/p/modo-post-1/",
     });
     const createCall = requests.find((request) => request.url.endsWith("/17841499999999999/media"));
-    const publishCall = requests.find((request) => request.url.endsWith("/17841499999999999/media_publish"));
+    const publishCall = requests.find((request) =>
+      request.url.endsWith("/17841499999999999/media_publish"),
+    );
     expect(createCall).toMatchObject({ method: "POST" });
     expect(createCall?.body).toContain("image_url=https%3A%2F%2Fmodo-api.example.com");
     expect(createCall?.body).toContain("caption=Legenda+aprovada+pela+MODO");
     expect(publishCall).toMatchObject({ method: "POST" });
     expect(publishCall?.body).toContain("creation_id=creation-dynamic-1");
     expect(requests.every((request) => !request.url.includes("graph.facebook.com"))).toBe(true);
-    expect(requests.some((request) => request.url.includes("short-response-user-id-must-not-be-hardcoded/media"))).toBe(false);
+    expect(
+      requests.some((request) =>
+        request.url.includes("short-response-user-id-must-not-be-hardcoded/media"),
+      ),
+    ).toBe(false);
   });
 
   it("renova o token quando faltam menos de cinco dias", async () => {
     vi.setSystemTime(new Date("2026-08-01T12:00:00.000Z"));
-    const fetchMock = vi.fn()
+    const fetchMock = vi
+      .fn()
       .mockResolvedValueOnce(jsonResponse({ access_token: "short-token", user_id: "temporary" }))
       .mockResolvedValueOnce(jsonResponse({ access_token: "long-token", expires_in: 60 }))
       .mockResolvedValueOnce(jsonResponse({ id: "17841400000000055", username: "modo_refresh" }))
-      .mockResolvedValueOnce(jsonResponse({ access_token: "refreshed-token", expires_in: 5_184_000 }));
+      .mockResolvedValueOnce(
+        jsonResponse({ access_token: "refreshed-token", expires_in: 5_184_000 }),
+      );
     vi.stubGlobal("fetch", fetchMock);
 
     const service = configuredService();
@@ -180,7 +191,8 @@ describe("InstagramService", () => {
   });
 
   it("valida signed_request e remove a conexão após desautorização", async () => {
-    const fetchMock = vi.fn()
+    const fetchMock = vi
+      .fn()
       .mockResolvedValueOnce(jsonResponse({ access_token: "short-token", user_id: "temporary" }))
       .mockResolvedValueOnce(jsonResponse({ access_token: "long-token", expires_in: 5_184_000 }))
       .mockResolvedValueOnce(jsonResponse({ id: "17841400000000077", username: "modo_delete" }));

@@ -27,15 +27,23 @@ export function Screen({
   const horizontal = width >= 720 ? 32 : 18;
   return (
     <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
-      <KeyboardAvoidingView style={styles.fill} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+      <KeyboardAvoidingView
+        style={styles.fill}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+      >
         <ScrollView
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
-          refreshControl={onRefresh ? <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.blue} /> : undefined}
-          contentContainerStyle={[
-            styles.scroll,
-            padded && { paddingHorizontal: horizontal },
-          ]}
+          refreshControl={
+            onRefresh ? (
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                tintColor={colors.blue}
+              />
+            ) : undefined
+          }
+          contentContainerStyle={[styles.scroll, padded && { paddingHorizontal: horizontal }]}
         >
           <View style={[styles.container, { maxWidth: width >= 900 ? 820 : 720 }]}>{children}</View>
         </ScrollView>
@@ -88,14 +96,20 @@ export function Button({
         blocked && styles.buttonDisabled,
       ]}
     >
-      {loading ? <ActivityIndicator color={variant === "secondary" ? colors.navy : colors.surface} /> : (
+      {loading ? (
+        <ActivityIndicator color={variant === "secondary" ? colors.navy : colors.surface} />
+      ) : (
         <Text style={[styles.buttonText, styles[`buttonText_${variant}`]]}>{children}</Text>
       )}
     </Pressable>
   );
 }
 
-export function Field({ label, hint, ...props }: TextInputProps & { label: string; hint?: string }) {
+export function Field({
+  label,
+  hint,
+  ...props
+}: TextInputProps & { label: string; hint?: string }) {
   return (
     <View style={styles.fieldWrap}>
       <Text style={styles.fieldLabel}>{label}</Text>
@@ -109,7 +123,10 @@ export function Field({ label, hint, ...props }: TextInputProps & { label: strin
   );
 }
 
-export function Pill({ children, tone = "blue" }: PropsWithChildren<{ tone?: "blue" | "green" | "purple" | "neutral" | "warning" }>) {
+export function Pill({
+  children,
+  tone = "blue",
+}: PropsWithChildren<{ tone?: "blue" | "green" | "purple" | "neutral" | "warning" }>) {
   return (
     <View style={[styles.pill, styles[`pill_${tone}`]]}>
       <Text style={[styles.pillText, styles[`pillText_${tone}`]]}>{children}</Text>
@@ -117,7 +134,15 @@ export function Pill({ children, tone = "blue" }: PropsWithChildren<{ tone?: "bl
   );
 }
 
-export function EmptyState({ title, copy, action }: { title: string; copy: string; action?: ReactNode }) {
+export function EmptyState({
+  title,
+  copy,
+  action,
+}: {
+  title: string;
+  copy: string;
+  action?: ReactNode;
+}) {
   return (
     <Card style={styles.empty}>
       <Text style={styles.emptySymbol}>✦</Text>
@@ -136,7 +161,15 @@ export function ErrorNotice({ message }: { message: string }) {
   );
 }
 
-export function SectionHeading({ eyebrow, title, copy }: { eyebrow?: string; title: string; copy?: string }) {
+export function SectionHeading({
+  eyebrow,
+  title,
+  copy,
+}: {
+  eyebrow?: string;
+  title: string;
+  copy?: string;
+}) {
   return (
     <View style={styles.sectionHeading}>
       {eyebrow ? <Text style={styles.eyebrow}>{eyebrow}</Text> : null}
@@ -147,7 +180,13 @@ export function SectionHeading({ eyebrow, title, copy }: { eyebrow?: string; tit
 }
 
 export const typography = StyleSheet.create({
-  hero: { color: colors.text, fontSize: 36, lineHeight: 40, fontWeight: "900", letterSpacing: -1.4 },
+  hero: {
+    color: colors.text,
+    fontSize: 36,
+    lineHeight: 40,
+    fontWeight: "900",
+    letterSpacing: -1.4,
+  },
   h1: { color: colors.text, fontSize: 29, lineHeight: 34, fontWeight: "900", letterSpacing: -0.9 },
   h2: { color: colors.text, fontSize: 22, lineHeight: 28, fontWeight: "900", letterSpacing: -0.4 },
   h3: { color: colors.text, fontSize: 17, lineHeight: 22, fontWeight: "800" },
@@ -162,14 +201,42 @@ const styles = StyleSheet.create({
   scroll: { flexGrow: 1, paddingTop: spacing.md, paddingBottom: 120 },
   container: { width: "100%", alignSelf: "center", gap: spacing.lg },
   brandRow: { flexDirection: "row", alignItems: "center", gap: 11 },
-  brandIcon: { width: 42, height: 42, borderRadius: 14, backgroundColor: colors.blue, alignItems: "center", justifyContent: "center" },
+  brandIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    backgroundColor: colors.blue,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   brandIconCompact: { width: 34, height: 34, borderRadius: 11 },
   brandM: { color: colors.surface, fontSize: 21, fontWeight: "900", letterSpacing: -2 },
   brandMCompact: { fontSize: 17 },
-  brandDot: { position: "absolute", width: 7, height: 7, borderRadius: 4, backgroundColor: colors.green, right: 6, top: 6 },
+  brandDot: {
+    position: "absolute",
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: colors.green,
+    right: 6,
+    top: 6,
+  },
   brandName: { color: colors.navy, fontSize: 19, fontWeight: "900", letterSpacing: 2.2 },
-  card: { backgroundColor: colors.surface, borderRadius: radii.large, borderWidth: 1, borderColor: colors.border, padding: spacing.lg, ...shadow },
-  button: { minHeight: 52, borderRadius: radii.medium, paddingHorizontal: 20, alignItems: "center", justifyContent: "center" },
+  card: {
+    backgroundColor: colors.surface,
+    borderRadius: radii.large,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: spacing.lg,
+    ...shadow,
+  },
+  button: {
+    minHeight: 52,
+    borderRadius: radii.medium,
+    paddingHorizontal: 20,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   button_primary: { backgroundColor: colors.blue },
   button_secondary: { backgroundColor: colors.green },
   button_ghost: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
@@ -183,10 +250,24 @@ const styles = StyleSheet.create({
   buttonText_danger: { color: colors.surface },
   fieldWrap: { gap: 7 },
   fieldLabel: { color: colors.text, fontSize: 13, fontWeight: "800" },
-  field: { minHeight: 52, borderWidth: 1, borderColor: colors.border, borderRadius: radii.medium, backgroundColor: colors.surface, color: colors.text, paddingHorizontal: 16, fontSize: 16 },
+  field: {
+    minHeight: 52,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radii.medium,
+    backgroundColor: colors.surface,
+    color: colors.text,
+    paddingHorizontal: 16,
+    fontSize: 16,
+  },
   fieldMultiline: { minHeight: 120, paddingTop: 14, textAlignVertical: "top" },
   fieldHint: { color: colors.muted, fontSize: 12, lineHeight: 18 },
-  pill: { alignSelf: "flex-start", borderRadius: radii.pill, paddingHorizontal: 10, paddingVertical: 6 },
+  pill: {
+    alignSelf: "flex-start",
+    borderRadius: radii.pill,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
   pill_blue: { backgroundColor: colors.blueSoft },
   pill_green: { backgroundColor: colors.greenSoft },
   pill_purple: { backgroundColor: colors.purpleSoft },
@@ -202,7 +283,13 @@ const styles = StyleSheet.create({
   emptySymbol: { color: colors.blue, fontSize: 32 },
   emptyTitle: { ...typography.h2, textAlign: "center" },
   emptyCopy: { ...typography.body, textAlign: "center", maxWidth: 480 },
-  errorNotice: { borderRadius: radii.medium, borderWidth: 1, borderColor: "#FECDCA", backgroundColor: colors.dangerSoft, padding: spacing.md },
+  errorNotice: {
+    borderRadius: radii.medium,
+    borderWidth: 1,
+    borderColor: "#FECDCA",
+    backgroundColor: colors.dangerSoft,
+    padding: spacing.md,
+  },
   errorText: { color: colors.danger, fontSize: 13, lineHeight: 20, fontWeight: "700" },
   sectionHeading: { gap: 7 },
   eyebrow: { color: colors.blue, fontSize: 11, fontWeight: "900", letterSpacing: 1.3 },

@@ -22,7 +22,9 @@ export default function CanvaApprovalAction({ contentRequestId }: { contentReque
       const result = await createCanvaDesign(contentRequestId);
       setDesign(result.design);
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Não foi possível criar a versão no Canva.");
+      setError(
+        caught instanceof Error ? caught.message : "Não foi possível criar a versão no Canva.",
+      );
     } finally {
       setWorking(false);
     }
@@ -53,14 +55,19 @@ export default function CanvaApprovalAction({ contentRequestId }: { contentReque
             if (active) setDesign(result.design);
           } catch (caught) {
             if (active) {
-              setError(caught instanceof Error ? caught.message : "Não foi possível criar a versão no Canva.");
+              setError(
+                caught instanceof Error
+                  ? caught.message
+                  : "Não foi possível criar a versão no Canva.",
+              );
             }
           } finally {
             if (active) setWorking(false);
           }
         }
       } catch (caught) {
-        if (active) setError(caught instanceof Error ? caught.message : "Não foi possível carregar o Canva.");
+        if (active)
+          setError(caught instanceof Error ? caught.message : "Não foi possível carregar o Canva.");
       } finally {
         if (active) setLoading(false);
       }
@@ -74,7 +81,9 @@ export default function CanvaApprovalAction({ contentRequestId }: { contentReque
     }
 
     void prepare();
-    return () => { active = false; };
+    return () => {
+      active = false;
+    };
   }, [contentRequestId]);
 
   async function handleConnect() {
@@ -90,13 +99,25 @@ export default function CanvaApprovalAction({ contentRequestId }: { contentReque
   }
 
   if (loading) {
-    return <section className="canva-approval-action loading"><span className="portal-spinner" /><p>Preparando a etapa Canva...</p></section>;
+    return (
+      <section className="canva-approval-action loading">
+        <span className="portal-spinner" />
+        <p>Preparando a etapa Canva...</p>
+      </section>
+    );
   }
 
   if (!status?.integrationConfigured) {
     return (
       <section className="canva-approval-action unavailable">
-        <div><small>ETAPA PÓS-APROVAÇÃO</small><strong>Canva aguardando ativação</strong><p>A peça já está aprovada. A conexão Canva será exibida quando o aplicativo estiver configurado pela MODO.</p></div>
+        <div>
+          <small>ETAPA PÓS-APROVAÇÃO</small>
+          <strong>Canva aguardando ativação</strong>
+          <p>
+            A peça já está aprovada. A conexão Canva será exibida quando o aplicativo estiver
+            configurado pela MODO.
+          </p>
+        </div>
       </section>
     );
   }
@@ -105,20 +126,60 @@ export default function CanvaApprovalAction({ contentRequestId }: { contentReque
     <section className="canva-approval-action">
       <div className="canva-approval-copy">
         <small>ETAPA PÓS-APROVAÇÃO</small>
-        <strong>{design ? "Versão criada no Canva" : status.connected ? working ? "Criando a versão no Canva..." : "Preparar versão editável" : "Conectar o Canva"}</strong>
-        <p>{design ? "O design aprovado está vinculado a este pedido e pode ser aberto para acabamento." : status.connected ? working ? "A aprovação foi concluída. A MODO está enviando a imagem aprovada e criando o design automaticamente." : "A conta está conectada. A criação pode ser repetida sem duplicar o design." : status.message}</p>
+        <strong>
+          {design
+            ? "Versão criada no Canva"
+            : status.connected
+              ? working
+                ? "Criando a versão no Canva..."
+                : "Preparar versão editável"
+              : "Conectar o Canva"}
+        </strong>
+        <p>
+          {design
+            ? "O design aprovado está vinculado a este pedido e pode ser aberto para acabamento."
+            : status.connected
+              ? working
+                ? "A aprovação foi concluída. A MODO está enviando a imagem aprovada e criando o design automaticamente."
+                : "A conta está conectada. A criação pode ser repetida sem duplicar o design."
+              : status.message}
+        </p>
         {error && <div className="portal-error">{error}</div>}
       </div>
       <div className="canva-approval-actions">
         {design ? (
-          <a className="button button-primary" href={design.editUrl} target="_blank" rel="noreferrer">Abrir no Canva ↗</a>
+          <a
+            className="button button-primary"
+            href={design.editUrl}
+            target="_blank"
+            rel="noreferrer"
+          >
+            Abrir no Canva ↗
+          </a>
         ) : status.connected ? (
-          <button className="button button-primary" type="button" disabled={working} onClick={() => void createDesign()}>{working ? "Criando no Canva..." : error ? "Tentar novamente" : "Criar agora"}</button>
+          <button
+            className="button button-primary"
+            type="button"
+            disabled={working}
+            onClick={() => void createDesign()}
+          >
+            {working ? "Criando no Canva..." : error ? "Tentar novamente" : "Criar agora"}
+          </button>
         ) : (
-          <button className="button button-primary" type="button" disabled={working} onClick={() => void handleConnect()}>{working ? "Abrindo autorização..." : "Conectar Canva"}</button>
+          <button
+            className="button button-primary"
+            type="button"
+            disabled={working}
+            onClick={() => void handleConnect()}
+          >
+            {working ? "Abrindo autorização..." : "Conectar Canva"}
+          </button>
         )}
       </div>
-      <p className="canva-governance-note">Somente a versão aprovada é enviada. O Canva é usado para acabamento e edição; nenhuma publicação ou campanha é ativada automaticamente.</p>
+      <p className="canva-governance-note">
+        Somente a versão aprovada é enviada. O Canva é usado para acabamento e edição; nenhuma
+        publicação ou campanha é ativada automaticamente.
+      </p>
     </section>
   );
 }

@@ -41,7 +41,11 @@ interface IdentityPayload extends Json {
 }
 
 export class NativeInstagramOAuthError extends Error {
-  constructor(public readonly code: string, public readonly statusCode: number, message: string) {
+  constructor(
+    public readonly code: string,
+    public readonly statusCode: number,
+    message: string,
+  ) {
     super(message);
     this.name = "NativeInstagramOAuthError";
   }
@@ -128,7 +132,12 @@ export class NativeInstagramOAuthService {
     return { authorizationUrl: url.toString() };
   }
 
-  async completeAuthorization(input: { state?: string; code?: string; error?: string; errorDescription?: string }) {
+  async completeAuthorization(input: {
+    state?: string;
+    code?: string;
+    error?: string;
+    errorDescription?: string;
+  }) {
     this.requireConfigured();
     if (!input.state || !input.code || input.error) {
       throw new NativeInstagramOAuthError(
@@ -169,8 +178,13 @@ export class NativeInstagramOAuthService {
       );
     }
 
-    const tokenExpiresAt = new Date(Date.now() + Number(long.expires_in || DEFAULT_TOKEN_SECONDS) * 1000);
-    const scopes = Array.isArray(short.permissions) && short.permissions.length ? short.permissions : this.scopes;
+    const tokenExpiresAt = new Date(
+      Date.now() + Number(long.expires_in || DEFAULT_TOKEN_SECONDS) * 1000,
+    );
+    const scopes =
+      Array.isArray(short.permissions) && short.permissions.length
+        ? short.permissions
+        : this.scopes;
     const id = randomUUID();
     const result = await this.pool!.query(
       `INSERT INTO modo_native_social_connections(
@@ -224,7 +238,11 @@ export class NativeInstagramOAuthService {
   }
 
   private async consumeState(state: string): Promise<OAuthContext> {
-    const result = await this.pool!.query<{ organization_id: string; brand_id: string; expires_at: Date }>(
+    const result = await this.pool!.query<{
+      organization_id: string;
+      brand_id: string;
+      expires_at: Date;
+    }>(
       `DELETE FROM modo_native_social_oauth_states
        WHERE state=$1 AND provider='instagram'
        RETURNING organization_id,brand_id,expires_at`,
@@ -288,7 +306,8 @@ export class NativeInstagramOAuthService {
     detailed.searchParams.set("access_token", accessToken);
     const detailedResponse = await fetch(detailed, { signal: AbortSignal.timeout(20_000) });
     const detailedPayload = (await detailedResponse.json().catch(() => ({}))) as IdentityPayload;
-    if (detailedResponse.ok && detailedPayload.id && detailedPayload.username) return detailedPayload;
+    if (detailedResponse.ok && detailedPayload.id && detailedPayload.username)
+      return detailedPayload;
 
     const fallback = new URL(`${this.graphBaseUrl}/${this.apiVersion}/me`);
     fallback.searchParams.set("fields", "id,username");

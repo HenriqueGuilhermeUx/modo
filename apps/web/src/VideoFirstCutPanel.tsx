@@ -37,7 +37,9 @@ export default function VideoFirstCutPanel({
   const quality = useMemo(() => evaluateVideoFirstCut(project.scenes), [project.scenes]);
   const explicit = explicitVideoCreativeProfile(project.scenes[0]);
   const profile = inferVideoCreativeProfile(project.scenes);
-  const approved = project.review?.scenes.some((scene) => scene.status === "approved") || project.review?.approvalStatus === "approved";
+  const approved =
+    project.review?.scenes.some((scene) => scene.status === "approved") ||
+    project.review?.approvalStatus === "approved";
   const busy = working || ["queued", "rendering"].includes(project.status) || approved;
 
   async function apply(choice: VideoCreativeProfileChoice) {
@@ -46,12 +48,15 @@ export default function VideoFirstCutPanel({
     setWorking(true);
     onError("");
     try {
-      const signature = choice === "auto" ? videoAutoSceneSignature(first) : videoCreativeProfileSignature(choice);
+      const signature =
+        choice === "auto" ? videoAutoSceneSignature(first) : videoCreativeProfileSignature(choice);
       const updated = await updateVideoScene(project.id, first.index, signature);
       onProject(updated);
       window.setTimeout(() => window.location.reload(), 120);
     } catch (caught) {
-      onError(caught instanceof Error ? caught.message : "Não foi possível trocar a direção estética.");
+      onError(
+        caught instanceof Error ? caught.message : "Não foi possível trocar a direção estética.",
+      );
       setWorking(false);
     }
   }
@@ -62,38 +67,74 @@ export default function VideoFirstCutPanel({
         <div>
           <small>FIRST CUT · QUALITY GATE</small>
           <h2>Um Reel que já nasce editado.</h2>
-          <p>A MODO escolhe uma linguagem visual para o vídeo inteiro. Você pode manter a direção automática ou trocar o tratamento antes de começar as aprovações.</p>
+          <p>
+            A MODO escolhe uma linguagem visual para o vídeo inteiro. Você pode manter a direção
+            automática ou trocar o tratamento antes de começar as aprovações.
+          </p>
         </div>
         <div className={`video-v18-score ${quality.status}`}>
-          <strong>{quality.score}</strong><span>/100</span><small>{statusLabel(quality.status)}</small>
+          <strong>{quality.score}</strong>
+          <span>/100</span>
+          <small>{statusLabel(quality.status)}</small>
         </div>
       </div>
 
       <div className="video-v18-profile-summary">
         <span>Direção atual</span>
         <strong>{profiles.find((item) => item.id === profile)?.name || "Editorial"}</strong>
-        <small>{explicit ? "Escolha manual aplicada sem regenerar mídia." : "Escolhida automaticamente pela MODO a partir do conteúdo e das cenas."}</small>
+        <small>
+          {explicit
+            ? "Escolha manual aplicada sem regenerar mídia."
+            : "Escolhida automaticamente pela MODO a partir do conteúdo e das cenas."}
+        </small>
       </div>
 
       <div className="video-v18-profile-grid">
-        <button className={!explicit ? "selected" : ""} disabled={busy} onClick={() => void apply("auto")}>
-          <strong>MODO decide</strong><span>Direção automática</span>
+        <button
+          className={!explicit ? "selected" : ""}
+          disabled={busy}
+          onClick={() => void apply("auto")}
+        >
+          <strong>MODO decide</strong>
+          <span>Direção automática</span>
         </button>
         {profiles.map((item) => (
-          <button key={item.id} className={explicit === item.id ? "selected" : ""} disabled={busy} onClick={() => void apply(item.id)}>
-            <strong>{item.name}</strong><span>{item.copy}</span>
+          <button
+            key={item.id}
+            className={explicit === item.id ? "selected" : ""}
+            disabled={busy}
+            onClick={() => void apply(item.id)}
+          >
+            <strong>{item.name}</strong>
+            <span>{item.copy}</span>
           </button>
         ))}
       </div>
 
-      {approved && <div className="video-v18-lock-note"><strong>Direção protegida após aprovação.</strong><span>Para preservar o que já foi aprovado, o estilo global fica travado. Ajustes continuam disponíveis cena por cena.</span></div>}
-      {!approved && <div className="video-v18-no-provider-note">Trocar o perfil altera composição, tipografia, overlay e energia do corte. <strong>Não gera nova imagem nem baixa outro B-roll.</strong></div>}
+      {approved && (
+        <div className="video-v18-lock-note">
+          <strong>Direção protegida após aprovação.</strong>
+          <span>
+            Para preservar o que já foi aprovado, o estilo global fica travado. Ajustes continuam
+            disponíveis cena por cena.
+          </span>
+        </div>
+      )}
+      {!approved && (
+        <div className="video-v18-no-provider-note">
+          Trocar o perfil altera composição, tipografia, overlay e energia do corte.{" "}
+          <strong>Não gera nova imagem nem baixa outro B-roll.</strong>
+        </div>
+      )}
 
       <div className="video-v18-checks">
         {quality.checks.map((check) => (
           <div key={check.key} className={check.status}>
             <span>{check.status === "pass" ? "✓" : "!"}</span>
-            <div><strong>{check.label}</strong><small>{check.detail}</small></div>
+            <div>
+              <strong>{check.label}</strong>
+              <small>{check.detail}</small>
+            </div>
           </div>
         ))}
       </div>

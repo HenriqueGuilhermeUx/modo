@@ -42,9 +42,8 @@ export async function disconnectLinkedIn() {
 }
 
 export async function listLinkedInPublications(): Promise<LinkedInPublication[]> {
-  return LinkedInPublicationListSchema.parse(
-    await request("/api/v1/linkedin/publications"),
-  ).publications;
+  return LinkedInPublicationListSchema.parse(await request("/api/v1/linkedin/publications"))
+    .publications;
 }
 
 export async function publishToLinkedIn(contentRequestId: string, scheduledFor?: string) {
@@ -60,10 +59,9 @@ export async function publishToLinkedIn(contentRequestId: string, scheduledFor?:
 }
 
 export async function downloadLinkedInDocument(contentRequestId: string) {
-  const response = await fetch(
-    `${API_URL}/api/v1/linkedin/content/${contentRequestId}/document`,
-    { headers: { authorization: `Bearer ${getSessionToken()}` } },
-  );
+  const response = await fetch(`${API_URL}/api/v1/linkedin/content/${contentRequestId}/document`, {
+    headers: { authorization: `Bearer ${getSessionToken()}` },
+  });
   if (!response.ok) {
     const payload = await response.json().catch(() => ({}));
     throw new Error(payload.message || "Não foi possível gerar o documento.");

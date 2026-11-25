@@ -19,9 +19,21 @@ const output: GeneratedContent = {
   imageStatus: "not_requested",
   visualAssets: [],
   script: [
-    { scene: "Abertura", visual: "Pessoa trabalhando em uma mesa.", voiceover: "Abertura com contexto." },
-    { scene: "Método", visual: "Tela com processo organizado.", voiceover: "Depois mostramos o método." },
-    { scene: "CTA", visual: "Marca e chamada final.", voiceover: "Finalize com uma chamada clara." },
+    {
+      scene: "Abertura",
+      visual: "Pessoa trabalhando em uma mesa.",
+      voiceover: "Abertura com contexto.",
+    },
+    {
+      scene: "Método",
+      visual: "Tela com processo organizado.",
+      voiceover: "Depois mostramos o método.",
+    },
+    {
+      scene: "CTA",
+      visual: "Marca e chamada final.",
+      voiceover: "Finalize com uma chamada clara.",
+    },
   ],
 };
 
@@ -60,7 +72,11 @@ async function editableProject(video: VideoService) {
 }
 
 const tinyPng = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
-const tinyMp4 = Buffer.concat([Buffer.from([0, 0, 0, 16]), Buffer.from("ftyp"), Buffer.from("isom0000")]);
+const tinyMp4 = Buffer.concat([
+  Buffer.from([0, 0, 0, 16]),
+  Buffer.from("ftyp"),
+  Buffer.from("isom0000"),
+]);
 
 describe("MODO Video Media Lab V1.7", () => {
   it("lê enquadramento e trim persistidos no URL da cena", () => {
@@ -153,17 +169,19 @@ describe("MODO Video Media Lab V1.7", () => {
     const mediaLab = new VideoMediaLabService(video, "https://modo.example.com");
     const project = await editableProject(video);
 
-    await expect(mediaLab.uploadAndAttach({
-      project,
-      organizationId: "organization-one",
-      sceneIndex: 1,
-      upload: {
-        fileName: "falso.jpg",
-        mimeType: "image/jpeg",
-        dataBase64: tinyPng.toString("base64"),
-        durationSeconds: null,
-      },
-    })).rejects.toMatchObject<Partial<VideoError>>({ code: "VIDEO_MEDIA_SIGNATURE_MISMATCH" });
+    await expect(
+      mediaLab.uploadAndAttach({
+        project,
+        organizationId: "organization-one",
+        sceneIndex: 1,
+        upload: {
+          fileName: "falso.jpg",
+          mimeType: "image/jpeg",
+          dataBase64: tinyPng.toString("base64"),
+          durationSeconds: null,
+        },
+      }),
+    ).rejects.toMatchObject<Partial<VideoError>>({ code: "VIDEO_MEDIA_SIGNATURE_MISMATCH" });
   });
 
   it("não permite trim em imagem", async () => {
@@ -183,12 +201,14 @@ describe("MODO Video Media Lab V1.7", () => {
     });
     const editable = await video.cancel(uploaded.id, "organization-one");
 
-    await expect(mediaLab.updateTransform({
-      project: editable,
-      organizationId: "organization-one",
-      sceneIndex: 1,
-      patch: { trimStartSeconds: 1 },
-    })).rejects.toMatchObject<Partial<VideoError>>({ code: "VIDEO_MEDIA_TRIM_VIDEO_ONLY" });
+    await expect(
+      mediaLab.updateTransform({
+        project: editable,
+        organizationId: "organization-one",
+        sceneIndex: 1,
+        patch: { trimStartSeconds: 1 },
+      }),
+    ).rejects.toMatchObject<Partial<VideoError>>({ code: "VIDEO_MEDIA_TRIM_VIDEO_ONLY" });
   });
 
   it("valida duração do MP4 e aplica trim sem baixar ou duplicar o take", async () => {
@@ -207,7 +227,11 @@ describe("MODO Video Media Lab V1.7", () => {
       },
     });
     const takesBefore = await mediaLab.listSceneTakes(uploaded, "organization-one", 1);
-    expect(takesBefore[0]).toMatchObject({ provider: "upload", durationSeconds: 10, selectable: true });
+    expect(takesBefore[0]).toMatchObject({
+      provider: "upload",
+      durationSeconds: 10,
+      selectable: true,
+    });
 
     const editable = await video.cancel(uploaded.id, "organization-one");
     const trimmed = await mediaLab.updateTransform({
@@ -222,12 +246,14 @@ describe("MODO Video Media Lab V1.7", () => {
     expect(takesAfter[0].token).toBe(takesBefore[0].token);
 
     const editableAgain = await video.cancel(trimmed.id, "organization-one");
-    await expect(mediaLab.updateTransform({
-      project: editableAgain,
-      organizationId: "organization-one",
-      sceneIndex: 1,
-      patch: { trimStartSeconds: 5.5 },
-    })).rejects.toMatchObject<Partial<VideoError>>({ code: "VIDEO_MEDIA_TRIM_OUT_OF_RANGE" });
+    await expect(
+      mediaLab.updateTransform({
+        project: editableAgain,
+        organizationId: "organization-one",
+        sceneIndex: 1,
+        patch: { trimStartSeconds: 5.5 },
+      }),
+    ).rejects.toMatchObject<Partial<VideoError>>({ code: "VIDEO_MEDIA_TRIM_OUT_OF_RANGE" });
   });
 
   it("mantém isolamento por organização antes de persistir o arquivo", async () => {
@@ -235,17 +261,19 @@ describe("MODO Video Media Lab V1.7", () => {
     const mediaLab = new VideoMediaLabService(video, "https://modo.example.com");
     const project = await editableProject(video);
 
-    await expect(mediaLab.uploadAndAttach({
-      project,
-      organizationId: "organization-two",
-      sceneIndex: 1,
-      upload: {
-        fileName: "intruso.png",
-        mimeType: "image/png",
-        dataBase64: tinyPng.toString("base64"),
-        durationSeconds: null,
-      },
-    })).rejects.toMatchObject<Partial<VideoError>>({ code: "VIDEO_PROJECT_NOT_FOUND" });
+    await expect(
+      mediaLab.uploadAndAttach({
+        project,
+        organizationId: "organization-two",
+        sceneIndex: 1,
+        upload: {
+          fileName: "intruso.png",
+          mimeType: "image/png",
+          dataBase64: tinyPng.toString("base64"),
+          durationSeconds: null,
+        },
+      }),
+    ).rejects.toMatchObject<Partial<VideoError>>({ code: "VIDEO_PROJECT_NOT_FOUND" });
     expect((mediaLab as any).runtime.memorySceneAssets?.size || 0).toBe(0);
   });
 });

@@ -3,10 +3,7 @@ import type { ContentRequest, GeneratedContent } from "@modo/contracts/content";
 import { timingSafeEqual } from "node:crypto";
 import { ContentAssetService } from "./content-asset-service.js";
 import { ContentService } from "./content-service.js";
-import {
-  formatCreativeContext,
-  loadCreativeGenerationContext,
-} from "./creative-context.js";
+import { formatCreativeContext, loadCreativeGenerationContext } from "./creative-context.js";
 import { OpenAiContentProvider } from "./openai-content-provider.js";
 
 export type ContentProviderMode = "native" | "openai";
@@ -33,7 +30,10 @@ export class ContentAutomationError extends Error {
 }
 
 function cleanBrandHashtag(brandName: string) {
-  return brandName.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\W/g, "");
+  return brandName
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\W/g, "");
 }
 
 export class ContentAutomationService {
@@ -73,11 +73,7 @@ export class ContentAutomationService {
         return this.content.complete(processing.id, generated.output, generated.providerRunId);
       } catch {
         const fallback = await this.buildNativeOutput(processing, brand, true);
-        return this.content.complete(
-          processing.id,
-          fallback,
-          `fallback:openai:${processing.id}`,
-        );
+        return this.content.complete(processing.id, fallback, `fallback:openai:${processing.id}`);
       }
     }
 
@@ -125,16 +121,18 @@ export class ContentAutomationService {
     };
     const objective = objectiveLabels[request.objective];
     const hook = `${brandName}: uma forma mais simples de avançar com ${request.brief.split("\n")[0].slice(0, 110)}`;
-    const title = request.objective === "conversao"
-      ? `Conheça a proposta da ${brandName}`
-      : `${brandName}: clareza antes da próxima decisão`;
+    const title =
+      request.objective === "conversao"
+        ? `Conheça a proposta da ${brandName}`
+        : `${brandName}: clareza antes da próxima decisão`;
     const contextNote = formattedContext
       ? `\n\nA direção considera o contexto já aprendido pela MODO sobre prioridades, provas disponíveis, dúvidas recorrentes e restrições da marca.`
       : "";
     const caption = `${request.brief}\n\nEsta peça foi estruturada para ${objective}, com linguagem adequada a ${request.channel}. O foco é tornar a proposta compreensível, reduzir dúvidas e conduzir a uma ação segura, sem promessas exageradas.${contextNote}`;
-    const cta = request.objective === "conversao"
-      ? "Conheça a proposta e veja como funciona."
-      : "Converse com a marca e descubra o próximo passo.";
+    const cta =
+      request.objective === "conversao"
+        ? "Conheça a proposta e veja como funciona."
+        : "Converse com a marca e descubra o próximo passo.";
     const visualDirection = `Criar uma composição publicitária específica para ${brandName}, no segmento ${brand.niche}, representando a oferta descrita no briefing. Usar contraste, hierarquia clara, espaço para título e CTA e apenas provas reais disponíveis. Evitar imagens genéricas de banco, promessas visuais exageradas e elementos que não pertençam ao contexto do cliente.`;
     const base: GeneratedContent = {
       hook,
@@ -162,22 +160,43 @@ export class ContentAutomationService {
 
     if (request.contentType === "carousel") {
       base.slides = [
-        { title: hook, body: "Abrir com uma ideia concreta que interrompa o padrão e seja reconhecível pelo público." },
+        {
+          title: hook,
+          body: "Abrir com uma ideia concreta que interrompa o padrão e seja reconhecível pelo público.",
+        },
         { title: "O que está em jogo", body: request.brief },
-        { title: "Como olhar para isso", body: "Organizar a decisão em critérios claros, sem jargão e sem promessas que a marca não possa comprovar." },
-        { title: "A proposta da marca", body: `${brandName} apresenta a solução com foco em clareza, confiança e utilidade prática.` },
+        {
+          title: "Como olhar para isso",
+          body: "Organizar a decisão em critérios claros, sem jargão e sem promessas que a marca não possa comprovar.",
+        },
+        {
+          title: "A proposta da marca",
+          body: `${brandName} apresenta a solução com foco em clareza, confiança e utilidade prática.`,
+        },
         { title: "Próximo passo", body: cta },
       ];
     } else if (request.contentType === "short_video_script") {
       base.script = [
         { scene: "Abertura", visual: "Plano próximo e situação real do público.", voiceover: hook },
-        { scene: "Problema", visual: "Mostrar o contexto descrito no briefing sem dramatização artificial.", voiceover: request.brief },
-        { scene: "Solução", visual: `Demonstrar como ${brandName} organiza a proposta.`, voiceover: `${brandName} torna o próximo passo mais claro e prático.` },
+        {
+          scene: "Problema",
+          visual: "Mostrar o contexto descrito no briefing sem dramatização artificial.",
+          voiceover: request.brief,
+        },
+        {
+          scene: "Solução",
+          visual: `Demonstrar como ${brandName} organiza a proposta.`,
+          voiceover: `${brandName} torna o próximo passo mais claro e prático.`,
+        },
         { scene: "Fechamento", visual: "Oferta e chamada para ação na tela.", voiceover: cta },
       ];
     } else if (request.contentType === "story") {
       base.storyFrames = [
-        { headline: hook, body: "Apresente o problema em linguagem cotidiana.", interaction: "Enquete: quero entender / já conheço" },
+        {
+          headline: hook,
+          body: "Apresente o problema em linguagem cotidiana.",
+          interaction: "Enquete: quero entender / já conheço",
+        },
         { headline: "O ponto principal", body: request.brief, interaction: "" },
         { headline: "Próximo passo", body: cta, interaction: "Caixa de perguntas" },
       ];

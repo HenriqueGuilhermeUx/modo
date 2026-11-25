@@ -8,11 +8,11 @@ const TEST_CLIENT_SECRET = randomBytes(32).toString("hex");
 const TEST_ENCRYPTION_SECRET = randomBytes(32).toString("hex");
 
 function signedRequest(payload: Record<string, unknown>) {
-  const encoded = Buffer.from(JSON.stringify({ algorithm: "HMAC-SHA256", ...payload }), "utf8")
-    .toString("base64url");
-  const signature = createHmac("sha256", TEST_CLIENT_SECRET)
-    .update(encoded)
-    .digest("base64url");
+  const encoded = Buffer.from(
+    JSON.stringify({ algorithm: "HMAC-SHA256", ...payload }),
+    "utf8",
+  ).toString("base64url");
+  const signature = createHmac("sha256", TEST_CLIENT_SECRET).update(encoded).digest("base64url");
   return `${signature}.${encoded}`;
 }
 
@@ -31,7 +31,8 @@ describe("rotas do Instagram", () => {
       instagramClientSecret: TEST_CLIENT_SECRET,
       instagramRedirectUri: "https://api.example.com/api/v1/instagram/callback",
       instagramEncryptionSecret: TEST_ENCRYPTION_SECRET,
-      instagramScopes: "instagram_business_basic,instagram_business_content_publish,instagram_business_manage_insights,instagram_business_manage_comments",
+      instagramScopes:
+        "instagram_business_basic,instagram_business_content_publish,instagram_business_manage_insights,instagram_business_manage_comments",
       instagramApiVersion: "v21.0",
       instagramGraphBaseUrl: "https://graph.instagram.com",
     });

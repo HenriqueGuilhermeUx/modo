@@ -145,11 +145,13 @@ export class PasswordResetService {
       await this.sendResetEmail(user, token, mode);
     } catch (error) {
       // Não muda a resposta externa: evita enumeração por diferenças de entrega.
-      await pool.query(
-        `UPDATE modo_password_reset_tokens SET used_at=NOW()
+      await pool
+        .query(
+          `UPDATE modo_password_reset_tokens SET used_at=NOW()
          WHERE token_hash=$1 AND used_at IS NULL`,
-        [tokenHash],
-      ).catch(() => undefined);
+          [tokenHash],
+        )
+        .catch(() => undefined);
       const message = error instanceof Error ? error.message : "Falha desconhecida";
       console.error(`[MODO_PASSWORD_RESET] entrega de e-mail falhou: ${message}`);
     }
@@ -180,10 +182,11 @@ export class PasswordResetService {
       }
 
       const salt = randomBytes(16).toString("hex");
-      await client.query(
-        `UPDATE modo_users SET password_hash=$2,password_salt=$3 WHERE id=$1`,
-        [record.user_id, hashPassword(password, salt), salt],
-      );
+      await client.query(`UPDATE modo_users SET password_hash=$2,password_salt=$3 WHERE id=$1`, [
+        record.user_id,
+        hashPassword(password, salt),
+        salt,
+      ]);
       await client.query(
         `UPDATE modo_password_reset_tokens SET used_at=NOW()
          WHERE user_id=$1 AND used_at IS NULL`,

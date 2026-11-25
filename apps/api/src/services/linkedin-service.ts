@@ -5,13 +5,7 @@ import type {
   LinkedInConnectionStatus,
   LinkedInPublication,
 } from "@modo/contracts/linkedin";
-import {
-  createCipheriv,
-  createDecipheriv,
-  createHash,
-  randomBytes,
-  randomUUID,
-} from "node:crypto";
+import { createCipheriv, createDecipheriv, createHash, randomBytes, randomUUID } from "node:crypto";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import pg, { type Pool } from "pg";
 
@@ -212,7 +206,8 @@ export class LinkedInService {
         scopes: [],
         canPublishText: false,
         canPublishDocuments: false,
-        message: "A integração está pronta no produto e aguarda as credenciais do aplicativo LinkedIn.",
+        message:
+          "A integração está pronta no produto e aguarda as credenciais do aplicativo LinkedIn.",
       };
     }
 
@@ -278,7 +273,10 @@ export class LinkedInService {
     error?: string;
     errorDescription?: string;
   }) {
-    const fallback = this.frontendRedirect("error", input.errorDescription || input.error || "Autorização não concluída.");
+    const fallback = this.frontendRedirect(
+      "error",
+      input.errorDescription || input.error || "Autorização não concluída.",
+    );
     if (!input.state) return fallback;
 
     const state = await this.consumeState(input.state);
@@ -290,7 +288,10 @@ export class LinkedInService {
     const token = await this.exchangeCode(input.code);
     const accessToken = token.access_token;
     if (!accessToken) {
-      return this.frontendRedirect("error", token.error_description || token.error || "Token não recebido.");
+      return this.frontendRedirect(
+        "error",
+        token.error_description || token.error || "Token não recebido.",
+      );
     }
 
     let authorUrn: string;
@@ -307,7 +308,9 @@ export class LinkedInService {
         );
       }
       authorUrn = `urn:li:person:${profile.id}`;
-      displayName = [profile.localizedFirstName, profile.localizedLastName].filter(Boolean).join(" ") || "Perfil LinkedIn";
+      displayName =
+        [profile.localizedFirstName, profile.localizedLastName].filter(Boolean).join(" ") ||
+        "Perfil LinkedIn";
     }
 
     const connection: Connection = {
@@ -326,7 +329,9 @@ export class LinkedInService {
   async disconnect(accountId: string) {
     this.connections.delete(accountId);
     if (this.pool) {
-      await this.pool.query("DELETE FROM modo_linkedin_connections WHERE account_id=$1", [accountId]);
+      await this.pool.query("DELETE FROM modo_linkedin_connections WHERE account_id=$1", [
+        accountId,
+      ]);
     }
     return { disconnected: true };
   }
@@ -349,7 +354,11 @@ export class LinkedInService {
     scheduledFor?: string,
   ): Promise<LinkedInPublication> {
     if (content.organizationId !== accountId) {
-      throw new LinkedInError("CONTENT_NOT_FOUND", 404, "Conteúdo não encontrado nesta organização.");
+      throw new LinkedInError(
+        "CONTENT_NOT_FOUND",
+        404,
+        "Conteúdo não encontrado nesta organização.",
+      );
     }
     if (content.status !== "approved" || !content.output) {
       throw new LinkedInError(
@@ -359,7 +368,11 @@ export class LinkedInService {
       );
     }
     if (!/^linkedin$/i.test(content.channel.trim())) {
-      throw new LinkedInError("INVALID_CHANNEL", 409, "Este conteúdo não foi criado para o LinkedIn.");
+      throw new LinkedInError(
+        "INVALID_CHANNEL",
+        409,
+        "Este conteúdo não foi criado para o LinkedIn.",
+      );
     }
 
     const target = scheduledFor ? new Date(scheduledFor) : null;
@@ -376,13 +389,24 @@ export class LinkedInService {
       return this.savePublication(accountId, content.id, "scheduled", target, null, null);
     }
 
-    const publication = await this.savePublication(accountId, content.id, "publishing", target, null, null);
+    const publication = await this.savePublication(
+      accountId,
+      content.id,
+      "publishing",
+      target,
+      null,
+      null,
+    );
     return this.publishStored(accountId, publication, content, connection);
   }
 
   private async processDuePublications() {
     if (!this.pool || !this.configured) return;
-    const due = await this.pool.query<{ id: string; account_id: string; content_request_id: string }>(
+    const due = await this.pool.query<{
+      id: string;
+      account_id: string;
+      content_request_id: string;
+    }>(
       `SELECT id,account_id,content_request_id FROM modo_linkedin_publications
        WHERE status='scheduled' AND scheduled_for <= NOW()
        ORDER BY scheduled_for ASC LIMIT 10`,
@@ -390,7 +414,12 @@ export class LinkedInService {
     for (const row of due.rows) {
       const connection = await this.getConnection(row.account_id);
       if (!connection || connection.tokenExpiresAt <= new Date()) {
-        await this.updatePublication(row.id, "failed", null, "Conexão LinkedIn ausente ou expirada.");
+        await this.updatePublication(
+          row.id,
+          "failed",
+          null,
+          "Conexão LinkedIn ausente ou expirada.",
+        );
         continue;
       }
       const contentResult = await this.pool.query<any>(
@@ -434,7 +463,9 @@ export class LinkedInService {
         updated_at: new Date(),
       });
       await this.updatePublication(row.id, "publishing", null, null);
-      await this.publishStored(row.account_id, publication, content, connection).catch(() => undefined);
+      await this.publishStored(row.account_id, publication, content, connection).catch(
+        () => undefined,
+      );
     }
   }
 
@@ -446,9 +477,10 @@ export class LinkedInService {
   ) {
     try {
       const token = this.decrypt(connection.encryptedAccessToken);
-      const postUrn = content.contentType === "carousel" && content.output!.slides.length > 0
-        ? await this.publishDocument(token, connection.authorUrn, content.output!)
-        : await this.publishText(token, connection.authorUrn, content.output!);
+      const postUrn =
+        content.contentType === "carousel" && content.output!.slides.length > 0
+          ? await this.publishDocument(token, connection.authorUrn, content.output!)
+          : await this.publishText(token, connection.authorUrn, content.output!);
       return this.updatePublication(publication.id, "published", postUrn, null, new Date());
     } catch (error) {
       const message = error instanceof Error ? error.message : "Falha ao publicar no LinkedIn.";
@@ -467,7 +499,9 @@ export class LinkedInService {
       headers: this.linkedInHeaders(token),
       body: JSON.stringify({ initializeUploadRequest: { owner: authorUrn } }),
     });
-    const initPayload = (await init.json().catch(() => ({}))) as InitializeDocumentResponse & { message?: string };
+    const initPayload = (await init.json().catch(() => ({}))) as InitializeDocumentResponse & {
+      message?: string;
+    };
     const uploadUrl = initPayload.value?.uploadUrl;
     const documentUrn = initPayload.value?.document;
     if (!init.ok || !uploadUrl || !documentUrn) {
@@ -496,7 +530,11 @@ export class LinkedInService {
       const payload = (await status.json().catch(() => ({}))) as { status?: string };
       if (payload.status === "AVAILABLE") break;
       if (payload.status === "PROCESSING_FAILED") {
-        throw new LinkedInError("DOCUMENT_PROCESSING_FAILED", 502, "O LinkedIn não processou o PDF.");
+        throw new LinkedInError(
+          "DOCUMENT_PROCESSING_FAILED",
+          502,
+          "O LinkedIn não processou o PDF.",
+        );
       }
       await delay(800);
     }
@@ -555,16 +593,27 @@ export class LinkedInService {
     const document = await PDFDocument.create();
     const regular = await document.embedFont(StandardFonts.Helvetica);
     const bold = await document.embedFont(StandardFonts.HelveticaBold);
-    const slides = output.slides.length > 0
-      ? output.slides
-      : [{ title: output.title, body: output.caption }];
+    const slides =
+      output.slides.length > 0 ? output.slides : [{ title: output.title, body: output.caption }];
 
     const addSlide = (title: string, body: string, index: number, total: number) => {
       const page = document.addPage([800, 1000]);
       page.drawRectangle({ x: 0, y: 0, width: 800, height: 1000, color: rgb(0.96, 0.97, 0.99) });
       page.drawRectangle({ x: 0, y: 0, width: 30, height: 1000, color: rgb(0.12, 0.37, 1) });
-      page.drawText("MODO LINKEDIN", { x: 70, y: 925, size: 15, font: bold, color: rgb(0.12, 0.37, 1) });
-      page.drawText(`${String(index).padStart(2, "0")} / ${String(total).padStart(2, "0")}`, { x: 650, y: 925, size: 12, font: regular, color: rgb(0.36, 0.4, 0.48) });
+      page.drawText("MODO LINKEDIN", {
+        x: 70,
+        y: 925,
+        size: 15,
+        font: bold,
+        color: rgb(0.12, 0.37, 1),
+      });
+      page.drawText(`${String(index).padStart(2, "0")} / ${String(total).padStart(2, "0")}`, {
+        x: 650,
+        y: 925,
+        size: 12,
+        font: regular,
+        color: rgb(0.36, 0.4, 0.48),
+      });
       let y = 820;
       for (const line of this.wrap(title, 36)) {
         page.drawText(line, { x: 70, y, size: 34, font: bold, color: rgb(0.05, 0.11, 0.24) });
@@ -576,11 +625,19 @@ export class LinkedInService {
         page.drawText(line, { x: 70, y, size: 19, font: regular, color: rgb(0.22, 0.27, 0.36) });
         y -= 29;
       }
-      page.drawText("Sua marca em modo presença.", { x: 70, y: 48, size: 12, font: bold, color: rgb(0.12, 0.37, 1) });
+      page.drawText("Sua marca em modo presença.", {
+        x: 70,
+        y: 48,
+        size: 12,
+        font: bold,
+        color: rgb(0.12, 0.37, 1),
+      });
     };
 
     addSlide(output.hook, output.title, 1, slides.length + 1);
-    slides.forEach((slide, index) => addSlide(slide.title, slide.body, index + 2, slides.length + 1));
+    slides.forEach((slide, index) =>
+      addSlide(slide.title, slide.body, index + 2, slides.length + 1),
+    );
     return document.save();
   }
 
@@ -648,7 +705,9 @@ export class LinkedInService {
         "X-Restli-Protocol-Version": "2.0.0",
       },
     });
-    const payload = (await response.json().catch(() => ({}))) as ProfileResponse & { message?: string };
+    const payload = (await response.json().catch(() => ({}))) as ProfileResponse & {
+      message?: string;
+    };
     if (!response.ok) {
       throw new LinkedInError(
         "LINKEDIN_PROFILE_FAILED",
@@ -663,13 +722,22 @@ export class LinkedInService {
     const iv = randomBytes(12);
     const cipher = createCipheriv("aes-256-gcm", this.encryptionKey, iv);
     const encrypted = Buffer.concat([cipher.update(value, "utf8"), cipher.final()]);
-    return [iv.toString("base64url"), cipher.getAuthTag().toString("base64url"), encrypted.toString("base64url")].join(".");
+    return [
+      iv.toString("base64url"),
+      cipher.getAuthTag().toString("base64url"),
+      encrypted.toString("base64url"),
+    ].join(".");
   }
 
   private decrypt(value: string) {
     const [ivValue, tagValue, dataValue] = value.split(".");
-    if (!ivValue || !tagValue || !dataValue) throw new LinkedInError("INVALID_TOKEN", 500, "Token LinkedIn inválido.");
-    const decipher = createDecipheriv("aes-256-gcm", this.encryptionKey, Buffer.from(ivValue, "base64url"));
+    if (!ivValue || !tagValue || !dataValue)
+      throw new LinkedInError("INVALID_TOKEN", 500, "Token LinkedIn inválido.");
+    const decipher = createDecipheriv(
+      "aes-256-gcm",
+      this.encryptionKey,
+      Buffer.from(ivValue, "base64url"),
+    );
     decipher.setAuthTag(Buffer.from(tagValue, "base64url"));
     return Buffer.concat([
       decipher.update(Buffer.from(dataValue, "base64url")),
@@ -678,7 +746,9 @@ export class LinkedInService {
   }
 
   private get encryptionKey() {
-    return createHash("sha256").update(this.options.encryptionSecret || "disabled").digest();
+    return createHash("sha256")
+      .update(this.options.encryptionSecret || "disabled")
+      .digest();
   }
 
   private async saveState(state: OAuthState) {
@@ -687,7 +757,14 @@ export class LinkedInService {
       await this.pool.query(
         `INSERT INTO modo_linkedin_oauth_states(state,account_id,author_type,organization_urn,organization_name,expires_at)
          VALUES($1,$2,$3,$4,$5,$6)`,
-        [state.state, state.accountId, state.authorType, state.organizationUrn, state.organizationName, state.expiresAt],
+        [
+          state.state,
+          state.accountId,
+          state.authorType,
+          state.organizationUrn,
+          state.organizationName,
+          state.expiresAt,
+        ],
       );
     }
   }
@@ -817,7 +894,8 @@ export class LinkedInService {
          RETURNING id,content_request_id,status,scheduled_for,published_at,post_urn,error,created_at,updated_at`,
         [id, status, postUrn, error, publishedAt ?? null],
       );
-      if (!result.rowCount) throw new LinkedInError("PUBLICATION_NOT_FOUND", 404, "Publicação não encontrada.");
+      if (!result.rowCount)
+        throw new LinkedInError("PUBLICATION_NOT_FOUND", 404, "Publicação não encontrada.");
       return mapPublication(result.rows[0]);
     }
     const item = this.publications.find((publication) => publication.id === id);

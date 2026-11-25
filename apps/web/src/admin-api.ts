@@ -25,7 +25,8 @@ const API_URL = (import.meta.env.VITE_API_URL || "http://localhost:4000").replac
 const ADMIN_TOKEN_KEY = "modo.platformAdminToken";
 
 export const getAdminToken = () => window.localStorage.getItem(ADMIN_TOKEN_KEY) ?? "";
-export const saveAdminToken = (token: string) => window.localStorage.setItem(ADMIN_TOKEN_KEY, token);
+export const saveAdminToken = (token: string) =>
+  window.localStorage.setItem(ADMIN_TOKEN_KEY, token);
 export const clearAdminToken = () => window.localStorage.removeItem(ADMIN_TOKEN_KEY);
 
 async function request<T>(path: string, init?: RequestInit, authenticated = true): Promise<T> {
@@ -49,10 +50,14 @@ async function request<T>(path: string, init?: RequestInit, authenticated = true
 export async function loginAdmin(email: string, password: string): Promise<AdminSession> {
   const input = AdminLoginRequestSchema.parse({ email, password });
   const session = AdminSessionSchema.parse(
-    await request<unknown>("/api/v1/admin/login", {
-      method: "POST",
-      body: JSON.stringify(input),
-    }, false),
+    await request<unknown>(
+      "/api/v1/admin/login",
+      {
+        method: "POST",
+        body: JSON.stringify(input),
+      },
+      false,
+    ),
   );
   saveAdminToken(session.token);
   return session;
@@ -72,9 +77,8 @@ export async function getAdminOverview() {
 }
 
 export async function listAdminOrganizations() {
-  return AdminOrganizationListSchema.parse(
-    await request<unknown>("/api/v1/admin/organizations"),
-  ).organizations;
+  return AdminOrganizationListSchema.parse(await request<unknown>("/api/v1/admin/organizations"))
+    .organizations;
 }
 
 export async function adjustOrganizationCredits(id: string, input: AdminCreditAdjustment) {
@@ -84,20 +88,16 @@ export async function adjustOrganizationCredits(id: string, input: AdminCreditAd
   );
 }
 
-export async function updateOrganizationSubscription(
-  id: string,
-  input: AdminSubscriptionUpdate,
-) {
-  return request<{ usage: unknown }>(
-    `/api/v1/admin/organizations/${id}/subscription`,
-    { method: "PATCH", body: JSON.stringify(input) },
-  );
+export async function updateOrganizationSubscription(id: string, input: AdminSubscriptionUpdate) {
+  return request<{ usage: unknown }>(`/api/v1/admin/organizations/${id}/subscription`, {
+    method: "PATCH",
+    body: JSON.stringify(input),
+  });
 }
 
 export async function listAdminInvitations() {
-  return AdminInvitationListSchema.parse(
-    await request<unknown>("/api/v1/admin/invitations"),
-  ).invitations;
+  return AdminInvitationListSchema.parse(await request<unknown>("/api/v1/admin/invitations"))
+    .invitations;
 }
 
 export async function createAdminInvitation(input: AdminInvitationCreate) {
@@ -116,9 +116,8 @@ export async function revokeAdminInvitation(id: string) {
 }
 
 export async function listAdminDiscounts() {
-  return AdminDiscountCampaignListSchema.parse(
-    await request<unknown>("/api/v1/admin/discounts"),
-  ).campaigns;
+  return AdminDiscountCampaignListSchema.parse(await request<unknown>("/api/v1/admin/discounts"))
+    .campaigns;
 }
 
 export async function createAdminDiscount(input: AdminDiscountCampaignCreate) {
@@ -147,10 +146,14 @@ export async function previewInvitation(token: string) {
 
 export async function acceptInvitation(token: string, input: InvitationAcceptRequest) {
   const session = AuthSessionSchema.parse(
-    await request<unknown>(`/api/v1/invitations/${encodeURIComponent(token)}/accept`, {
-      method: "POST",
-      body: JSON.stringify(InvitationAcceptRequestSchema.parse(input)),
-    }, false),
+    await request<unknown>(
+      `/api/v1/invitations/${encodeURIComponent(token)}/accept`,
+      {
+        method: "POST",
+        body: JSON.stringify(InvitationAcceptRequestSchema.parse(input)),
+      },
+      false,
+    ),
   );
   saveSessionToken(session.token);
   return session;

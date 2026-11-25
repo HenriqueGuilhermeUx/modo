@@ -1,4 +1,7 @@
-import type { PartnerApplication, PartnerApplicationCreate } from "@modo/contracts/strategy-network";
+import type {
+  PartnerApplication,
+  PartnerApplicationCreate,
+} from "@modo/contracts/strategy-network";
 import { randomUUID } from "node:crypto";
 import pg, { type Pool } from "pg";
 
@@ -92,7 +95,11 @@ export class PartnerService {
           candidate.companyName.toLowerCase() === input.companyName.toLowerCase(),
       );
       if (duplicate) {
-        throw new PartnerError("PARTNER_APPLICATION_ALREADY_EXISTS", 409, "Esta candidatura já foi recebida.");
+        throw new PartnerError(
+          "PARTNER_APPLICATION_ALREADY_EXISTS",
+          409,
+          "Esta candidatura já foi recebida.",
+        );
       }
       this.applications.unshift(item);
       return item;
@@ -163,7 +170,11 @@ export class PartnerService {
       };
     } catch (error) {
       if ((error as { code?: string }).code === "23505") {
-        throw new PartnerError("PARTNER_APPLICATION_ALREADY_EXISTS", 409, "Esta candidatura já foi recebida.");
+        throw new PartnerError(
+          "PARTNER_APPLICATION_ALREADY_EXISTS",
+          409,
+          "Esta candidatura já foi recebida.",
+        );
       }
       throw error;
     }

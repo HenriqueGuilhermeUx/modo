@@ -1,7 +1,10 @@
 import { z } from "zod";
 
 const OptionalTextSchema = z.string().trim().max(4000).optional().default("");
-const OptionalLinkSchema = z.union([z.literal(""), z.string().url().max(800)]).optional().default("");
+const OptionalLinkSchema = z
+  .union([z.literal(""), z.string().url().max(800)])
+  .optional()
+  .default("");
 
 export const SmartBotsIntakePayloadSchema = z.object({
   partner: z.literal("modo").default("modo"),

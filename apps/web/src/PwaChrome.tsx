@@ -18,7 +18,14 @@ export default function PwaChrome() {
     ["/app/mobile/account", "●", "Conta", path.startsWith("/app/mobile/account")],
   ] as const;
 
-  return <nav className="modo-pwa-tabbar" aria-label="Navegação MODO">
-    {items.map(([href, icon, label, active]) => <a className={active ? "active" : ""} href={href} key={href}><b>{icon}</b><span>{label}</span></a>)}
-  </nav>;
+  return (
+    <nav className="modo-pwa-tabbar" aria-label="Navegação MODO">
+      {items.map(([href, icon, label, active]) => (
+        <a className={active ? "active" : ""} href={href} key={href}>
+          <b>{icon}</b>
+          <span>{label}</span>
+        </a>
+      ))}
+    </nav>
+  );
 }

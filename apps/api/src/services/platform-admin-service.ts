@@ -16,12 +16,7 @@ import type {
   InvitationPreview,
   PlatformAdmin,
 } from "@modo/contracts/admin";
-import {
-  createHash,
-  randomBytes,
-  randomUUID,
-  timingSafeEqual,
-} from "node:crypto";
+import { createHash, randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
 import pg, { type Pool } from "pg";
 
 const { Pool: PgPool } = pg;
@@ -76,7 +71,9 @@ function hashToken(value: string) {
 function constantTimeEquals(received: string, expected: string) {
   const actualBuffer = Buffer.from(received, "utf8");
   const expectedBuffer = Buffer.from(expected, "utf8");
-  return actualBuffer.length === expectedBuffer.length && timingSafeEqual(actualBuffer, expectedBuffer);
+  return (
+    actualBuffer.length === expectedBuffer.length && timingSafeEqual(actualBuffer, expectedBuffer)
+  );
 }
 
 function addHours(date: Date, hours: number) {
@@ -244,12 +241,20 @@ export class PlatformAdminService {
 
   async login(email: string, password: string): Promise<AdminSession> {
     if (!this.enabled) {
-      throw new PlatformAdminError("ADMIN_NOT_CONFIGURED", 503, "O administrador da plataforma ainda não foi configurado.");
+      throw new PlatformAdminError(
+        "ADMIN_NOT_CONFIGURED",
+        503,
+        "O administrador da plataforma ainda não foi configurado.",
+      );
     }
     const validEmail = constantTimeEquals(email.trim().toLowerCase(), this.email);
     const validPassword = constantTimeEquals(password, this.password);
     if (!validEmail || !validPassword) {
-      throw new PlatformAdminError("INVALID_ADMIN_CREDENTIALS", 401, "E-mail ou senha administrativa inválidos.");
+      throw new PlatformAdminError(
+        "INVALID_ADMIN_CREDENTIALS",
+        401,
+        "E-mail ou senha administrativa inválidos.",
+      );
     }
 
     const token = randomBytes(32).toString("base64url");
@@ -267,7 +272,12 @@ export class PlatformAdminService {
   }
 
   async authenticate(token: string) {
-    if (!token) throw new PlatformAdminError("ADMIN_UNAUTHORIZED", 401, "Acesso administrativo não autorizado.");
+    if (!token)
+      throw new PlatformAdminError(
+        "ADMIN_UNAUTHORIZED",
+        401,
+        "Acesso administrativo não autorizado.",
+      );
     const tokenHash = hashToken(token);
     if (this.pool) {
       const result = await this.pool.query<AdminSessionRow>(
@@ -275,20 +285,32 @@ export class PlatformAdminService {
          WHERE token_hash=$1 AND expires_at>NOW() LIMIT 1`,
         [tokenHash],
       );
-      if (!result.rowCount) throw new PlatformAdminError("ADMIN_UNAUTHORIZED", 401, "Sessão administrativa inválida ou expirada.");
+      if (!result.rowCount)
+        throw new PlatformAdminError(
+          "ADMIN_UNAUTHORIZED",
+          401,
+          "Sessão administrativa inválida ou expirada.",
+        );
       return this.admin;
     }
     const expiresAt = this.memorySessions.get(tokenHash);
     if (!expiresAt || expiresAt <= new Date()) {
       this.memorySessions.delete(tokenHash);
-      throw new PlatformAdminError("ADMIN_UNAUTHORIZED", 401, "Sessão administrativa inválida ou expirada.");
+      throw new PlatformAdminError(
+        "ADMIN_UNAUTHORIZED",
+        401,
+        "Sessão administrativa inválida ou expirada.",
+      );
     }
     return this.admin;
   }
 
   async logout(token: string) {
     const tokenHash = hashToken(token);
-    if (this.pool) await this.pool.query("DELETE FROM modo_platform_admin_sessions WHERE token_hash=$1", [tokenHash]);
+    if (this.pool)
+      await this.pool.query("DELETE FROM modo_platform_admin_sessions WHERE token_hash=$1", [
+        tokenHash,
+      ]);
     else this.memorySessions.delete(tokenHash);
   }
 
@@ -339,20 +361,20 @@ export class PlatformAdminService {
   }
 
   async listOrganizations(): Promise<AdminOrganization[]> {
-  const result = await this.requirePool().query<{
-    id: string;
-    name: string;
-    owner_name: string;
-    owner_email: string;
-    plan_slug: PlanSlug;
-    status: SubscriptionStatus;
-    credits_granted: number;
-    credits_used: number;
-    brands: number;
-    users: number;
-    content_requests: number;
-    created_at: Date;
-  }>(`
+    const result = await this.requirePool().query<{
+      id: string;
+      name: string;
+      owner_name: string;
+      owner_email: string;
+      plan_slug: PlanSlug;
+      status: SubscriptionStatus;
+      credits_granted: number;
+      credits_used: number;
+      brands: number;
+      users: number;
+      content_requests: number;
+      created_at: Date;
+    }>(`
     SELECT o.id,o.name,o.created_at,
       COALESCE((
         SELECT u.name FROM modo_memberships m
@@ -386,33 +408,44 @@ export class PlatformAdminService {
     ORDER BY o.created_at DESC
     LIMIT 500
   `);
-  return result.rows.map((row) => ({
-    id: row.id,
-    name: row.name,
-    ownerName: row.owner_name,
-    ownerEmail: row.owner_email,
-    plan: row.plan_slug,
-    status: row.status,
-    creditsGranted: Number(row.credits_granted),
-    creditsUsed: Number(row.credits_used),
-    creditsRemaining: Math.max(0, Number(row.credits_granted) - Number(row.credits_used)),
-    brands: Number(row.brands),
-    users: Number(row.users),
-    contentRequests: Number(row.content_requests),
-    createdAt: row.created_at.toISOString(),
-  }));
-}
+    return result.rows.map((row) => ({
+      id: row.id,
+      name: row.name,
+      ownerName: row.owner_name,
+      ownerEmail: row.owner_email,
+      plan: row.plan_slug,
+      status: row.status,
+      creditsGranted: Number(row.credits_granted),
+      creditsUsed: Number(row.credits_used),
+      creditsRemaining: Math.max(0, Number(row.credits_granted) - Number(row.credits_used)),
+      brands: Number(row.brands),
+      users: Number(row.users),
+      contentRequests: Number(row.content_requests),
+      createdAt: row.created_at.toISOString(),
+    }));
+  }
 
-async createInvitation(input: AdminInvitationCreate): Promise<AdminInvitation> {
+  async createInvitation(input: AdminInvitationCreate): Promise<AdminInvitation> {
     const token = randomBytes(32).toString("base64url");
     const expiresAt = addDays(new Date(), input.expiresInDays);
     const result = await this.requirePool().query<InvitationRow>(
       `INSERT INTO modo_admin_invitations(
         id,token_hash,email,plan_slug,bonus_credits,note,expires_at
       ) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
-      [randomUUID(), hashToken(token), input.email, input.plan, input.bonusCredits, input.note, expiresAt],
+      [
+        randomUUID(),
+        hashToken(token),
+        input.email,
+        input.plan,
+        input.bonusCredits,
+        input.note,
+        expiresAt,
+      ],
     );
-    await this.audit("invitation.created", "invitation", result.rows[0].id, { email: input.email, plan: input.plan });
+    await this.audit("invitation.created", "invitation", result.rows[0].id, {
+      email: input.email,
+      plan: input.plan,
+    });
     return {
       ...mapInvitation(result.rows[0]),
       inviteUrl: `${this.publicWebUrl}/convite/${encodeURIComponent(token)}`,
@@ -436,7 +469,12 @@ async createInvitation(input: AdminInvitationCreate): Promise<AdminInvitation> {
        WHERE id=$1 AND status='open' RETURNING *`,
       [id],
     );
-    if (!result.rowCount) throw new PlatformAdminError("INVITATION_NOT_OPEN", 409, "Convite não encontrado ou já encerrado.");
+    if (!result.rowCount)
+      throw new PlatformAdminError(
+        "INVITATION_NOT_OPEN",
+        409,
+        "Convite não encontrado ou já encerrado.",
+      );
     await this.audit("invitation.revoked", "invitation", id, {});
     return mapInvitation(result.rows[0]);
   }
@@ -448,7 +486,12 @@ async createInvitation(input: AdminInvitationCreate): Promise<AdminInvitation> {
       [hashToken(token)],
     );
     const row = result.rows[0];
-    if (!row) throw new PlatformAdminError("INVITATION_INVALID", 404, "Convite inválido, expirado ou já utilizado.");
+    if (!row)
+      throw new PlatformAdminError(
+        "INVITATION_INVALID",
+        404,
+        "Convite inválido, expirado ou já utilizado.",
+      );
     return {
       email: row.email,
       plan: row.plan_slug,
@@ -464,8 +507,16 @@ async createInvitation(input: AdminInvitationCreate): Promise<AdminInvitation> {
        WHERE token_hash=$1 AND status='open' AND expires_at>NOW() RETURNING *`,
       [hashToken(token)],
     );
-    if (!result.rowCount) throw new PlatformAdminError("INVITATION_INVALID", 409, "O convite não está mais disponível.");
-    await this.audit("invitation.used", "organization", organizationId, { userId, invitationId: result.rows[0].id });
+    if (!result.rowCount)
+      throw new PlatformAdminError(
+        "INVITATION_INVALID",
+        409,
+        "O convite não está mais disponível.",
+      );
+    await this.audit("invitation.used", "organization", organizationId, {
+      userId,
+      invitationId: result.rows[0].id,
+    });
     return mapInvitation(result.rows[0]);
   }
 
@@ -474,9 +525,22 @@ async createInvitation(input: AdminInvitationCreate): Promise<AdminInvitation> {
       `INSERT INTO modo_discount_campaigns(
         id,name,code,kind,value,plans,max_redemptions,starts_at,ends_at,active
        ) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,
-      [randomUUID(), input.name, input.code, input.kind, input.value, input.plans, input.maxRedemptions, input.startsAt, input.endsAt, input.active],
+      [
+        randomUUID(),
+        input.name,
+        input.code,
+        input.kind,
+        input.value,
+        input.plans,
+        input.maxRedemptions,
+        input.startsAt,
+        input.endsAt,
+        input.active,
+      ],
     );
-    await this.audit("discount.created", "discount_campaign", result.rows[0].id, { code: input.code });
+    await this.audit("discount.created", "discount_campaign", result.rows[0].id, {
+      code: input.code,
+    });
     return mapCampaign(result.rows[0]);
   }
 
@@ -492,12 +556,22 @@ async createInvitation(input: AdminInvitationCreate): Promise<AdminInvitation> {
       `UPDATE modo_discount_campaigns SET active=$2,updated_at=NOW() WHERE id=$1 RETURNING *`,
       [id, active],
     );
-    if (!result.rowCount) throw new PlatformAdminError("CAMPAIGN_NOT_FOUND", 404, "Campanha não encontrada.");
-    await this.audit(active ? "discount.activated" : "discount.deactivated", "discount_campaign", id, {});
+    if (!result.rowCount)
+      throw new PlatformAdminError("CAMPAIGN_NOT_FOUND", 404, "Campanha não encontrada.");
+    await this.audit(
+      active ? "discount.activated" : "discount.deactivated",
+      "discount_campaign",
+      id,
+      {},
+    );
     return mapCampaign(result.rows[0]);
   }
 
-  async reserveDiscount(accountId: string, plan: PublicPlanSlug, code?: string): Promise<DiscountQuote | null> {
+  async reserveDiscount(
+    accountId: string,
+    plan: PublicPlanSlug,
+    code?: string,
+  ): Promise<DiscountQuote | null> {
     if (!code) return null;
     const client = await this.requirePool().connect();
     try {
@@ -510,32 +584,62 @@ async createInvitation(input: AdminInvitationCreate): Promise<AdminInvitation> {
         [code.trim().toUpperCase(), plan],
       );
       const campaign = result.rows[0];
-      if (!campaign) throw new PlatformAdminError("COUPON_INVALID", 400, "Cupom inválido, encerrado ou indisponível para este plano.");
-      const duplicate = await client.query<{ id: string; original_price_cents: number; final_price_cents: number }>(
+      if (!campaign)
+        throw new PlatformAdminError(
+          "COUPON_INVALID",
+          400,
+          "Cupom inválido, encerrado ou indisponível para este plano.",
+        );
+      const duplicate = await client.query<{
+        id: string;
+        original_price_cents: number;
+        final_price_cents: number;
+      }>(
         `SELECT id,original_price_cents,final_price_cents FROM modo_discount_redemptions
          WHERE campaign_id=$1 AND account_id=$2 AND plan_slug=$3 LIMIT 1`,
         [campaign.id, accountId, plan],
       );
-      if (duplicate.rowCount) throw new PlatformAdminError("COUPON_ALREADY_USED", 409, "Este cupom já foi utilizado por esta conta para o plano escolhido.");
+      if (duplicate.rowCount)
+        throw new PlatformAdminError(
+          "COUPON_ALREADY_USED",
+          409,
+          "Este cupom já foi utilizado por esta conta para o plano escolhido.",
+        );
 
       const originalPriceCents = planEntitlements[plan].priceCents;
-      const savedCents = campaign.kind === "percent"
-        ? Math.floor(originalPriceCents * Math.min(100, Number(campaign.value)) / 100)
-        : Math.min(originalPriceCents - 1, Number(campaign.value));
+      const savedCents =
+        campaign.kind === "percent"
+          ? Math.floor((originalPriceCents * Math.min(100, Number(campaign.value))) / 100)
+          : Math.min(originalPriceCents - 1, Number(campaign.value));
       const finalPriceCents = Math.max(1, originalPriceCents - savedCents);
       const reservationId = randomUUID();
       await client.query(
         `INSERT INTO modo_discount_redemptions(
           id,campaign_id,account_id,plan_slug,code,original_price_cents,final_price_cents
          ) VALUES($1,$2,$3,$4,$5,$6,$7)`,
-        [reservationId, campaign.id, accountId, plan, campaign.code, originalPriceCents, finalPriceCents],
+        [
+          reservationId,
+          campaign.id,
+          accountId,
+          plan,
+          campaign.code,
+          originalPriceCents,
+          finalPriceCents,
+        ],
       );
       await client.query(
         "UPDATE modo_discount_campaigns SET redemptions=redemptions+1,updated_at=NOW() WHERE id=$1",
         [campaign.id],
       );
       await client.query("COMMIT");
-      return { campaignId: campaign.id, reservationId, code: campaign.code, originalPriceCents, finalPriceCents, savedCents };
+      return {
+        campaignId: campaign.id,
+        reservationId,
+        code: campaign.code,
+        originalPriceCents,
+        finalPriceCents,
+        savedCents,
+      };
     } catch (error) {
       await client.query("ROLLBACK");
       throw error;
@@ -575,7 +679,12 @@ async createInvitation(input: AdminInvitationCreate): Promise<AdminInvitation> {
     }
   }
 
-  async audit(action: string, targetType: string, targetId: string | null, metadata: Record<string, unknown>) {
+  async audit(
+    action: string,
+    targetType: string,
+    targetId: string | null,
+    metadata: Record<string, unknown>,
+  ) {
     if (!this.pool) return;
     await this.pool.query(
       `INSERT INTO modo_admin_audit_log(id,action,target_type,target_id,metadata)
@@ -585,7 +694,12 @@ async createInvitation(input: AdminInvitationCreate): Promise<AdminInvitation> {
   }
 
   private requirePool() {
-    if (!this.pool) throw new PlatformAdminError("ADMIN_DATABASE_REQUIRED", 503, "O painel administrativo exige PostgreSQL.");
+    if (!this.pool)
+      throw new PlatformAdminError(
+        "ADMIN_DATABASE_REQUIRED",
+        503,
+        "O painel administrativo exige PostgreSQL.",
+      );
     return this.pool;
   }
 }

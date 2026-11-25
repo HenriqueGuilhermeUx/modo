@@ -65,7 +65,8 @@ async function readWithLimit(response: Response, maxBytes: number) {
   }
   if (!response.body) {
     const data = Buffer.from(await response.arrayBuffer());
-    if (data.length > maxBytes) throw new Error("O B-roll encontrado excede o limite de tamanho da MODO.");
+    if (data.length > maxBytes)
+      throw new Error("O B-roll encontrado excede o limite de tamanho da MODO.");
     return data;
   }
 
@@ -83,7 +84,10 @@ async function readWithLimit(response: Response, maxBytes: number) {
     }
     chunks.push(value);
   }
-  return Buffer.concat(chunks.map((chunk) => Buffer.from(chunk)), total);
+  return Buffer.concat(
+    chunks.map((chunk) => Buffer.from(chunk)),
+    total,
+  );
 }
 
 export class PexelsVideoBrollProvider implements VideoBrollProvider {
@@ -95,7 +99,11 @@ export class PexelsVideoBrollProvider implements VideoBrollProvider {
     private readonly maxBytes = 32 * 1024 * 1024,
   ) {}
 
-  async fetchClip(input: { query: string; sceneIndex: number; revision: number }): Promise<VideoBrollAsset> {
+  async fetchClip(input: {
+    query: string;
+    sceneIndex: number;
+    revision: number;
+  }): Promise<VideoBrollAsset> {
     const query = input.query.trim();
     if (!query) throw new Error("A cena precisa de uma busca visual para encontrar B-roll.");
 
@@ -113,7 +121,7 @@ export class PexelsVideoBrollProvider implements VideoBrollProvider {
       throw new Error(`Pexels respondeu ${search.status} ao buscar B-roll.`);
     }
 
-    const payload = await search.json() as PexelsSearchResponse;
+    const payload = (await search.json()) as PexelsSearchResponse;
     const candidates = (payload.videos || [])
       .filter((video) => video.duration === undefined || video.duration >= 8)
       .map((video) => {
@@ -124,9 +132,13 @@ export class PexelsVideoBrollProvider implements VideoBrollProvider {
       })
       .filter((item): item is { video: PexelsVideo; file: PexelsVideoFile } => Boolean(item));
 
-    if (!candidates.length) throw new Error("Nenhum B-roll vertical compatível e com duração suficiente foi encontrado para esta cena.");
+    if (!candidates.length)
+      throw new Error(
+        "Nenhum B-roll vertical compatível e com duração suficiente foi encontrado para esta cena.",
+      );
 
-    const selected = candidates[Math.abs(input.revision + input.sceneIndex - 1) % candidates.length];
+    const selected =
+      candidates[Math.abs(input.revision + input.sceneIndex - 1) % candidates.length];
     const clipUrl = selected.file.link!;
     const clip = await this.fetchImpl(clipUrl, { signal: AbortSignal.timeout(30_000) });
     if (!clip.ok) throw new Error(`Não foi possível baixar o B-roll selecionado (${clip.status}).`);

@@ -1,10 +1,6 @@
 import { z } from "zod";
 
-export const VideoDurationSecondsSchema = z.union([
-  z.literal(15),
-  z.literal(30),
-  z.literal(45),
-]);
+export const VideoDurationSecondsSchema = z.union([z.literal(15), z.literal(30), z.literal(45)]);
 export type VideoDurationSeconds = z.infer<typeof VideoDurationSecondsSchema>;
 
 export const VideoAspectRatioSchema = z.literal("9:16");
@@ -95,16 +91,22 @@ export const VideoSceneMediaUpdateSchema = VideoSceneMediaTransformSchema.partia
 );
 export type VideoSceneMediaUpdate = z.infer<typeof VideoSceneMediaUpdateSchema>;
 
-export const VideoSceneMediaUploadSchema = z.object({
-  fileName: z.string().trim().min(1).max(240),
-  mimeType: z.enum(["image/png", "image/jpeg", "image/webp", "video/mp4"]),
-  dataBase64: z.string().min(4).max(36_000_000),
-  durationSeconds: z.number().positive().max(600).nullable().optional(),
-}).superRefine((value, ctx) => {
-  if (value.mimeType === "video/mp4" && !value.durationSeconds) {
-    ctx.addIssue({ code: "custom", path: ["durationSeconds"], message: "Informe a duração do vídeo enviado." });
-  }
-});
+export const VideoSceneMediaUploadSchema = z
+  .object({
+    fileName: z.string().trim().min(1).max(240),
+    mimeType: z.enum(["image/png", "image/jpeg", "image/webp", "video/mp4"]),
+    dataBase64: z.string().min(4).max(36_000_000),
+    durationSeconds: z.number().positive().max(600).nullable().optional(),
+  })
+  .superRefine((value, ctx) => {
+    if (value.mimeType === "video/mp4" && !value.durationSeconds) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["durationSeconds"],
+        message: "Informe a duração do vídeo enviado.",
+      });
+    }
+  });
 export type VideoSceneMediaUpload = z.infer<typeof VideoSceneMediaUploadSchema>;
 
 export const VideoSceneSchema = z.object({

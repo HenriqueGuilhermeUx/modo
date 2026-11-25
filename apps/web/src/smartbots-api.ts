@@ -20,7 +20,8 @@ async function request(path: string, token: string, init?: RequestInit) {
     },
   });
   const payload = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(payload.message || "Não foi possível concluir a solicitação SmartBots.");
+  if (!response.ok)
+    throw new Error(payload.message || "Não foi possível concluir a solicitação SmartBots.");
   return payload;
 }
 

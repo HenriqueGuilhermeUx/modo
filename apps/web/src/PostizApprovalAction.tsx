@@ -52,11 +52,12 @@ function defaultScheduleValue() {
 }
 
 function QualityGateView({ report }: { report: DistributionQualityReport }) {
-  const label = report.status === "recommended"
-    ? "Recomendado para publicar"
-    : report.status === "review"
-      ? "Revisão recomendada"
-      : "Publicação bloqueada";
+  const label =
+    report.status === "recommended"
+      ? "Recomendado para publicar"
+      : report.status === "review"
+        ? "Revisão recomendada"
+        : "Publicação bloqueada";
   return (
     <section className={`distribution-quality ${report.status}`}>
       <div className="distribution-quality-score">
@@ -69,13 +70,19 @@ function QualityGateView({ report }: { report: DistributionQualityReport }) {
         <div className="distribution-quality-checks">
           {report.checks.map((item) => (
             <span key={item.key} className={item.status} title={item.message}>
-              {item.status === "pass" ? "✓" : item.status === "block" ? "×" : "!"} {item.label} · {item.score}/{item.maxScore}
+              {item.status === "pass" ? "✓" : item.status === "block" ? "×" : "!"} {item.label} ·{" "}
+              {item.score}/{item.maxScore}
             </span>
           ))}
         </div>
         {report.blockers.length > 0 && <p className="quality-blocker">{report.blockers[0]}</p>}
         {report.blockers.length === 0 && report.warnings.length > 0 && <p>{report.warnings[0]}</p>}
-        {report.blockers.length === 0 && report.warnings.length === 0 && <p>A peça passou pelos controles automáticos e continua dependente da sua ação explícita para sair.</p>}
+        {report.blockers.length === 0 && report.warnings.length === 0 && (
+          <p>
+            A peça passou pelos controles automáticos e continua dependente da sua ação explícita
+            para sair.
+          </p>
+        )}
       </div>
     </section>
   );
@@ -96,7 +103,9 @@ function AnalyticsView({ summary }: { summary: PostizAnalyticsSummary }) {
           </span>
         ))}
         {summary.engagementRate !== null && (
-          <span><b>{summary.engagementRate.toFixed(2)}%</b> engajamento ponderado</span>
+          <span>
+            <b>{summary.engagementRate.toFixed(2)}%</b> engajamento ponderado
+          </span>
         )}
       </div>
       <p>
@@ -117,7 +126,12 @@ export default function PostizApprovalAction({ request }: { request: ContentRequ
   const [publications, setPublications] = useState<PostizPublication[]>([]);
   const [quality, setQuality] = useState<DistributionQualityReport | null>(null);
   const [analytics, setAnalytics] = useState<Record<string, PostizAnalyticsSummary>>({});
-  const [insights, setInsights] = useState<{ samples: number; averageScore: number; bestScore: number; signal: string } | null>(null);
+  const [insights, setInsights] = useState<{
+    samples: number;
+    averageScore: number;
+    bestScore: number;
+    signal: string;
+  } | null>(null);
   const [mode, setMode] = useState<PostizPublishMode>("schedule");
   const [scheduledFor, setScheduledFor] = useState(defaultScheduleValue);
   const [busy, setBusy] = useState("");
@@ -148,7 +162,8 @@ export default function PostizApprovalAction({ request }: { request: ContentRequ
   useEffect(() => {
     mounted.current = true;
     void load().catch((caught) => {
-      if (mounted.current) setError(caught instanceof Error ? caught.message : "Não foi possível carregar os canais.");
+      if (mounted.current)
+        setError(caught instanceof Error ? caught.message : "Não foi possível carregar os canais.");
     });
     return () => {
       mounted.current = false;
@@ -171,7 +186,9 @@ export default function PostizApprovalAction({ request }: { request: ContentRequ
         "modo-postiz-oauth",
         "popup=yes,width=720,height=780,noopener,noreferrer",
       );
-      setMessage(`Autorize ${platformLabels[platform]} na janela aberta. A MODO vai reconhecer o canal automaticamente.`);
+      setMessage(
+        `Autorize ${platformLabels[platform]} na janela aberta. A MODO vai reconhecer o canal automaticamente.`,
+      );
 
       for (let attempt = 0; attempt < 80 && mounted.current; attempt += 1) {
         await new Promise((resolve) => window.setTimeout(resolve, 3000));
@@ -212,9 +229,7 @@ export default function PostizApprovalAction({ request }: { request: ContentRequ
       const input = {
         integrationIds: selected,
         mode,
-        ...(mode === "schedule"
-          ? { scheduledFor: new Date(scheduledFor).toISOString() }
-          : {}),
+        ...(mode === "schedule" ? { scheduledFor: new Date(scheduledFor).toISOString() } : {}),
       } as const;
       const result = await distributeContent(request.id, input);
       setQuality(result.quality);
@@ -228,7 +243,9 @@ export default function PostizApprovalAction({ request }: { request: ContentRequ
       );
       await load();
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Não foi possível distribuir o conteúdo.");
+      setError(
+        caught instanceof Error ? caught.message : "Não foi possível distribuir o conteúdo.",
+      );
     } finally {
       setBusy("");
     }
@@ -240,10 +257,14 @@ export default function PostizApprovalAction({ request }: { request: ContentRequ
     try {
       const result = await refreshPublicationAnalytics(publication.id, 30);
       setAnalytics((current) => ({ ...current, [publication.id]: result.summary }));
-      setPublications((current) => current.map((item) => item.id === result.publication.id ? result.publication : item));
+      setPublications((current) =>
+        current.map((item) => (item.id === result.publication.id ? result.publication : item)),
+      );
       setInsights(await getDistributionInsights(request.brandId).catch(() => insights));
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Não foi possível atualizar o desempenho.");
+      setError(
+        caught instanceof Error ? caught.message : "Não foi possível atualizar o desempenho.",
+      );
     } finally {
       setBusy("");
     }
@@ -258,7 +279,10 @@ export default function PostizApprovalAction({ request }: { request: ContentRequ
       <div className="distribution-unavailable">
         <small>DISTRIBUIÇÃO MULTICANAL</small>
         <strong>Postiz self-hosted pronto para ativação</strong>
-        <p>O motor está instalado na MODO. Aponte POSTIZ_BASE_URL para o servidor próprio e informe a API Key dele no ambiente da API.</p>
+        <p>
+          O motor está instalado na MODO. Aponte POSTIZ_BASE_URL para o servidor próprio e informe a
+          API Key dele no ambiente da API.
+        </p>
         {quality && <QualityGateView report={quality} />}
       </div>
     );
@@ -270,10 +294,14 @@ export default function PostizApprovalAction({ request }: { request: ContentRequ
         <div>
           <small>MODO PUBLISHER</small>
           <strong>Publicar, agendar e aprender</strong>
-          <p>A peça só sai quando você mandar. Depois, a performance volta para o Diretor da MODO.</p>
+          <p>
+            A peça só sai quando você mandar. Depois, a performance volta para o Diretor da MODO.
+          </p>
         </div>
         {insights && insights.samples > 0 && (
-          <span className="distribution-learning-badge">IA aprendendo · {insights.samples} leitura{insights.samples > 1 ? "s" : ""}</span>
+          <span className="distribution-learning-badge">
+            IA aprendendo · {insights.samples} leitura{insights.samples > 1 ? "s" : ""}
+          </span>
         )}
       </div>
 
@@ -295,24 +323,43 @@ export default function PostizApprovalAction({ request }: { request: ContentRequ
       {integrations.length === 0 ? (
         <div className="distribution-empty">
           <strong>Conecte o primeiro canal</strong>
-          <p>Instagram, Facebook, LinkedIn e Threads ficam sob o controle da MODO sem você precisar sair da plataforma para publicar.</p>
+          <p>
+            Instagram, Facebook, LinkedIn e Threads ficam sob o controle da MODO sem você precisar
+            sair da plataforma para publicar.
+          </p>
         </div>
       ) : (
         <>
           <div className="distribution-channel-list">
             {integrations.map((integration) => (
-              <label key={integration.id} className={selected.includes(integration.id) ? "selected" : ""}>
+              <label
+                key={integration.id}
+                className={selected.includes(integration.id) ? "selected" : ""}
+              >
                 <input
                   type="checkbox"
                   checked={selected.includes(integration.id)}
-                  onChange={(event) => setSelected((current) => event.target.checked
-                    ? [...new Set([...current, integration.id])]
-                    : current.filter((id) => id !== integration.id))}
+                  onChange={(event) =>
+                    setSelected((current) =>
+                      event.target.checked
+                        ? [...new Set([...current, integration.id])]
+                        : current.filter((id) => id !== integration.id),
+                    )
+                  }
                 />
-                {integration.picture ? <img src={integration.picture} alt="" /> : <span className="distribution-channel-avatar">{platformLabels[integration.identifier][0]}</span>}
+                {integration.picture ? (
+                  <img src={integration.picture} alt="" />
+                ) : (
+                  <span className="distribution-channel-avatar">
+                    {platformLabels[integration.identifier][0]}
+                  </span>
+                )}
                 <span>
                   <strong>{integration.name}</strong>
-                  <small>{platformLabels[integration.identifier]}{integration.profile ? ` · ${integration.profile}` : ""}</small>
+                  <small>
+                    {platformLabels[integration.identifier]}
+                    {integration.profile ? ` · ${integration.profile}` : ""}
+                  </small>
                 </span>
               </label>
             ))}
@@ -375,13 +422,17 @@ export default function PostizApprovalAction({ request }: { request: ContentRequ
           <div className="distribution-publications-heading">
             <strong>Distribuição desta peça</strong>
             {insights && insights.samples > 0 && (
-              <span>Média aprendida {insights.averageScore}/100 · melhor {insights.bestScore}/100</span>
+              <span>
+                Média aprendida {insights.averageScore}/100 · melhor {insights.bestScore}/100
+              </span>
             )}
           </div>
           {publications.map((publication) => (
             <article key={publication.id}>
               <div>
-                <span className={`distribution-status ${publication.status}`}>{statusLabels[publication.status]}</span>
+                <span className={`distribution-status ${publication.status}`}>
+                  {statusLabels[publication.status]}
+                </span>
                 <strong>{platformLabels[publication.platform]}</strong>
                 <small>
                   {publication.scheduledFor
@@ -390,10 +441,16 @@ export default function PostizApprovalAction({ request }: { request: ContentRequ
                 </small>
               </div>
               <div className="distribution-publication-actions">
-                {publication.releaseUrl && <a href={publication.releaseUrl} target="_blank" rel="noreferrer">Ver publicação ↗</a>}
+                {publication.releaseUrl && (
+                  <a href={publication.releaseUrl} target="_blank" rel="noreferrer">
+                    Ver publicação ↗
+                  </a>
+                )}
                 <button
                   type="button"
-                  disabled={busy === `analytics:${publication.id}` || publication.status === "draft"}
+                  disabled={
+                    busy === `analytics:${publication.id}` || publication.status === "draft"
+                  }
                   onClick={() => void refreshAnalytics(publication)}
                 >
                   {busy === `analytics:${publication.id}` ? "Lendo..." : "Atualizar desempenho"}

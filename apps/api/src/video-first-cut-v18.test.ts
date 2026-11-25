@@ -12,7 +12,12 @@ function scene(index: number, patch: Partial<VideoScene> = {}): VideoScene {
     index,
     startFrame: (index - 1) * 180,
     endFrame: index * 180,
-    headline: index === 1 ? "Seu próximo cliente precisa entender seu valor." : index === 4 ? "Fale com nossa equipe hoje." : `Cena ${index}`,
+    headline:
+      index === 1
+        ? "Seu próximo cliente precisa entender seu valor."
+        : index === 4
+          ? "Fale com nossa equipe hoje."
+          : `Cena ${index}`,
     visual: "Pessoa brasileira em um ambiente profissional, composição vertical.",
     caption: "Uma locução curta, clara e adequada ao tempo da cena.",
     imageUrl: index === 2 ? "https://modo.example.com/cena.jpg" : null,
@@ -49,11 +54,45 @@ describe("MODO Video First Cut V1.8", () => {
     expect(strong.status).toBe("strong");
 
     const weak = evaluateVideoFirstCut([
-      scene(1, { headline: "A", visualType: "kinetic_text", imageUrl: null, videoUrl: null, pace: "steady", transition: "fade", caption: "x".repeat(320) }),
-      scene(2, { visualType: "kinetic_text", imageUrl: null, videoUrl: null, pace: "steady", transition: "fade" }),
-      scene(3, { visualType: "kinetic_text", imageUrl: null, videoUrl: null, pace: "steady", transition: "fade" }),
-      scene(4, { headline: "X", visualType: "kinetic_text", imageUrl: null, videoUrl: null, pace: "steady", transition: "fade" }),
-      scene(5, { headline: "X", visualType: "kinetic_text", imageUrl: null, videoUrl: null, pace: "steady", transition: "fade" }),
+      scene(1, {
+        headline: "A",
+        visualType: "kinetic_text",
+        imageUrl: null,
+        videoUrl: null,
+        pace: "steady",
+        transition: "fade",
+        caption: "x".repeat(320),
+      }),
+      scene(2, {
+        visualType: "kinetic_text",
+        imageUrl: null,
+        videoUrl: null,
+        pace: "steady",
+        transition: "fade",
+      }),
+      scene(3, {
+        visualType: "kinetic_text",
+        imageUrl: null,
+        videoUrl: null,
+        pace: "steady",
+        transition: "fade",
+      }),
+      scene(4, {
+        headline: "X",
+        visualType: "kinetic_text",
+        imageUrl: null,
+        videoUrl: null,
+        pace: "steady",
+        transition: "fade",
+      }),
+      scene(5, {
+        headline: "X",
+        visualType: "kinetic_text",
+        imageUrl: null,
+        videoUrl: null,
+        pace: "steady",
+        transition: "fade",
+      }),
     ]);
     expect(weak.score).toBeLessThan(72);
     expect(weak.status).toBe("needs_attention");

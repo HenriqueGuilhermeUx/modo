@@ -7,7 +7,10 @@ import {
   type NativePublisherProvider,
 } from "@modo/contracts/native-publisher";
 
-const API_URL = (process.env.EXPO_PUBLIC_API_URL || "https://modo-api-3m10.onrender.com").replace(/\/$/, "");
+const API_URL = (process.env.EXPO_PUBLIC_API_URL || "https://modo-api-3m10.onrender.com").replace(
+  /\/$/,
+  "",
+);
 
 export class MobilePublisherError extends Error {
   constructor(
@@ -31,7 +34,8 @@ async function request<T>(path: string, token: string, init?: RequestInit): Prom
   });
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) {
-    const source = payload && typeof payload === "object" ? payload as Record<string, unknown> : {};
+    const source =
+      payload && typeof payload === "object" ? (payload as Record<string, unknown>) : {};
     throw new MobilePublisherError(
       String(source.message || "Não foi possível concluir a operação de publicação."),
       response.status,
@@ -41,7 +45,10 @@ async function request<T>(path: string, token: string, init?: RequestInit): Prom
   return payload as T;
 }
 
-export async function listPublisherConnections(token: string, brandId: string): Promise<NativeConnection[]> {
+export async function listPublisherConnections(
+  token: string,
+  brandId: string,
+): Promise<NativeConnection[]> {
   const payload = await request<{ connections?: unknown[] }>(
     `/api/v2/publisher/connections?brandId=${encodeURIComponent(brandId)}`,
     token,
@@ -78,15 +85,17 @@ export async function createPublisherPublication(
     idempotencyKey?: string;
   },
 ): Promise<NativePublication> {
-  const payload = await request<{ publication: unknown }>(
-    "/api/v2/publisher/publications",
-    token,
-    { method: "POST", body: JSON.stringify(input) },
-  );
+  const payload = await request<{ publication: unknown }>("/api/v2/publisher/publications", token, {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
   return NativePublicationSchema.parse(payload.publication);
 }
 
-export async function listPublisherPublications(token: string, brandId: string): Promise<NativePublication[]> {
+export async function listPublisherPublications(
+  token: string,
+  brandId: string,
+): Promise<NativePublication[]> {
   const payload = await request<{ publications?: unknown[] }>(
     `/api/v2/publisher/publications?brandId=${encodeURIComponent(brandId)}`,
     token,
@@ -94,7 +103,10 @@ export async function listPublisherPublications(token: string, brandId: string):
   return (payload.publications || []).map((item) => NativePublicationSchema.parse(item));
 }
 
-export async function cancelPublisherPublication(token: string, id: string): Promise<NativePublication> {
+export async function cancelPublisherPublication(
+  token: string,
+  id: string,
+): Promise<NativePublication> {
   const payload = await request<{ publication: unknown }>(
     `/api/v2/publisher/publications/${encodeURIComponent(id)}/cancel`,
     token,
@@ -103,7 +115,10 @@ export async function cancelPublisherPublication(token: string, id: string): Pro
   return NativePublicationSchema.parse(payload.publication);
 }
 
-export async function retryPublisherPublication(token: string, id: string): Promise<NativePublication> {
+export async function retryPublisherPublication(
+  token: string,
+  id: string,
+): Promise<NativePublication> {
   const payload = await request<{ publication: unknown }>(
     `/api/v2/publisher/publications/${encodeURIComponent(id)}/retry`,
     token,

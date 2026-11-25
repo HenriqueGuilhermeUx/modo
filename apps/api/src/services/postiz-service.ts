@@ -136,7 +136,10 @@ function mapPublication(row: PublicationRow): PostizPublication {
 }
 
 function normalizedMetricKey(label: string) {
-  const key = label.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  const key = label
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
   if (/(impression|reach|view|visualiza|alcance)/.test(key)) return "exposure";
   if (/(like|reaction|curtida|reacao)/.test(key)) return "likes";
   if (/(comment|comentario)/.test(key)) return "comments";
@@ -179,7 +182,10 @@ function composeContent(request: ContentRequest) {
     .filter(Boolean)
     .map((tag) => (tag.startsWith("#") ? tag : `#${tag.replace(/^#+/, "")}`))
     .join(" ");
-  return [output.caption.trim(), output.cta.trim(), hashtags].filter(Boolean).join("\n\n").slice(0, 5000);
+  return [output.caption.trim(), output.cta.trim(), hashtags]
+    .filter(Boolean)
+    .join("\n\n")
+    .slice(0, 5000);
 }
 
 function mediaUrls(request: ContentRequest) {
@@ -346,7 +352,9 @@ export class PostizService {
     }
 
     const baseline = await this.listRemoteIntegrations();
-    const response = await this.request<{ url?: string }>(`/social/${encodeURIComponent(platform)}`);
+    const response = await this.request<{ url?: string }>(
+      `/social/${encodeURIComponent(platform)}`,
+    );
     const authorizationUrl = nullablePublicUrl(response.url);
     if (!authorizationUrl) {
       throw new PostizError(
@@ -427,12 +435,7 @@ export class PostizService {
           continue;
         }
         refreshed.push(
-          await this.upsertConnection(
-            accountId,
-            connection.brandId,
-            item,
-            connection.identifier,
-          ),
+          await this.upsertConnection(accountId, connection.brandId, item, connection.identifier),
         );
       }
       return refreshed;
@@ -522,17 +525,20 @@ export class PostizService {
       });
     }
 
-    const response = await this.request<Array<{ postId?: string; integration?: string }>>("/posts", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        type: input.mode,
-        date,
-        shortLink: false,
-        tags: [],
-        posts,
-      }),
-    });
+    const response = await this.request<Array<{ postId?: string; integration?: string }>>(
+      "/posts",
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          type: input.mode,
+          date,
+          shortLink: false,
+          tags: [],
+          posts,
+        }),
+      },
+    );
     if (!Array.isArray(response) || !response.length) {
       throw new PostizError(
         "POSTIZ_EMPTY_PUBLISH_RESPONSE",
@@ -546,7 +552,9 @@ export class PostizService {
       const postId = stringValue(result.postId);
       const integrationId = stringValue(result.integration);
       if (!postId || !integrationId) continue;
-      const integration = (selected as PostizIntegration[]).find((item) => item.id === integrationId);
+      const integration = (selected as PostizIntegration[]).find(
+        (item) => item.id === integrationId,
+      );
       if (!integration) continue;
       created.push(
         await this.savePublication(accountId, request, integration, postId, input, date),
@@ -581,7 +589,9 @@ export class PostizService {
   async syncPublications(accountId: string, contentRequestId: string) {
     const local = await this.listPublications(accountId, contentRequestId);
     if (!this.configured || !local.length) return local;
-    const start = new Date(Math.min(...local.map((item) => new Date(item.createdAt).getTime())) - 86_400_000);
+    const start = new Date(
+      Math.min(...local.map((item) => new Date(item.createdAt).getTime())) - 86_400_000,
+    );
     const end = new Date(Date.now() + 365 * 86_400_000);
     try {
       const remote = await this.request<{ posts?: Array<JsonRecord> }>(
@@ -661,7 +671,8 @@ export class PostizService {
   }
 
   async brandInsights(accountId: string, brandId: string) {
-    if (!this.pool) return { samples: 0, averageScore: 0, bestScore: 0, signal: "insufficient_data" as const };
+    if (!this.pool)
+      return { samples: 0, averageScore: 0, bestScore: 0, signal: "insufficient_data" as const };
     const result = await this.pool.query<{
       samples: number;
       average_score: number;
@@ -723,7 +734,8 @@ export class PostizService {
         stringValue(record.message) ||
         stringValue(record.error) ||
         `O Postiz respondeu com status ${response.status}.`;
-      const status = response.status === 429 ? 429 : response.status >= 400 && response.status < 500 ? 422 : 502;
+      const status =
+        response.status === 429 ? 429 : response.status >= 400 && response.status < 500 ? 422 : 502;
       throw new PostizError("POSTIZ_PROVIDER_ERROR", status, message);
     }
     return payload as T;
@@ -736,9 +748,14 @@ export class PostizService {
           (item) =>
             item &&
             stringValue(item.id) &&
-            ["instagram", "instagram-standalone", "facebook", "linkedin", "linkedin-page", "threads"].includes(
-              stringValue(item.identifier),
-            ),
+            [
+              "instagram",
+              "instagram-standalone",
+              "facebook",
+              "linkedin",
+              "linkedin-page",
+              "threads",
+            ].includes(stringValue(item.identifier)),
         )
       : [];
   }
@@ -924,9 +941,11 @@ export class PostizService {
       );
       return result.rows[0]?.id ?? null;
     }
-    return [...this.pending.values()].find(
-      (item) => item.platform === platform && item.expiresAt.getTime() > Date.now(),
-    )?.id ?? null;
+    return (
+      [...this.pending.values()].find(
+        (item) => item.platform === platform && item.expiresAt.getTime() > Date.now(),
+      )?.id ?? null
+    );
   }
 
   private async allConnectionIds() {
@@ -1068,10 +1087,6 @@ export class PostizService {
   }
 
   private publicationNotFound() {
-    return new PostizError(
-      "POSTIZ_PUBLICATION_NOT_FOUND",
-      404,
-      "Publicação não encontrada.",
-    );
+    return new PostizError("POSTIZ_PUBLICATION_NOT_FOUND", 404, "Publicação não encontrada.");
   }
 }

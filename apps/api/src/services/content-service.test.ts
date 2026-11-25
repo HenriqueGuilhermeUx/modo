@@ -28,13 +28,7 @@ const output = {
 describe("ContentService", () => {
   it("creates queued requests and isolates them by organization", async () => {
     const service = new ContentService();
-    const first = await service.create(
-      "request-one",
-      "organization-one",
-      input,
-      2,
-      2,
-    );
+    const first = await service.create("request-one", "organization-one", input, 2, 2);
 
     expect(first.status).toBe("queued");
     expect(first.creditsCharged).toBe(2);

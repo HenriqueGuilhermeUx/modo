@@ -1,34 +1,41 @@
 import type { VideoProject } from "@modo/contracts/video";
-import {
-  buildHyperframesPilot,
-  type HyperframesPilotInput,
-} from "./hyperframes-pilot.js";
+import { buildHyperframesPilot, type HyperframesPilotInput } from "./hyperframes-pilot.js";
 
 /**
  * Read-only export of an already tenant-authorized video project.
  * A prototype must not silently drop media, voice, transitions, motion,
  * timeline gaps or text; incompatible projects stay on the existing Remotion renderer.
  */
-export function exportVideoProjectHyperframesPreview(
-  project: VideoProject,
-  brandName: string,
-) {
+export function exportVideoProjectHyperframesPreview(project: VideoProject, brandName: string) {
   if (!project || project.scenes.length < 1 || project.scenes.length > 8) {
     throw new Error("HYPERFRAMES_UNSUPPORTED_SCENE_COUNT");
   }
-  if (project.aspectRatio !== "9:16" || project.fps !== 30 ||
-      project.voiceover || project.voiceProvider) {
+  if (
+    project.aspectRatio !== "9:16" ||
+    project.fps !== 30 ||
+    project.voiceover ||
+    project.voiceProvider
+  ) {
     throw new Error("HYPERFRAMES_UNSUPPORTED_PROJECT_FEATURE");
   }
   let expectedStart = 0;
   const scenes: HyperframesPilotInput["scenes"] = project.scenes.map((scene) => {
-    if (!Number.isInteger(scene.startFrame) || !Number.isInteger(scene.endFrame) ||
-        scene.startFrame !== expectedStart || scene.endFrame <= expectedStart) {
+    if (
+      !Number.isInteger(scene.startFrame) ||
+      !Number.isInteger(scene.endFrame) ||
+      scene.startFrame !== expectedStart ||
+      scene.endFrame <= expectedStart
+    ) {
       throw new Error("HYPERFRAMES_UNSUPPORTED_TIMELINE");
     }
-    if (scene.visualType !== "kinetic_text" || scene.assetSource !== "native" ||
-        scene.imageUrl || scene.videoUrl || scene.motion !== "static" ||
-        (scene.transition && scene.transition !== "cut")) {
+    if (
+      scene.visualType !== "kinetic_text" ||
+      scene.assetSource !== "native" ||
+      scene.imageUrl ||
+      scene.videoUrl ||
+      scene.motion !== "static" ||
+      (scene.transition && scene.transition !== "cut")
+    ) {
       throw new Error("HYPERFRAMES_UNSUPPORTED_MEDIA_OR_TRANSITION");
     }
     if (scene.headline.length > 180 || scene.caption.length > 280) {
@@ -47,8 +54,10 @@ export function exportVideoProjectHyperframesPreview(
   });
   // Never call a shorter composition a faithful preview of the original
   // MODO project. All project frames must be represented by the exported scenes.
-  if (!Number.isInteger(project.durationSeconds * project.fps) ||
-      expectedStart !== project.durationSeconds * project.fps) {
+  if (
+    !Number.isInteger(project.durationSeconds * project.fps) ||
+    expectedStart !== project.durationSeconds * project.fps
+  ) {
     throw new Error("HYPERFRAMES_UNSUPPORTED_TOTAL_DURATION");
   }
   const preview = buildHyperframesPilot({

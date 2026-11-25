@@ -7,7 +7,11 @@ export type MarketPageSnapshot = {
 };
 
 export class MarketIntelligenceError extends Error {
-  constructor(public code: string, public status: number, message: string) {
+  constructor(
+    public code: string,
+    public status: number,
+    message: string,
+  ) {
     super(message);
   }
 }
@@ -47,7 +51,11 @@ export class MarketIntelligenceService {
 
   async createWatch(input: { url: string; title?: string; tag?: string }) {
     if (!this.capabilities.changeDetection.configured) {
-      throw new MarketIntelligenceError("CHANGE_DETECTION_NOT_CONFIGURED", 503, "Monitoramento contínuo ainda não está configurado.");
+      throw new MarketIntelligenceError(
+        "CHANGE_DETECTION_NOT_CONFIGURED",
+        503,
+        "Monitoramento contínuo ainda não está configurado.",
+      );
     }
     const response = await fetch(`${this.changeDetectionBaseUrl}/api/v1/watch`, {
       method: "POST",
@@ -63,7 +71,11 @@ export class MarketIntelligenceService {
       signal: AbortSignal.timeout(15_000),
     });
     if (!response.ok) {
-      throw new MarketIntelligenceError("CHANGE_DETECTION_UPSTREAM_ERROR", 502, "Não foi possível criar o monitor agora.");
+      throw new MarketIntelligenceError(
+        "CHANGE_DETECTION_UPSTREAM_ERROR",
+        502,
+        "Não foi possível criar o monitor agora.",
+      );
     }
     const payload = (await response.json()) as Record<string, unknown>;
     return { provider: "changedetection", watch: payload };
@@ -71,33 +83,51 @@ export class MarketIntelligenceService {
 
   async listWatches() {
     if (!this.capabilities.changeDetection.configured) {
-      throw new MarketIntelligenceError("CHANGE_DETECTION_NOT_CONFIGURED", 503, "Monitoramento contínuo ainda não está configurado.");
+      throw new MarketIntelligenceError(
+        "CHANGE_DETECTION_NOT_CONFIGURED",
+        503,
+        "Monitoramento contínuo ainda não está configurado.",
+      );
     }
     const response = await fetch(`${this.changeDetectionBaseUrl}/api/v1/watch`, {
       headers: { "x-api-key": this.options.changeDetectionApiKey! },
       signal: AbortSignal.timeout(15_000),
     });
     if (!response.ok) {
-      throw new MarketIntelligenceError("CHANGE_DETECTION_UPSTREAM_ERROR", 502, "Não foi possível consultar os monitores agora.");
+      throw new MarketIntelligenceError(
+        "CHANGE_DETECTION_UPSTREAM_ERROR",
+        502,
+        "Não foi possível consultar os monitores agora.",
+      );
     }
     return { provider: "changedetection", watches: await response.json() };
   }
 
   async inspectPage(url: string): Promise<MarketPageSnapshot> {
     if (!this.capabilities.scrapling.configured) {
-      throw new MarketIntelligenceError("SCRAPLING_NOT_CONFIGURED", 503, "Web Intelligence ainda não está configurado.");
+      throw new MarketIntelligenceError(
+        "SCRAPLING_NOT_CONFIGURED",
+        503,
+        "Web Intelligence ainda não está configurado.",
+      );
     }
     const response = await fetch(`${this.scraplingBaseUrl}/extract`, {
       method: "POST",
       headers: {
         "content-type": "application/json",
-        ...(this.options.scraplingApiKey ? { authorization: `Bearer ${this.options.scraplingApiKey}` } : {}),
+        ...(this.options.scraplingApiKey
+          ? { authorization: `Bearer ${this.options.scraplingApiKey}` }
+          : {}),
       },
       body: JSON.stringify({ url, output: "text" }),
       signal: AbortSignal.timeout(30_000),
     });
     if (!response.ok) {
-      throw new MarketIntelligenceError("SCRAPLING_UPSTREAM_ERROR", 502, "Não foi possível analisar esta página agora.");
+      throw new MarketIntelligenceError(
+        "SCRAPLING_UPSTREAM_ERROR",
+        502,
+        "Não foi possível analisar esta página agora.",
+      );
     }
     const payload = (await response.json()) as { title?: string; text?: string; content?: string };
     return {

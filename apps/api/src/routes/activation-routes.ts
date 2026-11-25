@@ -1,10 +1,7 @@
 import { z } from "zod";
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import { AuthError, type AuthService } from "../services/auth-service.js";
-import {
-  activationEventNames,
-  type ActivationService,
-} from "../services/activation-service.js";
+import { activationEventNames, type ActivationService } from "../services/activation-service.js";
 
 const ActivationEventSchema = z.object({
   event: z.enum(activationEventNames),

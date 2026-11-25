@@ -11,8 +11,14 @@ import { ContentAssetService } from "../services/content-asset-service.js";
 import { ContentService } from "../services/content-service.js";
 import { CreativeIntelligenceService } from "../services/creative-intelligence-service.js";
 import { DistributionQualityService } from "../services/distribution-quality-service.js";
-import { NativeInstagramOAuthError, NativeInstagramOAuthService } from "../services/native-instagram-oauth-service.js";
-import { NativePublisherV2Error, NativePublisherV2Service } from "../services/native-publisher-v2-service.js";
+import {
+  NativeInstagramOAuthError,
+  NativeInstagramOAuthService,
+} from "../services/native-instagram-oauth-service.js";
+import {
+  NativePublisherV2Error,
+  NativePublisherV2Service,
+} from "../services/native-publisher-v2-service.js";
 import { VideoError, VideoService } from "../services/video-service.js";
 
 const { Pool: PgPool } = pg;
@@ -43,16 +49,34 @@ interface Options {
 
 function bearerToken(request: FastifyRequest) {
   const value = request.headers.authorization;
-  if (!value?.startsWith("Bearer ")) throw new AuthError("UNAUTHORIZED", 401, "Faça login para continuar.");
+  if (!value?.startsWith("Bearer "))
+    throw new AuthError("UNAUTHORIZED", 401, "Faça login para continuar.");
   return value.slice(7).trim();
 }
 
 export async function registerNativePublisherV2Routes(app: FastifyInstance, options: Options) {
-  const auth = new AuthService({ databaseUrl: options.databaseUrl, databaseSsl: options.databaseSsl });
-  const content = new ContentService({ databaseUrl: options.databaseUrl, databaseSsl: options.databaseSsl });
-  const assets = new ContentAssetService({ databaseUrl: options.databaseUrl, databaseSsl: options.databaseSsl, publicApiUrl: options.publicApiUrl });
-  const videos = new VideoService({ databaseUrl: options.databaseUrl, databaseSsl: options.databaseSsl, publicApiUrl: options.publicApiUrl });
-  const creative = new CreativeIntelligenceService({ databaseUrl: options.databaseUrl, databaseSsl: options.databaseSsl });
+  const auth = new AuthService({
+    databaseUrl: options.databaseUrl,
+    databaseSsl: options.databaseSsl,
+  });
+  const content = new ContentService({
+    databaseUrl: options.databaseUrl,
+    databaseSsl: options.databaseSsl,
+  });
+  const assets = new ContentAssetService({
+    databaseUrl: options.databaseUrl,
+    databaseSsl: options.databaseSsl,
+    publicApiUrl: options.publicApiUrl,
+  });
+  const videos = new VideoService({
+    databaseUrl: options.databaseUrl,
+    databaseSsl: options.databaseSsl,
+    publicApiUrl: options.publicApiUrl,
+  });
+  const creative = new CreativeIntelligenceService({
+    databaseUrl: options.databaseUrl,
+    databaseSsl: options.databaseSsl,
+  });
   const quality = new DistributionQualityService();
   const publisher = new NativePublisherV2Service(options);
   const instagramOAuth = new NativeInstagramOAuthService({
@@ -67,10 +91,21 @@ export async function registerNativePublisherV2Routes(app: FastifyInstance, opti
     apiVersion: options.instagramApiVersion,
   });
   const learningPool: Pool | undefined = options.databaseUrl
-    ? new PgPool({ connectionString: options.databaseUrl, ssl: options.databaseSsl ? { rejectUnauthorized: false } : undefined, max: 2 })
+    ? new PgPool({
+        connectionString: options.databaseUrl,
+        ssl: options.databaseSsl ? { rejectUnauthorized: false } : undefined,
+        max: 2,
+      })
     : undefined;
 
-  await Promise.all([auth.initialize(), content.initialize(), assets.initialize(), videos.initialize(), creative.initialize(), publisher.initialize()]);
+  await Promise.all([
+    auth.initialize(),
+    content.initialize(),
+    assets.initialize(),
+    videos.initialize(),
+    creative.initialize(),
+    publisher.initialize(),
+  ]);
   if (learningPool) {
     await learningPool.query(`
       CREATE TABLE IF NOT EXISTS modo_native_social_learning_events (
@@ -84,19 +119,39 @@ export async function registerNativePublisherV2Routes(app: FastifyInstance, opti
     `);
   }
 
-  const learningTimer = setInterval(() => void processLearningQueue().catch(() => undefined), 5 * 60_000);
+  const learningTimer = setInterval(
+    () => void processLearningQueue().catch(() => undefined),
+    5 * 60_000,
+  );
   learningTimer.unref?.();
   app.addHook("onClose", async () => {
     clearInterval(learningTimer);
-    await Promise.all([auth.close(), content.close(), assets.close(), videos.close(), creative.close(), publisher.close(), instagramOAuth.close(), learningPool?.end()]);
+    await Promise.all([
+      auth.close(),
+      content.close(),
+      assets.close(),
+      videos.close(),
+      creative.close(),
+      publisher.close(),
+      instagramOAuth.close(),
+      learningPool?.end(),
+    ]);
   });
 
   app.setErrorHandler((error, request, reply) => {
-    if (error instanceof NativePublisherV2Error || error instanceof NativeInstagramOAuthError || error instanceof AuthError || error instanceof VideoError) {
+    if (
+      error instanceof NativePublisherV2Error ||
+      error instanceof NativeInstagramOAuthError ||
+      error instanceof AuthError ||
+      error instanceof VideoError
+    ) {
       return reply.code(error.statusCode).send({ code: error.code, message: error.message });
     }
     request.log.error({ error }, "Publisher V2 error");
-    return reply.code(500).send({ code: "PUBLISHER_V2_INTERNAL_ERROR", message: "Não foi possível concluir a operação no Publisher." });
+    return reply.code(500).send({
+      code: "PUBLISHER_V2_INTERNAL_ERROR",
+      message: "Não foi possível concluir a operação no Publisher.",
+    });
   });
 
   async function context(request: FastifyRequest) {
@@ -107,18 +162,29 @@ export async function registerNativePublisherV2Routes(app: FastifyInstance, opti
     const current = await context(request);
     const brands = await auth.listBrands(current.organization.id);
     const brand = brands.find((item) => item.id === brandId);
-    if (!brand) throw new AuthError("BRAND_NOT_FOUND", 404, "Marca não encontrada nesta organização.");
+    if (!brand)
+      throw new AuthError("BRAND_NOT_FOUND", 404, "Marca não encontrada nesta organização.");
     return { current, brand };
   }
 
   async function qualityFor(organizationId: string, brandId: string, contentRequestId: string) {
     const request = await content.getForOrganization(contentRequestId, organizationId);
-    if (request.brandId !== brandId) throw new AuthError("CONTENT_BRAND_MISMATCH", 409, "O conteúdo pertence a outra marca.");
+    if (request.brandId !== brandId)
+      throw new AuthError("CONTENT_BRAND_MISMATCH", 409, "O conteúdo pertence a outra marca.");
     const profile = await creative.getProfile(organizationId, brandId);
     return { request, report: quality.evaluate(request, profile) };
   }
 
-  async function applyLearningSnapshot(organizationId: string, publicationId: string, snapshot: { id: string; learningSignal: "performed_well" | "performed_poorly" | "neutral"; score: number; metrics: Record<string, number> }) {
+  async function applyLearningSnapshot(
+    organizationId: string,
+    publicationId: string,
+    snapshot: {
+      id: string;
+      learningSignal: "performed_well" | "performed_poorly" | "neutral";
+      score: number;
+      metrics: Record<string, number>;
+    },
+  ) {
     if (!learningPool || snapshot.learningSignal === "neutral") return;
     const publication = await learningPool.query<{ brand_id: string; content_request_id: string }>(
       `SELECT brand_id,content_request_id FROM modo_native_social_publications WHERE id=$1 AND organization_id=$2 LIMIT 1`,
@@ -194,7 +260,11 @@ export async function registerNativePublisherV2Routes(app: FastifyInstance, opti
 
   app.get("/api/v2/publisher/connections", async (request) => {
     const current = await context(request);
-    const brandId = z.string().uuid().optional().parse((request.query as { brandId?: string })?.brandId);
+    const brandId = z
+      .string()
+      .uuid()
+      .optional()
+      .parse((request.query as { brandId?: string })?.brandId);
     if (brandId) await requireBrand(request, brandId);
     return { connections: await publisher.listConnections(current.organization.id, brandId) };
   });
@@ -206,7 +276,12 @@ export async function registerNativePublisherV2Routes(app: FastifyInstance, opti
   });
 
   app.get("/api/v2/publisher/oauth/instagram/callback", async (request, reply) => {
-    const query = request.query as { state?: string; code?: string; error?: string; error_description?: string };
+    const query = request.query as {
+      state?: string;
+      code?: string;
+      error?: string;
+      error_description?: string;
+    };
     try {
       const result = await instagramOAuth.completeAuthorization({
         state: query.state,
@@ -214,10 +289,16 @@ export async function registerNativePublisherV2Routes(app: FastifyInstance, opti
         error: query.error,
         errorDescription: query.error_description,
       });
-      return reply.redirect(`${options.publicWebUrl || "http://localhost:5173"}/app/publisher?brand=${encodeURIComponent(result.brandId)}&instagram=connected`);
+      return reply.redirect(
+        `${options.publicWebUrl || "http://localhost:5173"}/app/publisher?brand=${encodeURIComponent(result.brandId)}&instagram=connected`,
+      );
     } catch (error) {
-      const message = encodeURIComponent(error instanceof Error ? error.message.slice(0, 300) : "Autorização não concluída.");
-      return reply.redirect(`${options.publicWebUrl || "http://localhost:5173"}/app/publisher?instagram=error&message=${message}`);
+      const message = encodeURIComponent(
+        error instanceof Error ? error.message.slice(0, 300) : "Autorização não concluída.",
+      );
+      return reply.redirect(
+        `${options.publicWebUrl || "http://localhost:5173"}/app/publisher?instagram=error&message=${message}`,
+      );
     }
   });
 
@@ -245,10 +326,16 @@ export async function registerNativePublisherV2Routes(app: FastifyInstance, opti
     const query = request.query as { state?: string; code?: string; error?: string };
     try {
       await publisher.completeFacebookAuthorization(query);
-      return reply.redirect(`${options.publicWebUrl || "http://localhost:5173"}/app/settings/integrations?facebook=connected`);
+      return reply.redirect(
+        `${options.publicWebUrl || "http://localhost:5173"}/app/settings/integrations?facebook=connected`,
+      );
     } catch (error) {
-      const message = encodeURIComponent(error instanceof Error ? error.message.slice(0, 300) : "Autorização não concluída.");
-      return reply.redirect(`${options.publicWebUrl || "http://localhost:5173"}/app/settings/integrations?facebook=error&message=${message}`);
+      const message = encodeURIComponent(
+        error instanceof Error ? error.message.slice(0, 300) : "Autorização não concluída.",
+      );
+      return reply.redirect(
+        `${options.publicWebUrl || "http://localhost:5173"}/app/settings/integrations?facebook=error&message=${message}`,
+      );
     }
   });
 
@@ -262,102 +349,155 @@ export async function registerNativePublisherV2Routes(app: FastifyInstance, opti
     const query = request.query as { state?: string; code?: string; error?: string };
     try {
       await publisher.completeThreadsAuthorization(query);
-      return reply.redirect(`${options.publicWebUrl || "http://localhost:5173"}/app/settings/integrations?threads=connected`);
+      return reply.redirect(
+        `${options.publicWebUrl || "http://localhost:5173"}/app/settings/integrations?threads=connected`,
+      );
     } catch (error) {
-      const message = encodeURIComponent(error instanceof Error ? error.message.slice(0, 300) : "Autorização não concluída.");
-      return reply.redirect(`${options.publicWebUrl || "http://localhost:5173"}/app/settings/integrations?threads=error&message=${message}`);
+      const message = encodeURIComponent(
+        error instanceof Error ? error.message.slice(0, 300) : "Autorização não concluída.",
+      );
+      return reply.redirect(
+        `${options.publicWebUrl || "http://localhost:5173"}/app/settings/integrations?threads=error&message=${message}`,
+      );
     }
   });
 
   app.get("/api/v2/publisher/quality/:contentRequestId", async (request) => {
     const current = await context(request);
-    const contentRequestId = z.string().uuid().parse((request.params as { contentRequestId: string }).contentRequestId);
-    const requestRecord = await content.getForOrganization(contentRequestId, current.organization.id);
+    const contentRequestId = z
+      .string()
+      .uuid()
+      .parse((request.params as { contentRequestId: string }).contentRequestId);
+    const requestRecord = await content.getForOrganization(
+      contentRequestId,
+      current.organization.id,
+    );
     const profile = await creative.getProfile(current.organization.id, requestRecord.brandId);
     return quality.evaluate(requestRecord, profile);
   });
 
-  app.post("/api/v2/publisher/publications", { config: { rateLimit: { max: 20, timeWindow: "10 minutes" } } }, async (request, reply) => {
-    const input = NativePublicationCreateSchema.parse(request.body);
-    const { current } = await requireBrand(request, input.brandId);
-    const { request: contentRequest, report } = await qualityFor(current.organization.id, input.brandId, input.contentRequestId);
-    if (!report.publishAllowed) throw new NativePublisherV2Error("QUALITY_GATE_BLOCKED", 409, report.blockers[0] || "A peça foi bloqueada pelo Quality Gate.");
-
-    let mediaType: "none" | "image" | "video" = "none";
-    let mediaUrl: string | null = null;
-    let videoProjectId: string | null = null;
-
-    if (input.videoProjectId) {
-      if (input.provider === "linkedin") {
+  app.post(
+    "/api/v2/publisher/publications",
+    { config: { rateLimit: { max: 20, timeWindow: "10 minutes" } } },
+    async (request, reply) => {
+      const input = NativePublicationCreateSchema.parse(request.body);
+      const { current } = await requireBrand(request, input.brandId);
+      const { request: contentRequest, report } = await qualityFor(
+        current.organization.id,
+        input.brandId,
+        input.contentRequestId,
+      );
+      if (!report.publishAllowed)
         throw new NativePublisherV2Error(
-          "VIDEO_PROVIDER_UNSUPPORTED",
+          "QUALITY_GATE_BLOCKED",
           409,
-          "Vídeo no LinkedIn entra na próxima camada do Publisher. Nesta versão, publique o vídeo em Instagram, Facebook ou Threads.",
+          report.blockers[0] || "A peça foi bloqueada pelo Quality Gate.",
         );
-      }
-      const video = await videos.getForOrganization(input.videoProjectId, current.organization.id);
-      if (video.brandId !== input.brandId || video.contentRequestId !== contentRequest.id) {
-        throw new NativePublisherV2Error("VIDEO_CONTENT_MISMATCH", 409, "O vídeo selecionado não pertence a este conteúdo e marca.");
-      }
-      if (video.status !== "ready" || !video.outputUrl) {
-        throw new NativePublisherV2Error("VIDEO_NOT_READY", 409, "Finalize o render do vídeo antes de publicar ou agendar.");
-      }
-      mediaType = "video";
-      mediaUrl = video.outputUrl;
-      videoProjectId = video.id;
-    } else if (contentRequest.output) {
-      mediaUrl = await assets.getPublicUrlForRequest(current.organization.id, contentRequest.id, contentRequest.output.imageUrl);
-      mediaType = mediaUrl ? "image" : "none";
-    }
 
-    const publication = await publisher.createPublication({
-      organizationId: current.organization.id,
-      brandId: input.brandId,
-      content: contentRequest,
-      provider: input.provider,
-      connectionId: input.connectionId,
-      mode: input.mode,
-      scheduledFor: input.scheduledFor,
-      idempotencyKey: input.idempotencyKey,
-      qualityScore: report.score,
-      mediaType,
-      mediaUrl,
-      videoProjectId,
-    });
-    if (publication.status === "published") {
-      await creative.recordFeedback(current.organization.id, input.brandId, {
-        contentRequestId: contentRequest.id,
-        signal: "published",
-        score: report.score,
-        notes: `native_publisher:${publication.id}`,
-        metrics: { qualityScore: report.score },
+      let mediaType: "none" | "image" | "video" = "none";
+      let mediaUrl: string | null = null;
+      let videoProjectId: string | null = null;
+
+      if (input.videoProjectId) {
+        if (input.provider === "linkedin") {
+          throw new NativePublisherV2Error(
+            "VIDEO_PROVIDER_UNSUPPORTED",
+            409,
+            "Vídeo no LinkedIn entra na próxima camada do Publisher. Nesta versão, publique o vídeo em Instagram, Facebook ou Threads.",
+          );
+        }
+        const video = await videos.getForOrganization(
+          input.videoProjectId,
+          current.organization.id,
+        );
+        if (video.brandId !== input.brandId || video.contentRequestId !== contentRequest.id) {
+          throw new NativePublisherV2Error(
+            "VIDEO_CONTENT_MISMATCH",
+            409,
+            "O vídeo selecionado não pertence a este conteúdo e marca.",
+          );
+        }
+        if (video.status !== "ready" || !video.outputUrl) {
+          throw new NativePublisherV2Error(
+            "VIDEO_NOT_READY",
+            409,
+            "Finalize o render do vídeo antes de publicar ou agendar.",
+          );
+        }
+        mediaType = "video";
+        mediaUrl = video.outputUrl;
+        videoProjectId = video.id;
+      } else if (contentRequest.output) {
+        mediaUrl = await assets.getPublicUrlForRequest(
+          current.organization.id,
+          contentRequest.id,
+          contentRequest.output.imageUrl,
+        );
+        mediaType = mediaUrl ? "image" : "none";
+      }
+
+      const publication = await publisher.createPublication({
+        organizationId: current.organization.id,
+        brandId: input.brandId,
+        content: contentRequest,
+        provider: input.provider,
+        connectionId: input.connectionId,
+        mode: input.mode,
+        scheduledFor: input.scheduledFor,
+        idempotencyKey: input.idempotencyKey,
+        qualityScore: report.score,
+        mediaType,
+        mediaUrl,
+        videoProjectId,
       });
-    }
-    return reply.code(201).send({ publication, quality: report });
-  });
+      if (publication.status === "published") {
+        await creative.recordFeedback(current.organization.id, input.brandId, {
+          contentRequestId: contentRequest.id,
+          signal: "published",
+          score: report.score,
+          notes: `native_publisher:${publication.id}`,
+          metrics: { qualityScore: report.score },
+        });
+      }
+      return reply.code(201).send({ publication, quality: report });
+    },
+  );
 
   app.get("/api/v2/publisher/publications", async (request) => {
     const current = await context(request);
-    const brandId = z.string().uuid().optional().parse((request.query as { brandId?: string })?.brandId);
+    const brandId = z
+      .string()
+      .uuid()
+      .optional()
+      .parse((request.query as { brandId?: string })?.brandId);
     if (brandId) await requireBrand(request, brandId);
     return { publications: await publisher.listPublications(current.organization.id, brandId) };
   });
 
   app.post("/api/v2/publisher/publications/:id/cancel", async (request) => {
     const current = await context(request);
-    const id = z.string().uuid().parse((request.params as { id: string }).id);
+    const id = z
+      .string()
+      .uuid()
+      .parse((request.params as { id: string }).id);
     return { publication: await publisher.cancelPublication(current.organization.id, id) };
   });
 
   app.post("/api/v2/publisher/publications/:id/retry", async (request) => {
     const current = await context(request);
-    const id = z.string().uuid().parse((request.params as { id: string }).id);
+    const id = z
+      .string()
+      .uuid()
+      .parse((request.params as { id: string }).id);
     return { publication: await publisher.retryPublication(current.organization.id, id) };
   });
 
   app.post("/api/v2/publisher/publications/:id/analytics/refresh", async (request) => {
     const current = await context(request);
-    const id = z.string().uuid().parse((request.params as { id: string }).id);
+    const id = z
+      .string()
+      .uuid()
+      .parse((request.params as { id: string }).id);
     const snapshot = await publisher.refreshAnalytics(current.organization.id, id);
     await applyLearningSnapshot(current.organization.id, id, snapshot);
     return { snapshot };
@@ -365,25 +505,45 @@ export async function registerNativePublisherV2Routes(app: FastifyInstance, opti
 
   app.get("/api/v2/publisher/publications/:id/analytics", async (request) => {
     const current = await context(request);
-    const id = z.string().uuid().parse((request.params as { id: string }).id);
+    const id = z
+      .string()
+      .uuid()
+      .parse((request.params as { id: string }).id);
     return { snapshots: await publisher.analyticsForPublication(current.organization.id, id) };
   });
 
   app.get("/api/v2/publisher/brands/:brandId/insights", async (request) => {
-    const brandId = z.string().uuid().parse((request.params as { brandId: string }).brandId);
+    const brandId = z
+      .string()
+      .uuid()
+      .parse((request.params as { brandId: string }).brandId);
     const { current } = await requireBrand(request, brandId);
-    const days = z.coerce.number().int().min(7).max(365).default(30).parse((request.query as { days?: unknown })?.days ?? 30);
+    const days = z.coerce
+      .number()
+      .int()
+      .min(7)
+      .max(365)
+      .default(30)
+      .parse((request.query as { days?: unknown })?.days ?? 30);
     return publisher.brandInsight(current.organization.id, brandId, days);
   });
 
   app.get("/api/v2/publisher/brands/:brandId/calendar", async (request) => {
-    const brandId = z.string().uuid().parse((request.params as { brandId: string }).brandId);
+    const brandId = z
+      .string()
+      .uuid()
+      .parse((request.params as { brandId: string }).brandId);
     const { current } = await requireBrand(request, brandId);
     const query = request.query as { from?: string; to?: string };
     const now = new Date();
     const from = query.from ? new Date(query.from) : new Date(now.getTime() - 7 * 24 * 60 * 60_000);
     const to = query.to ? new Date(query.to) : new Date(now.getTime() + 30 * 24 * 60 * 60_000);
-    if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime()) || from >= to) throw new NativePublisherV2Error("INVALID_CALENDAR_RANGE", 400, "Intervalo do calendário inválido.");
+    if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime()) || from >= to)
+      throw new NativePublisherV2Error(
+        "INVALID_CALENDAR_RANGE",
+        400,
+        "Intervalo do calendário inválido.",
+      );
     return { items: await publisher.calendar(current.organization.id, brandId, from, to) };
   });
 }

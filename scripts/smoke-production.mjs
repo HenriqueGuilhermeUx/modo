@@ -1,4 +1,7 @@
-const apiUrl = (process.env.MODO_API_URL || "https://modo-api-3m10.onrender.com").replace(/\/$/, "");
+const apiUrl = (process.env.MODO_API_URL || "https://modo-api-3m10.onrender.com").replace(
+  /\/$/,
+  "",
+);
 const adminEmail = process.env.MODO_ADMIN_EMAIL || "";
 const adminPassword = process.env.MODO_ADMIN_PASSWORD || "";
 
@@ -6,9 +9,15 @@ async function request(path, init) {
   const response = await fetch(`${apiUrl}${path}`, init);
   const text = await response.text();
   let payload = {};
-  try { payload = text ? JSON.parse(text) : {}; } catch { payload = { raw: text }; }
+  try {
+    payload = text ? JSON.parse(text) : {};
+  } catch {
+    payload = { raw: text };
+  }
   if (!response.ok) {
-    throw new Error(`${init?.method || "GET"} ${path} -> ${response.status}: ${payload.message || text}`);
+    throw new Error(
+      `${init?.method || "GET"} ${path} -> ${response.status}: ${payload.message || text}`,
+    );
   }
   return payload;
 }
@@ -29,7 +38,9 @@ check(health.contentStorage === "postgres", "conteúdo em PostgreSQL");
 check(health.platformAdmin === "enabled", "painel administrativo habilitado");
 
 if (!adminEmail || !adminPassword) {
-  console.log("• Admin não testado: defina MODO_ADMIN_EMAIL e MODO_ADMIN_PASSWORD somente no terminal local.");
+  console.log(
+    "• Admin não testado: defina MODO_ADMIN_EMAIL e MODO_ADMIN_PASSWORD somente no terminal local.",
+  );
   process.exit(0);
 }
 

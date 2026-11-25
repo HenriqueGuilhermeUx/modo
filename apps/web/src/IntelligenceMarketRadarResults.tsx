@@ -67,11 +67,22 @@ function signalFromItem(item: Record<string, unknown>, index: number): RadarSign
 }
 
 function csvCell(value: string | number) {
-  return `"${String(value ?? "").replace(/\r?\n/g, " ").replace(/"/g, '""')}"`;
+  return `"${String(value ?? "")
+    .replace(/\r?\n/g, " ")
+    .replace(/"/g, '""')}"`;
 }
 
 function exportCsv(mission: IntelligenceMission, signals: RadarSignal[]) {
-  const headers = ["Posição", "Tipo", "Título", "Descrição", "Fonte", "Consulta", "Relevância", "URL"];
+  const headers = [
+    "Posição",
+    "Tipo",
+    "Título",
+    "Descrição",
+    "Fonte",
+    "Consulta",
+    "Relevância",
+    "URL",
+  ];
   const rows = signals.map((signal) => [
     signal.position,
     signalLabels[signal.signalType] || signal.signalType,
@@ -112,41 +123,85 @@ export default function IntelligenceMarketRadarResults({ mission, items, onClose
         <div>
           <small>RADAR DE MERCADO</small>
           <h2>{mission.name}</h2>
-          <p>Sinais públicos organizados para apoiar posicionamento, conteúdo, oferta e decisões comerciais.</p>
+          <p>
+            Sinais públicos organizados para apoiar posicionamento, conteúdo, oferta e decisões
+            comerciais.
+          </p>
         </div>
         <div className="commercial-results-actions">
-          <button type="button" className="secondary" onClick={() => exportCsv(mission, signals)} disabled={!signals.length}>Exportar CSV</button>
-          <button type="button" onClick={onClose}>Fechar</button>
+          <button
+            type="button"
+            className="secondary"
+            onClick={() => exportCsv(mission, signals)}
+            disabled={!signals.length}
+          >
+            Exportar CSV
+          </button>
+          <button type="button" onClick={onClose}>
+            Fechar
+          </button>
         </div>
       </div>
 
       <div className="commercial-results-summary">
-        <article><small>SINAIS</small><strong>{signals.length}</strong><span>resultados orgânicos</span></article>
-        <article><small>FONTES</small><strong>{sources}</strong><span>domínios distintos</span></article>
-        <article><small>TENDÊNCIAS</small><strong>{trends}</strong><span>movimentos detectados</span></article>
-        <article><small>CONCORRÊNCIA</small><strong>{competitors}</strong><span>referências diretas</span></article>
+        <article>
+          <small>SINAIS</small>
+          <strong>{signals.length}</strong>
+          <span>resultados orgânicos</span>
+        </article>
+        <article>
+          <small>FONTES</small>
+          <strong>{sources}</strong>
+          <span>domínios distintos</span>
+        </article>
+        <article>
+          <small>TENDÊNCIAS</small>
+          <strong>{trends}</strong>
+          <span>movimentos detectados</span>
+        </article>
+        <article>
+          <small>CONCORRÊNCIA</small>
+          <strong>{competitors}</strong>
+          <span>referências diretas</span>
+        </article>
       </div>
 
       <div className="radar-grid">
         {signals.map((signal) => (
           <article key={`${signal.position}-${signal.url}-${signal.title}`}>
             <div className="radar-card-head">
-              <span className={`radar-type type-${signal.signalType}`}>{signalLabels[signal.signalType] || signal.signalType}</span>
+              <span className={`radar-type type-${signal.signalType}`}>
+                {signalLabels[signal.signalType] || signal.signalType}
+              </span>
               <strong>{signal.relevanceScore}% relevante</strong>
             </div>
             <h3>{signal.title}</h3>
-            <p>{signal.description || "O resultado não trouxe descrição. Abra a fonte para analisar o conteúdo."}</p>
+            <p>
+              {signal.description ||
+                "O resultado não trouxe descrição. Abra a fonte para analisar o conteúdo."}
+            </p>
             <div className="radar-meta">
               <span>{signal.domain || "Fonte não identificada"}</span>
               {signal.searchQuery && <span>Busca: {signal.searchQuery}</span>}
             </div>
-            {signal.url && <a href={signal.url} target="_blank" rel="noreferrer">Abrir fonte ↗</a>}
+            {signal.url && (
+              <a href={signal.url} target="_blank" rel="noreferrer">
+                Abrir fonte ↗
+              </a>
+            )}
           </article>
         ))}
       </div>
 
-      {!signals.length && <div className="commercial-results-empty">Nenhum sinal de mercado foi encontrado nesta missão.</div>}
-      <p className="commercial-compliance">O Radar organiza resultados públicos. Confirme o contexto e a atualidade diretamente nas fontes antes de tomar decisões.</p>
+      {!signals.length && (
+        <div className="commercial-results-empty">
+          Nenhum sinal de mercado foi encontrado nesta missão.
+        </div>
+      )}
+      <p className="commercial-compliance">
+        O Radar organiza resultados públicos. Confirme o contexto e a atualidade diretamente nas
+        fontes antes de tomar decisões.
+      </p>
 
       <style>{`.radar-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.radar-grid>article{border:1px solid #e1e7f0;border-radius:17px;padding:17px;background:#fbfcff;display:flex;flex-direction:column;min-height:230px}.radar-card-head{display:flex;align-items:center;justify-content:space-between;gap:12px}.radar-card-head>strong{font-size:9px;color:#6f7b91}.radar-type{display:inline-flex;border-radius:999px;padding:6px 9px;background:#edf2ff;color:#1f5eff;font-size:8px;font-weight:900;text-transform:uppercase;letter-spacing:.06em}.radar-type.type-oferta{background:#fff1df;color:#9a5b00}.radar-type.type-reputacao{background:#fff0f0;color:#a52626}.radar-type.type-tendencia{background:#e8faf3;color:#087655}.radar-type.type-concorrencia{background:#f0eaff;color:#6941c6}.radar-grid h3{font:800 18px/1.25 Sora,sans-serif;margin:14px 0 8px}.radar-grid p{font-size:11px;line-height:1.55;color:#5d6980;margin:0 0 15px;flex:1}.radar-meta{display:grid;gap:4px;border-top:1px solid #e5eaf2;padding-top:11px}.radar-meta span{font-size:9px;color:#7b8699;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.radar-grid a{display:inline-flex;width:max-content;margin-top:11px;border-radius:9px;padding:8px 10px;background:#0d1b3e;color:#fff;font-size:9px;font-weight:900;text-decoration:none}@media(max-width:800px){.radar-grid{grid-template-columns:1fr}}`}</style>
     </section>

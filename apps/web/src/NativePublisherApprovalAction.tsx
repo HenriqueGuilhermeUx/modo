@@ -1,5 +1,9 @@
 import type { ContentRequest } from "@modo/contracts/content";
-import type { NativeConnection, NativePublisherMode, NativePublisherProvider } from "@modo/contracts/native-publisher";
+import type {
+  NativeConnection,
+  NativePublisherMode,
+  NativePublisherProvider,
+} from "@modo/contracts/native-publisher";
 import { useEffect, useMemo, useState } from "react";
 import {
   createNativePublication,
@@ -67,7 +71,10 @@ export default function NativePublisherApprovalAction({
     }
     setQuality(qualityResult);
     setConnections(updated);
-    const firstConnected = updated.find((item) => item.connected && item.canPublish && (!isVideo || videoProviders.has(item.provider)));
+    const firstConnected = updated.find(
+      (item) =>
+        item.connected && item.canPublish && (!isVideo || videoProviders.has(item.provider)),
+    );
     if (firstConnected) {
       setProvider(firstConnected.provider);
       setConnectionId(firstConnected.id);
@@ -75,20 +82,34 @@ export default function NativePublisherApprovalAction({
   }
 
   useEffect(() => {
-    void load().catch((caught) => setError(caught instanceof Error ? caught.message : "Não foi possível preparar o Publisher."));
+    void load().catch((caught) =>
+      setError(caught instanceof Error ? caught.message : "Não foi possível preparar o Publisher."),
+    );
   }, [request.id, request.brandId, videoProjectId]);
 
   const availableProviders = useMemo(
-    () => [...new Set(
-      connections
-        .filter((item) => item.connected && item.canPublish && (!isVideo || videoProviders.has(item.provider)))
-        .map((item) => item.provider),
-    )],
+    () => [
+      ...new Set(
+        connections
+          .filter(
+            (item) =>
+              item.connected && item.canPublish && (!isVideo || videoProviders.has(item.provider)),
+          )
+          .map((item) => item.provider),
+      ),
+    ],
     [connections, isVideo],
   );
 
   const providerConnections = useMemo(
-    () => connections.filter((item) => item.provider === provider && item.connected && item.canPublish && (!isVideo || videoProviders.has(item.provider))),
+    () =>
+      connections.filter(
+        (item) =>
+          item.provider === provider &&
+          item.connected &&
+          item.canPublish &&
+          (!isVideo || videoProviders.has(item.provider)),
+      ),
     [connections, provider, isVideo],
   );
 
@@ -133,11 +154,15 @@ export default function NativePublisherApprovalAction({
         const nextAttempt = result.publication.nextAttemptAt
           ? ` Nova tentativa prevista para ${new Date(result.publication.nextAttemptAt).toLocaleString("pt-BR")}.`
           : " A MODO fará uma nova tentativa automaticamente.";
-        setError(`A publicação em ${destination} ainda não foi concluída.${nextAttempt}${result.publication.lastError ? ` Motivo: ${result.publication.lastError}` : ""}`);
+        setError(
+          `A publicação em ${destination} ainda não foi concluída.${nextAttempt}${result.publication.lastError ? ` Motivo: ${result.publication.lastError}` : ""}`,
+        );
         return;
       }
       if (result.publication.status === "failed") {
-        setError(`A publicação em ${destination} falhou.${result.publication.lastError ? ` Motivo: ${result.publication.lastError}` : ""}`);
+        setError(
+          `A publicação em ${destination} falhou.${result.publication.lastError ? ` Motivo: ${result.publication.lastError}` : ""}`,
+        );
         return;
       }
       setMessage(
@@ -148,7 +173,9 @@ export default function NativePublisherApprovalAction({
             : `Rascunho salvo para ${destination}.`,
       );
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Não foi possível concluir a publicação.");
+      setError(
+        caught instanceof Error ? caught.message : "Não foi possível concluir a publicação.",
+      );
     } finally {
       setWorking(false);
     }
@@ -159,21 +186,36 @@ export default function NativePublisherApprovalAction({
       <div className="native-publisher-action-head">
         <div>
           <small>MODO PUBLISHER V2{isVideo ? " · VIDEO" : ""}</small>
-          <strong>{isVideo ? "Publicar ou agendar o MP4 pronto" : "Publicar, agendar ou guardar"}</strong>
+          <strong>
+            {isVideo ? "Publicar ou agendar o MP4 pronto" : "Publicar, agendar ou guardar"}
+          </strong>
         </div>
         {quality && <span className={`quality-pill ${quality.status}`}>{quality.score}/100</span>}
       </div>
 
       {isVideo && (
         <div className="quality-summary">
-          <span><strong>Vídeo persistido</strong> · Instagram Reels, Facebook e Threads</span>
-          <small>O Publisher guarda a mídia no agendamento e no retry; não depende de refazer o render.</small>
+          <span>
+            <strong>Vídeo persistido</strong> · Instagram Reels, Facebook e Threads
+          </span>
+          <small>
+            O Publisher guarda a mídia no agendamento e no retry; não depende de refazer o render.
+          </small>
         </div>
       )}
 
       {quality && (
         <div className="quality-summary">
-          <span>Quality Gate: <strong>{quality.status === "recommended" ? "recomendado" : quality.status === "blocked" ? "bloqueado" : "revisão sugerida"}</strong></span>
+          <span>
+            Quality Gate:{" "}
+            <strong>
+              {quality.status === "recommended"
+                ? "recomendado"
+                : quality.status === "blocked"
+                  ? "bloqueado"
+                  : "revisão sugerida"}
+            </strong>
+          </span>
           {quality.warnings[0] && <small>{quality.warnings[0]}</small>}
           {quality.blockers[0] && <small className="danger">{quality.blockers[0]}</small>}
         </div>
@@ -183,7 +225,12 @@ export default function NativePublisherApprovalAction({
         <>
           <div className="publisher-provider-tabs">
             {availableProviders.map((item) => (
-              <button key={item} type="button" className={provider === item ? "active" : ""} onClick={() => setProvider(item)}>
+              <button
+                key={item}
+                type="button"
+                className={provider === item ? "active" : ""}
+                onClick={() => setProvider(item)}
+              >
                 {providerLabels[item]}
               </button>
             ))}
@@ -192,33 +239,85 @@ export default function NativePublisherApprovalAction({
             Conta de destino
             <select value={connectionId} onChange={(event) => setConnectionId(event.target.value)}>
               {providerConnections.map((item) => (
-                <option key={item.id} value={item.id}>{item.displayName}{item.username && !item.displayName.includes(item.username) ? ` · @${item.username}` : ""}</option>
+                <option key={item.id} value={item.id}>
+                  {item.displayName}
+                  {item.username && !item.displayName.includes(item.username)
+                    ? ` · @${item.username}`
+                    : ""}
+                </option>
               ))}
             </select>
           </label>
           <div className="publisher-mode-tabs">
-            <button type="button" className={mode === "now" ? "active" : ""} onClick={() => setMode("now")}>Publicar agora</button>
-            <button type="button" className={mode === "schedule" ? "active" : ""} onClick={() => setMode("schedule")}>Agendar</button>
-            <button type="button" className={mode === "draft" ? "active" : ""} onClick={() => setMode("draft")}>Rascunho</button>
+            <button
+              type="button"
+              className={mode === "now" ? "active" : ""}
+              onClick={() => setMode("now")}
+            >
+              Publicar agora
+            </button>
+            <button
+              type="button"
+              className={mode === "schedule" ? "active" : ""}
+              onClick={() => setMode("schedule")}
+            >
+              Agendar
+            </button>
+            <button
+              type="button"
+              className={mode === "draft" ? "active" : ""}
+              onClick={() => setMode("draft")}
+            >
+              Rascunho
+            </button>
           </div>
           {mode === "schedule" && (
             <label className="publisher-schedule-field">
               Data e hora
-              <input type="datetime-local" value={scheduledFor} onChange={(event) => setScheduledFor(event.target.value)} />
+              <input
+                type="datetime-local"
+                value={scheduledFor}
+                onChange={(event) => setScheduledFor(event.target.value)}
+              />
             </label>
           )}
-          <button type="button" className="button button-primary" disabled={working || !connectionId || quality?.publishAllowed === false} onClick={() => void publish()}>
-            {working ? "Processando..." : mode === "now" ? `Publicar no ${providerLabels[provider]}` : mode === "schedule" ? `Agendar no ${providerLabels[provider]}` : `Salvar para ${providerLabels[provider]}`}
+          <button
+            type="button"
+            className="button button-primary"
+            disabled={working || !connectionId || quality?.publishAllowed === false}
+            onClick={() => void publish()}
+          >
+            {working
+              ? "Processando..."
+              : mode === "now"
+                ? `Publicar no ${providerLabels[provider]}`
+                : mode === "schedule"
+                  ? `Agendar no ${providerLabels[provider]}`
+                  : `Salvar para ${providerLabels[provider]}`}
           </button>
         </>
       ) : (
         <div className="publisher-empty-connections">
-          <p>{isVideo ? "Esta marca ainda não possui Instagram, Facebook ou Threads disponível para vídeo." : "Esta marca ainda não possui um canal importado no Publisher V2."}</p>
-          <a className="button button-secondary" href={`/app/publisher?brand=${encodeURIComponent(request.brandId)}`}>Conectar canais</a>
+          <p>
+            {isVideo
+              ? "Esta marca ainda não possui Instagram, Facebook ou Threads disponível para vídeo."
+              : "Esta marca ainda não possui um canal importado no Publisher V2."}
+          </p>
+          <a
+            className="button button-secondary"
+            href={`/app/publisher?brand=${encodeURIComponent(request.brandId)}`}
+          >
+            Conectar canais
+          </a>
         </div>
       )}
 
-      {isVideo && <small>LinkedIn vídeo exige o fluxo de upload de ativos da plataforma e fica fora desta V1, sem afetar publicações atuais de texto.</small>}
+      {isVideo && (
+        <small>
+          LinkedIn vídeo exige o fluxo de upload de ativos da plataforma e fica fora desta V1, sem
+          afetar publicações atuais de texto.
+        </small>
+      )}
       {message && <div className="workspace-success">{message}</div>}
       {error && <div className="portal-error">{error}</div>}
     </div>

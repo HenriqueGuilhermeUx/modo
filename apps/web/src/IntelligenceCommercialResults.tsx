@@ -2,10 +2,7 @@ import type { IntelligenceMission } from "@modo/contracts/intelligence";
 import { useEffect, useMemo, useState } from "react";
 import IntelligenceLeadPipeline from "./IntelligenceLeadPipeline";
 import IntelligenceMarketRadarResults from "./IntelligenceMarketRadarResults";
-import {
-  getIntelligencePlaybooks,
-  type IntelligenceLeadItem,
-} from "./intelligence-api";
+import { getIntelligencePlaybooks, type IntelligenceLeadItem } from "./intelligence-api";
 
 interface Props {
   mission: IntelligenceMission;
@@ -28,12 +25,14 @@ export default function IntelligenceCommercialResults({ mission, items, onClose 
       .catch(() => {
         if (active) setAccessMode("trial");
       });
-    return () => { active = false; };
+    return () => {
+      active = false;
+    };
   }, []);
 
   const trial = accessMode === "trial";
   const visibleItems = useMemo(
-    () => trial ? items.slice(0, TRIAL_PREVIEW_ITEMS) : items,
+    () => (trial ? items.slice(0, TRIAL_PREVIEW_ITEMS) : items),
     [items, trial],
   );
   const totalFound = Math.max(Number(mission.resultCount || 0), items.length);
@@ -51,7 +50,9 @@ export default function IntelligenceCommercialResults({ mission, items, onClose 
 
   let content;
   if (mission.playbook === "market_radar") {
-    content = <IntelligenceMarketRadarResults mission={mission} items={visibleItems} onClose={onClose} />;
+    content = (
+      <IntelligenceMarketRadarResults mission={mission} items={visibleItems} onClose={onClose} />
+    );
   } else if (mission.playbook === "b2b_prospecting") {
     content = (
       <IntelligenceLeadPipeline
@@ -67,9 +68,16 @@ export default function IntelligenceCommercialResults({ mission, items, onClose 
           <div>
             <small>MONITORAMENTO DE PREÇOS</small>
             <h2>{mission.name}</h2>
-            <p>O painel estruturado de preços será ativado junto com a Task específica deste playbook.</p>
+            <p>
+              O painel estruturado de preços será ativado junto com a Task específica deste
+              playbook.
+            </p>
           </div>
-          <div className="commercial-results-actions"><button type="button" onClick={onClose}>Fechar</button></div>
+          <div className="commercial-results-actions">
+            <button type="button" onClick={onClose}>
+              Fechar
+            </button>
+          </div>
         </div>
       </section>
     );
@@ -84,7 +92,9 @@ export default function IntelligenceCommercialResults({ mission, items, onClose 
             <strong>Sua primeira pesquisa está funcionando com dados reais.</strong>
             <p>
               A MODO coletou {totalFound} resultado{totalFound === 1 ? "" : "s"} nesta missão.
-              {visibleItems.length > 0 ? ` Você está vendo uma prévia de até ${visibleItems.length}.` : ""}
+              {visibleItems.length > 0
+                ? ` Você está vendo uma prévia de até ${visibleItems.length}.`
+                : ""}
             </p>
           </div>
           <a href="/app/planos">Ver planos de Intelligence ↗</a>
@@ -98,10 +108,19 @@ export default function IntelligenceCommercialResults({ mission, items, onClose 
           <div className="intelligence-preview-lock-icon">M</div>
           <div>
             <small>PRÉVIA CONCLUÍDA</small>
-            <h3>{hiddenCount > 0 ? `${hiddenCount} resultado${hiddenCount === 1 ? "" : "s"} desta coleta ainda não estão nesta prévia.` : "A experiência inicial mostrou como a MODO enxerga o mercado."}</h3>
-            <p>Planos completos ampliam a franquia de pesquisas, o volume por missão e o uso contínuo do Radar, Prospecção B2B e demais playbooks disponíveis.</p>
+            <h3>
+              {hiddenCount > 0
+                ? `${hiddenCount} resultado${hiddenCount === 1 ? "" : "s"} desta coleta ainda não estão nesta prévia.`
+                : "A experiência inicial mostrou como a MODO enxerga o mercado."}
+            </h3>
+            <p>
+              Planos completos ampliam a franquia de pesquisas, o volume por missão e o uso contínuo
+              do Radar, Prospecção B2B e demais playbooks disponíveis.
+            </p>
           </div>
-          <a className="button button-primary" href="/app/planos">Desbloquear Intelligence completa</a>
+          <a className="button button-primary" href="/app/planos">
+            Desbloquear Intelligence completa
+          </a>
         </section>
       )}
 

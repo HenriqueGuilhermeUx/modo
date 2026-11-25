@@ -1,9 +1,6 @@
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import { AuthError, type AuthService } from "../services/auth-service.js";
-import {
-  CanvaError,
-  type CanvaService,
-} from "../services/canva-service.js";
+import { CanvaError, type CanvaService } from "../services/canva-service.js";
 import type { ContentAssetService } from "../services/content-asset-service.js";
 import { ContentError, type ContentService } from "../services/content-service.js";
 
@@ -48,12 +45,14 @@ export async function registerCanvaRoutes(app: FastifyInstance, options: Options
       ) {
         return reply.code(error.statusCode).send({ code: error.code, message: error.message });
       }
-      const message = error instanceof Error ? error.message : "Não foi possível concluir a operação no Canva.";
+      const message =
+        error instanceof Error ? error.message : "Não foi possível concluir a operação no Canva.";
       return reply.code(500).send({
         code: "CANVA_INTERNAL_ERROR",
-        message: process.env.NODE_ENV === "development"
-          ? message
-          : "Não foi possível concluir a operação no Canva.",
+        message:
+          process.env.NODE_ENV === "development"
+            ? message
+            : "Não foi possível concluir a operação no Canva.",
       });
     });
 
@@ -126,11 +125,10 @@ export async function registerCanvaRoutes(app: FastifyInstance, options: Options
           );
         }
         const primaryToken = publicTokenFromUrl(content.output.imageUrl);
-        const asset = (
-          primaryToken
+        const asset =
+          (primaryToken
             ? await options.assets.getForRequestByToken(context.organization.id, id, primaryToken)
-            : null
-        ) || await options.assets.getLatestForRequest(context.organization.id, id);
+            : null) || (await options.assets.getLatestForRequest(context.organization.id, id));
         if (!asset) {
           throw new CanvaError(
             "CONTENT_ASSET_NOT_FOUND",
@@ -138,8 +136,9 @@ export async function registerCanvaRoutes(app: FastifyInstance, options: Options
             "A imagem aprovada não foi encontrada. Gere uma nova versão antes de continuar.",
           );
         }
-        const brand = (await options.auth.listBrands(context.organization.id))
-          .find((item) => item.id === content.brandId);
+        const brand = (await options.auth.listBrands(context.organization.id)).find(
+          (item) => item.id === content.brandId,
+        );
         if (!brand) throw new AuthError("BRAND_NOT_FOUND", 404, "Marca não encontrada.");
         const size = dimensions(content.contentType);
         const design = await options.canva.createApprovedDesign({

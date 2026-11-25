@@ -13,7 +13,8 @@ const application = {
   activeClients: 8,
   monthlyServiceRevenueCents: 2500000,
   currentServices: ["Social media", "Criação de conteúdo"],
-  whyPartner: "Queremos aumentar a capacidade da operação sem perder o relacionamento e a qualidade entregue aos clientes.",
+  whyPartner:
+    "Queremos aumentar a capacidade da operação sem perder o relacionamento e a qualidade entregue aos clientes.",
   targetClientsWithModo: 12,
   consent: true as const,
 };

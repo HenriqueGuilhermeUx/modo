@@ -224,10 +224,9 @@ export class IntelligenceQuotaService {
       if (index >= 0) this.memoryReservations.splice(index, 1);
       return;
     }
-    await this.pool.query(
-      `DELETE FROM modo_intelligence_usage WHERE reference_id=$1`,
-      [referenceId],
-    );
+    await this.pool.query(`DELETE FROM modo_intelligence_usage WHERE reference_id=$1`, [
+      referenceId,
+    ]);
   }
 
   private async usageWithinClient(client: PoolClient, organizationId: string) {
@@ -251,7 +250,10 @@ export class IntelligenceQuotaService {
         "É necessário ter um plano ativo para executar pesquisas de inteligência.",
       );
     }
-    if (!["active", "retrying"].includes(subscription.status) || new Date() >= subscription.period_end) {
+    if (
+      !["active", "retrying"].includes(subscription.status) ||
+      new Date() >= subscription.period_end
+    ) {
       throw new IntelligenceQuotaError(
         "INTELLIGENCE_SUBSCRIPTION_INACTIVE",
         402,

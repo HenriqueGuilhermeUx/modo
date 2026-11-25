@@ -72,7 +72,9 @@ export const GeneratedContentSchema = z.object({
   imagePrompt: z.string().trim().max(2500).default(""),
   imageAlt: z.string().trim().max(500).default(""),
   imageUrl: z.string().url().max(2000).nullable().default(null),
-  imageStatus: z.enum(["not_requested", "generated", "fallback", "failed"]).default("not_requested"),
+  imageStatus: z
+    .enum(["not_requested", "generated", "fallback", "failed"])
+    .default("not_requested"),
   visualAssets: z.array(ContentVisualAssetSchema).max(12).default([]),
 });
 export type GeneratedContent = z.infer<typeof GeneratedContentSchema>;

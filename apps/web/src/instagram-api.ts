@@ -22,9 +22,7 @@ async function request(path: string, init?: RequestInit) {
 }
 
 export async function getInstagramStatus(): Promise<InstagramConnectionStatus> {
-  return InstagramConnectionStatusSchema.parse(
-    await request("/api/v1/instagram/status"),
-  );
+  return InstagramConnectionStatusSchema.parse(await request("/api/v1/instagram/status"));
 }
 
 export async function connectInstagram(brandId?: string) {
@@ -50,7 +48,5 @@ export async function publishContentToInstagram(
     `/api/v1/content-requests/${encodeURIComponent(contentRequestId)}/publish-instagram`,
     { method: "POST", body: JSON.stringify({}) },
   );
-  return InstagramPublishResultSchema.parse(
-    (payload as { publication?: unknown }).publication,
-  );
+  return InstagramPublishResultSchema.parse((payload as { publication?: unknown }).publication);
 }

@@ -2,10 +2,7 @@ import type { FastifyInstance, FastifyRequest } from "fastify";
 import { AuthError, type AuthService } from "../services/auth-service.js";
 import type { ContentAssetService } from "../services/content-asset-service.js";
 import { ContentError, type ContentService } from "../services/content-service.js";
-import {
-  InstagramError,
-  type InstagramService,
-} from "../services/instagram-service.js";
+import { InstagramError, type InstagramService } from "../services/instagram-service.js";
 import { InstagramV2ComplianceService } from "../services/instagram-v2-compliance-service.js";
 
 interface Options {
@@ -30,17 +27,16 @@ function formSignedRequest(body: unknown) {
 
 function databaseSsl() {
   return ["1", "true", "yes", "on"].includes(
-    String(process.env.DATABASE_SSL || "").trim().toLowerCase(),
+    String(process.env.DATABASE_SSL || "")
+      .trim()
+      .toLowerCase(),
   );
 }
 
-function buildCaption(output: NonNullable<Awaited<ReturnType<ContentService["getForOrganization"]>>["output"]>) {
-  const pieces = [
-    output.hook,
-    output.caption,
-    output.cta,
-    output.hashtags.join(" "),
-  ]
+function buildCaption(
+  output: NonNullable<Awaited<ReturnType<ContentService["getForOrganization"]>>["output"]>,
+) {
+  const pieces = [output.hook, output.caption, output.cta, output.hashtags.join(" ")]
     .map((item) => item.trim())
     .filter(Boolean);
   const unique: string[] = [];
@@ -67,12 +63,16 @@ export async function registerInstagramRoutes(app: FastifyInstance, options: Opt
       ) {
         return reply.code(error.statusCode).send({ code: error.code, message: error.message });
       }
-      const message = error instanceof Error ? error.message : "Não foi possível concluir a operação no Instagram.";
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Não foi possível concluir a operação no Instagram.";
       return reply.code(500).send({
         code: "INSTAGRAM_INTERNAL_ERROR",
-        message: process.env.NODE_ENV === "development"
-          ? message
-          : "Não foi possível concluir a operação no Instagram.",
+        message:
+          process.env.NODE_ENV === "development"
+            ? message
+            : "Não foi possível concluir a operação no Instagram.",
       });
     });
 
@@ -87,9 +87,11 @@ export async function registerInstagramRoutes(app: FastifyInstance, options: Opt
         (request.body as { brandId?: unknown } | undefined)?.brandId || "",
       ).trim();
       if (brandId) {
-        const brand = (await options.auth.listBrands(context.organization.id))
-          .find((item) => item.id === brandId);
-        if (!brand) throw new AuthError("BRAND_NOT_FOUND", 404, "Marca não encontrada nesta organização.");
+        const brand = (await options.auth.listBrands(context.organization.id)).find(
+          (item) => item.id === brandId,
+        );
+        if (!brand)
+          throw new AuthError("BRAND_NOT_FOUND", 404, "Marca não encontrada nesta organização.");
       }
       return options.instagram.createAuthorizationUrl(
         context.organization.id,

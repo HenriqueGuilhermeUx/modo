@@ -24,11 +24,7 @@ export class PostizLearningBridge {
     await this.pool?.end();
   }
 
-  async recommendationIdForContent(
-    accountId: string,
-    brandId: string,
-    contentRequestId: string,
-  ) {
+  async recommendationIdForContent(accountId: string, brandId: string, contentRequestId: string) {
     if (!this.pool) return undefined;
     const result = await this.pool.query<{ recommendation_id: string }>(
       `SELECT recommendation_id

@@ -44,7 +44,10 @@ const typeLabels: Record<string, string> = {
 
 export default function HumanOperationsAdminWorkspace() {
   const [tab, setTab] = useState<Tab>("support");
-  const [overview, setOverview] = useState<{ support: Record<string, number>; talent: Record<string, number> }>({ support: {}, talent: {} });
+  const [overview, setOverview] = useState<{
+    support: Record<string, number>;
+    talent: Record<string, number>;
+  }>({ support: {}, talent: {} });
   const [support, setSupport] = useState<AdminSupportRequest[]>([]);
   const [talent, setTalent] = useState<AdminSpecialistApplication[]>([]);
   const [loading, setLoading] = useState(true);
@@ -70,20 +73,40 @@ export default function HumanOperationsAdminWorkspace() {
       return;
     }
     load()
-      .catch((caught) => setError(caught instanceof Error ? caught.message : "Não foi possível abrir a operação do Time Modo."))
+      .catch((caught) =>
+        setError(
+          caught instanceof Error
+            ? caught.message
+            : "Não foi possível abrir a operação do Time Modo.",
+        ),
+      )
       .finally(() => setLoading(false));
   }, []);
 
   const filteredSupport = useMemo(() => {
     const query = search.trim().toLowerCase();
     if (!query) return support;
-    return support.filter((item) => [item.organizationName,item.brandName,item.requesterName,item.requesterEmail,item.context,item.type,item.status].some((value) => String(value).toLowerCase().includes(query)));
+    return support.filter((item) =>
+      [
+        item.organizationName,
+        item.brandName,
+        item.requesterName,
+        item.requesterEmail,
+        item.context,
+        item.type,
+        item.status,
+      ].some((value) => String(value).toLowerCase().includes(query)),
+    );
   }, [support, search]);
 
   const filteredTalent = useMemo(() => {
     const query = search.trim().toLowerCase();
     if (!query) return talent;
-    return talent.filter((item) => [item.name,item.email,item.city,item.primaryRole,item.about,item.status].some((value) => String(value).toLowerCase().includes(query)));
+    return talent.filter((item) =>
+      [item.name, item.email, item.city, item.primaryRole, item.about, item.status].some((value) =>
+        String(value).toLowerCase().includes(query),
+      ),
+    );
   }, [talent, search]);
 
   async function changeSupport(item: AdminSupportRequest, patch: Partial<AdminSupportRequest>) {
@@ -106,56 +129,307 @@ export default function HumanOperationsAdminWorkspace() {
     }
   }
 
-  async function changeTalent(item: AdminSpecialistApplication, patch: Partial<AdminSpecialistApplication>) {
+  async function changeTalent(
+    item: AdminSpecialistApplication,
+    patch: Partial<AdminSpecialistApplication>,
+  ) {
     setBusyId(item.id);
     setError("");
     setSuccess("");
     try {
-      await updateAdminSpecialistApplication(item.id, { status: patch.status, internalNotes: patch.internalNotes });
+      await updateAdminSpecialistApplication(item.id, {
+        status: patch.status,
+        internalNotes: patch.internalNotes,
+      });
       await load();
       setSuccess("Candidatura atualizada.");
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Não foi possível atualizar a candidatura.");
+      setError(
+        caught instanceof Error ? caught.message : "Não foi possível atualizar a candidatura.",
+      );
     } finally {
       setBusyId("");
     }
   }
 
-  if (loading) return <main className="admin-login"><img src="/logo.svg" alt="MODO" /><div className="portal-spinner" /><p>Abrindo a operação do Time Modo...</p></main>;
+  if (loading)
+    return (
+      <main className="admin-login">
+        <img src="/logo.svg" alt="MODO" />
+        <div className="portal-spinner" />
+        <p>Abrindo a operação do Time Modo...</p>
+      </main>
+    );
 
   const approvedTalent = talent.filter((item) => ["approved", "talent_pool"].includes(item.status));
 
   return (
     <div className="human-admin-shell">
-      <header className="human-admin-header"><a href="/admin"><img src="/logo.svg" alt="MODO" /></a><nav><a href="/admin">Central</a><a className="active" href="/admin/rede">Time Modo</a><a href="/admin/smartbots">SmartBots</a></nav><span>OPERAÇÃO INTERNA</span></header>
+      <header className="human-admin-header">
+        <a href="/admin">
+          <img src="/logo.svg" alt="MODO" />
+        </a>
+        <nav>
+          <a href="/admin">Central</a>
+          <a className="active" href="/admin/rede">
+            Time Modo
+          </a>
+          <a href="/admin/smartbots">SmartBots</a>
+        </nav>
+        <span>OPERAÇÃO INTERNA</span>
+      </header>
       <main className="human-admin-main">
-        <section className="human-admin-hero"><div><small>TIME MODO</small><h1>Curadoria, triagem e acompanhamento.</h1><p>Central interna para pedidos pontuais de clientes e formação do banco futuro de talentos. Nenhuma atribuição cria contrato, cobrança ou acesso automático.</p></div><div className="human-admin-stats"><article><strong>{overview.support.requested || 0}</strong><span>pedidos aguardando</span></article><article><strong>{overview.talent.received || 0}</strong><span>candidaturas novas</span></article><article><strong>{approvedTalent.length}</strong><span>talentos elegíveis</span></article></div></section>
+        <section className="human-admin-hero">
+          <div>
+            <small>TIME MODO</small>
+            <h1>Curadoria, triagem e acompanhamento.</h1>
+            <p>
+              Central interna para pedidos pontuais de clientes e formação do banco futuro de
+              talentos. Nenhuma atribuição cria contrato, cobrança ou acesso automático.
+            </p>
+          </div>
+          <div className="human-admin-stats">
+            <article>
+              <strong>{overview.support.requested || 0}</strong>
+              <span>pedidos aguardando</span>
+            </article>
+            <article>
+              <strong>{overview.talent.received || 0}</strong>
+              <span>candidaturas novas</span>
+            </article>
+            <article>
+              <strong>{approvedTalent.length}</strong>
+              <span>talentos elegíveis</span>
+            </article>
+          </div>
+        </section>
 
-        <div className="human-admin-toolbar"><div><button className={tab === "support" ? "active" : ""} onClick={() => setTab("support")}>Pedidos de clientes</button><button className={tab === "talent" ? "active" : ""} onClick={() => setTab("talent")}>Banco futuro de talentos</button></div><input placeholder="Buscar nome, marca, e-mail ou especialidade" value={search} onChange={(event) => setSearch(event.target.value)} /></div>
+        <div className="human-admin-toolbar">
+          <div>
+            <button className={tab === "support" ? "active" : ""} onClick={() => setTab("support")}>
+              Pedidos de clientes
+            </button>
+            <button className={tab === "talent" ? "active" : ""} onClick={() => setTab("talent")}>
+              Banco futuro de talentos
+            </button>
+          </div>
+          <input
+            placeholder="Buscar nome, marca, e-mail ou especialidade"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+          />
+        </div>
         {error && <div className="portal-error">{error}</div>}
         {success && <div className="workspace-success">{success}</div>}
 
-        {tab === "support" && <section className="human-admin-list">
-          {filteredSupport.map((item) => <article className={item.urgency === "priority" ? "priority" : ""} key={item.id}>
-            <header><div><small>{item.organizationName} · {item.brandName}</small><h2>{typeLabels[item.type] || item.type}</h2><span>{item.requesterName} · {item.requesterEmail}</span></div><b>{supportLabels[item.status]}</b></header>
-            <div className="human-admin-context"><strong>Desafio</strong><p>{item.context}</p>{item.desiredOutcome && <><strong>Resultado desejado</strong><p>{item.desiredOutcome}</p></>}</div>
-            <div className="human-admin-fields"><label>Status<select value={item.status} disabled={busyId === item.id} onChange={(event) => void changeSupport(item, { status: event.target.value as AdminSupportRequest["status"] })}>{Object.entries(supportLabels).map(([value,label]) => <option value={value} key={value}>{label}</option>)}</select></label><label>Preço/escopo<select value={item.pricingStatus} disabled={busyId === item.id} onChange={(event) => void changeSupport(item, { pricingStatus: event.target.value as AdminSupportRequest["pricingStatus"] })}><option value="under_review">Em análise</option><option value="proposal_required">Exige proposta</option><option value="included">Incluído</option><option value="not_available">Não disponível</option></select></label><label>Profissional<select value={item.assignedApplicationId || ""} disabled={busyId === item.id} onChange={(event) => void changeSupport(item, { assignedApplicationId: event.target.value || null })}><option value="">Ainda não atribuído</option>{approvedTalent.map((candidate) => <option value={candidate.id} key={candidate.id}>{candidate.name} · {candidate.primaryRole}</option>)}</select></label></div>
-            <label className="human-admin-note">Nota interna<textarea defaultValue={item.internalNotes} placeholder="Análise, riscos, próximo contato e premissas" onBlur={(event) => { if (event.target.value !== item.internalNotes) void changeSupport(item, { internalNotes: event.target.value }); }} /></label>
-            <footer><span>{item.urgency === "priority" ? "⚑ Prioridade solicitada" : "Fluxo normal"}</span><small>{new Intl.DateTimeFormat("pt-BR", { dateStyle: "medium", timeStyle: "short" }).format(new Date(item.createdAt))}</small>{item.contentRequestId && <a href={`/app/content?open=${item.contentRequestId}`}>Ver conteúdo relacionado</a>}</footer>
-          </article>)}
-          {!filteredSupport.length && <div className="strategy-empty"><strong>Nenhum pedido nesta visão.</strong><p>A fila ficará disponível quando clientes solicitarem curadoria.</p></div>}
-        </section>}
+        {tab === "support" && (
+          <section className="human-admin-list">
+            {filteredSupport.map((item) => (
+              <article className={item.urgency === "priority" ? "priority" : ""} key={item.id}>
+                <header>
+                  <div>
+                    <small>
+                      {item.organizationName} · {item.brandName}
+                    </small>
+                    <h2>{typeLabels[item.type] || item.type}</h2>
+                    <span>
+                      {item.requesterName} · {item.requesterEmail}
+                    </span>
+                  </div>
+                  <b>{supportLabels[item.status]}</b>
+                </header>
+                <div className="human-admin-context">
+                  <strong>Desafio</strong>
+                  <p>{item.context}</p>
+                  {item.desiredOutcome && (
+                    <>
+                      <strong>Resultado desejado</strong>
+                      <p>{item.desiredOutcome}</p>
+                    </>
+                  )}
+                </div>
+                <div className="human-admin-fields">
+                  <label>
+                    Status
+                    <select
+                      value={item.status}
+                      disabled={busyId === item.id}
+                      onChange={(event) =>
+                        void changeSupport(item, {
+                          status: event.target.value as AdminSupportRequest["status"],
+                        })
+                      }
+                    >
+                      {Object.entries(supportLabels).map(([value, label]) => (
+                        <option value={value} key={value}>
+                          {label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
+                    Preço/escopo
+                    <select
+                      value={item.pricingStatus}
+                      disabled={busyId === item.id}
+                      onChange={(event) =>
+                        void changeSupport(item, {
+                          pricingStatus: event.target.value as AdminSupportRequest["pricingStatus"],
+                        })
+                      }
+                    >
+                      <option value="under_review">Em análise</option>
+                      <option value="proposal_required">Exige proposta</option>
+                      <option value="included">Incluído</option>
+                      <option value="not_available">Não disponível</option>
+                    </select>
+                  </label>
+                  <label>
+                    Profissional
+                    <select
+                      value={item.assignedApplicationId || ""}
+                      disabled={busyId === item.id}
+                      onChange={(event) =>
+                        void changeSupport(item, {
+                          assignedApplicationId: event.target.value || null,
+                        })
+                      }
+                    >
+                      <option value="">Ainda não atribuído</option>
+                      {approvedTalent.map((candidate) => (
+                        <option value={candidate.id} key={candidate.id}>
+                          {candidate.name} · {candidate.primaryRole}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+                <label className="human-admin-note">
+                  Nota interna
+                  <textarea
+                    defaultValue={item.internalNotes}
+                    placeholder="Análise, riscos, próximo contato e premissas"
+                    onBlur={(event) => {
+                      if (event.target.value !== item.internalNotes)
+                        void changeSupport(item, { internalNotes: event.target.value });
+                    }}
+                  />
+                </label>
+                <footer>
+                  <span>
+                    {item.urgency === "priority" ? "⚑ Prioridade solicitada" : "Fluxo normal"}
+                  </span>
+                  <small>
+                    {new Intl.DateTimeFormat("pt-BR", {
+                      dateStyle: "medium",
+                      timeStyle: "short",
+                    }).format(new Date(item.createdAt))}
+                  </small>
+                  {item.contentRequestId && (
+                    <a href={`/app/content?open=${item.contentRequestId}`}>
+                      Ver conteúdo relacionado
+                    </a>
+                  )}
+                </footer>
+              </article>
+            ))}
+            {!filteredSupport.length && (
+              <div className="strategy-empty">
+                <strong>Nenhum pedido nesta visão.</strong>
+                <p>A fila ficará disponível quando clientes solicitarem curadoria.</p>
+              </div>
+            )}
+          </section>
+        )}
 
-        {tab === "talent" && <section className="human-admin-list talent-list">
-          {filteredTalent.map((item) => <article key={item.id}>
-            <header><div><small>{item.city || "Local não informado"} · {item.experienceYears} ano(s)</small><h2>{item.name}</h2><span>{item.email}{item.whatsapp ? ` · ${item.whatsapp}` : ""}</span></div><b>{talentLabels[item.status]}</b></header>
-            <div className="talent-admin-roles"><strong>{item.primaryRole}</strong>{item.secondaryRoles.map((role) => <span key={role}>{role}</span>)}</div><p className="talent-admin-about">{item.about}</p>
-            <div className="human-admin-fields"><label>Status<select value={item.status} disabled={busyId === item.id} onChange={(event) => void changeTalent(item, { status: event.target.value as AdminSpecialistApplication["status"] })}>{Object.entries(talentLabels).map(([value,label]) => <option value={value} key={value}>{label}</option>)}</select></label><label>Disponibilidade<input readOnly value={item.availability} /></label><label>Colaboração<input readOnly value={item.engagementPreference} /></label></div>
-            <label className="human-admin-note">Nota de curadoria<textarea defaultValue={item.internalNotes} placeholder="Pontos fortes, aderência, segmentos e cuidados" onBlur={(event) => { if (event.target.value !== item.internalNotes) void changeTalent(item, { internalNotes: event.target.value }); }} /></label>
-            <footer><a href={item.portfolioUrl} target="_blank" rel="noreferrer">Abrir portfólio ↗</a>{item.linkedinUrl && <a href={item.linkedinUrl} target="_blank" rel="noreferrer">LinkedIn ↗</a>}<small>{new Intl.DateTimeFormat("pt-BR", { dateStyle: "medium" }).format(new Date(item.createdAt))}</small></footer>
-          </article>)}
-          {!filteredTalent.length && <div className="strategy-empty"><strong>Nenhuma candidatura nesta visão.</strong><p>Os perfis aparecerão aqui após o envio do formulário por convite.</p></div>}
-        </section>}
+        {tab === "talent" && (
+          <section className="human-admin-list talent-list">
+            {filteredTalent.map((item) => (
+              <article key={item.id}>
+                <header>
+                  <div>
+                    <small>
+                      {item.city || "Local não informado"} · {item.experienceYears} ano(s)
+                    </small>
+                    <h2>{item.name}</h2>
+                    <span>
+                      {item.email}
+                      {item.whatsapp ? ` · ${item.whatsapp}` : ""}
+                    </span>
+                  </div>
+                  <b>{talentLabels[item.status]}</b>
+                </header>
+                <div className="talent-admin-roles">
+                  <strong>{item.primaryRole}</strong>
+                  {item.secondaryRoles.map((role) => (
+                    <span key={role}>{role}</span>
+                  ))}
+                </div>
+                <p className="talent-admin-about">{item.about}</p>
+                <div className="human-admin-fields">
+                  <label>
+                    Status
+                    <select
+                      value={item.status}
+                      disabled={busyId === item.id}
+                      onChange={(event) =>
+                        void changeTalent(item, {
+                          status: event.target.value as AdminSpecialistApplication["status"],
+                        })
+                      }
+                    >
+                      {Object.entries(talentLabels).map(([value, label]) => (
+                        <option value={value} key={value}>
+                          {label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
+                    Disponibilidade
+                    <input readOnly value={item.availability} />
+                  </label>
+                  <label>
+                    Colaboração
+                    <input readOnly value={item.engagementPreference} />
+                  </label>
+                </div>
+                <label className="human-admin-note">
+                  Nota de curadoria
+                  <textarea
+                    defaultValue={item.internalNotes}
+                    placeholder="Pontos fortes, aderência, segmentos e cuidados"
+                    onBlur={(event) => {
+                      if (event.target.value !== item.internalNotes)
+                        void changeTalent(item, { internalNotes: event.target.value });
+                    }}
+                  />
+                </label>
+                <footer>
+                  <a href={item.portfolioUrl} target="_blank" rel="noreferrer">
+                    Abrir portfólio ↗
+                  </a>
+                  {item.linkedinUrl && (
+                    <a href={item.linkedinUrl} target="_blank" rel="noreferrer">
+                      LinkedIn ↗
+                    </a>
+                  )}
+                  <small>
+                    {new Intl.DateTimeFormat("pt-BR", { dateStyle: "medium" }).format(
+                      new Date(item.createdAt),
+                    )}
+                  </small>
+                </footer>
+              </article>
+            ))}
+            {!filteredTalent.length && (
+              <div className="strategy-empty">
+                <strong>Nenhuma candidatura nesta visão.</strong>
+                <p>Os perfis aparecerão aqui após o envio do formulário por convite.</p>
+              </div>
+            )}
+          </section>
+        )}
       </main>
     </div>
   );

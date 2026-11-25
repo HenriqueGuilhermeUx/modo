@@ -25,7 +25,9 @@ export default function TabsLayout() {
         tabBarStyle: styles.bar,
         tabBarLabelStyle: styles.label,
         tabBarIcon: ({ color, focused }) => (
-          <Text style={[styles.icon, { color }, focused && styles.iconActive]}>{icons[route.name] || "•"}</Text>
+          <Text style={[styles.icon, { color }, focused && styles.iconActive]}>
+            {icons[route.name] || "•"}
+          </Text>
         ),
       })}
     >
@@ -39,7 +41,13 @@ export default function TabsLayout() {
 }
 
 const styles = StyleSheet.create({
-  bar: { height: 72, paddingTop: 7, paddingBottom: 9, backgroundColor: colors.surface, borderTopColor: colors.border },
+  bar: {
+    height: 72,
+    paddingTop: 7,
+    paddingBottom: 9,
+    backgroundColor: colors.surface,
+    borderTopColor: colors.border,
+  },
   label: { fontSize: 10, fontWeight: "800" },
   icon: { fontSize: 19, fontWeight: "800", height: 24 },
   iconActive: { transform: [{ scale: 1.08 }] },

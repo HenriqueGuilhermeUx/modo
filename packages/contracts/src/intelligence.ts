@@ -1,7 +1,10 @@
 import { z } from "zod";
 
 const ShortTextSchema = z.string().trim().min(2).max(180);
-const OptionalUrlSchema = z.union([z.literal(""), z.string().url().max(1000)]).optional().default("");
+const OptionalUrlSchema = z
+  .union([z.literal(""), z.string().url().max(1000)])
+  .optional()
+  .default("");
 
 export const IntelligencePlaybookSchema = z.enum([
   "market_radar",
@@ -13,12 +16,7 @@ export type IntelligencePlaybook = z.infer<typeof IntelligencePlaybookSchema>;
 export const IntelligenceProviderSchema = z.enum(["queue", "apify", "n8n"]);
 export type IntelligenceProvider = z.infer<typeof IntelligenceProviderSchema>;
 
-export const IntelligenceMissionStatusSchema = z.enum([
-  "queued",
-  "running",
-  "succeeded",
-  "failed",
-]);
+export const IntelligenceMissionStatusSchema = z.enum(["queued", "running", "succeeded", "failed"]);
 export type IntelligenceMissionStatus = z.infer<typeof IntelligenceMissionStatusSchema>;
 
 export const IntelligenceProductSchema = z.object({

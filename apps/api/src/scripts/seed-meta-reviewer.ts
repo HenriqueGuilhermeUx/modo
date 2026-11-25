@@ -10,7 +10,11 @@ const REVIEWER_ORGANIZATION_ID = "modo-meta-review-organization";
 const REVIEWER_BRAND_ID = "00000000-0000-4000-8000-000000000070";
 
 function booleanEnvironment(value: string | undefined) {
-  return ["1", "true", "yes", "on"].includes(String(value || "").trim().toLowerCase());
+  return ["1", "true", "yes", "on"].includes(
+    String(value || "")
+      .trim()
+      .toLowerCase(),
+  );
 }
 
 function hashPassword(password: string, salt: string) {
@@ -22,7 +26,8 @@ async function main() {
   const password = process.env.REVIEWER_TEST_PASSWORD?.trim();
   const databaseSsl = booleanEnvironment(process.env.DATABASE_SSL);
 
-  if (!databaseUrl) throw new Error("DATABASE_URL é obrigatória para criar o usuário de revisão da Meta.");
+  if (!databaseUrl)
+    throw new Error("DATABASE_URL é obrigatória para criar o usuário de revisão da Meta.");
   if (!password || password.length < 12) {
     throw new Error("REVIEWER_TEST_PASSWORD deve existir e possuir ao menos 12 caracteres.");
   }
@@ -58,13 +63,7 @@ async function main() {
          password_hash=EXCLUDED.password_hash,
          password_salt=EXCLUDED.password_salt
        RETURNING id`,
-      [
-        "modo-meta-review-user",
-        "Revisor Meta",
-        REVIEWER_EMAIL,
-        hashPassword(password, salt),
-        salt,
-      ],
+      ["modo-meta-review-user", "Revisor Meta", REVIEWER_EMAIL, hashPassword(password, salt), salt],
     );
     const userId = userResult.rows[0].id;
 
@@ -122,6 +121,8 @@ async function main() {
 }
 
 main().catch((error) => {
-  console.error(error instanceof Error ? error.message : "Falha ao preparar o usuário de revisão Meta.");
+  console.error(
+    error instanceof Error ? error.message : "Falha ao preparar o usuário de revisão Meta.",
+  );
   process.exit(1);
 });

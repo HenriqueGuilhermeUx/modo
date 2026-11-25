@@ -73,11 +73,7 @@ describe("PostizService", () => {
     });
 
     const service = new PostizService({ apiKey: "test-key", fetcher });
-    const started = await service.startConnection(
-      "org-1",
-      approvedRequest.brandId,
-      "instagram",
-    );
+    const started = await service.startConnection("org-1", approvedRequest.brandId, "instagram");
     expect(started.authorizationUrl).toContain("instagram.com/oauth/authorize");
 
     const claimed = await service.claimConnection("org-1", started.pendingId);

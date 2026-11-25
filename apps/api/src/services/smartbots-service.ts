@@ -258,7 +258,8 @@ export class SmartBotsService {
         detail || `${isN8n ? "n8n" : "SmartBots"} respondeu ${response.status}.`,
       );
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Falha ao encaminhar para a SmartBots.";
+      const message =
+        error instanceof Error ? error.message : "Falha ao encaminhar para a SmartBots.";
       return this.updateStatus(saved.id, "failed", message.slice(0, 1000));
     }
   }
@@ -307,21 +308,30 @@ export class SmartBotsService {
         updated_at=NOW()
       RETURNING *`,
       [
-        randomUUID(), organizationId, userId, payload.partner, payload.plan,
-        payload.businessName, payload.ownerName, payload.email, payload.phone,
-        payload.instagram, payload.segment, payload.services, payload.openingHours,
-        payload.faq, payload.prices, payload.welcomeMessage,
-        payload.googleReviewLink, payload.notes,
+        randomUUID(),
+        organizationId,
+        userId,
+        payload.partner,
+        payload.plan,
+        payload.businessName,
+        payload.ownerName,
+        payload.email,
+        payload.phone,
+        payload.instagram,
+        payload.segment,
+        payload.services,
+        payload.openingHours,
+        payload.faq,
+        payload.prices,
+        payload.welcomeMessage,
+        payload.googleReviewLink,
+        payload.notes,
       ],
     );
     return mapRow(result.rows[0]);
   }
 
-  private saveMemory(
-    organizationId: string,
-    userId: string,
-    payload: SmartBotsIntakePayload,
-  ) {
+  private saveMemory(organizationId: string, userId: string, payload: SmartBotsIntakePayload) {
     const current = this.memory.get(organizationId);
     const now = new Date().toISOString();
     const saved: SmartBotsIntake = {

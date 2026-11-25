@@ -16,13 +16,20 @@ type ApprovalRow = {
 type MemoryApproval = ApprovalRow;
 
 export class VideoApprovalError extends Error {
-  constructor(public readonly code: string, public readonly statusCode: number, message: string) {
+  constructor(
+    public readonly code: string,
+    public readonly statusCode: number,
+    message: string,
+  ) {
     super(message);
     this.name = "VideoApprovalError";
   }
 }
 
-function sceneReviews(project: VideoProject, status: "pending" | "approved" = "pending"): VideoSceneReview[] {
+function sceneReviews(
+  project: VideoProject,
+  status: "pending" | "approved" = "pending",
+): VideoSceneReview[] {
   const reviewedAt = status === "approved" ? new Date().toISOString() : null;
   return project.scenes.map((scene) => ({ sceneIndex: scene.index, status, reviewedAt }));
 }
@@ -74,12 +81,18 @@ export class VideoApprovalService {
     await this.pool?.end();
   }
 
-  async decorate(project: VideoProject, initialStatus?: "pending" | "approved"): Promise<VideoProject> {
+  async decorate(
+    project: VideoProject,
+    initialStatus?: "pending" | "approved",
+  ): Promise<VideoProject> {
     const review = await this.ensure(project, initialStatus);
     return { ...project, review };
   }
 
-  async ensure(project: VideoProject, initialStatus?: "pending" | "approved"): Promise<VideoProjectReview> {
+  async ensure(
+    project: VideoProject,
+    initialStatus?: "pending" | "approved",
+  ): Promise<VideoProjectReview> {
     const inferred = initialStatus || (project.status === "ready" ? "approved" : "pending");
     if (this.pool) {
       const existing = await this.pool.query<ApprovalRow>(
@@ -95,19 +108,31 @@ export class VideoApprovalService {
         ) VALUES($1,$2,$3::jsonb,$4,$5)
         ON CONFLICT(video_project_id) DO NOTHING
         RETURNING *`,
-        [project.id, project.organizationId, JSON.stringify(sceneReviews(project, inferred)), inferred, now],
+        [
+          project.id,
+          project.organizationId,
+          JSON.stringify(sceneReviews(project, inferred)),
+          inferred,
+          now,
+        ],
       );
       if (result.rows[0]) return mapReview(result.rows[0]);
       const raced = await this.pool.query<ApprovalRow>(
         `SELECT * FROM modo_video_approvals WHERE video_project_id=$1 AND organization_id=$2 LIMIT 1`,
         [project.id, project.organizationId],
       );
-      if (!raced.rows[0]) throw new VideoApprovalError("VIDEO_REVIEW_NOT_FOUND", 404, "Revisão do vídeo não encontrada.");
+      if (!raced.rows[0])
+        throw new VideoApprovalError(
+          "VIDEO_REVIEW_NOT_FOUND",
+          404,
+          "Revisão do vídeo não encontrada.",
+        );
       return this.reconcile(project, raced.rows[0]);
     }
 
     const existing = this.memory.get(project.id);
-    if (existing && existing.organization_id === project.organizationId) return this.reconcile(project, existing);
+    if (existing && existing.organization_id === project.organizationId)
+      return this.reconcile(project, existing);
     const now = new Date();
     const created: MemoryApproval = {
       video_project_id: project.id,
@@ -124,7 +149,11 @@ export class VideoApprovalService {
 
   async approveScene(project: VideoProject, sceneIndex: number): Promise<VideoProjectReview> {
     if (project.status !== "ready") {
-      throw new VideoApprovalError("VIDEO_NOT_READY_FOR_REVIEW", 409, "Aguarde o render terminar antes de aprovar cenas.");
+      throw new VideoApprovalError(
+        "VIDEO_NOT_READY_FOR_REVIEW",
+        409,
+        "Aguarde o render terminar antes de aprovar cenas.",
+      );
     }
     if (!project.scenes.some((scene) => scene.index === sceneIndex)) {
       throw new VideoApprovalError("VIDEO_SCENE_NOT_FOUND", 404, "Cena de vídeo não encontrada.");
@@ -133,7 +162,8 @@ export class VideoApprovalService {
     const reviewedAt = new Date().toISOString();
     const reviews = project.scenes.map((scene) => {
       const previous = current.scenes.find((review) => review.sceneIndex === scene.index);
-      if (scene.index === sceneIndex) return { sceneIndex, status: "approved" as const, reviewedAt };
+      if (scene.index === sceneIndex)
+        return { sceneIndex, status: "approved" as const, reviewedAt };
       return previous || { sceneIndex: scene.index, status: "pending" as const, reviewedAt: null };
     });
     return this.save(project, {
@@ -147,7 +177,8 @@ export class VideoApprovalService {
     const current = await this.ensure(project, "pending");
     const reviews = project.scenes.map((scene) => {
       const previous = current.scenes.find((review) => review.sceneIndex === scene.index);
-      if (scene.index === sceneIndex) return { sceneIndex, status: "pending" as const, reviewedAt: null };
+      if (scene.index === sceneIndex)
+        return { sceneIndex, status: "pending" as const, reviewedAt: null };
       return previous || { sceneIndex: scene.index, status: "pending" as const, reviewedAt: null };
     });
     return this.save(project, {
@@ -159,7 +190,11 @@ export class VideoApprovalService {
 
   async approveProject(project: VideoProject): Promise<VideoProjectReview> {
     if (project.status !== "ready" || !project.outputUrl) {
-      throw new VideoApprovalError("VIDEO_NOT_READY_FOR_APPROVAL", 409, "Finalize o render antes de aprovar o vídeo.");
+      throw new VideoApprovalError(
+        "VIDEO_NOT_READY_FOR_APPROVAL",
+        409,
+        "Finalize o render antes de aprovar o vídeo.",
+      );
     }
     const current = await this.ensure(project, "pending");
     const pending = project.scenes.filter((scene) => {
@@ -195,14 +230,17 @@ export class VideoApprovalService {
   private async reconcile(project: VideoProject, row: ApprovalRow): Promise<VideoProjectReview> {
     const current = mapReview(row);
     const indexes = new Set(project.scenes.map((scene) => scene.index));
-    const reviews = project.scenes.map((scene) =>
-      current.scenes.find((review) => review.sceneIndex === scene.index) || {
-        sceneIndex: scene.index,
-        status: "pending" as const,
-        reviewedAt: null,
-      },
+    const reviews = project.scenes.map(
+      (scene) =>
+        current.scenes.find((review) => review.sceneIndex === scene.index) || {
+          sceneIndex: scene.index,
+          status: "pending" as const,
+          reviewedAt: null,
+        },
     );
-    const changed = reviews.length !== current.scenes.length || current.scenes.some((review) => !indexes.has(review.sceneIndex));
+    const changed =
+      reviews.length !== current.scenes.length ||
+      current.scenes.some((review) => !indexes.has(review.sceneIndex));
     if (!changed) return current;
     return this.save(project, {
       approvalStatus: "pending",
@@ -211,20 +249,38 @@ export class VideoApprovalService {
     });
   }
 
-  private async save(project: VideoProject, review: VideoProjectReview): Promise<VideoProjectReview> {
+  private async save(
+    project: VideoProject,
+    review: VideoProjectReview,
+  ): Promise<VideoProjectReview> {
     if (this.pool) {
       const result = await this.pool.query<ApprovalRow>(
         `UPDATE modo_video_approvals
          SET scene_reviews=$3::jsonb,approval_status=$4,approved_at=$5,updated_at=NOW()
          WHERE video_project_id=$1 AND organization_id=$2 RETURNING *`,
-        [project.id, project.organizationId, JSON.stringify(review.scenes), review.approvalStatus, review.approvedAt],
+        [
+          project.id,
+          project.organizationId,
+          JSON.stringify(review.scenes),
+          review.approvalStatus,
+          review.approvedAt,
+        ],
       );
-      if (!result.rows[0]) throw new VideoApprovalError("VIDEO_REVIEW_NOT_FOUND", 404, "Revisão do vídeo não encontrada.");
+      if (!result.rows[0])
+        throw new VideoApprovalError(
+          "VIDEO_REVIEW_NOT_FOUND",
+          404,
+          "Revisão do vídeo não encontrada.",
+        );
       return mapReview(result.rows[0]);
     }
     const existing = this.memory.get(project.id);
     if (!existing || existing.organization_id !== project.organizationId) {
-      throw new VideoApprovalError("VIDEO_REVIEW_NOT_FOUND", 404, "Revisão do vídeo não encontrada.");
+      throw new VideoApprovalError(
+        "VIDEO_REVIEW_NOT_FOUND",
+        404,
+        "Revisão do vídeo não encontrada.",
+      );
     }
     const updated: MemoryApproval = {
       ...existing,

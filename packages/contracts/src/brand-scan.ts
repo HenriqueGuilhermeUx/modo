@@ -46,10 +46,14 @@ export const BrandScanResultSchema = z.object({
   evidence: z.array(BrandScanEvidenceSchema).max(20),
   needsConfirmation: z.array(z.string().trim().min(1).max(240)).max(20),
   warnings: z.array(z.string().trim().min(1).max(500)).max(10),
-  pagesAnalyzed: z.array(z.object({
-    sourceUrl: z.string().url(),
-    title: z.string().trim().max(300),
-  })).max(12),
+  pagesAnalyzed: z
+    .array(
+      z.object({
+        sourceUrl: z.string().url(),
+        title: z.string().trim().max(300),
+      }),
+    )
+    .max(12),
   confidence: z.number().min(0).max(1),
 });
 export type BrandScanResult = z.infer<typeof BrandScanResultSchema>;

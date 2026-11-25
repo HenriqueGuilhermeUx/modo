@@ -86,11 +86,7 @@ export async function registerSmartBotsRoutes(app: FastifyInstance, options: Opt
         partner: "modo",
         plan: "presenca",
       });
-      const intake = await service.submit(
-        context.organization.id,
-        context.user.id,
-        payload,
-      );
+      const intake = await service.submit(context.organization.id, context.user.id, payload);
       return reply.code(201).send(intake);
     },
   );
@@ -102,11 +98,16 @@ export async function registerSmartBotsRoutes(app: FastifyInstance, options: Opt
 
   app.patch("/api/v1/admin/smartbots-intakes/:id/status", async (request) => {
     await options.admin.authenticate(adminBearer(request));
-    const id = z.string().uuid().parse((request.params as { id: string }).id);
-    const input = z.object({
-      status: SmartBotsIntakeStatusSchema,
-      providerMessage: z.string().trim().max(1000).optional().default(""),
-    }).parse(request.body);
+    const id = z
+      .string()
+      .uuid()
+      .parse((request.params as { id: string }).id);
+    const input = z
+      .object({
+        status: SmartBotsIntakeStatusSchema,
+        providerMessage: z.string().trim().max(1000).optional().default(""),
+      })
+      .parse(request.body);
     const updated = await service.updateStatus(id, input.status, input.providerMessage);
     await options.admin.audit("smartbots.status_updated", "smartbots_intake", id, input);
     return updated;
@@ -114,7 +115,10 @@ export async function registerSmartBotsRoutes(app: FastifyInstance, options: Opt
 
   app.post("/api/v1/admin/smartbots-intakes/:id/retry", async (request) => {
     await options.admin.authenticate(adminBearer(request));
-    const id = z.string().uuid().parse((request.params as { id: string }).id);
+    const id = z
+      .string()
+      .uuid()
+      .parse((request.params as { id: string }).id);
     const updated = await service.retry(id);
     await options.admin.audit("smartbots.dispatch_retried", "smartbots_intake", id, {
       dispatchProvider: service.dispatchProvider,

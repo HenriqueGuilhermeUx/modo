@@ -56,18 +56,24 @@ function money(cents: number) {
 }
 
 function isOperational(dashboard: Dashboard) {
-  return dashboard.usage.plan !== "trial" &&
-    ["active", "retrying"].includes(dashboard.usage.status);
+  return (
+    dashboard.usage.plan !== "trial" && ["active", "retrying"].includes(dashboard.usage.status)
+  );
 }
 
 export default function BillingWorkspace() {
   const params = new URLSearchParams(window.location.search);
-  const agencyMode = params.get("mode") === "agency" || window.sessionStorage.getItem("modo.accountMode") === "agency";
+  const agencyMode =
+    params.get("mode") === "agency" ||
+    window.sessionStorage.getItem("modo.accountMode") === "agency";
   const allowedPlans = agencyMode ? agencyPlans : directPlans;
   const requestedPlan = params.get("plan") || window.sessionStorage.getItem("modo.selectedPlan");
-  const initialPlan: PublicPlanSlug = requestedPlan && allowedPlans.includes(requestedPlan as PublicPlanSlug)
-    ? requestedPlan as PublicPlanSlug
-    : agencyMode ? "agency_studio" : "presenca";
+  const initialPlan: PublicPlanSlug =
+    requestedPlan && allowedPlans.includes(requestedPlan as PublicPlanSlug)
+      ? (requestedPlan as PublicPlanSlug)
+      : agencyMode
+        ? "agency_studio"
+        : "presenca";
   const homeHref = agencyMode ? "/app/agency" : "/app";
 
   const [dashboard, setDashboard] = useState<Dashboard | null>(null);
@@ -112,7 +118,9 @@ export default function BillingWorkspace() {
         setDashboard(data);
         setName(data.user.name);
       })
-      .catch((caught) => setError(caught instanceof Error ? caught.message : "Não foi possível carregar sua conta."))
+      .catch((caught) =>
+        setError(caught instanceof Error ? caught.message : "Não foi possível carregar sua conta."),
+      )
       .finally(() => setLoading(false));
   }, [agencyMode]);
 
@@ -174,7 +182,12 @@ export default function BillingWorkspace() {
   }
 
   async function handleCancel() {
-    if (!window.confirm(`Cancelar a recorrência da ${agencyMode ? "MODO Agency" : "MODO"}? A produção será bloqueada imediatamente.`)) return;
+    if (
+      !window.confirm(
+        `Cancelar a recorrência da ${agencyMode ? "MODO Agency" : "MODO"}? A produção será bloqueada imediatamente.`,
+      )
+    )
+      return;
     setCanceling(true);
     setError("");
     try {
@@ -182,7 +195,9 @@ export default function BillingWorkspace() {
       if (dashboard) setDashboard({ ...dashboard, usage: result.usage });
       setCheckout(null);
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Não foi possível cancelar a assinatura.");
+      setError(
+        caught instanceof Error ? caught.message : "Não foi possível cancelar a assinatura.",
+      );
     } finally {
       setCanceling(false);
     }
@@ -208,19 +223,28 @@ export default function BillingWorkspace() {
       <main className="billing-loading">
         <img src="/logo.svg" alt="MODO" />
         <div className="portal-error">{error || "Sua sessão expirou."}</div>
-        <a className="button button-primary" href={homeHref}>Voltar ao login</a>
+        <a className="button button-primary" href={homeHref}>
+          Voltar ao login
+        </a>
       </main>
     );
   }
 
   const operational = isOperational(dashboard);
   const paidPlan = dashboard.usage.plan !== "trial";
-  const currentPlanLabel = dashboard.usage.plan === "trial" ? (agencyMode ? "Teste Agency" : "Teste gratuito") : planNames[dashboard.usage.plan];
+  const currentPlanLabel =
+    dashboard.usage.plan === "trial"
+      ? agencyMode
+        ? "Teste Agency"
+        : "Teste gratuito"
+      : planNames[dashboard.usage.plan];
 
   return (
     <div className="billing-shell">
       <header className="billing-topbar">
-        <a href={homeHref}><img src="/logo.svg" alt="MODO" /></a>
+        <a href={homeHref}>
+          <img src="/logo.svg" alt="MODO" />
+        </a>
         <div>
           <a href={homeHref}>{agencyMode ? "Carteira" : "Painel"}</a>
           <a href={`/app/content${agencyMode ? "?mode=agency" : ""}`}>Criar conteúdo</a>
@@ -232,27 +256,61 @@ export default function BillingWorkspace() {
         <section className="billing-hero">
           <div>
             <span>PIX AUTOMÁTICO • WOOVI{agencyMode ? " • MODO AGENCY" : ""}</span>
-            <h1>{agencyMode ? "Escolha o tamanho da sua carteira." : "Escolha o ritmo da sua presença."}</h1>
-            <p>{agencyMode ? "O plano acompanha o número de clientes e a capacidade operacional da sua agência. A cobrança mensal fica centralizada em uma única assinatura." : "A primeira mensalidade e a autorização das próximas cobranças acontecem em um único fluxo seguro no seu banco."}</p>
+            <h1>
+              {agencyMode
+                ? "Escolha o tamanho da sua carteira."
+                : "Escolha o ritmo da sua presença."}
+            </h1>
+            <p>
+              {agencyMode
+                ? "O plano acompanha o número de clientes e a capacidade operacional da sua agência. A cobrança mensal fica centralizada em uma única assinatura."
+                : "A primeira mensalidade e a autorização das próximas cobranças acontecem em um único fluxo seguro no seu banco."}
+            </p>
           </div>
           <aside>
             <small>Plano atual</small>
             <strong>{currentPlanLabel}</strong>
-            <span className={`billing-status status-${dashboard.usage.status}`}>{statusLabels[dashboard.usage.status]}</span>
+            <span className={`billing-status status-${dashboard.usage.status}`}>
+              {statusLabels[dashboard.usage.status]}
+            </span>
           </aside>
         </section>
 
         {error && <div className="portal-error portal-error-wide">{error}</div>}
 
         {operational ? (
-          <section className={`billing-success ${dashboard.usage.status === "retrying" ? "billing-warning" : ""}`}>
+          <section
+            className={`billing-success ${dashboard.usage.status === "retrying" ? "billing-warning" : ""}`}
+          >
             <div>{dashboard.usage.status === "retrying" ? "!" : "✓"}</div>
-            <span>{dashboard.usage.status === "retrying" ? "COBRANÇA EM RETENTATIVA" : "ASSINATURA ATIVA"}</span>
-            <h2>{dashboard.usage.status === "retrying" ? "Seu acesso segue ativo durante as tentativas." : agencyMode ? "Sua carteira Agency está liberada." : "Seu plano está em modo presença."}</h2>
-            <p>{dashboard.usage.status === "retrying" ? "A Woovi fará novas tentativas. Atualize o saldo da conta vinculada para evitar suspensão." : agencyMode ? "Clientes, créditos, equipe e limites estão disponíveis até o fim deste ciclo." : "Créditos e limites estão disponíveis até o fim deste ciclo."}</p>
+            <span>
+              {dashboard.usage.status === "retrying"
+                ? "COBRANÇA EM RETENTATIVA"
+                : "ASSINATURA ATIVA"}
+            </span>
+            <h2>
+              {dashboard.usage.status === "retrying"
+                ? "Seu acesso segue ativo durante as tentativas."
+                : agencyMode
+                  ? "Sua carteira Agency está liberada."
+                  : "Seu plano está em modo presença."}
+            </h2>
+            <p>
+              {dashboard.usage.status === "retrying"
+                ? "A Woovi fará novas tentativas. Atualize o saldo da conta vinculada para evitar suspensão."
+                : agencyMode
+                  ? "Clientes, créditos, equipe e limites estão disponíveis até o fim deste ciclo."
+                  : "Créditos e limites estão disponíveis até o fim deste ciclo."}
+            </p>
             <div className="billing-success-actions">
-              <a className="button button-primary" href={homeHref}>{agencyMode ? "Voltar à carteira" : "Ir para o painel"}</a>
-              <button className="button button-secondary" onClick={handleCancel} disabled={canceling}>
+              <a className="button button-primary" href={homeHref}>
+                {agencyMode ? "Voltar à carteira" : "Ir para o painel"}
+              </a>
+              <button
+                className="button button-secondary"
+                onClick={handleCancel}
+                disabled={canceling}
+              >
                 {canceling ? "Cancelando..." : "Cancelar assinatura"}
               </button>
             </div>
@@ -261,8 +319,16 @@ export default function BillingWorkspace() {
           <>
             {paidPlan && (
               <section className={`billing-lifecycle-alert ${dashboard.usage.status}`}>
-                <strong>{dashboard.usage.status === "suspended" ? "Assinatura suspensa" : "Assinatura cancelada"}</strong>
-                <p>{dashboard.usage.status === "suspended" ? "As tentativas de cobrança terminaram sem pagamento. Ative novamente para liberar um novo ciclo." : "A recorrência foi encerrada. Escolha um plano para voltar a produzir."}</p>
+                <strong>
+                  {dashboard.usage.status === "suspended"
+                    ? "Assinatura suspensa"
+                    : "Assinatura cancelada"}
+                </strong>
+                <p>
+                  {dashboard.usage.status === "suspended"
+                    ? "As tentativas de cobrança terminaram sem pagamento. Ative novamente para liberar um novo ciclo."
+                    : "A recorrência foi encerrada. Escolha um plano para voltar a produzir."}
+                </p>
               </section>
             )}
 
@@ -276,14 +342,23 @@ export default function BillingWorkspace() {
                     className={`billing-plan-card ${plan === slug ? "selected" : ""}`}
                     onClick={() => setPlan(slug)}
                   >
-                    {(agencyMode ? slug === "agency_studio" : slug === "presenca") && <em>Mais escolhido</em>}
+                    {(agencyMode ? slug === "agency_studio" : slug === "presenca") && (
+                      <em>Mais escolhido</em>
+                    )}
                     <small>{planNames[slug]}</small>
-                    <strong>R$ {item.priceCents / 100}<span>/mês</span></strong>
+                    <strong>
+                      R$ {item.priceCents / 100}
+                      <span>/mês</span>
+                    </strong>
                     <p>{planDescriptions[slug]}</p>
                     <ul>
                       <li>{item.monthlyCredits} créditos mensais</li>
-                      <li>{item.maxBrands} {agencyMode ? "cliente(s)" : "marca(s)"}</li>
-                      <li>Até {item.maxUsers} {item.maxUsers === 1 ? "usuário" : "usuários"}</li>
+                      <li>
+                        {item.maxBrands} {agencyMode ? "cliente(s)" : "marca(s)"}
+                      </li>
+                      <li>
+                        Até {item.maxUsers} {item.maxUsers === 1 ? "usuário" : "usuários"}
+                      </li>
                     </ul>
                   </button>
                 );
@@ -293,38 +368,148 @@ export default function BillingWorkspace() {
             <section className="billing-checkout-grid">
               <form className="billing-form" onSubmit={handleCheckout}>
                 <div className="billing-form-heading">
-                  <div><small>DADOS DE COBRANÇA</small><h2>Ativar {planNames[plan]}</h2></div>
-                  <strong>{price}<span>/mês</span></strong>
+                  <div>
+                    <small>DADOS DE COBRANÇA</small>
+                    <h2>Ativar {planNames[plan]}</h2>
+                  </div>
+                  <strong>
+                    {price}
+                    <span>/mês</span>
+                  </strong>
                 </div>
 
                 <div className="billing-fields two-columns">
-                  <label>Nome completo<input value={name} onChange={(event) => setName(event.target.value)} required /></label>
-                  <label>E-mail<input value={dashboard.user.email} readOnly /></label>
-                  <label>CPF ou CNPJ<input inputMode="numeric" value={taxID} onChange={(event) => setTaxID(event.target.value)} placeholder="Somente números" required /></label>
-                  <label>Telefone<input inputMode="tel" value={phone} onChange={(event) => setPhone(event.target.value)} placeholder="DDD + número" required /></label>
-                  <label>CEP<input inputMode="numeric" value={zipcode} onChange={(event) => setZipcode(event.target.value)} placeholder="Somente números" required /></label>
-                  <label>Estado<input value={state} onChange={(event) => setState(event.target.value.toUpperCase().slice(0, 2))} maxLength={2} placeholder="SP" required /></label>
-                  <label className="field-wide">Rua<input value={street} onChange={(event) => setStreet(event.target.value)} required /></label>
-                  <label>Número<input value={number} onChange={(event) => setNumber(event.target.value)} required /></label>
-                  <label>Bairro<input value={neighborhood} onChange={(event) => setNeighborhood(event.target.value)} required /></label>
-                  <label>Cidade<input value={city} onChange={(event) => setCity(event.target.value)} required /></label>
-                  <label>Complemento<input value={complement} onChange={(event) => setComplement(event.target.value)} /></label>
-                  <label className="field-wide billing-coupon-field">Cupom de desconto<input value={couponCode} onChange={(event) => setCouponCode(event.target.value.toUpperCase().replace(/[^A-Z0-9_-]/g, ""))} placeholder="Ex.: MODO20" /></label>
+                  <label>
+                    Nome completo
+                    <input
+                      value={name}
+                      onChange={(event) => setName(event.target.value)}
+                      required
+                    />
+                  </label>
+                  <label>
+                    E-mail
+                    <input value={dashboard.user.email} readOnly />
+                  </label>
+                  <label>
+                    CPF ou CNPJ
+                    <input
+                      inputMode="numeric"
+                      value={taxID}
+                      onChange={(event) => setTaxID(event.target.value)}
+                      placeholder="Somente números"
+                      required
+                    />
+                  </label>
+                  <label>
+                    Telefone
+                    <input
+                      inputMode="tel"
+                      value={phone}
+                      onChange={(event) => setPhone(event.target.value)}
+                      placeholder="DDD + número"
+                      required
+                    />
+                  </label>
+                  <label>
+                    CEP
+                    <input
+                      inputMode="numeric"
+                      value={zipcode}
+                      onChange={(event) => setZipcode(event.target.value)}
+                      placeholder="Somente números"
+                      required
+                    />
+                  </label>
+                  <label>
+                    Estado
+                    <input
+                      value={state}
+                      onChange={(event) => setState(event.target.value.toUpperCase().slice(0, 2))}
+                      maxLength={2}
+                      placeholder="SP"
+                      required
+                    />
+                  </label>
+                  <label className="field-wide">
+                    Rua
+                    <input
+                      value={street}
+                      onChange={(event) => setStreet(event.target.value)}
+                      required
+                    />
+                  </label>
+                  <label>
+                    Número
+                    <input
+                      value={number}
+                      onChange={(event) => setNumber(event.target.value)}
+                      required
+                    />
+                  </label>
+                  <label>
+                    Bairro
+                    <input
+                      value={neighborhood}
+                      onChange={(event) => setNeighborhood(event.target.value)}
+                      required
+                    />
+                  </label>
+                  <label>
+                    Cidade
+                    <input
+                      value={city}
+                      onChange={(event) => setCity(event.target.value)}
+                      required
+                    />
+                  </label>
+                  <label>
+                    Complemento
+                    <input
+                      value={complement}
+                      onChange={(event) => setComplement(event.target.value)}
+                    />
+                  </label>
+                  <label className="field-wide billing-coupon-field">
+                    Cupom de desconto
+                    <input
+                      value={couponCode}
+                      onChange={(event) =>
+                        setCouponCode(event.target.value.toUpperCase().replace(/[^A-Z0-9_-]/g, ""))
+                      }
+                      placeholder="Ex.: MODO20"
+                    />
+                  </label>
                 </div>
 
                 <button className="button button-primary button-full" disabled={submitting}>
                   {submitting ? "Criando Pix Automático..." : `Ativar por ${price}/mês`}
                 </button>
-                <p className="billing-consent">Ao continuar, você será direcionado à Woovi para pagar a primeira mensalidade e autorizar a recorrência no aplicativo do seu banco.</p>
+                <p className="billing-consent">
+                  Ao continuar, você será direcionado à Woovi para pagar a primeira mensalidade e
+                  autorizar a recorrência no aplicativo do seu banco.
+                </p>
               </form>
 
               <aside className="billing-summary">
                 <span>RESUMO DA ASSINATURA</span>
                 <h3>{planNames[plan]}</h3>
-                <div><small>Mensalidade</small><strong>{price}</strong></div>
-                <div><small>Créditos</small><strong>{selectedEntitlement.monthlyCredits}/mês</strong></div>
-                <div><small>{agencyMode ? "Clientes" : "Marcas"}</small><strong>{selectedEntitlement.maxBrands}</strong></div>
-                <div><small>Equipe</small><strong>{selectedEntitlement.maxUsers}</strong></div>
+                <div>
+                  <small>Mensalidade</small>
+                  <strong>{price}</strong>
+                </div>
+                <div>
+                  <small>Créditos</small>
+                  <strong>{selectedEntitlement.monthlyCredits}/mês</strong>
+                </div>
+                <div>
+                  <small>{agencyMode ? "Clientes" : "Marcas"}</small>
+                  <strong>{selectedEntitlement.maxBrands}</strong>
+                </div>
+                <div>
+                  <small>Equipe</small>
+                  <strong>{selectedEntitlement.maxUsers}</strong>
+                </div>
                 <ul>
                   <li>Cancelamento direto pelo painel</li>
                   <li>Ativação automática após pagamento</li>
@@ -338,12 +523,30 @@ export default function BillingWorkspace() {
                 <div>
                   <span>AGUARDANDO AUTORIZAÇÃO</span>
                   <h2>Conclua no seu banco.</h2>
-                  <p>Depois do pagamento, esta tela atualizará automaticamente e liberará seu novo ciclo.</p>
-                 {checkout.discount && <p><strong>{checkout.discount.code}</strong> aplicado: de {money(checkout.discount.originalPriceCents)} por {money(checkout.discount.finalPriceCents)}.</p>}
+                  <p>
+                    Depois do pagamento, esta tela atualizará automaticamente e liberará seu novo
+                    ciclo.
+                  </p>
+                  {checkout.discount && (
+                    <p>
+                      <strong>{checkout.discount.code}</strong> aplicado: de{" "}
+                      {money(checkout.discount.originalPriceCents)} por{" "}
+                      {money(checkout.discount.finalPriceCents)}.
+                    </p>
+                  )}
                 </div>
                 <div className="billing-pending-actions">
-                  <a className="button button-primary" href={checkout.paymentLinkUrl} target="_blank" rel="noreferrer">Abrir pagamento</a>
-                  <button className="button button-secondary" type="button" onClick={copyPix}>{copied ? "Pix copiado" : "Copiar Pix"}</button>
+                  <a
+                    className="button button-primary"
+                    href={checkout.paymentLinkUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    Abrir pagamento
+                  </a>
+                  <button className="button button-secondary" type="button" onClick={copyPix}>
+                    {copied ? "Pix copiado" : "Copiar Pix"}
+                  </button>
                 </div>
               </section>
             )}

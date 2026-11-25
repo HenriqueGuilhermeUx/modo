@@ -18,8 +18,16 @@ const baseOutput: GeneratedContent = {
   imageStatus: "generated",
   visualAssets: [],
   script: [
-    { scene: "Abertura", visual: "Marca em composição editorial.", voiceover: "Uma abertura clara." },
-    { scene: "Interface", visual: "Dashboard com indicadores em uma tela.", voiceover: "A informação aparece no momento certo." },
+    {
+      scene: "Abertura",
+      visual: "Marca em composição editorial.",
+      voiceover: "Uma abertura clara.",
+    },
+    {
+      scene: "Interface",
+      visual: "Dashboard com indicadores em uma tela.",
+      voiceover: "A informação aparece no momento certo.",
+    },
     { scene: "CTA", visual: "Marca e chamada final.", voiceover: "Planeje com direção." },
   ],
 };
@@ -30,7 +38,11 @@ function humanOutput(): GeneratedContent {
     imageUrl: null,
     imageStatus: "not_requested",
     script: [
-      { scene: "Pessoas", visual: "Empresária brasileira conversa com cliente em cafeteria.", voiceover: "Entenda pessoas primeiro." },
+      {
+        scene: "Pessoas",
+        visual: "Empresária brasileira conversa com cliente em cafeteria.",
+        voiceover: "Entenda pessoas primeiro.",
+      },
       { scene: "CTA", visual: "Marca e chamada final.", voiceover: "Planeje com direção." },
     ],
   };
@@ -65,7 +77,11 @@ describe("MODO Video V1.6 scene controls", () => {
     const scenes = planVideoScenes(baseOutput, 15);
     expect(scenes[0]).toMatchObject({ pace: "steady", transition: "cut" });
     expect(scenes[1]).toMatchObject({ visualType: "data_card", pace: "calm", transition: "fade" });
-    expect(scenes[2]).toMatchObject({ visualType: "kinetic_text", pace: "dynamic", transition: "slide" });
+    expect(scenes[2]).toMatchObject({
+      visualType: "kinetic_text",
+      pace: "dynamic",
+      transition: "slide",
+    });
   });
 
   it("ajusta apenas montagem sem consumir outro asset nem alterar revisão visual", async () => {
@@ -162,14 +178,18 @@ describe("MODO Video V1.6 scene controls", () => {
       captions: true,
     });
 
-    await expect(service.listSceneTakes(created.id, "organization-two", 1)).rejects.toMatchObject<Partial<VideoError>>({
+    await expect(service.listSceneTakes(created.id, "organization-two", 1)).rejects.toMatchObject<
+      Partial<VideoError>
+    >({
       code: "VIDEO_PROJECT_NOT_FOUND",
     });
-    await expect(service.selectSceneTake({
-      id: created.id,
-      organizationId: "organization-two",
-      sceneIndex: 1,
-      token: "test-take-not-owned",
-    })).rejects.toMatchObject<Partial<VideoError>>({ code: "VIDEO_PROJECT_NOT_FOUND" });
+    await expect(
+      service.selectSceneTake({
+        id: created.id,
+        organizationId: "organization-two",
+        sceneIndex: 1,
+        token: "test-take-not-owned",
+      }),
+    ).rejects.toMatchObject<Partial<VideoError>>({ code: "VIDEO_PROJECT_NOT_FOUND" });
   });
 });

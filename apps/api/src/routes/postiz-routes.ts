@@ -43,7 +43,8 @@ async function requireBrand(auth: AuthService, request: FastifyRequest, brandId:
   const context = await auth.authenticate(bearerToken(request));
   const brands = await auth.listBrands(context.organization.id);
   const brand = brands.find((item) => item.id === brandId);
-  if (!brand) throw new AuthError("BRAND_NOT_FOUND", 404, "Marca não encontrada nesta organização.");
+  if (!brand)
+    throw new AuthError("BRAND_NOT_FOUND", 404, "Marca não encontrada nesta organização.");
   return { context, brand };
 }
 
@@ -150,7 +151,9 @@ export async function registerPostizRoutes(app: FastifyInstance, options: Option
         request.headers["x-modo-distribution-secret"] || request.headers.authorization || "",
       ).replace(/^Bearer\s+/i, "");
       if (!secureSecretMatch(candidate, options.cronSecret)) {
-        return reply.code(401).send({ code: "INVALID_DISTRIBUTION_SECRET", message: "Acesso negado." });
+        return reply
+          .code(401)
+          .send({ code: "INVALID_DISTRIBUTION_SECRET", message: "Acesso negado." });
       }
       if (!service.configured) {
         return reply.code(503).send({
@@ -159,9 +162,13 @@ export async function registerPostizRoutes(app: FastifyInstance, options: Option
         });
       }
 
-      const limit = z.coerce.number().int().min(1).max(100).default(50).parse(
-        (request.body as { limit?: unknown })?.limit ?? 50,
-      );
+      const limit = z.coerce
+        .number()
+        .int()
+        .min(1)
+        .max(100)
+        .default(50)
+        .parse((request.body as { limit?: unknown })?.limit ?? 50);
       const batch = await scheduler.refreshDue(limit);
       for (const item of batch.results) {
         if (
@@ -210,7 +217,10 @@ export async function registerPostizRoutes(app: FastifyInstance, options: Option
 
   app.get("/api/v1/content-requests/:id/distribution/quality", async (request) => {
     const context = await options.auth.authenticate(bearerToken(request));
-    const id = z.string().uuid().parse((request.params as { id: string }).id);
+    const id = z
+      .string()
+      .uuid()
+      .parse((request.params as { id: string }).id);
     return qualityReport(context.organization.id, id);
   });
 
@@ -231,12 +241,18 @@ export async function registerPostizRoutes(app: FastifyInstance, options: Option
   app.post("/api/v1/distribution/connections/claim", async (request, reply) => {
     const context = await options.auth.authenticate(bearerToken(request));
     const input = PostizClaimRequestSchema.parse(request.body);
-    return postizResponse(reply, () => service.claimConnection(context.organization.id, input.pendingId));
+    return postizResponse(reply, () =>
+      service.claimConnection(context.organization.id, input.pendingId),
+    );
   });
 
   app.delete("/api/v1/distribution/integrations/:id", async (request, reply) => {
     const context = await options.auth.authenticate(bearerToken(request));
-    const id = z.string().min(1).max(240).parse((request.params as { id: string }).id);
+    const id = z
+      .string()
+      .min(1)
+      .max(240)
+      .parse((request.params as { id: string }).id);
     return postizResponse(reply, () => service.removeConnection(context.organization.id, id));
   });
 
@@ -245,7 +261,10 @@ export async function registerPostizRoutes(app: FastifyInstance, options: Option
     { config: { rateLimit: { max: 20, timeWindow: "10 minutes" } } },
     async (request, reply) => {
       const context = await options.auth.authenticate(bearerToken(request));
-      const id = z.string().uuid().parse((request.params as { id: string }).id);
+      const id = z
+        .string()
+        .uuid()
+        .parse((request.params as { id: string }).id);
       const contentRequest = await options.content.getForOrganization(id, context.organization.id);
       const input = PostizPublishRequestSchema.parse(request.body);
       const result = await postizResponse(reply, async () => {
@@ -280,7 +299,10 @@ export async function registerPostizRoutes(app: FastifyInstance, options: Option
 
   app.get("/api/v1/content-requests/:id/publications", async (request, reply) => {
     const context = await options.auth.authenticate(bearerToken(request));
-    const id = z.string().uuid().parse((request.params as { id: string }).id);
+    const id = z
+      .string()
+      .uuid()
+      .parse((request.params as { id: string }).id);
     await options.content.getForOrganization(id, context.organization.id);
     return postizResponse(reply, async () => ({
       publications: await service.syncPublications(context.organization.id, id),
@@ -289,10 +311,17 @@ export async function registerPostizRoutes(app: FastifyInstance, options: Option
 
   app.post("/api/v1/publications/:id/analytics/refresh", async (request, reply) => {
     const context = await options.auth.authenticate(bearerToken(request));
-    const id = z.string().uuid().parse((request.params as { id: string }).id);
-    const days = z.coerce.number().int().min(1).max(365).default(30).parse(
-      (request.body as { days?: unknown })?.days ?? 30,
-    );
+    const id = z
+      .string()
+      .uuid()
+      .parse((request.params as { id: string }).id);
+    const days = z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(365)
+      .default(30)
+      .parse((request.body as { days?: unknown })?.days ?? 30);
     return postizResponse(reply, async () => {
       const result = await service.refreshAnalytics(context.organization.id, id, days);
       await recordPerformanceSignal({
@@ -309,7 +338,10 @@ export async function registerPostizRoutes(app: FastifyInstance, options: Option
   });
 
   app.get("/api/v1/brands/:brandId/distribution/insights", async (request, reply) => {
-    const brandId = z.string().uuid().parse((request.params as { brandId: string }).brandId);
+    const brandId = z
+      .string()
+      .uuid()
+      .parse((request.params as { brandId: string }).brandId);
     const { context } = await requireBrand(options.auth, request, brandId);
     return postizResponse(reply, () => service.brandInsights(context.organization.id, brandId));
   });

@@ -1,5 +1,9 @@
 import { chooseVideoModel, routeVideoModel } from "./video-model-catalog.js";
-import type { CreativeBrief, CreativeProvider, CreativeProviderJob } from "./creative-engine-service.js";
+import type {
+  CreativeBrief,
+  CreativeProvider,
+  CreativeProviderJob,
+} from "./creative-engine-service.js";
 
 interface Options {
   apiKey?: string;
@@ -32,7 +36,9 @@ export class HiggsfieldCreativeProvider implements CreativeProvider {
   }
 
   private async request(path: string, init?: RequestInit) {
-    const credential = this.apiKey || (this.apiKeyId && this.apiKeySecret ? `${this.apiKeyId}:${this.apiKeySecret}` : undefined);
+    const credential =
+      this.apiKey ||
+      (this.apiKeyId && this.apiKeySecret ? `${this.apiKeyId}:${this.apiKeySecret}` : undefined);
     if (!credential) throw new Error("Credenciais Higgsfield não configuradas.");
     const response = await fetch(`${this.baseUrl}${path}`, {
       ...init,
@@ -44,58 +50,90 @@ export class HiggsfieldCreativeProvider implements CreativeProvider {
     });
     const text = await response.text();
     let body: any = {};
-    try { body = text ? JSON.parse(text) : {}; } catch { body = { message: text }; }
-    if (!response.ok) throw new Error(body?.message || body?.error || `Higgsfield HTTP ${response.status}`);
+    try {
+      body = text ? JSON.parse(text) : {};
+    } catch {
+      body = { message: text };
+    }
+    if (!response.ok)
+      throw new Error(body?.message || body?.error || `Higgsfield HTTP ${response.status}`);
     return body;
   }
 
   async submit(input: CreativeBrief): Promise<CreativeProviderJob> {
-    const routed = input.kind === "video" ? routeVideoModel({objective:input.objective,channel:input.channel,format:input.format}) : undefined;
-    const model = input.kind === "video" ? (routed?.profile.model || this.videoModel) : this.imageModel;
+    const routed =
+      input.kind === "video"
+        ? routeVideoModel({
+            objective: input.objective,
+            channel: input.channel,
+            format: input.format,
+          })
+        : undefined;
+    const model =
+      input.kind === "video" ? routed?.profile.model || this.videoModel : this.imageModel;
     // Provider transport is isolated here so model/API revisions never leak into MODO's domain layer.
     const body = await this.request(`/${model}`, {
       method: "POST",
       body: JSON.stringify({
         prompt: input.prompt,
-        ...(input.kind === "video" ? {
-          duration: input.durationSeconds || 5,
-          resolution: "720p",
-          generate_audio: true,
-          aspect_ratio: input.format === "vertical" ? "9:16" : "16:9",
-        } : {
-          aspect_ratio: input.format === "vertical" ? "9:16" : "1:1",
-          rendering_speed: "DEFAULT",
-        }),
+        ...(input.kind === "video"
+          ? {
+              duration: input.durationSeconds || 5,
+              resolution: "720p",
+              generate_audio: true,
+              aspect_ratio: input.format === "vertical" ? "9:16" : "16:9",
+            }
+          : {
+              aspect_ratio: input.format === "vertical" ? "9:16" : "1:1",
+              rendering_speed: "DEFAULT",
+            }),
       }),
     });
     return this.normalize(body);
   }
 
   async getJob(providerJobId: string): Promise<CreativeProviderJob> {
-    return this.normalize(await this.request(`/requests/${encodeURIComponent(providerJobId)}/status`));
+    return this.normalize(
+      await this.request(`/requests/${encodeURIComponent(providerJobId)}/status`),
+    );
   }
 
   private normalize(body: any): CreativeProviderJob {
     const rawStatus = String(body?.status || "queued").toLowerCase();
-    const status = rawStatus === "completed" || rawStatus === "succeeded" || rawStatus === "ready"
-      ? "ready"
-      : rawStatus === "failed" || rawStatus === "error"
-        ? "failed"
-        : rawStatus === "processing" || rawStatus === "running"
-          ? "processing"
-          : "queued";
-    const outputs = Array.isArray(body?.images) ? body.images : body?.video ? [body.video] : Array.isArray(body?.outputs) ? body.outputs : body?.output ? [body.output] : [];
+    const status =
+      rawStatus === "completed" || rawStatus === "succeeded" || rawStatus === "ready"
+        ? "ready"
+        : rawStatus === "failed" || rawStatus === "error"
+          ? "failed"
+          : rawStatus === "processing" || rawStatus === "running"
+            ? "processing"
+            : "queued";
+    const outputs = Array.isArray(body?.images)
+      ? body.images
+      : body?.video
+        ? [body.video]
+        : Array.isArray(body?.outputs)
+          ? body.outputs
+          : body?.output
+            ? [body.output]
+            : [];
     return {
       provider: this.name,
       providerJobId: String(body?.request_id || body?.id || body?.job_id || ""),
       status,
-      assets: outputs.map((item: any) => typeof item === "string" ? { url: item } : ({
-        url: item?.url || item?.src,
-        mimeType: item?.mime_type,
-        width: item?.width,
-        height: item?.height,
-        durationSeconds: item?.duration,
-      })).filter((item: any) => Boolean(item.url)),
+      assets: outputs
+        .map((item: any) =>
+          typeof item === "string"
+            ? { url: item }
+            : {
+                url: item?.url || item?.src,
+                mimeType: item?.mime_type,
+                width: item?.width,
+                height: item?.height,
+                durationSeconds: item?.duration,
+              },
+        )
+        .filter((item: any) => Boolean(item.url)),
       error: body?.error?.message || body?.error || undefined,
       raw: body,
     };

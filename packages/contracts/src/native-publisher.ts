@@ -1,6 +1,11 @@
 import { z } from "zod";
 
-export const NativePublisherProviderSchema = z.enum(["instagram", "facebook", "threads", "linkedin"]);
+export const NativePublisherProviderSchema = z.enum([
+  "instagram",
+  "facebook",
+  "threads",
+  "linkedin",
+]);
 export type NativePublisherProvider = z.infer<typeof NativePublisherProviderSchema>;
 
 export const NativePublisherModeSchema = z.enum(["now", "schedule", "draft"]);

@@ -34,7 +34,10 @@ export async function registerPartnerRoutes(app: FastifyInstance, options: Optio
         const created = await service.createApplication(input);
         void notifier.notify(created).catch((error) => {
           request.log.error(
-            { applicationId: created.id, error: error instanceof Error ? error.message : String(error) },
+            {
+              applicationId: created.id,
+              error: error instanceof Error ? error.message : String(error),
+            },
             "Falha ao notificar candidatura MODO Partner",
           );
         });
@@ -43,7 +46,8 @@ export async function registerPartnerRoutes(app: FastifyInstance, options: Optio
         if (error instanceof PartnerError) {
           return reply.code(error.statusCode).send({ code: error.code, message: error.message });
         }
-        const message = error instanceof Error ? error.message : "Não foi possível receber sua candidatura.";
+        const message =
+          error instanceof Error ? error.message : "Não foi possível receber sua candidatura.";
         const validation = error instanceof Error && error.name === "ZodError";
         return reply.code(validation ? 400 : 500).send({
           code: validation ? "INVALID_PARTNER_APPLICATION" : "INTERNAL_ERROR",

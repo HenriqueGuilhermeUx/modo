@@ -28,8 +28,15 @@ export const nicheTemplates: Record<Niche, NicheTemplate> = {
       "O que acontece em cada etapa da avaliação ao pós-atendimento",
       "Sinais de que é hora de procurar orientação profissional",
     ],
-    toneGuidance: "Acolhedor, responsável e técnico na medida certa. Explicar sem alarmismo, evitar diagnóstico remoto e nunca prometer resultado garantido.",
-    wordsToAvoid: ["milagroso", "sem dor nenhuma", "100% garantido", "resultado perfeito", "cura definitiva"],
+    toneGuidance:
+      "Acolhedor, responsável e técnico na medida certa. Explicar sem alarmismo, evitar diagnóstico remoto e nunca prometer resultado garantido.",
+    wordsToAvoid: [
+      "milagroso",
+      "sem dor nenhuma",
+      "100% garantido",
+      "resultado perfeito",
+      "cura definitiva",
+    ],
     provenHooks: [
       "Você já ouviu isso sobre este procedimento e acreditou?",
       "3 coisas que ninguém deveria esconder antes de um tratamento",
@@ -51,8 +58,15 @@ export const nicheTemplates: Record<Niche, NicheTemplate> = {
       "Comparação entre improviso e processo profissional",
       "Checklist para o cliente saber quando precisa de ajuda especializada",
     ],
-    toneGuidance: "Consultivo, claro e seguro. Demonstrar domínio sem juridiquês ou superioridade. Priorizar orientação útil, transparência de escopo e responsabilidade.",
-    wordsToAvoid: ["resultado garantido", "somos os melhores", "sem risco", "solução definitiva", "sucesso certo"],
+    toneGuidance:
+      "Consultivo, claro e seguro. Demonstrar domínio sem juridiquês ou superioridade. Priorizar orientação útil, transparência de escopo e responsabilidade.",
+    wordsToAvoid: [
+      "resultado garantido",
+      "somos os melhores",
+      "sem risco",
+      "solução definitiva",
+      "sucesso certo",
+    ],
     provenHooks: [
       "O erro mais caro costuma acontecer antes de você perceber",
       "Antes de contratar, faça estas perguntas",
@@ -74,8 +88,15 @@ export const nicheTemplates: Record<Niche, NicheTemplate> = {
       "Comparação de bairros para perfis diferentes",
       "O custo que costuma ficar fora da conta inicial",
     ],
-    toneGuidance: "Consultivo e objetivo, sem pressão artificial. Ajudar o cliente a tomar uma decisão informada e contextualizar condições, disponibilidade e custos.",
-    wordsToAvoid: ["oportunidade única", "última unidade", "correria", "garantia de valorização", "imperdível"],
+    toneGuidance:
+      "Consultivo e objetivo, sem pressão artificial. Ajudar o cliente a tomar uma decisão informada e contextualizar condições, disponibilidade e custos.",
+    wordsToAvoid: [
+      "oportunidade única",
+      "última unidade",
+      "correria",
+      "garantia de valorização",
+      "imperdível",
+    ],
     provenHooks: [
       "Antes de assinar, veja isso",
       "O que ninguém te conta sobre financiar um imóvel",
@@ -97,8 +118,15 @@ export const nicheTemplates: Record<Niche, NicheTemplate> = {
       "O detalhe que diferencia qualidade de aparência",
       "Como escolher sem gastar com algo inadequado",
     ],
-    toneGuidance: "Direto, visual e útil. Mostrar benefício concreto antes do preço. Informar condições com precisão e evitar urgência falsa ou superlativos sem prova.",
-    wordsToAvoid: ["últimas unidades" , "corre", "o melhor do mercado", "preço inacreditável", "garantido"],
+    toneGuidance:
+      "Direto, visual e útil. Mostrar benefício concreto antes do preço. Informar condições com precisão e evitar urgência falsa ou superlativos sem prova.",
+    wordsToAvoid: [
+      "últimas unidades",
+      "corre",
+      "o melhor do mercado",
+      "preço inacreditável",
+      "garantido",
+    ],
     provenHooks: [
       "Antes de comprar, veja a diferença na prática",
       "Este detalhe evita escolher o modelo errado",
@@ -120,8 +148,15 @@ export const nicheTemplates: Record<Niche, NicheTemplate> = {
       "Antes e depois do entendimento, não apenas do resultado",
       "Como o método organiza uma habilidade complexa",
     ],
-    toneGuidance: "Didático, encorajador e específico. Valorizar processo, prática e acompanhamento. Não prometer domínio instantâneo, aprovação ou emprego garantido.",
-    wordsToAvoid: ["aprenda sem esforço", "domine em poucos dias", "garantia de emprego", "resultado certo", "fórmula secreta"],
+    toneGuidance:
+      "Didático, encorajador e específico. Valorizar processo, prática e acompanhamento. Não prometer domínio instantâneo, aprovação ou emprego garantido.",
+    wordsToAvoid: [
+      "aprenda sem esforço",
+      "domine em poucos dias",
+      "garantia de emprego",
+      "resultado certo",
+      "fórmula secreta",
+    ],
     provenHooks: [
       "Você não precisa decorar isto para entender",
       "O erro que faz muita gente estudar mais e aprender menos",
@@ -143,8 +178,15 @@ export const nicheTemplates: Record<Niche, NicheTemplate> = {
       "Bastidor de uma decisão criativa ou profissional",
       "História curta que leva a um princípio aplicável",
     ],
-    toneGuidance: "Humano, reconhecível e coerente com a personalidade real. Evitar personagem artificial, exagero de autoridade e fórmulas de viralização sem contexto.",
-    wordsToAvoid: ["segredo", "hack infalível", "viral garantido", "ninguém te conta", "fórmula perfeita"],
+    toneGuidance:
+      "Humano, reconhecível e coerente com a personalidade real. Evitar personagem artificial, exagero de autoridade e fórmulas de viralização sem contexto.",
+    wordsToAvoid: [
+      "segredo",
+      "hack infalível",
+      "viral garantido",
+      "ninguém te conta",
+      "fórmula perfeita",
+    ],
     provenHooks: [
       "Eu mudei de opinião sobre isso",
       "O bastidor que quase nunca aparece no resultado final",
@@ -166,8 +208,15 @@ export const nicheTemplates: Record<Niche, NicheTemplate> = {
       "Erro comum e alternativa mais segura",
       "História de transformação sem promessas exageradas",
     ],
-    toneGuidance: "Claro, específico e orientado ao contexto real da marca. Quando o segmento for amplo, priorizar o briefing e evitar preencher lacunas com clichês.",
-    wordsToAvoid: ["revolucionário", "inovador" , "líder de mercado", "solução completa", "resultado garantido"],
+    toneGuidance:
+      "Claro, específico e orientado ao contexto real da marca. Quando o segmento for amplo, priorizar o briefing e evitar preencher lacunas com clichês.",
+    wordsToAvoid: [
+      "revolucionário",
+      "inovador",
+      "líder de mercado",
+      "solução completa",
+      "resultado garantido",
+    ],
     provenHooks: [
       "O problema não começa onde parece",
       "Veja como isso funciona na prática",

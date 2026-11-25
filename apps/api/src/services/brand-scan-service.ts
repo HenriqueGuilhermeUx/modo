@@ -96,10 +96,14 @@ const AiInferenceSchema = z.object({
   prohibitedTopics: z.array(z.string().max(240)).max(15),
   preferredChannels: z.array(ChannelSchema).max(9),
   suggestedPriorities: z.array(z.string().max(240)).max(8),
-  evidence: z.array(z.object({
-    field: z.string().max(120),
-    evidence: z.string().max(500),
-  })).max(16),
+  evidence: z
+    .array(
+      z.object({
+        field: z.string().max(120),
+        evidence: z.string().max(500),
+      }),
+    )
+    .max(16),
   needsConfirmation: z.array(z.string().max(240)).max(16),
   confidence: z.number().min(0).max(1),
 });
@@ -111,7 +115,18 @@ const inferenceJsonSchema = {
   additionalProperties: false,
   properties: {
     name: { type: "string" },
-    niche: { type: "string", enum: ["saude_estetica", "servicos_profissionais", "imoveis", "varejo", "educacao", "creator", "outro"] },
+    niche: {
+      type: "string",
+      enum: [
+        "saude_estetica",
+        "servicos_profissionais",
+        "imoveis",
+        "varejo",
+        "educacao",
+        "creator",
+        "outro",
+      ],
+    },
     audiencePriority: { type: "string" },
     audienceContext: { type: "string" },
     pains: { type: "array", items: { type: "string" }, maxItems: 10 },
@@ -150,7 +165,26 @@ const inferenceJsonSchema = {
     proofAvailable: { type: "array", items: { type: "string" }, maxItems: 20 },
     recurringQuestions: { type: "array", items: { type: "string" }, maxItems: 15 },
     prohibitedTopics: { type: "array", items: { type: "string" }, maxItems: 15 },
-    preferredChannels: { type: "array", items: { type: "string", enum: ["instagram", "facebook", "linkedin", "reels", "stories", "youtube_shorts", "tiktok", "whatsapp", "blog", "email", "website"] }, maxItems: 9 },
+    preferredChannels: {
+      type: "array",
+      items: {
+        type: "string",
+        enum: [
+          "instagram",
+          "facebook",
+          "linkedin",
+          "reels",
+          "stories",
+          "youtube_shorts",
+          "tiktok",
+          "whatsapp",
+          "blog",
+          "email",
+          "website",
+        ],
+      },
+      maxItems: 9,
+    },
     suggestedPriorities: { type: "array", items: { type: "string" }, maxItems: 8 },
     evidence: {
       type: "array",
@@ -166,12 +200,51 @@ const inferenceJsonSchema = {
     confidence: { type: "number", minimum: 0, maximum: 1 },
   },
   required: [
-    "name", "niche", "audiencePriority", "audienceContext", "pains", "desires", "objections", "decisionTriggers",
-    "belief", "marketProblem", "desiredChange", "category", "differentiator", "forWhom", "notForWhom", "territory",
-    "transformation", "mainBenefit", "boundaries", "personalityAttributes", "tone", "preferredWords", "prohibitedWords",
-    "visualStyle", "origin", "cases", "numbers", "testimonials", "environments", "people", "objects", "themes",
-    "visualReferences", "spokespersons", "team", "customers", "productsOrServices", "proofAvailable", "recurringQuestions",
-    "prohibitedTopics", "preferredChannels", "suggestedPriorities", "evidence", "needsConfirmation", "confidence"
+    "name",
+    "niche",
+    "audiencePriority",
+    "audienceContext",
+    "pains",
+    "desires",
+    "objections",
+    "decisionTriggers",
+    "belief",
+    "marketProblem",
+    "desiredChange",
+    "category",
+    "differentiator",
+    "forWhom",
+    "notForWhom",
+    "territory",
+    "transformation",
+    "mainBenefit",
+    "boundaries",
+    "personalityAttributes",
+    "tone",
+    "preferredWords",
+    "prohibitedWords",
+    "visualStyle",
+    "origin",
+    "cases",
+    "numbers",
+    "testimonials",
+    "environments",
+    "people",
+    "objects",
+    "themes",
+    "visualReferences",
+    "spokespersons",
+    "team",
+    "customers",
+    "productsOrServices",
+    "proofAvailable",
+    "recurringQuestions",
+    "prohibitedTopics",
+    "preferredChannels",
+    "suggestedPriorities",
+    "evidence",
+    "needsConfirmation",
+    "confidence",
   ],
 } as const;
 
@@ -215,11 +288,16 @@ function cleanText(value: unknown, limit = 4000) {
 }
 
 function asRecord(value: unknown): Record<string, unknown> {
-  return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
 }
 
 function actorPath(actorId: string) {
-  return actorId.trim().replace(/^actors\//, "").replace("/", "~");
+  return actorId
+    .trim()
+    .replace(/^actors\//, "")
+    .replace("/", "~");
 }
 
 function normalizeUrl(rawUrl: string) {
@@ -245,11 +323,13 @@ function instagramHandleFromUrl(rawUrl: string) {
 function websiteNameFallback(rawUrl: string) {
   const hostname = new URL(rawUrl).hostname.replace(/^www\./, "");
   const part = hostname.split(".")[0] || "Marca";
-  return part
-    .split(/[-_]/)
-    .filter(Boolean)
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(" ") || "Marca";
+  return (
+    part
+      .split(/[-_]/)
+      .filter(Boolean)
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(" ") || "Marca"
+  );
 }
 
 function foundationFromInference(value: AiInference): BrandFoundation {
@@ -433,17 +513,23 @@ export class BrandScanService {
       startUrls: [{ url: sourceUrl }],
       maxCrawlPages: 5,
     });
-    const pages = items.slice(0, 5).map((item) => {
-      const metadata = asRecord(item.metadata);
-      const url = cleanText(item.url ?? item.loadedUrl ?? metadata.url, 1000) || sourceUrl;
-      const title = cleanText(item.title ?? metadata.title, 300) || new URL(url).hostname;
-      const text = cleanText(item.markdown ?? item.text ?? item.content, 20_000);
-      return { sourceUrl: url, title, text };
-    }).filter((item) => item.text.length > 60);
+    const pages = items
+      .slice(0, 5)
+      .map((item) => {
+        const metadata = asRecord(item.metadata);
+        const url = cleanText(item.url ?? item.loadedUrl ?? metadata.url, 1000) || sourceUrl;
+        const title = cleanText(item.title ?? metadata.title, 300) || new URL(url).hostname;
+        const text = cleanText(item.markdown ?? item.text ?? item.content, 20_000);
+        return { sourceUrl: url, title, text };
+      })
+      .filter((item) => item.text.length > 60);
     return {
       sourceUrl,
       sourceType: "website_apify",
-      text: pages.map((page) => `PÁGINA: ${page.title}\nURL: ${page.sourceUrl}\n${page.text}`).join("\n\n").slice(0, 70_000),
+      text: pages
+        .map((page) => `PÁGINA: ${page.title}\nURL: ${page.sourceUrl}\n${page.text}`)
+        .join("\n\n")
+        .slice(0, 70_000),
       pages: pages.map(({ sourceUrl: url, title }) => ({ sourceUrl: url, title })),
       warnings: ["O site precisou de leitura avançada para capturar o conteúdo público."],
     };
@@ -475,14 +561,19 @@ export class BrandScanService {
       if (username) lines.push(`PERFIL: @${username.replace(/^@/, "")}`);
       if (biography) lines.push(`BIO: ${biography}`);
       if (caption) lines.push(`PUBLICAÇÃO: ${caption}`);
-      pages.push({ sourceUrl: url, title: caption.slice(0, 100) || `Instagram @${username || handle}` });
+      pages.push({
+        sourceUrl: url,
+        title: caption.slice(0, 100) || `Instagram @${username || handle}`,
+      });
     }
     return {
       sourceUrl,
       sourceType: "instagram_apify",
       text: [...new Set(lines)].join("\n").slice(0, 60_000),
       pages: pages.slice(0, 12),
-      warnings: ["Conteúdo inferido a partir de informações públicas recentes do Instagram; confirme oferta, público e posicionamento antes de salvar."],
+      warnings: [
+        "Conteúdo inferido a partir de informações públicas recentes do Instagram; confirme oferta, público e posicionamento antes de salvar.",
+      ],
     };
   }
 
@@ -494,20 +585,28 @@ export class BrandScanService {
       body: JSON.stringify(input),
       signal: AbortSignal.timeout(120_000),
     });
-    const payload = await response.json().catch(() => ([])) as unknown;
+    const payload = (await response.json().catch(() => [])) as unknown;
     if (!response.ok) {
       const record = asRecord(payload);
       const error = asRecord(record.error);
       throw new BrandScanError(
         "BRAND_SCAN_APIFY_FAILED",
         502,
-        cleanText(error.message, 500) || `A fonte avançada respondeu com código ${response.status}.`,
+        cleanText(error.message, 500) ||
+          `A fonte avançada respondeu com código ${response.status}.`,
       );
     }
     if (!Array.isArray(payload)) {
-      throw new BrandScanError("BRAND_SCAN_APIFY_INVALID_RESPONSE", 502, "A fonte avançada não devolveu conteúdo utilizável.");
+      throw new BrandScanError(
+        "BRAND_SCAN_APIFY_INVALID_RESPONSE",
+        502,
+        "A fonte avançada não devolveu conteúdo utilizável.",
+      );
     }
-    return payload.filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === "object" && !Array.isArray(item));
+    return payload.filter(
+      (item): item is Record<string, unknown> =>
+        Boolean(item) && typeof item === "object" && !Array.isArray(item),
+    );
   }
 
   private async infer(source: SourceBundle): Promise<AiInference> {
@@ -546,7 +645,7 @@ export class BrandScanService {
       }),
       signal: AbortSignal.timeout(90_000),
     });
-    const payload = await response.json() as OpenAiResponsePayload;
+    const payload = (await response.json()) as OpenAiResponsePayload;
     if (!response.ok) {
       throw new BrandScanError(
         "BRAND_SCAN_AI_FAILED",
@@ -555,11 +654,20 @@ export class BrandScanService {
       );
     }
     const text = extractOutputText(payload);
-    if (!text) throw new BrandScanError("BRAND_SCAN_AI_EMPTY", 502, "A análise estratégica não devolveu uma hipótese utilizável.");
+    if (!text)
+      throw new BrandScanError(
+        "BRAND_SCAN_AI_EMPTY",
+        502,
+        "A análise estratégica não devolveu uma hipótese utilizável.",
+      );
     try {
       return AiInferenceSchema.parse(JSON.parse(text));
     } catch {
-      throw new BrandScanError("BRAND_SCAN_AI_INVALID", 502, "A análise estratégica retornou dados incompletos. Tente novamente.");
+      throw new BrandScanError(
+        "BRAND_SCAN_AI_INVALID",
+        502,
+        "A análise estratégica retornou dados incompletos. Tente novamente.",
+      );
     }
   }
 }

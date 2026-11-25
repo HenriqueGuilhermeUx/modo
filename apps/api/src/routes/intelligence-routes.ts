@@ -36,7 +36,8 @@ const LeadUpdateSchema = z
     notes: z.string().trim().max(2000).optional(),
   })
   .refine(
-    (value) => value.status !== undefined || value.priority !== undefined || value.notes !== undefined,
+    (value) =>
+      value.status !== undefined || value.priority !== undefined || value.notes !== undefined,
     "Informe ao menos uma alteração para o lead.",
   );
 
@@ -71,7 +72,9 @@ async function execute<T>(operation: () => Promise<T>): Promise<T> {
 
 function databaseSsl() {
   return ["1", "true", "yes", "on"].includes(
-    String(process.env.DATABASE_SSL || "").trim().toLowerCase(),
+    String(process.env.DATABASE_SSL || "")
+      .trim()
+      .toLowerCase(),
   );
 }
 
@@ -136,25 +139,18 @@ export async function registerIntelligenceRoutes(
       }
 
       const reservationId = `create:${randomUUID()}`;
-      await execute(() => quota.reserve(
-        context.organization.id,
-        input.maxItems,
-        reservationId,
-      ));
+      await execute(() => quota.reserve(context.organization.id, input.maxItems, reservationId));
 
       try {
-        const mission = await execute(() => intelligence.create(
-          context.organization.id,
-          context.user.id,
-          input,
-          {
+        const mission = await execute(() =>
+          intelligence.create(context.organization.id, context.user.id, input, {
             id: brand.id,
             name: brand.name,
             niche: brand.niche,
             websiteUrl: brand.websiteUrl || "",
             instagramHandle: brand.instagramHandle || "",
-          },
-        ));
+          }),
+        );
         return reply.code(201).send(mission);
       } catch (error) {
         await quota.release(reservationId).catch(() => undefined);
@@ -165,7 +161,10 @@ export async function registerIntelligenceRoutes(
 
   app.get("/api/v1/intelligence/missions/:id", async (request) => {
     const context = await auth.authenticate(bearerToken(request));
-    const id = z.string().uuid().parse((request.params as { id: string }).id);
+    const id = z
+      .string()
+      .uuid()
+      .parse((request.params as { id: string }).id);
     const [mission, usage] = await Promise.all([
       execute(() => intelligence.get(id, context.organization.id)),
       execute(() => quota.usage(context.organization.id)),
@@ -175,10 +174,17 @@ export async function registerIntelligenceRoutes(
 
   app.get("/api/v1/intelligence/missions/:id/results", async (request) => {
     const context = await auth.authenticate(bearerToken(request));
-    const id = z.string().uuid().parse((request.params as { id: string }).id);
-    const requestedLimit = z.coerce.number().int().min(1).max(500).default(100).parse(
-      (request.query as { limit?: string }).limit,
-    );
+    const id = z
+      .string()
+      .uuid()
+      .parse((request.params as { id: string }).id);
+    const requestedLimit = z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(500)
+      .default(100)
+      .parse((request.query as { limit?: string }).limit);
     const usage = await execute(() => quota.usage(context.organization.id));
     const trial = usage.plan === "trial";
     const limit = trial ? Math.min(requestedLimit, TRIAL_PREVIEW_LIMIT) : requestedLimit;
@@ -189,26 +195,27 @@ export async function registerIntelligenceRoutes(
       return { mission, items: trial ? result.items.slice(0, TRIAL_PREVIEW_LIMIT) : result.items };
     }
 
-    const items = await execute(() => leads.syncMissionResults(
-      context.organization.id,
-      id,
-      result.items,
-    ));
+    const items = await execute(() =>
+      leads.syncMissionResults(context.organization.id, id, result.items),
+    );
     return { mission, items: trial ? items.slice(0, TRIAL_PREVIEW_LIMIT) : items };
   });
 
   app.get("/api/v1/intelligence/leads", async (request) => {
     const context = await auth.authenticate(bearerToken(request));
-    const query = z.object({
-      status: LeadStatusSchema.optional(),
-      priority: LeadPrioritySchema.optional(),
-      search: z.string().trim().max(200).optional(),
-      limit: z.coerce.number().int().min(1).max(500).default(200),
-    }).parse(request.query);
+    const query = z
+      .object({
+        status: LeadStatusSchema.optional(),
+        priority: LeadPrioritySchema.optional(),
+        search: z.string().trim().max(200).optional(),
+        limit: z.coerce.number().int().min(1).max(500).default(200),
+      })
+      .parse(request.query);
     const usage = await execute(() => quota.usage(context.organization.id));
-    const safeQuery = usage.plan === "trial"
-      ? { ...query, limit: Math.min(query.limit, TRIAL_PREVIEW_LIMIT) }
-      : query;
+    const safeQuery =
+      usage.plan === "trial"
+        ? { ...query, limit: Math.min(query.limit, TRIAL_PREVIEW_LIMIT) }
+        : query;
     return {
       leads: await execute(() => leads.list(context.organization.id, safeQuery)),
     };
@@ -219,7 +226,10 @@ export async function registerIntelligenceRoutes(
     { config: { rateLimit: { max: 120, timeWindow: "1 minute" } } },
     async (request) => {
       const context = await auth.authenticate(bearerToken(request));
-      const id = z.string().uuid().parse((request.params as { id: string }).id);
+      const id = z
+        .string()
+        .uuid()
+        .parse((request.params as { id: string }).id);
       const input = LeadUpdateSchema.parse(request.body);
       return execute(() => leads.update(id, context.organization.id, input));
     },
@@ -230,7 +240,10 @@ export async function registerIntelligenceRoutes(
     { config: { rateLimit: { max: 4, timeWindow: "30 minutes" } } },
     async (request) => {
       const context = await auth.authenticate(bearerToken(request));
-      const id = z.string().uuid().parse((request.params as { id: string }).id);
+      const id = z
+        .string()
+        .uuid()
+        .parse((request.params as { id: string }).id);
       const mission = await execute(() => intelligence.get(id, context.organization.id, false));
       if (mission.status !== "failed") {
         throw new AuthError(
@@ -250,18 +263,17 @@ export async function registerIntelligenceRoutes(
         );
       }
 
-      await execute(() => quota.assertRetryCapacity(
-        context.organization.id,
-        mission.maxItems,
-      ));
+      await execute(() => quota.assertRetryCapacity(context.organization.id, mission.maxItems));
 
-      return execute(() => intelligence.retry(id, context.organization.id, {
-        id: brand.id,
-        name: brand.name,
-        niche: brand.niche,
-        websiteUrl: brand.websiteUrl || "",
-        instagramHandle: brand.instagramHandle || "",
-      }));
+      return execute(() =>
+        intelligence.retry(id, context.organization.id, {
+          id: brand.id,
+          name: brand.name,
+          niche: brand.niche,
+          websiteUrl: brand.websiteUrl || "",
+          instagramHandle: brand.instagramHandle || "",
+        }),
+      );
     },
   );
 
@@ -269,7 +281,10 @@ export async function registerIntelligenceRoutes(
     "/api/v1/internal/intelligence/missions/:id/result",
     { config: { rateLimit: { max: 120, timeWindow: "1 minute" } } },
     async (request, reply) => {
-      const id = z.string().uuid().parse((request.params as { id: string }).id);
+      const id = z
+        .string()
+        .uuid()
+        .parse((request.params as { id: string }).id);
       const callback = IntelligenceCallbackSchema.parse(request.body);
       await execute(async () => {
         intelligence.validateCallbackSecret(callbackSecret(request));

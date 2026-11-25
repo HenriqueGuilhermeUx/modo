@@ -60,30 +60,55 @@ export function PrivacyPolicyPage() {
         <h2>1. Quem é responsável pelos dados</h2>
         <p>
           A MODO é uma solução da <strong>Alternative Ventures</strong>, inscrita no CNPJ
-          61.920.356/0001-38. Para questões sobre privacidade, proteção de dados ou
-          exercício de direitos, o canal oficial é <a href={`mailto:${PRIVACY_EMAIL}`}>{PRIVACY_EMAIL}</a>.
+          61.920.356/0001-38. Para questões sobre privacidade, proteção de dados ou exercício de
+          direitos, o canal oficial é <a href={`mailto:${PRIVACY_EMAIL}`}>{PRIVACY_EMAIL}</a>.
         </p>
       </section>
 
       <section>
         <h2>2. A quem esta política se aplica</h2>
         <p>
-          Esta política se aplica a visitantes do site, pessoas que realizam diagnósticos,
-          usuários da plataforma, representantes de empresas, integrantes de equipes e
-          pessoas que conectam contas profissionais de redes sociais à MODO.
+          Esta política se aplica a visitantes do site, pessoas que realizam diagnósticos, usuários
+          da plataforma, representantes de empresas, integrantes de equipes e pessoas que conectam
+          contas profissionais de redes sociais à MODO.
         </p>
       </section>
 
       <section>
         <h2>3. Dados que podemos tratar</h2>
         <ul>
-          <li><strong>Conta e identificação:</strong> nome, e-mail, credenciais protegidas, organização, marca e função do usuário.</li>
-          <li><strong>Dados da marca:</strong> nome comercial, segmento, site, perfis públicos, produtos, serviços, público, objetivos e referências fornecidas pelo usuário.</li>
-          <li><strong>Uso da plataforma:</strong> plano, créditos, missões, campanhas, conteúdos, aprovações, revisões, preferências e histórico de ações.</li>
-          <li><strong>Diagnósticos e inteligência:</strong> URLs, termos de busca, regiões, concorrentes, produtos e resultados públicos ou autorizados utilizados nas análises.</li>
-          <li><strong>Integrações com redes sociais:</strong> quando o usuário conecta Instagram, Facebook, LinkedIn ou Threads, podemos tratar identificadores da conta, Página ou perfil, nome exibido, autorizações concedidas, token de acesso protegido, validade da conexão, conteúdo aprovado para publicação, identificadores e links de publicações e, quando o recurso estiver disponível, métricas de desempenho. A MODO não solicita nem armazena a senha dessas redes sociais.</li>
-          <li><strong>Dados técnicos:</strong> endereço IP, navegador, dispositivo, registros de acesso, eventos de segurança, falhas e informações necessárias para prevenir abuso.</li>
-          <li><strong>Atendimento e cobrança:</strong> mensagens de suporte, solicitações, informações da assinatura e registros de pagamento processados por fornecedores especializados.</li>
+          <li>
+            <strong>Conta e identificação:</strong> nome, e-mail, credenciais protegidas,
+            organização, marca e função do usuário.
+          </li>
+          <li>
+            <strong>Dados da marca:</strong> nome comercial, segmento, site, perfis públicos,
+            produtos, serviços, público, objetivos e referências fornecidas pelo usuário.
+          </li>
+          <li>
+            <strong>Uso da plataforma:</strong> plano, créditos, missões, campanhas, conteúdos,
+            aprovações, revisões, preferências e histórico de ações.
+          </li>
+          <li>
+            <strong>Diagnósticos e inteligência:</strong> URLs, termos de busca, regiões,
+            concorrentes, produtos e resultados públicos ou autorizados utilizados nas análises.
+          </li>
+          <li>
+            <strong>Integrações com redes sociais:</strong> quando o usuário conecta Instagram,
+            Facebook, LinkedIn ou Threads, podemos tratar identificadores da conta, Página ou
+            perfil, nome exibido, autorizações concedidas, token de acesso protegido, validade da
+            conexão, conteúdo aprovado para publicação, identificadores e links de publicações e,
+            quando o recurso estiver disponível, métricas de desempenho. A MODO não solicita nem
+            armazena a senha dessas redes sociais.
+          </li>
+          <li>
+            <strong>Dados técnicos:</strong> endereço IP, navegador, dispositivo, registros de
+            acesso, eventos de segurança, falhas e informações necessárias para prevenir abuso.
+          </li>
+          <li>
+            <strong>Atendimento e cobrança:</strong> mensagens de suporte, solicitações, informações
+            da assinatura e registros de pagamento processados por fornecedores especializados.
+          </li>
         </ul>
       </section>
 
@@ -91,14 +116,25 @@ export function PrivacyPolicyPage() {
         <h2>4. Como usamos os dados</h2>
         <ul>
           <li>criar, autenticar e administrar contas e organizações;</li>
-          <li>prestar os serviços contratados e entregar diagnósticos, conteúdos, campanhas, análises e recomendações;</li>
-          <li>conectar contas sociais autorizadas e publicar ou agendar conteúdo somente após ação ou aprovação do usuário;</li>
-          <li>consultar status e métricas das publicações quando a plataforma conectada e a autorização concedida permitirem;</li>
+          <li>
+            prestar os serviços contratados e entregar diagnósticos, conteúdos, campanhas, análises
+            e recomendações;
+          </li>
+          <li>
+            conectar contas sociais autorizadas e publicar ou agendar conteúdo somente após ação ou
+            aprovação do usuário;
+          </li>
+          <li>
+            consultar status e métricas das publicações quando a plataforma conectada e a
+            autorização concedida permitirem;
+          </li>
           <li>manter memória de marca, histórico, preferências e continuidade operacional;</li>
           <li>processar assinaturas, controlar limites e prevenir uso indevido;</li>
           <li>prestar suporte, responder solicitações e comunicar mudanças relevantes;</li>
           <li>melhorar segurança, qualidade, confiabilidade e desempenho da plataforma;</li>
-          <li>cumprir obrigações legais, regulatórias, contratuais e exercer direitos em processos.</li>
+          <li>
+            cumprir obrigações legais, regulatórias, contratuais e exercer direitos em processos.
+          </li>
         </ul>
       </section>
 
@@ -106,9 +142,9 @@ export function PrivacyPolicyPage() {
         <h2>5. Bases legais</h2>
         <p>
           O tratamento pode ocorrer para execução de contrato e procedimentos preliminares,
-          cumprimento de obrigação legal ou regulatória, exercício regular de direitos,
-          proteção contra fraudes, atendimento a interesses legítimos compatíveis com as
-          expectativas do titular e, quando necessário, mediante consentimento.
+          cumprimento de obrigação legal ou regulatória, exercício regular de direitos, proteção
+          contra fraudes, atendimento a interesses legítimos compatíveis com as expectativas do
+          titular e, quando necessário, mediante consentimento.
         </p>
       </section>
 
@@ -116,21 +152,37 @@ export function PrivacyPolicyPage() {
         <h2>6. Compartilhamento de dados</h2>
         <p>A MODO não vende dados pessoais. Podemos compartilhar somente o necessário com:</p>
         <ul>
-          <li>provedores de hospedagem, banco de dados, segurança, monitoramento, comunicação e armazenamento;</li>
-          <li>fornecedores de inteligência artificial, automação e coleta de fontes públicas ou autorizadas;</li>
+          <li>
+            provedores de hospedagem, banco de dados, segurança, monitoramento, comunicação e
+            armazenamento;
+          </li>
+          <li>
+            fornecedores de inteligência artificial, automação e coleta de fontes públicas ou
+            autorizadas;
+          </li>
           <li>processadores de pagamento e serviços de assinatura;</li>
-          <li>Meta, LinkedIn e outras plataformas sociais que o próprio usuário conectar, exclusivamente para autenticação, publicação, consulta de métricas ou outra ação integrada solicitada;</li>
-          <li>profissionais autorizados da operação MODO, sujeitos a deveres de confidencialidade e acesso limitado;</li>
-          <li>autoridades públicas ou terceiros quando houver obrigação legal, ordem válida ou necessidade de proteger direitos.</li>
+          <li>
+            Meta, LinkedIn e outras plataformas sociais que o próprio usuário conectar,
+            exclusivamente para autenticação, publicação, consulta de métricas ou outra ação
+            integrada solicitada;
+          </li>
+          <li>
+            profissionais autorizados da operação MODO, sujeitos a deveres de confidencialidade e
+            acesso limitado;
+          </li>
+          <li>
+            autoridades públicas ou terceiros quando houver obrigação legal, ordem válida ou
+            necessidade de proteger direitos.
+          </li>
         </ul>
       </section>
 
       <section>
         <h2>7. Transferências internacionais</h2>
         <p>
-          Alguns fornecedores tecnológicos e plataformas sociais podem tratar dados fora do
-          Brasil. Nessas situações, buscamos utilizar fornecedores com medidas contratuais,
-          técnicas e organizacionais adequadas à proteção dos dados e às regras aplicáveis.
+          Alguns fornecedores tecnológicos e plataformas sociais podem tratar dados fora do Brasil.
+          Nessas situações, buscamos utilizar fornecedores com medidas contratuais, técnicas e
+          organizacionais adequadas à proteção dos dados e às regras aplicáveis.
         </p>
       </section>
 
@@ -138,20 +190,20 @@ export function PrivacyPolicyPage() {
         <h2>8. Segurança</h2>
         <p>
           Adotamos controles de acesso, proteção de credenciais, criptografia de tokens de
-          integração, registros de segurança e medidas de redução de exposição. Nenhum sistema
-          é totalmente imune a incidentes, mas trabalhamos para prevenir, detectar e responder
-          a riscos de forma proporcional à natureza dos dados tratados.
+          integração, registros de segurança e medidas de redução de exposição. Nenhum sistema é
+          totalmente imune a incidentes, mas trabalhamos para prevenir, detectar e responder a
+          riscos de forma proporcional à natureza dos dados tratados.
         </p>
       </section>
 
       <section>
         <h2>9. Retenção e exclusão</h2>
         <p>
-          Mantemos os dados pelo período necessário para prestar o serviço, preservar o
-          histórico solicitado, cumprir obrigações legais e contratuais, resolver disputas e
-          proteger a plataforma. Quando os dados deixarem de ser necessários, poderão ser
-          eliminados ou anonimizados, ressalvadas as hipóteses legais de conservação, registros
-          de segurança e cópias de backup com acesso restrito e ciclo próprio de expiração.
+          Mantemos os dados pelo período necessário para prestar o serviço, preservar o histórico
+          solicitado, cumprir obrigações legais e contratuais, resolver disputas e proteger a
+          plataforma. Quando os dados deixarem de ser necessários, poderão ser eliminados ou
+          anonimizados, ressalvadas as hipóteses legais de conservação, registros de segurança e
+          cópias de backup com acesso restrito e ciclo próprio de expiração.
         </p>
       </section>
 
@@ -162,11 +214,20 @@ export function PrivacyPolicyPage() {
           <li>confirmação da existência de tratamento e acesso aos dados;</li>
           <li>correção de dados incompletos, inexatos ou desatualizados;</li>
           <li>informações sobre compartilhamento;</li>
-          <li>anonimização, bloqueio ou eliminação de dados desnecessários, excessivos ou tratados em desconformidade;</li>
+          <li>
+            anonimização, bloqueio ou eliminação de dados desnecessários, excessivos ou tratados em
+            desconformidade;
+          </li>
           <li>portabilidade, quando aplicável e regulamentada;</li>
-          <li>revogação do consentimento e eliminação de dados tratados com consentimento, observadas as exceções legais;</li>
+          <li>
+            revogação do consentimento e eliminação de dados tratados com consentimento, observadas
+            as exceções legais;
+          </li>
           <li>oposição ao tratamento, quando cabível;</li>
-          <li>revisão de decisões tomadas exclusivamente por tratamento automatizado, quando aplicável.</li>
+          <li>
+            revisão de decisões tomadas exclusivamente por tratamento automatizado, quando
+            aplicável.
+          </li>
         </ul>
         <p>
           Para proteger a conta, poderemos solicitar informações razoáveis para confirmar a
@@ -177,8 +238,8 @@ export function PrivacyPolicyPage() {
       <section>
         <h2>11. Cookies e armazenamento local</h2>
         <p>
-          A plataforma pode utilizar cookies e armazenamento local estritamente necessários
-          para sessão, segurança, preferências, continuidade do diagnóstico e funcionamento da
+          A plataforma pode utilizar cookies e armazenamento local estritamente necessários para
+          sessão, segurança, preferências, continuidade do diagnóstico e funcionamento da
           experiência. Ferramentas adicionais de análise, quando adotadas, deverão observar as
           opções e informações disponibilizadas ao usuário.
         </p>
@@ -196,9 +257,9 @@ export function PrivacyPolicyPage() {
       <section>
         <h2>13. Alterações desta política</h2>
         <p>
-          Esta política pode ser atualizada para refletir mudanças legais, técnicas ou de
-          produto. A versão vigente ficará disponível nesta página com a data da atualização.
-          Mudanças relevantes poderão ser comunicadas pelos canais disponíveis na plataforma.
+          Esta política pode ser atualizada para refletir mudanças legais, técnicas ou de produto. A
+          versão vigente ficará disponível nesta página com a data da atualização. Mudanças
+          relevantes poderão ser comunicadas pelos canais disponíveis na plataforma.
         </p>
       </section>
 
@@ -208,7 +269,9 @@ export function PrivacyPolicyPage() {
           Escreva para <a href={`mailto:${PRIVACY_EMAIL}`}>{PRIVACY_EMAIL}</a> com o assunto
           “Privacidade MODO”.
         </p>
-        <a className="legal-button" href="/exclusao-de-dados">Ver instruções de exclusão de dados</a>
+        <a className="legal-button" href="/exclusao-de-dados">
+          Ver instruções de exclusão de dados
+        </a>
       </section>
     </LegalShell>
   );
@@ -224,14 +287,14 @@ export function DataDeletionPage() {
       <section>
         <h2>1. Como solicitar</h2>
         <p>
-          Envie um e-mail para <a href={`mailto:${PRIVACY_EMAIL}`}>{PRIVACY_EMAIL}</a> usando,
-          de preferência, o mesmo endereço cadastrado na MODO.
+          Envie um e-mail para <a href={`mailto:${PRIVACY_EMAIL}`}>{PRIVACY_EMAIL}</a> usando, de
+          preferência, o mesmo endereço cadastrado na MODO.
         </p>
         <div className="legal-example">
           <strong>Assunto:</strong> Exclusão de dados MODO
           <br />
-          <strong>Informe:</strong> nome completo, e-mail da conta, organização ou marca e,
-          quando aplicável, a conta ou Página social conectada que deseja remover.
+          <strong>Informe:</strong> nome completo, e-mail da conta, organização ou marca e, quando
+          aplicável, a conta ou Página social conectada que deseja remover.
         </div>
       </section>
 
@@ -241,7 +304,10 @@ export function DataDeletionPage() {
         <ul>
           <li>exclusão integral da conta e dos dados associados;</li>
           <li>exclusão de uma marca, organização, conteúdo, campanha ou missão específica;</li>
-          <li>remoção dos dados de integrações com Instagram, Facebook, LinkedIn ou Threads, incluindo identificadores, autorizações e tokens de acesso sob controle da MODO;</li>
+          <li>
+            remoção dos dados de integrações com Instagram, Facebook, LinkedIn ou Threads, incluindo
+            identificadores, autorizações e tokens de acesso sob controle da MODO;
+          </li>
           <li>revogação de autorizações e interrupção de futuras publicações ou agendamentos;</li>
           <li>eliminação de dados pessoais tratados com consentimento, quando aplicável.</li>
         </ul>
@@ -251,8 +317,8 @@ export function DataDeletionPage() {
         <h2>3. Verificação de segurança</h2>
         <p>
           Antes de realizar a exclusão, poderemos solicitar confirmação por e-mail ou outras
-          informações razoáveis para impedir que terceiros removam dados sem autorização.
-          Nunca solicitaremos por e-mail a senha da MODO nem a senha de uma rede social conectada.
+          informações razoáveis para impedir que terceiros removam dados sem autorização. Nunca
+          solicitaremos por e-mail a senha da MODO nem a senha de uma rede social conectada.
         </p>
       </section>
 
@@ -266,10 +332,10 @@ export function DataDeletionPage() {
           <li>enviamos uma confirmação quando o processo principal estiver concluído.</li>
         </ol>
         <p>
-          O atendimento ocorrerá nos prazos aplicáveis da legislação. Alguns registros podem
-          ser conservados quando necessários para cumprir obrigação legal, prevenir fraude,
-          resolver disputas, proteger direitos ou respeitar o ciclo de retenção de backups.
-          Durante esse período, o acesso permanece restrito às finalidades autorizadas.
+          O atendimento ocorrerá nos prazos aplicáveis da legislação. Alguns registros podem ser
+          conservados quando necessários para cumprir obrigação legal, prevenir fraude, resolver
+          disputas, proteger direitos ou respeitar o ciclo de retenção de backups. Durante esse
+          período, o acesso permanece restrito às finalidades autorizadas.
         </p>
       </section>
 
@@ -278,13 +344,13 @@ export function DataDeletionPage() {
         <p>
           A exclusão realizada pela MODO abrange os dados que estão sob nosso controle. Dados
           mantidos diretamente por Meta, LinkedIn ou outra rede social continuam sujeitos às
-          configurações, políticas e ferramentas da própria plataforma. Remover uma integração
-          na MODO não exclui a conta social nem publicações que já existam diretamente naquela rede.
+          configurações, políticas e ferramentas da própria plataforma. Remover uma integração na
+          MODO não exclui a conta social nem publicações que já existam diretamente naquela rede.
         </p>
         <p>
           Quando uma plataforma envia à MODO um callback de desautorização ou exclusão suportado
-          pela integração, validamos a solicitação antes de remover as credenciais e os registros
-          de conexão correspondentes mantidos pela MODO.
+          pela integração, validamos a solicitação antes de remover as credenciais e os registros de
+          conexão correspondentes mantidos pela MODO.
         </p>
       </section>
 

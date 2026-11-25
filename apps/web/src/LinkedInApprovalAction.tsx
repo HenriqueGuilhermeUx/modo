@@ -18,12 +18,21 @@ export default function LinkedInApprovalAction({
   useEffect(() => {
     let active = true;
     getLinkedInStatus()
-      .then((next) => { if (active) setStatus(next); })
-      .catch((caught) => {
-        if (active) setError(caught instanceof Error ? caught.message : "Não foi possível carregar o LinkedIn.");
+      .then((next) => {
+        if (active) setStatus(next);
       })
-      .finally(() => { if (active) setLoading(false); });
-    return () => { active = false; };
+      .catch((caught) => {
+        if (active)
+          setError(
+            caught instanceof Error ? caught.message : "Não foi possível carregar o LinkedIn.",
+          );
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
   }, []);
 
   if (!/^linkedin$/i.test(channel.trim())) return null;
@@ -42,7 +51,12 @@ export default function LinkedInApprovalAction({
   }
 
   if (loading) {
-    return <section className="instagram-approval-action loading"><span className="portal-spinner" /><p>Verificando o LinkedIn...</p></section>;
+    return (
+      <section className="instagram-approval-action loading">
+        <span className="portal-spinner" />
+        <p>Verificando o LinkedIn...</p>
+      </section>
+    );
   }
 
   if (!status?.integrationConfigured) {
@@ -51,7 +65,10 @@ export default function LinkedInApprovalAction({
         <div>
           <small>PUBLICAÇÃO NATIVA</small>
           <strong>LinkedIn aguardando ativação</strong>
-          <p>Falta somente configurar o aplicativo LinkedIn no ambiente da MODO. Nenhuma instalação local é necessária.</p>
+          <p>
+            Falta somente configurar o aplicativo LinkedIn no ambiente da MODO. Nenhuma instalação
+            local é necessária.
+          </p>
         </div>
       </section>
     );
@@ -92,10 +109,14 @@ export default function LinkedInApprovalAction({
             {working ? "Publicando..." : "Publicar no LinkedIn"}
           </button>
         ) : (
-          <a className="button button-primary" href="/app/settings/integrations">Conectar LinkedIn</a>
+          <a className="button button-primary" href="/app/settings/integrations">
+            Conectar LinkedIn
+          </a>
         )}
       </div>
-      <p className="instagram-governance-note">Nada é publicado automaticamente. A publicação exige aprovação e confirmação explícita.</p>
+      <p className="instagram-governance-note">
+        Nada é publicado automaticamente. A publicação exige aprovação e confirmação explícita.
+      </p>
     </section>
   );
 }

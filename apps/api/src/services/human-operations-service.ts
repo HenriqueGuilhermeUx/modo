@@ -63,14 +63,29 @@ export class HumanOperationsService {
   }
 
   async authenticateAdmin(token: string) {
-    if (!token) throw new HumanOperationsError("ADMIN_UNAUTHORIZED", 401, "Acesso administrativo não autorizado.");
-    if (!this.pool) throw new HumanOperationsError("DATABASE_REQUIRED", 503, "A operação humana exige PostgreSQL.");
+    if (!token)
+      throw new HumanOperationsError(
+        "ADMIN_UNAUTHORIZED",
+        401,
+        "Acesso administrativo não autorizado.",
+      );
+    if (!this.pool)
+      throw new HumanOperationsError(
+        "DATABASE_REQUIRED",
+        503,
+        "A operação humana exige PostgreSQL.",
+      );
     const result = await this.pool.query(
       `SELECT 1 FROM modo_platform_admin_sessions
        WHERE token_hash=$1 AND expires_at>NOW() LIMIT 1`,
       [hashToken(token)],
     );
-    if (!result.rowCount) throw new HumanOperationsError("ADMIN_UNAUTHORIZED", 401, "Sua sessão administrativa expirou.");
+    if (!result.rowCount)
+      throw new HumanOperationsError(
+        "ADMIN_UNAUTHORIZED",
+        401,
+        "Sua sessão administrativa expirou.",
+      );
   }
 
   async overview() {
@@ -134,20 +149,32 @@ export class HumanOperationsService {
     }));
   }
 
-  async updateSupportRequest(id: string, input: {
-    status?: string;
-    pricingStatus?: string;
-    internalNotes?: string;
-    assignedApplicationId?: string | null;
-  }) {
-    if (!this.pool) throw new HumanOperationsError("DATABASE_REQUIRED", 503, "A operação humana exige PostgreSQL.");
+  async updateSupportRequest(
+    id: string,
+    input: {
+      status?: string;
+      pricingStatus?: string;
+      internalNotes?: string;
+      assignedApplicationId?: string | null;
+    },
+  ) {
+    if (!this.pool)
+      throw new HumanOperationsError(
+        "DATABASE_REQUIRED",
+        503,
+        "A operação humana exige PostgreSQL.",
+      );
     if (input.assignedApplicationId) {
       const candidate = await this.pool.query(
         "SELECT 1 FROM modo_specialist_applications WHERE id=$1 AND status IN ('approved','talent_pool') LIMIT 1",
         [input.assignedApplicationId],
       );
       if (!candidate.rowCount) {
-        throw new HumanOperationsError("SPECIALIST_NOT_AVAILABLE", 409, "Selecione um profissional aprovado ou no banco de talentos.");
+        throw new HumanOperationsError(
+          "SPECIALIST_NOT_AVAILABLE",
+          409,
+          "Selecione um profissional aprovado ou no banco de talentos.",
+        );
       }
     }
     const result = await this.pool.query(
@@ -159,9 +186,20 @@ export class HumanOperationsService {
         triaged_at=CASE WHEN COALESCE($2,status)<>'requested' THEN COALESCE(triaged_at,NOW()) ELSE triaged_at END,
         updated_at=NOW()
        WHERE id=$1 RETURNING id,status,pricing_status,internal_notes,assigned_application_id,updated_at`,
-      [id,input.status || null,input.pricingStatus || null,input.internalNotes ?? null,input.assignedApplicationId ?? null],
+      [
+        id,
+        input.status || null,
+        input.pricingStatus || null,
+        input.internalNotes ?? null,
+        input.assignedApplicationId ?? null,
+      ],
     );
-    if (!result.rowCount) throw new HumanOperationsError("SUPPORT_REQUEST_NOT_FOUND", 404, "Pedido de apoio não encontrado.");
+    if (!result.rowCount)
+      throw new HumanOperationsError(
+        "SUPPORT_REQUEST_NOT_FOUND",
+        404,
+        "Pedido de apoio não encontrado.",
+      );
     await this.audit("human_support.updated", "human_support_request", id, input);
     return result.rows[0];
   }
@@ -197,7 +235,12 @@ export class HumanOperationsService {
   }
 
   async updateApplication(id: string, input: { status?: string; internalNotes?: string }) {
-    if (!this.pool) throw new HumanOperationsError("DATABASE_REQUIRED", 503, "A operação humana exige PostgreSQL.");
+    if (!this.pool)
+      throw new HumanOperationsError(
+        "DATABASE_REQUIRED",
+        503,
+        "A operação humana exige PostgreSQL.",
+      );
     const result = await this.pool.query(
       `UPDATE modo_specialist_applications SET
         status=COALESCE($2,status),
@@ -205,9 +248,10 @@ export class HumanOperationsService {
         reviewed_at=CASE WHEN COALESCE($2,status)<>'received' THEN COALESCE(reviewed_at,NOW()) ELSE reviewed_at END,
         updated_at=NOW()
        WHERE id=$1 RETURNING id,status,internal_notes,updated_at`,
-      [id,input.status || null,input.internalNotes ?? null],
+      [id, input.status || null, input.internalNotes ?? null],
     );
-    if (!result.rowCount) throw new HumanOperationsError("APPLICATION_NOT_FOUND", 404, "Candidatura não encontrada.");
+    if (!result.rowCount)
+      throw new HumanOperationsError("APPLICATION_NOT_FOUND", 404, "Candidatura não encontrada.");
     await this.audit("specialist_application.updated", "specialist_application", id, input);
     return result.rows[0];
   }
@@ -239,7 +283,10 @@ export class HumanOperationsService {
       instagramUrl: row.instagram_url,
       businessType: row.business_type,
       activeClients: Number(row.active_clients),
-      monthlyServiceRevenueCents: row.monthly_service_revenue_cents === null ? null : Number(row.monthly_service_revenue_cents),
+      monthlyServiceRevenueCents:
+        row.monthly_service_revenue_cents === null
+          ? null
+          : Number(row.monthly_service_revenue_cents),
       currentServices: row.current_services || [],
       whyPartner: row.why_partner,
       targetClientsWithModo: Number(row.target_clients_with_modo),
@@ -251,7 +298,12 @@ export class HumanOperationsService {
   }
 
   async updatePartnerApplication(id: string, input: { status?: string; internalNotes?: string }) {
-    if (!this.pool) throw new HumanOperationsError("DATABASE_REQUIRED", 503, "A operação humana exige PostgreSQL.");
+    if (!this.pool)
+      throw new HumanOperationsError(
+        "DATABASE_REQUIRED",
+        503,
+        "A operação humana exige PostgreSQL.",
+      );
     const result = await this.pool.query(
       `UPDATE modo_partner_applications SET
         status=COALESCE($2,status),
@@ -259,9 +311,14 @@ export class HumanOperationsService {
         reviewed_at=CASE WHEN COALESCE($2,status)<>'received' THEN COALESCE(reviewed_at,NOW()) ELSE reviewed_at END,
         updated_at=NOW()
        WHERE id=$1 RETURNING id,status,internal_notes,updated_at`,
-      [id,input.status || null,input.internalNotes ?? null],
+      [id, input.status || null, input.internalNotes ?? null],
     );
-    if (!result.rowCount) throw new HumanOperationsError("PARTNER_APPLICATION_NOT_FOUND", 404, "Candidatura de Partner não encontrada.");
+    if (!result.rowCount)
+      throw new HumanOperationsError(
+        "PARTNER_APPLICATION_NOT_FOUND",
+        404,
+        "Candidatura de Partner não encontrada.",
+      );
     await this.audit("partner_application.updated", "partner_application", id, input);
     return result.rows[0];
   }
@@ -271,7 +328,7 @@ export class HumanOperationsService {
     await this.pool.query(
       `INSERT INTO modo_admin_audit_log(id,action,target_type,target_id,metadata)
        VALUES($1,$2,$3,$4,$5::jsonb)`,
-      [randomUUID(),action,targetType,targetId,JSON.stringify(metadata)],
+      [randomUUID(), action, targetType, targetId, JSON.stringify(metadata)],
     );
   }
 }

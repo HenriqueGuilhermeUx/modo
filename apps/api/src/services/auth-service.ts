@@ -8,13 +8,7 @@ import type {
   UserPublic,
 } from "@modo/contracts";
 import pg, { type Pool, type PoolClient } from "pg";
-import {
-  createHash,
-  randomBytes,
-  randomUUID,
-  scryptSync,
-  timingSafeEqual,
-} from "node:crypto";
+import { createHash, randomBytes, randomUUID, scryptSync, timingSafeEqual } from "node:crypto";
 
 const { Pool: PgPool } = pg;
 
@@ -536,7 +530,10 @@ export class AuthService {
     );
     const row = result.rows[0];
     if (!row || new Date(row.expires_at) <= new Date()) {
-      if (row) await this.requirePool().query("DELETE FROM modo_sessions WHERE token_hash = $1", [hashToken(token)]);
+      if (row)
+        await this.requirePool().query("DELETE FROM modo_sessions WHERE token_hash = $1", [
+          hashToken(token),
+        ]);
       throw new AuthError("UNAUTHORIZED", 401, "Sessão inválida ou expirada.");
     }
     return {

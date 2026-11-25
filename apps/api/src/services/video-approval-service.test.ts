@@ -121,8 +121,10 @@ describe("VideoApprovalService", () => {
     const service = new VideoApprovalService();
     const ready = project();
     await service.ensure(ready, "pending");
-    await expect(service.requireApproved(ready)).rejects.toMatchObject<Partial<VideoApprovalError>>({
-      code: "VIDEO_APPROVAL_REQUIRED",
-    });
+    await expect(service.requireApproved(ready)).rejects.toMatchObject<Partial<VideoApprovalError>>(
+      {
+        code: "VIDEO_APPROVAL_REQUIRED",
+      },
+    );
   });
 });

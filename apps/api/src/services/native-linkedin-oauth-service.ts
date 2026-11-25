@@ -37,7 +37,11 @@ interface ProfilePayload extends Json {
 }
 
 export class NativeLinkedInOAuthError extends Error {
-  constructor(public readonly code: string, public readonly statusCode: number, message: string) {
+  constructor(
+    public readonly code: string,
+    public readonly statusCode: number,
+    message: string,
+  ) {
     super(message);
     this.name = "NativeLinkedInOAuthError";
   }
@@ -134,7 +138,12 @@ export class NativeLinkedInOAuthService {
     return { authorizationUrl: url.toString() };
   }
 
-  async completeAuthorization(input: { state?: string; code?: string; error?: string; errorDescription?: string }) {
+  async completeAuthorization(input: {
+    state?: string;
+    code?: string;
+    error?: string;
+    errorDescription?: string;
+  }) {
     this.requireConfigured();
     if (!input.state || input.error || !input.code) {
       throw new NativeLinkedInOAuthError(
@@ -148,17 +157,32 @@ export class NativeLinkedInOAuthService {
     const token = await this.exchangeCode(input.code);
     const accessToken = text(token.access_token);
     if (!accessToken) {
-      throw new NativeLinkedInOAuthError("LINKEDIN_TOKEN_MISSING", 502, "O LinkedIn não retornou o token esperado.");
+      throw new NativeLinkedInOAuthError(
+        "LINKEDIN_TOKEN_MISSING",
+        502,
+        "O LinkedIn não retornou o token esperado.",
+      );
     }
 
     const profile = await this.fetchProfile(accessToken);
     const profileId = text(profile.id);
     if (!profileId) {
-      throw new NativeLinkedInOAuthError("LINKEDIN_PROFILE_INCOMPLETE", 502, "O LinkedIn não retornou o identificador do perfil.");
+      throw new NativeLinkedInOAuthError(
+        "LINKEDIN_PROFILE_INCOMPLETE",
+        502,
+        "O LinkedIn não retornou o identificador do perfil.",
+      );
     }
 
-    const displayName = [text(profile.localizedFirstName), text(profile.localizedLastName)].filter(Boolean).join(" ") || "Perfil LinkedIn";
-    const scopes = text(token.scope) ? text(token.scope).split(/[\s,]+/).filter(Boolean) : this.scopes;
+    const displayName =
+      [text(profile.localizedFirstName), text(profile.localizedLastName)]
+        .filter(Boolean)
+        .join(" ") || "Perfil LinkedIn";
+    const scopes = text(token.scope)
+      ? text(token.scope)
+          .split(/[\s,]+/)
+          .filter(Boolean)
+      : this.scopes;
     const tokenExpiresAt = new Date(Date.now() + Number(token.expires_in || 5_184_000) * 1000);
     const id = randomUUID();
     const result = await this.pool!.query<{ id: string }>(
@@ -183,7 +207,11 @@ export class NativeLinkedInOAuthService {
         this.encrypt(accessToken),
         tokenExpiresAt,
         scopes,
-        { source: "publisher_v2_linkedin_oauth", authorType: "member", connectedAt: new Date().toISOString() },
+        {
+          source: "publisher_v2_linkedin_oauth",
+          authorType: "member",
+          connectedAt: new Date().toISOString(),
+        },
       ],
     );
 
@@ -208,7 +236,11 @@ export class NativeLinkedInOAuthService {
   }
 
   private async consumeState(state: string): Promise<OAuthContext> {
-    const result = await this.pool!.query<{ organization_id: string; brand_id: string; expires_at: Date }>(
+    const result = await this.pool!.query<{
+      organization_id: string;
+      brand_id: string;
+      expires_at: Date;
+    }>(
       `DELETE FROM modo_native_social_oauth_states
        WHERE state=$1 AND provider='linkedin'
        RETURNING organization_id,brand_id,expires_at`,
@@ -216,7 +248,11 @@ export class NativeLinkedInOAuthService {
     );
     const row = result.rows[0];
     if (!row || row.expires_at <= new Date()) {
-      throw new NativeLinkedInOAuthError("LINKEDIN_OAUTH_STATE_INVALID", 400, "A autorização do LinkedIn expirou ou já foi utilizada.");
+      throw new NativeLinkedInOAuthError(
+        "LINKEDIN_OAUTH_STATE_INVALID",
+        400,
+        "A autorização do LinkedIn expirou ou já foi utilizada.",
+      );
     }
     return { organizationId: row.organization_id, brandId: row.brand_id };
   }
@@ -234,12 +270,14 @@ export class NativeLinkedInOAuthService {
       }),
       signal: AbortSignal.timeout(20_000),
     });
-    const payload = await response.json().catch(() => ({})) as TokenPayload;
+    const payload = (await response.json().catch(() => ({}))) as TokenPayload;
     if (!response.ok || !payload.access_token) {
       throw new NativeLinkedInOAuthError(
         "LINKEDIN_TOKEN_EXCHANGE_FAILED",
         response.status === 429 ? 429 : 502,
-        text(payload.error_description) || text(payload.error) || "Não foi possível obter o token do LinkedIn.",
+        text(payload.error_description) ||
+          text(payload.error) ||
+          "Não foi possível obter o token do LinkedIn.",
       );
     }
     return payload;
@@ -253,7 +291,7 @@ export class NativeLinkedInOAuthService {
       },
       signal: AbortSignal.timeout(20_000),
     });
-    const payload = await response.json().catch(() => ({})) as ProfilePayload;
+    const payload = (await response.json().catch(() => ({}))) as ProfilePayload;
     if (!response.ok || !payload.id) {
       throw new NativeLinkedInOAuthError(
         "LINKEDIN_PROFILE_FAILED",

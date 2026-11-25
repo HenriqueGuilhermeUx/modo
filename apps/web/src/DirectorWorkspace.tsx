@@ -39,7 +39,10 @@ const kindLabels: Record<CreativeRecommendation["kind"], string> = {
 const allChannels = Object.keys(channelLabels) as CreativeChannel[];
 
 function lines(value: string) {
-  return value.split("\n").map((item) => item.trim()).filter(Boolean);
+  return value
+    .split("\n")
+    .map((item) => item.trim())
+    .filter(Boolean);
 }
 
 function text(value: string[]) {
@@ -79,7 +82,9 @@ export default function DirectorWorkspace() {
         setDashboard(current);
         setBrandId(current.brands[0]?.id || "");
       })
-      .catch((caught) => setError(caught instanceof Error ? caught.message : "Não foi possível abrir o Diretor."))
+      .catch((caught) =>
+        setError(caught instanceof Error ? caught.message : "Não foi possível abrir o Diretor."),
+      )
       .finally(() => setLoading(false));
   }, []);
 
@@ -92,7 +97,13 @@ export default function DirectorWorkspace() {
         setRecommendations(currentRecommendations);
         setError("");
       })
-      .catch((caught) => setError(caught instanceof Error ? caught.message : "Não foi possível carregar a inteligência da marca."))
+      .catch((caught) =>
+        setError(
+          caught instanceof Error
+            ? caught.message
+            : "Não foi possível carregar a inteligência da marca.",
+        ),
+      )
       .finally(() => setLoading(false));
   }, [brandId]);
 
@@ -102,7 +113,7 @@ export default function DirectorWorkspace() {
   );
 
   function patchProfile(patch: Partial<CreativeProfile>) {
-    setProfile((current) => current ? { ...current, ...patch } : current);
+    setProfile((current) => (current ? { ...current, ...patch } : current));
   }
 
   async function handleSaveProfile() {
@@ -149,19 +160,30 @@ export default function DirectorWorkspace() {
     }
   }
 
-  async function handleStatus(item: CreativeRecommendation, status: "accepted" | "dismissed" | "completed") {
+  async function handleStatus(
+    item: CreativeRecommendation,
+    status: "accepted" | "dismissed" | "completed",
+  ) {
     setActionId(item.id);
     setError("");
     try {
       const updated = await setCreativeRecommendationStatus(item.id, status);
-      setRecommendations((current) => current.map((entry) => entry.id === item.id ? updated : entry));
+      setRecommendations((current) =>
+        current.map((entry) => (entry.id === item.id ? updated : entry)),
+      );
       await recordCreativeFeedback(item.brandId, {
         recommendationId: item.id,
         signal: status === "dismissed" ? "dismissed" : "accepted",
       });
-      setSuccess(status === "dismissed" ? "A MODO aprendeu que esta direção não é prioridade agora." : "Direção registrada na memória criativa.");
+      setSuccess(
+        status === "dismissed"
+          ? "A MODO aprendeu que esta direção não é prioridade agora."
+          : "Direção registrada na memória criativa.",
+      );
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Não foi possível registrar sua decisão.");
+      setError(
+        caught instanceof Error ? caught.message : "Não foi possível registrar sua decisão.",
+      );
     } finally {
       setActionId("");
     }
@@ -169,14 +191,17 @@ export default function DirectorWorkspace() {
 
   async function takeToProduction(item: CreativeRecommendation) {
     await handleStatus(item, "accepted");
-    window.sessionStorage.setItem("modo.directorPrefill", JSON.stringify({
-      brandId: item.brandId,
-      contentType: contentTypeFor(item),
-      objective: item.objective,
-      channel: firstChannel(item),
-      brief: item.brief,
-      recommendationId: item.id,
-    }));
+    window.sessionStorage.setItem(
+      "modo.directorPrefill",
+      JSON.stringify({
+        brandId: item.brandId,
+        contentType: contentTypeFor(item),
+        objective: item.objective,
+        channel: firstChannel(item),
+        brief: item.brief,
+        recommendationId: item.id,
+      }),
+    );
     window.location.href = "/app/content";
   }
 
@@ -204,93 +229,355 @@ export default function DirectorWorkspace() {
   }
 
   if (loading && !dashboard) {
-    return <main className="portal-loading"><img src="/logo.svg" alt="MODO" /><div className="portal-spinner" /><p>Preparando a inteligência criativa...</p></main>;
+    return (
+      <main className="portal-loading">
+        <img src="/logo.svg" alt="MODO" />
+        <div className="portal-spinner" />
+        <p>Preparando a inteligência criativa...</p>
+      </main>
+    );
   }
 
   if (!dashboard) {
-    return <main className="portal-loading"><p>{error || "Sua sessão expirou."}</p><a className="button button-primary" href="/app">Entrar novamente</a></main>;
+    return (
+      <main className="portal-loading">
+        <p>{error || "Sua sessão expirou."}</p>
+        <a className="button button-primary" href="/app">
+          Entrar novamente
+        </a>
+      </main>
+    );
   }
 
   return (
     <div className="director-shell">
       <header className="workspace-header">
-        <a href="/app"><img src="/logo.svg" alt="MODO" /></a>
-        <nav><a href="/app">Painel</a><a className="active" href="/app/director">Diretor</a><a href="/app/content">Criar</a><a href="/app/linkedin">LinkedIn</a><a href="/app/planos">Planos</a></nav>
-        <div className="workspace-balance"><small>Saldo</small><strong>{dashboard.usage.creditsRemaining}</strong><span>créditos</span></div>
+        <a href="/app">
+          <img src="/logo.svg" alt="MODO" />
+        </a>
+        <nav>
+          <a href="/app">Painel</a>
+          <a className="active" href="/app/director">
+            Diretor
+          </a>
+          <a href="/app/content">Criar</a>
+          <a href="/app/linkedin">LinkedIn</a>
+          <a href="/app/planos">Planos</a>
+        </nav>
+        <div className="workspace-balance">
+          <small>Saldo</small>
+          <strong>{dashboard.usage.creditsRemaining}</strong>
+          <span>créditos</span>
+        </div>
       </header>
 
       <main className="director-main">
         <section className="director-hero">
-          <div><div className="section-kicker">MODO DIRECTOR</div><h1>Criatividade, direção e repertório para quem não sabe por onde começar.</h1><p>A MODO conhece a realidade da empresa, sugere o próximo movimento, cria o que pode ser produzido digitalmente e dirige o que precisa ser gravado, mostrado ou contado.</p></div>
-          <div className="director-brand-select"><label>Marca<select value={brandId} onChange={(event) => setBrandId(event.target.value)}>{dashboard.brands.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label><button className="button button-primary" disabled={!brandId || generating} onClick={() => void handleGenerate()}>{generating ? "Pensando o próximo ciclo..." : "Gerar plano criativo"}</button></div>
+          <div>
+            <div className="section-kicker">MODO DIRECTOR</div>
+            <h1>Criatividade, direção e repertório para quem não sabe por onde começar.</h1>
+            <p>
+              A MODO conhece a realidade da empresa, sugere o próximo movimento, cria o que pode ser
+              produzido digitalmente e dirige o que precisa ser gravado, mostrado ou contado.
+            </p>
+          </div>
+          <div className="director-brand-select">
+            <label>
+              Marca
+              <select value={brandId} onChange={(event) => setBrandId(event.target.value)}>
+                {dashboard.brands.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <button
+              className="button button-primary"
+              disabled={!brandId || generating}
+              onClick={() => void handleGenerate()}
+            >
+              {generating ? "Pensando o próximo ciclo..." : "Gerar plano criativo"}
+            </button>
+          </div>
         </section>
 
         {error && <div className="portal-error">{error}</div>}
         {success && <div className="workspace-success">{success}</div>}
 
         {dashboard.brands.length === 0 ? (
-          <section className="director-empty"><h2>Cadastre uma marca para ativar o Diretor.</h2><a className="button button-primary" href="/app#brands">Cadastrar marca</a></section>
-        ) : profile && (
-          <>
-            <section className="director-memory">
-              <div className="director-section-head"><div><small>MODO MEMORY</small><h2>Quanto mais a MODO conhece, menos o cliente precisa explicar.</h2><p>Atualize quando algo mudar. Aprovações, revisões e desempenho continuarão alimentando esta memória automaticamente.</p></div><button className="button button-primary" disabled={saving} onClick={() => void handleSaveProfile()}>{saving ? "Salvando..." : "Salvar memória"}</button></div>
-
-              <div className="director-memory-grid">
-                <label>Pessoas que podem aparecer<textarea value={text(profile.peopleAvailable)} onChange={(event) => patchProfile({ peopleAvailable: lines(event.target.value) })} placeholder="Uma pessoa por linha: fundador, especialista, cliente, equipe..." /></label>
-                <label>Locais e bastidores disponíveis<textarea value={text(profile.locations)} onChange={(event) => patchProfile({ locations: lines(event.target.value) })} placeholder="Escritório, loja, fábrica, consultório, evento..." /></label>
-                <label>Produtos ou serviços para mostrar<textarea value={text(profile.productsOrServicesToShow)} onChange={(event) => patchProfile({ productsOrServicesToShow: lines(event.target.value) })} placeholder="Um por linha" /></label>
-                <label>Provas, resultados e histórias<textarea value={text(profile.proofAvailable)} onChange={(event) => patchProfile({ proofAvailable: lines(event.target.value) })} placeholder="Cases, números, depoimentos, transformações..." /></label>
-                <label>Dúvidas e objeções frequentes<textarea value={text(profile.recurringQuestions)} onChange={(event) => patchProfile({ recurringQuestions: lines(event.target.value) })} placeholder="O que os clientes sempre perguntam?" /></label>
-                <label>Prioridades comerciais atuais<textarea value={text(profile.currentPriorities)} onChange={(event) => patchProfile({ currentPriorities: lines(event.target.value) })} placeholder="Produto, lançamento, agenda, posicionamento..." /></label>
-              </div>
-
-              <div className="director-preferences">
-                <label className="director-camera"><input type="checkbox" checked={profile.comfortableOnCamera} onChange={(event) => patchProfile({ comfortableOnCamera: event.target.checked })} /><span><strong>Tem alguém confortável em aparecer?</strong><small>A MODO ajusta a quantidade e a dificuldade das missões de vídeo.</small></span></label>
-                <label>Tempo disponível por semana<input type="number" min="0" max="600" value={profile.weeklyMinutesAvailable} onChange={(event) => patchProfile({ weeklyMinutesAvailable: Number(event.target.value) })} /><span>minutos</span></label>
-              </div>
-
-              <fieldset className="director-channels"><legend>Canais prioritários</legend><div>{allChannels.map((channel) => { const active = profile.preferredChannels.includes(channel); return <button type="button" className={active ? "active" : ""} key={channel} onClick={() => patchProfile({ preferredChannels: active ? profile.preferredChannels.filter((item) => item !== channel) : [...profile.preferredChannels, channel] })}>{channelLabels[channel]}</button>; })}</div></fieldset>
-
-              <label className="director-notes">Contexto adicional e restrições<textarea value={profile.notes} onChange={(event) => patchProfile({ notes: event.target.value })} placeholder="Ex.: evitar promessas financeiras, não usar tom agressivo, priorizar atendimento humanizado..." /></label>
-            </section>
-
-            <section className="director-plan">
-              <div className="director-section-head"><div><small>PRÓXIMOS MOVIMENTOS</small><h2>Plano criativo para {brand?.name}</h2><p>Escolha uma direção, leve para produção ou envie a missão para quem vai participar.</p></div><span>{recommendations.filter((item) => item.status === "suggested").length} sugestões ativas</span></div>
-
-              {recommendations.length === 0 ? (
-                <div className="director-empty"><h3>A MODO ainda não montou este ciclo.</h3><p>Salve a memória e clique em “Gerar plano criativo”.</p></div>
-              ) : (
-                <div className="director-recommendation-list">
-                  {recommendations.map((item) => (
-                    <article className={`director-recommendation ${item.kind} ${item.status}`} key={item.id}>
-                      <div className="director-recommendation-top"><div><span>{kindLabels[item.kind]}</span><b>Prioridade {item.priorityScore}</b></div><small>{item.effortMinutes} min de esforço</small></div>
-                      <h3>{item.title}</h3>
-                      <p className="director-rationale">{item.rationale}</p>
-                      <div className="director-outcome"><small>RESULTADO ESPERADO</small><strong>{item.expectedOutcome}</strong></div>
-                      <div className="director-channel-list">{item.channels.map((channel) => <span key={channel}>{channelLabels[channel]}</span>)}</div>
-
-                      {item.captureMission && (
-                        <div className="director-mission">
-                          <div><small>MISSÃO DE CAPTURA</small><strong>{item.captureMission.person}</strong><span>{item.captureMission.duration} · {item.captureMission.estimatedMinutes} min</span></div>
-                          <blockquote>“{item.captureMission.openingLine}”</blockquote>
-                          <ol>{item.captureMission.structure.map((step) => <li key={step}>{step}</li>)}</ol>
-                          <div className="director-mission-meta"><p><b>Local:</b> {item.captureMission.location}</p><p><b>Enquadramento:</b> {item.captureMission.framing}</p></div>
-                        </div>
-                      )}
-
-                      <div className="director-derivatives"><small>PODE VIRAR</small>{item.derivativeAssets.map((asset) => <span key={asset}>{asset}</span>)}</div>
-
-                      <div className="director-actions">
-                        {item.captureMission && <button type="button" className="button button-outline" onClick={() => void copyMission(item)}>Copiar missão</button>}
-                        <button type="button" className="button button-primary" disabled={actionId === item.id} onClick={() => void takeToProduction(item)}>{item.kind === "capture" ? "Criar roteiro e derivados" : "Levar para produção"}</button>
-                        <button type="button" className="director-dismiss" disabled={actionId === item.id} onClick={() => void handleStatus(item, "dismissed")}>Agora não</button>
-                      </div>
-                    </article>
-                  ))}
+          <section className="director-empty">
+            <h2>Cadastre uma marca para ativar o Diretor.</h2>
+            <a className="button button-primary" href="/app#brands">
+              Cadastrar marca
+            </a>
+          </section>
+        ) : (
+          profile && (
+            <>
+              <section className="director-memory">
+                <div className="director-section-head">
+                  <div>
+                    <small>MODO MEMORY</small>
+                    <h2>Quanto mais a MODO conhece, menos o cliente precisa explicar.</h2>
+                    <p>
+                      Atualize quando algo mudar. Aprovações, revisões e desempenho continuarão
+                      alimentando esta memória automaticamente.
+                    </p>
+                  </div>
+                  <button
+                    className="button button-primary"
+                    disabled={saving}
+                    onClick={() => void handleSaveProfile()}
+                  >
+                    {saving ? "Salvando..." : "Salvar memória"}
+                  </button>
                 </div>
-              )}
-            </section>
-          </>
+
+                <div className="director-memory-grid">
+                  <label>
+                    Pessoas que podem aparecer
+                    <textarea
+                      value={text(profile.peopleAvailable)}
+                      onChange={(event) =>
+                        patchProfile({ peopleAvailable: lines(event.target.value) })
+                      }
+                      placeholder="Uma pessoa por linha: fundador, especialista, cliente, equipe..."
+                    />
+                  </label>
+                  <label>
+                    Locais e bastidores disponíveis
+                    <textarea
+                      value={text(profile.locations)}
+                      onChange={(event) => patchProfile({ locations: lines(event.target.value) })}
+                      placeholder="Escritório, loja, fábrica, consultório, evento..."
+                    />
+                  </label>
+                  <label>
+                    Produtos ou serviços para mostrar
+                    <textarea
+                      value={text(profile.productsOrServicesToShow)}
+                      onChange={(event) =>
+                        patchProfile({ productsOrServicesToShow: lines(event.target.value) })
+                      }
+                      placeholder="Um por linha"
+                    />
+                  </label>
+                  <label>
+                    Provas, resultados e histórias
+                    <textarea
+                      value={text(profile.proofAvailable)}
+                      onChange={(event) =>
+                        patchProfile({ proofAvailable: lines(event.target.value) })
+                      }
+                      placeholder="Cases, números, depoimentos, transformações..."
+                    />
+                  </label>
+                  <label>
+                    Dúvidas e objeções frequentes
+                    <textarea
+                      value={text(profile.recurringQuestions)}
+                      onChange={(event) =>
+                        patchProfile({ recurringQuestions: lines(event.target.value) })
+                      }
+                      placeholder="O que os clientes sempre perguntam?"
+                    />
+                  </label>
+                  <label>
+                    Prioridades comerciais atuais
+                    <textarea
+                      value={text(profile.currentPriorities)}
+                      onChange={(event) =>
+                        patchProfile({ currentPriorities: lines(event.target.value) })
+                      }
+                      placeholder="Produto, lançamento, agenda, posicionamento..."
+                    />
+                  </label>
+                </div>
+
+                <div className="director-preferences">
+                  <label className="director-camera">
+                    <input
+                      type="checkbox"
+                      checked={profile.comfortableOnCamera}
+                      onChange={(event) =>
+                        patchProfile({ comfortableOnCamera: event.target.checked })
+                      }
+                    />
+                    <span>
+                      <strong>Tem alguém confortável em aparecer?</strong>
+                      <small>
+                        A MODO ajusta a quantidade e a dificuldade das missões de vídeo.
+                      </small>
+                    </span>
+                  </label>
+                  <label>
+                    Tempo disponível por semana
+                    <input
+                      type="number"
+                      min="0"
+                      max="600"
+                      value={profile.weeklyMinutesAvailable}
+                      onChange={(event) =>
+                        patchProfile({ weeklyMinutesAvailable: Number(event.target.value) })
+                      }
+                    />
+                    <span>minutos</span>
+                  </label>
+                </div>
+
+                <fieldset className="director-channels">
+                  <legend>Canais prioritários</legend>
+                  <div>
+                    {allChannels.map((channel) => {
+                      const active = profile.preferredChannels.includes(channel);
+                      return (
+                        <button
+                          type="button"
+                          className={active ? "active" : ""}
+                          key={channel}
+                          onClick={() =>
+                            patchProfile({
+                              preferredChannels: active
+                                ? profile.preferredChannels.filter((item) => item !== channel)
+                                : [...profile.preferredChannels, channel],
+                            })
+                          }
+                        >
+                          {channelLabels[channel]}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </fieldset>
+
+                <label className="director-notes">
+                  Contexto adicional e restrições
+                  <textarea
+                    value={profile.notes}
+                    onChange={(event) => patchProfile({ notes: event.target.value })}
+                    placeholder="Ex.: evitar promessas financeiras, não usar tom agressivo, priorizar atendimento humanizado..."
+                  />
+                </label>
+              </section>
+
+              <section className="director-plan">
+                <div className="director-section-head">
+                  <div>
+                    <small>PRÓXIMOS MOVIMENTOS</small>
+                    <h2>Plano criativo para {brand?.name}</h2>
+                    <p>
+                      Escolha uma direção, leve para produção ou envie a missão para quem vai
+                      participar.
+                    </p>
+                  </div>
+                  <span>
+                    {recommendations.filter((item) => item.status === "suggested").length} sugestões
+                    ativas
+                  </span>
+                </div>
+
+                {recommendations.length === 0 ? (
+                  <div className="director-empty">
+                    <h3>A MODO ainda não montou este ciclo.</h3>
+                    <p>Salve a memória e clique em “Gerar plano criativo”.</p>
+                  </div>
+                ) : (
+                  <div className="director-recommendation-list">
+                    {recommendations.map((item) => (
+                      <article
+                        className={`director-recommendation ${item.kind} ${item.status}`}
+                        key={item.id}
+                      >
+                        <div className="director-recommendation-top">
+                          <div>
+                            <span>{kindLabels[item.kind]}</span>
+                            <b>Prioridade {item.priorityScore}</b>
+                          </div>
+                          <small>{item.effortMinutes} min de esforço</small>
+                        </div>
+                        <h3>{item.title}</h3>
+                        <p className="director-rationale">{item.rationale}</p>
+                        <div className="director-outcome">
+                          <small>RESULTADO ESPERADO</small>
+                          <strong>{item.expectedOutcome}</strong>
+                        </div>
+                        <div className="director-channel-list">
+                          {item.channels.map((channel) => (
+                            <span key={channel}>{channelLabels[channel]}</span>
+                          ))}
+                        </div>
+
+                        {item.captureMission && (
+                          <div className="director-mission">
+                            <div>
+                              <small>MISSÃO DE CAPTURA</small>
+                              <strong>{item.captureMission.person}</strong>
+                              <span>
+                                {item.captureMission.duration} ·{" "}
+                                {item.captureMission.estimatedMinutes} min
+                              </span>
+                            </div>
+                            <blockquote>“{item.captureMission.openingLine}”</blockquote>
+                            <ol>
+                              {item.captureMission.structure.map((step) => (
+                                <li key={step}>{step}</li>
+                              ))}
+                            </ol>
+                            <div className="director-mission-meta">
+                              <p>
+                                <b>Local:</b> {item.captureMission.location}
+                              </p>
+                              <p>
+                                <b>Enquadramento:</b> {item.captureMission.framing}
+                              </p>
+                            </div>
+                          </div>
+                        )}
+
+                        <div className="director-derivatives">
+                          <small>PODE VIRAR</small>
+                          {item.derivativeAssets.map((asset) => (
+                            <span key={asset}>{asset}</span>
+                          ))}
+                        </div>
+
+                        <div className="director-actions">
+                          {item.captureMission && (
+                            <button
+                              type="button"
+                              className="button button-outline"
+                              onClick={() => void copyMission(item)}
+                            >
+                              Copiar missão
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            className="button button-primary"
+                            disabled={actionId === item.id}
+                            onClick={() => void takeToProduction(item)}
+                          >
+                            {item.kind === "capture"
+                              ? "Criar roteiro e derivados"
+                              : "Levar para produção"}
+                          </button>
+                          <button
+                            type="button"
+                            className="director-dismiss"
+                            disabled={actionId === item.id}
+                            onClick={() => void handleStatus(item, "dismissed")}
+                          >
+                            Agora não
+                          </button>
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                )}
+              </section>
+            </>
+          )
         )}
       </main>
     </div>

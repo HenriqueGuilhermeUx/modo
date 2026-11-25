@@ -1,9 +1,4 @@
-import {
-  createCipheriv,
-  createDecipheriv,
-  createHash,
-  randomBytes,
-} from "node:crypto";
+import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto";
 import pg, { type Pool } from "pg";
 
 const { Pool: PgPool } = pg;
@@ -261,7 +256,11 @@ export class CanvaService {
     }
     const state = await this.consumeState(input.state);
     if (!state || state.expiresAt <= new Date()) {
-      return this.frontendRedirect(null, "error", "A autorização expirou. Inicie novamente pela MODO.");
+      return this.frontendRedirect(
+        null,
+        "error",
+        "A autorização expirou. Inicie novamente pela MODO.",
+      );
     }
     if (input.error || !input.code) {
       return this.frontendRedirect(
@@ -272,14 +271,20 @@ export class CanvaService {
     }
 
     try {
-      const token = await this.exchangeToken(new URLSearchParams({
-        grant_type: "authorization_code",
-        code_verifier: state.codeVerifier,
-        code: input.code,
-        redirect_uri: this.options.redirectUri!,
-      }));
+      const token = await this.exchangeToken(
+        new URLSearchParams({
+          grant_type: "authorization_code",
+          code_verifier: state.codeVerifier,
+          code: input.code,
+          redirect_uri: this.options.redirectUri!,
+        }),
+      );
       if (!token.access_token || !token.refresh_token) {
-        throw new CanvaError("CANVA_TOKEN_MISSING", 502, "O Canva não devolveu os tokens esperados.");
+        throw new CanvaError(
+          "CANVA_TOKEN_MISSING",
+          502,
+          "O Canva não devolveu os tokens esperados.",
+        );
       }
       const now = new Date();
       await this.saveConnection({
@@ -343,13 +348,21 @@ export class CanvaService {
   }): Promise<CanvaDesign> {
     this.requireConfigured();
     if (!["image/png", "image/jpeg", "image/webp"].includes(input.mimeType)) {
-      throw new CanvaError("CANVA_UNSUPPORTED_ASSET", 409, "O formato da imagem aprovada não é compatível com o Canva.");
+      throw new CanvaError(
+        "CANVA_UNSUPPORTED_ASSET",
+        409,
+        "O formato da imagem aprovada não é compatível com o Canva.",
+      );
     }
     const existing = await this.getDesign(input.accountId, input.contentRequestId);
     if (existing) return existing;
     const connection = await this.getConnection(input.accountId);
     if (!connection) {
-      throw new CanvaError("CANVA_NOT_CONNECTED", 409, "Conecte sua conta Canva antes de criar o design.");
+      throw new CanvaError(
+        "CANVA_NOT_CONNECTED",
+        409,
+        "Conecte sua conta Canva antes de criar o design.",
+      );
     }
 
     const assetId = await this.uploadAsset(
@@ -441,7 +454,11 @@ export class CanvaService {
         );
       }
     }
-    throw new CanvaError("CANVA_ASSET_TIMEOUT", 504, "O Canva demorou demais para processar a imagem. Tente novamente.");
+    throw new CanvaError(
+      "CANVA_ASSET_TIMEOUT",
+      504,
+      "O Canva demorou demais para processar a imagem. Tente novamente.",
+    );
   }
 
   private async refreshDesignLinks(accountId: string, current: CanvaDesign) {
@@ -451,7 +468,8 @@ export class CanvaService {
       { method: "GET", signal: AbortSignal.timeout(15_000) },
     );
     const payload = (await response.json().catch(() => ({}))) as DesignPayload;
-    if (!response.ok || !payload.design?.urls?.edit_url || !payload.design.urls.view_url) return current;
+    if (!response.ok || !payload.design?.urls?.edit_url || !payload.design.urls.view_url)
+      return current;
     const updated = {
       ...current,
       editUrl: payload.design.urls.edit_url,
@@ -488,18 +506,26 @@ export class CanvaService {
     }
     const active = this.refreshing.get(accountId);
     if (active) return active;
-    const refresh = this.refreshConnection(connection).finally(() => this.refreshing.delete(accountId));
+    const refresh = this.refreshConnection(connection).finally(() =>
+      this.refreshing.delete(accountId),
+    );
     this.refreshing.set(accountId, refresh);
     return refresh;
   }
 
   private async refreshConnection(connection: Connection) {
-    const token = await this.exchangeToken(new URLSearchParams({
-      grant_type: "refresh_token",
-      refresh_token: this.decrypt(connection.encryptedRefreshToken),
-    }));
+    const token = await this.exchangeToken(
+      new URLSearchParams({
+        grant_type: "refresh_token",
+        refresh_token: this.decrypt(connection.encryptedRefreshToken),
+      }),
+    );
     if (!token.access_token || !token.refresh_token) {
-      throw new CanvaError("CANVA_REFRESH_FAILED", 401, "A autorização do Canva expirou. Conecte novamente.");
+      throw new CanvaError(
+        "CANVA_REFRESH_FAILED",
+        401,
+        "A autorização do Canva expirou. Conecte novamente.",
+      );
     }
     const updated: Connection = {
       ...connection,
@@ -555,7 +581,11 @@ export class CanvaService {
     }
   }
 
-  private frontendRedirect(contentRequestId: string | null, status: "connected" | "error", message?: string) {
+  private frontendRedirect(
+    contentRequestId: string | null,
+    status: "connected" | "error",
+    message?: string,
+  ) {
     const base = (this.options.webUrl || "http://localhost:5173").replace(/\/$/, "");
     const url = new URL("/app/content", base);
     if (contentRequestId) url.searchParams.set("open", contentRequestId);
@@ -593,7 +623,9 @@ export class CanvaService {
   }
 
   private get encryptionKey() {
-    return createHash("sha256").update(this.options.encryptionSecret || "disabled").digest();
+    return createHash("sha256")
+      .update(this.options.encryptionSecret || "disabled")
+      .digest();
   }
 
   private async saveState(record: OAuthState) {
@@ -698,7 +730,10 @@ export class CanvaService {
     return `${accountId}:${contentRequestId}`;
   }
 
-  private async loadDesign(accountId: string, contentRequestId: string): Promise<CanvaDesign | null> {
+  private async loadDesign(
+    accountId: string,
+    contentRequestId: string,
+  ): Promise<CanvaDesign | null> {
     if (this.pool) {
       const result = await this.pool.query<DesignRow>(
         `SELECT account_id,content_request_id,design_id,asset_id,edit_url,view_url,

@@ -27,7 +27,10 @@ function createProvider() {
 }
 
 function looksLikeUuid(value: unknown): value is string {
-  return typeof value === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+  return (
+    typeof value === "string" &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)
+  );
 }
 
 if (config.NODE_ENV === "production" && !config.DATABASE_URL) {
@@ -89,7 +92,8 @@ const videoApprovalPublisherGuard = new VideoApprovalPublisherGuard({
   databaseSsl: config.DATABASE_SSL,
 });
 app.addHook("preHandler", async (request, reply) => {
-  if (request.method !== "POST" || request.routeOptions.url !== "/api/v2/publisher/publications") return;
+  if (request.method !== "POST" || request.routeOptions.url !== "/api/v2/publisher/publications")
+    return;
   const videoProjectId = (request.body as { videoProjectId?: unknown } | null)?.videoProjectId;
   if (!looksLikeUuid(videoProjectId)) return;
   if (await videoApprovalPublisherGuard.canPublish(videoProjectId)) return;
@@ -138,19 +142,26 @@ await app.register(async (scope) => {
     publicWebUrl: config.PUBLIC_WEB_URL,
     instagramClientId: config.INSTAGRAM_CLIENT_ID,
     instagramClientSecret: config.INSTAGRAM_CLIENT_SECRET,
-    instagramRedirectUri: process.env.INSTAGRAM_PUBLISHER_REDIRECT_URI || "https://modo-api-3m10.onrender.com/api/v2/publisher/oauth/instagram/callback",
+    instagramRedirectUri:
+      process.env.INSTAGRAM_PUBLISHER_REDIRECT_URI ||
+      "https://modo-api-3m10.onrender.com/api/v2/publisher/oauth/instagram/callback",
     instagramScopes: config.INSTAGRAM_SCOPES,
     instagramEncryptionSecret: config.INSTAGRAM_TOKEN_ENCRYPTION_SECRET,
     instagramGraphBaseUrl: config.INSTAGRAM_GRAPH_BASE_URL,
     instagramApiVersion: config.INSTAGRAM_API_VERSION,
     facebookAppId: process.env.FACEBOOK_APP_ID,
     facebookAppSecret: process.env.FACEBOOK_APP_SECRET,
-    facebookRedirectUri: process.env.FACEBOOK_REDIRECT_URI || "https://modo-api-3m10.onrender.com/api/v2/publisher/oauth/facebook/callback",
+    facebookRedirectUri:
+      process.env.FACEBOOK_REDIRECT_URI ||
+      "https://modo-api-3m10.onrender.com/api/v2/publisher/oauth/facebook/callback",
     facebookApiVersion: process.env.FACEBOOK_API_VERSION || "v25.0",
     threadsAppId: process.env.THREADS_APP_ID,
     threadsAppSecret: process.env.THREADS_APP_SECRET,
-    threadsRedirectUri: process.env.THREADS_REDIRECT_URI || "https://modo-api-3m10.onrender.com/api/v2/publisher/oauth/threads/callback",
-    threadsScopes: process.env.THREADS_SCOPES || "threads_basic,threads_content_publish,threads_manage_insights",
+    threadsRedirectUri:
+      process.env.THREADS_REDIRECT_URI ||
+      "https://modo-api-3m10.onrender.com/api/v2/publisher/oauth/threads/callback",
+    threadsScopes:
+      process.env.THREADS_SCOPES || "threads_basic,threads_content_publish,threads_manage_insights",
     linkedinEncryptionSecret: config.LINKEDIN_TOKEN_ENCRYPTION_SECRET,
     linkedinApiVersion: config.LINKEDIN_API_VERSION,
   });
@@ -163,7 +174,9 @@ await app.register(async (scope) => {
     publicWebUrl: config.PUBLIC_WEB_URL,
     clientId: config.LINKEDIN_CLIENT_ID,
     clientSecret: config.LINKEDIN_CLIENT_SECRET,
-    redirectUri: process.env.LINKEDIN_PUBLISHER_REDIRECT_URI || "https://modo-api-3m10.onrender.com/api/v2/publisher/oauth/linkedin/callback",
+    redirectUri:
+      process.env.LINKEDIN_PUBLISHER_REDIRECT_URI ||
+      "https://modo-api-3m10.onrender.com/api/v2/publisher/oauth/linkedin/callback",
     scopes: config.LINKEDIN_SCOPES,
     encryptionSecret: config.LINKEDIN_TOKEN_ENCRYPTION_SECRET,
   });

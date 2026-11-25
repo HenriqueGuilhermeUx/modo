@@ -20,7 +20,10 @@ import {
   type ContentRequestCreate,
 } from "@modo/contracts/content";
 
-const API_URL = (process.env.EXPO_PUBLIC_API_URL || "https://modo-api-3m10.onrender.com").replace(/\/$/, "");
+const API_URL = (process.env.EXPO_PUBLIC_API_URL || "https://modo-api-3m10.onrender.com").replace(
+  /\/$/,
+  "",
+);
 
 export class MobileApiError extends Error {
   constructor(
@@ -44,7 +47,8 @@ async function request<T>(path: string, init?: RequestInit, token?: string): Pro
   });
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) {
-    const source = payload && typeof payload === "object" ? payload as Record<string, unknown> : {};
+    const source =
+      payload && typeof payload === "object" ? (payload as Record<string, unknown>) : {};
     throw new MobileApiError(
       String(source.message || "Não foi possível concluir a solicitação."),
       response.status,
@@ -55,17 +59,21 @@ async function request<T>(path: string, init?: RequestInit, token?: string): Pro
 }
 
 export async function login(input: LoginRequest): Promise<AuthSession> {
-  return AuthSessionSchema.parse(await request<unknown>("/api/v1/auth/business/login", {
-    method: "POST",
-    body: JSON.stringify(LoginRequestSchema.parse(input)),
-  }));
+  return AuthSessionSchema.parse(
+    await request<unknown>("/api/v1/auth/business/login", {
+      method: "POST",
+      body: JSON.stringify(LoginRequestSchema.parse(input)),
+    }),
+  );
 }
 
 export async function register(input: RegisterRequest): Promise<AuthSession> {
-  return AuthSessionSchema.parse(await request<unknown>("/api/v1/auth/business/register", {
-    method: "POST",
-    body: JSON.stringify(RegisterRequestSchema.parse(input)),
-  }));
+  return AuthSessionSchema.parse(
+    await request<unknown>("/api/v1/auth/business/register", {
+      method: "POST",
+      body: JSON.stringify(RegisterRequestSchema.parse(input)),
+    }),
+  );
 }
 
 export async function logout(token: string) {
@@ -77,10 +85,16 @@ export async function getDashboard(token: string): Promise<Dashboard> {
 }
 
 export async function createBrand(token: string, input: BrandCreateRequest): Promise<Brand> {
-  return BrandSchema.parse(await request<unknown>("/api/v1/brands", {
-    method: "POST",
-    body: JSON.stringify(BrandCreateRequestSchema.parse(input)),
-  }, token));
+  return BrandSchema.parse(
+    await request<unknown>(
+      "/api/v1/brands",
+      {
+        method: "POST",
+        body: JSON.stringify(BrandCreateRequestSchema.parse(input)),
+      },
+      token,
+    ),
+  );
 }
 
 export async function listContent(token: string): Promise<ContentRequest[]> {

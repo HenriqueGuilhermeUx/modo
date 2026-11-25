@@ -17,16 +17,22 @@ export default function VideoWorkspaceV18() {
 
   useEffect(() => {
     let active = true;
-    void getLatestVideoProject(contentRequestId).then((value) => {
-      if (active) setProject(value);
-    }).catch(() => undefined);
-    return () => { active = false; };
+    void getLatestVideoProject(contentRequestId)
+      .then((value) => {
+        if (active) setProject(value);
+      })
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
   }, [contentRequestId]);
 
   useEffect(() => {
     if (!project || !["queued", "rendering"].includes(project.status)) return;
     const timer = window.setInterval(() => {
-      void getVideoProject(project.id).then(setProject).catch(() => undefined);
+      void getVideoProject(project.id)
+        .then(setProject)
+        .catch(() => undefined);
     }, 2500);
     return () => window.clearInterval(timer);
   }, [project?.id, project?.status]);
@@ -58,14 +64,22 @@ export default function VideoWorkspaceV18() {
       const copy = document.querySelector<HTMLElement>(".video-hero p");
       if (kicker) kicker.textContent = "MODO VIDEO · FIRST CUT V1.8";
       if (title) title.textContent = "Do objetivo ao Reel que já nasce editado.";
-      if (copy) copy.textContent = "A MODO transforma a estratégia em primeiro corte completo — cenas, imagens e B-roll, narração, trilha, legendas, ritmo e transições. Você só dirige as exceções.";
+      if (copy)
+        copy.textContent =
+          "A MODO transforma a estratégia em primeiro corte completo — cenas, imagens e B-roll, narração, trilha, legendas, ritmo e transições. Você só dirige as exceções.";
 
       const runtimeTitle = document.querySelector<HTMLElement>(".video-runtime-note strong");
       const runtimeCopy = document.querySelector<HTMLElement>(".video-runtime-note p");
-      if (runtimeTitle) runtimeTitle.textContent = "V1.8: a MODO entrega o primeiro corte; você intervém onde quiser.";
-      if (runtimeCopy) runtimeCopy.textContent = "Direção estética automática, Quality Gate, Media Lab, takes, narração, trilha, ritmo e transições trabalham juntos. Trocar o perfil global não gera nova mídia.";
+      if (runtimeTitle)
+        runtimeTitle.textContent =
+          "V1.8: a MODO entrega o primeiro corte; você intervém onde quiser.";
+      if (runtimeCopy)
+        runtimeCopy.textContent =
+          "Direção estética automática, Quality Gate, Media Lab, takes, narração, trilha, ritmo e transições trabalham juntos. Trocar o perfil global não gera nova mídia.";
 
-      const storyboardKicker = document.querySelector<HTMLElement>(".video-storyboard .video-section-heading > small");
+      const storyboardKicker = document.querySelector<HTMLElement>(
+        ".video-storyboard .video-section-heading > small",
+      );
       if (storyboardKicker) storyboardKicker.textContent = "STORYBOARD · FIRST CUT V1.8";
     }, 0);
     return () => window.clearTimeout(timer);
@@ -74,19 +88,23 @@ export default function VideoWorkspaceV18() {
   return (
     <>
       <VideoWorkspace />
-      {target && project && createPortal(
-        <>
-          {error && <div className="portal-error">{error}</div>}
-          <VideoFirstCutPanel project={project} onProject={setProject} onError={setError} />
-          {import.meta.env.VITE_HYPERFRAMES_PREVIEW_ENABLED === "true" && (
-            <HyperframesExperimentalPreview project={project} />
-          )}
-          <div className="video-v18-commercial-proof">
-            <strong>Você não começa numa timeline vazia.</strong> A MODO produz o primeiro corte e mantém o controle granular: trocar uma cena, usar mídia própria, recuperar um take e aprovar só o que estiver certo.
-          </div>
-        </>,
-        target,
-      )}
+      {target &&
+        project &&
+        createPortal(
+          <>
+            {error && <div className="portal-error">{error}</div>}
+            <VideoFirstCutPanel project={project} onProject={setProject} onError={setError} />
+            {import.meta.env.VITE_HYPERFRAMES_PREVIEW_ENABLED === "true" && (
+              <HyperframesExperimentalPreview project={project} />
+            )}
+            <div className="video-v18-commercial-proof">
+              <strong>Você não começa numa timeline vazia.</strong> A MODO produz o primeiro corte e
+              mantém o controle granular: trocar uma cena, usar mídia própria, recuperar um take e
+              aprovar só o que estiver certo.
+            </div>
+          </>,
+          target,
+        )}
     </>
   );
 }

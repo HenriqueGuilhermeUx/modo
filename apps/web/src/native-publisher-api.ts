@@ -23,7 +23,8 @@ async function request(path: string, init?: RequestInit) {
   if (init?.body) headers.set("content-type", "application/json");
   const response = await fetch(`${API_URL}${path}`, { ...init, headers });
   const payload = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(payload.message || "Não foi possível concluir a operação no Publisher.");
+  if (!response.ok)
+    throw new Error(payload.message || "Não foi possível concluir a operação no Publisher.");
   return payload;
 }
 
@@ -74,7 +75,10 @@ export async function importLinkedInConnection(brandId: string): Promise<NativeC
   return NativeConnectionSchema.parse(payload.connection);
 }
 
-export async function startNativeConnection(provider: "instagram" | "facebook" | "threads" | "linkedin", brandId: string) {
+export async function startNativeConnection(
+  provider: "instagram" | "facebook" | "threads" | "linkedin",
+  brandId: string,
+) {
   return request(`/api/v2/publisher/connect/${provider}`, {
     method: "POST",
     body: JSON.stringify({ brandId }),
@@ -88,7 +92,14 @@ export async function getNativeQuality(contentRequestId: string) {
     publishAllowed: boolean;
     blockers: string[];
     warnings: string[];
-    checks: Array<{ key: string; label: string; score: number; maxScore: number; status: string; message: string }>;
+    checks: Array<{
+      key: string;
+      label: string;
+      score: number;
+      maxScore: number;
+      status: string;
+      message: string;
+    }>;
   }>;
 }
 
@@ -106,7 +117,10 @@ export async function createNativePublication(input: {
     method: "POST",
     body: JSON.stringify(input),
   });
-  return { publication: NativePublicationSchema.parse(payload.publication), quality: payload.quality };
+  return {
+    publication: NativePublicationSchema.parse(payload.publication),
+    quality: payload.quality,
+  };
 }
 
 export async function listNativePublications(brandId?: string): Promise<NativePublication[]> {
@@ -116,33 +130,55 @@ export async function listNativePublications(brandId?: string): Promise<NativePu
 }
 
 export async function cancelNativePublication(id: string): Promise<NativePublication> {
-  const payload = await request(`/api/v2/publisher/publications/${encodeURIComponent(id)}/cancel`, { method: "POST", body: "{}" });
+  const payload = await request(`/api/v2/publisher/publications/${encodeURIComponent(id)}/cancel`, {
+    method: "POST",
+    body: "{}",
+  });
   return NativePublicationSchema.parse(payload.publication);
 }
 
 export async function retryNativePublication(id: string): Promise<NativePublication> {
-  const payload = await request(`/api/v2/publisher/publications/${encodeURIComponent(id)}/retry`, { method: "POST", body: "{}" });
+  const payload = await request(`/api/v2/publisher/publications/${encodeURIComponent(id)}/retry`, {
+    method: "POST",
+    body: "{}",
+  });
   return NativePublicationSchema.parse(payload.publication);
 }
 
 export async function refreshNativeAnalytics(id: string): Promise<NativeAnalyticsSnapshot> {
-  const payload = await request(`/api/v2/publisher/publications/${encodeURIComponent(id)}/analytics/refresh`, { method: "POST", body: "{}" });
+  const payload = await request(
+    `/api/v2/publisher/publications/${encodeURIComponent(id)}/analytics/refresh`,
+    { method: "POST", body: "{}" },
+  );
   return NativeAnalyticsSnapshotSchema.parse(payload.snapshot);
 }
 
 export async function getNativeAnalytics(id: string): Promise<NativeAnalyticsSnapshot[]> {
-  const payload = await request(`/api/v2/publisher/publications/${encodeURIComponent(id)}/analytics`);
+  const payload = await request(
+    `/api/v2/publisher/publications/${encodeURIComponent(id)}/analytics`,
+  );
   return z.array(NativeAnalyticsSnapshotSchema).parse(payload.snapshots);
 }
 
-export async function getNativeBrandInsight(brandId: string, days = 30): Promise<NativeBrandInsight> {
-  return NativeBrandInsightSchema.parse(await request(`/api/v2/publisher/brands/${encodeURIComponent(brandId)}/insights?days=${days}`));
+export async function getNativeBrandInsight(
+  brandId: string,
+  days = 30,
+): Promise<NativeBrandInsight> {
+  return NativeBrandInsightSchema.parse(
+    await request(`/api/v2/publisher/brands/${encodeURIComponent(brandId)}/insights?days=${days}`),
+  );
 }
 
-export async function getNativeCalendar(brandId: string, from?: string, to?: string): Promise<NativeCalendarItem[]> {
+export async function getNativeCalendar(
+  brandId: string,
+  from?: string,
+  to?: string,
+): Promise<NativeCalendarItem[]> {
   const query = new URLSearchParams();
   if (from) query.set("from", from);
   if (to) query.set("to", to);
-  const payload = await request(`/api/v2/publisher/brands/${encodeURIComponent(brandId)}/calendar${query.size ? `?${query}` : ""}`);
+  const payload = await request(
+    `/api/v2/publisher/brands/${encodeURIComponent(brandId)}/calendar${query.size ? `?${query}` : ""}`,
+  );
   return z.array(NativeCalendarItemSchema).parse(payload.items);
 }

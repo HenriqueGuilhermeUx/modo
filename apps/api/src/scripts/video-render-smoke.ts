@@ -74,7 +74,8 @@ function createInputProps(imageUrl: string) {
         endFrame: 450,
         headline: "A estratégia vira vídeo.",
         visual: "Asset enquadrado pelo Media Lab dentro da direção dinâmica V1.8.",
-        caption: "Smoke real do renderer Remotion em H.264 com First Cut, enquadramento, direção visual e áudio.",
+        caption:
+          "Smoke real do renderer Remotion em H.264 com First Cut, enquadramento, direção visual e áudio.",
         imageUrl,
         videoUrl: null,
         visualType: "generated_image",
@@ -129,7 +130,9 @@ async function main() {
       inputProps,
     });
 
-    console.log(`[MODO Video] Renderizando ${SMOKE_FRAMES} frames reais em H.264 com First Cut, áudio, soundtrack e Media Lab...`);
+    console.log(
+      `[MODO Video] Renderizando ${SMOKE_FRAMES} frames reais em H.264 com First Cut, áudio, soundtrack e Media Lab...`,
+    );
     await renderMedia({
       composition,
       serveUrl,
@@ -144,7 +147,9 @@ async function main() {
 
     const data = await readFile(outputLocation);
     assertMp4(data);
-    console.log(`[MODO Video] Smoke OK: MP4 H.264 V1.8 válido com perfil dinâmico, locução, soundtrack e Media Lab (${data.length} bytes).`);
+    console.log(
+      `[MODO Video] Smoke OK: MP4 H.264 V1.8 válido com perfil dinâmico, locução, soundtrack e Media Lab (${data.length} bytes).`,
+    );
   } finally {
     await new Promise<void>((resolve) => server.close(() => resolve())).catch(() => undefined);
     await rm(workdir, { recursive: true, force: true }).catch(() => undefined);

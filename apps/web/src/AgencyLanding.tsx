@@ -1,62 +1,31 @@
 const agencyPlans = [
   {
-    slug: "professional",
-    name: "Professional",
-    price: "199",
-    audience: "Para social medias e publicitários independentes.",
-    clients: "Até 5 clientes",
-    features: [
-      "1 cérebro de marketing por cliente",
-      "Criação com contexto e memória",
-      "Instagram, Facebook e LinkedIn",
-      "Calendário e publicação",
-      "Aprovação organizada",
-      "Uso individual",
-    ],
-  },
-  {
-    slug: "studio",
-    name: "Studio",
-    price: "499",
-    audience: "Para microagências e operações enxutas.",
-    clients: "Até 15 clientes",
+    slug: "agency_professional",
+    name: "MODO Agência",
+    price: "397",
+    audience: "Para social medias e agências pequenas.",
+    clients: "5 marcas incluídas",
     featured: true,
     features: [
-      "Tudo do Professional",
-      "Até 15 clientes ativos",
+      "Tudo do MODO Presença para cada marca",
+      "24 peças e 4 Reels por marca/mês",
       "Clientes separados por workspace",
-      "Portal externo de aprovação",
-      "Performance por marca",
-      "Gestão central da operação",
-    ],
-  },
-  {
-    slug: "agency",
-    name: "Agency",
-    price: "999",
-    audience: "Para operações com carteira ativa e escala.",
-    clients: "Até 40 clientes",
-    features: [
-      "Tudo do Studio",
-      "Até 40 clientes ativos",
-      "Operação multi-cliente",
-      "Gestão de conexões sociais",
-      "Visão executiva por carteira",
-      "Prioridade de suporte",
+      "Aprovação do cliente por link",
+      "Vários usuários",
+      "Marca extra: R$ 59/mês",
     ],
   },
   {
     slug: "agency-pro",
-    name: "Agency Pro",
+    name: "Agência sob medida",
     price: "Sob consulta",
-    audience: "Para estruturas maiores que precisam de implantação assistida.",
-    clients: "40+ clientes",
+    audience: "Para carteiras maiores que precisam de implantação assistida.",
+    clients: "Mais de 15 marcas",
     features: [
-      "Capacidade acima de 40 clientes",
+      "Capacidade acima do plano Agência",
       "Implantação assistida",
       "Configuração da operação",
       "Condições comerciais personalizadas",
-      "Prioridade de implantação",
       "Escopo definido em proposta",
     ],
   },
@@ -126,7 +95,7 @@ function Logo() {
   return <img className="agency-logo" src="/logo.svg" alt="MODO" />;
 }
 
-function startAgency(plan = "studio") {
+function startAgency(plan = "agency_professional") {
   window.sessionStorage.setItem("modo.accountMode", "agency");
   window.sessionStorage.setItem("modo.agency.selectedPlan", plan);
   window.location.href = `/app?mode=agency&plan=${encodeURIComponent(plan)}`;

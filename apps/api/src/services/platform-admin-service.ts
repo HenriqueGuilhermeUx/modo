@@ -19,6 +19,11 @@ import type {
 import { createHash, randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
 import pg, { type Pool } from "pg";
 
+/** Preço por plano para a estimativa de MRR, vindo do contrato (slugs fixos e inteiros: seguro em SQL). */
+const PLAN_PRICE_CASES = Object.entries(planEntitlements)
+  .map(([slug, plan]) => `WHEN '${slug}' THEN ${Math.trunc(plan.priceCents)}`)
+  .join(" ");
+
 const { Pool: PgPool } = pg;
 
 interface Options {
@@ -340,7 +345,7 @@ export class PlatformAdminService {
         (SELECT COUNT(*)::int FROM modo_admin_invitations WHERE status='open' AND expires_at>NOW()) AS invitations_open,
         (SELECT COUNT(*)::int FROM modo_discount_campaigns WHERE active=TRUE AND starts_at<=NOW() AND ends_at>NOW()) AS campaigns_active,
         COALESCE((SELECT SUM(CASE plan_slug
-          WHEN 'start' THEN 9900 WHEN 'presenca' THEN 19900 WHEN 'pro' THEN 39900 WHEN 'business' THEN 79000 ELSE 0 END)::int
+          ${PLAN_PRICE_CASES} ELSE 0 END)::int
           FROM modo_subscriptions WHERE status IN ('active','retrying')),0) AS estimated_mrr_cents,
         COALESCE((SELECT COUNT(*)::int FROM modo_payment_events WHERE event_type='PIX_AUTOMATIC_COBR_COMPLETED'),0) AS payments_received
     `);

@@ -127,11 +127,17 @@ export const ContentUnitTypeSchema = z.enum([
 ]);
 export type ContentUnitType = z.infer<typeof ContentUnitTypeSchema>;
 
+/**
+ * Unidade de valor dos planos: 1 peça = 1 crédito (post, story, carrossel ou
+ * adaptação). Reels também custam 1 crédito, mas têm cota própria por plano
+ * (maxShortVideoScriptsPerMonth). Por isso os créditos de cada plano são
+ * "peças + Reels".
+ */
 export const contentCreditCost: Record<ContentUnitType, number> = {
   static_post: 1,
   story: 1,
-  carousel: 2,
-  short_video_script: 2,
+  carousel: 1,
+  short_video_script: 1,
   channel_adaptation: 1,
 };
 
@@ -164,32 +170,35 @@ export const planEntitlements: Record<PlanSlug, PlanEntitlement> = {
     analytics: false,
     customApprovalFlows: false,
   },
+  // MODO Essencial: 12 peças + 1 Reel por mês, 1 marca, 2 redes.
   start: {
-    priceCents: 4900,
-    monthlyCredits: 4,
+    priceCents: 9700,
+    monthlyCredits: 13,
     maxBrands: 1,
     maxChannels: 2,
     maxUsers: 1,
-    maxCarouselsPerMonth: 1,
+    maxCarouselsPerMonth: 12,
     maxShortVideoScriptsPerMonth: 1,
     includedRevisionCycles: 1,
-    scheduling: false,
+    scheduling: true,
     analytics: false,
     customApprovalFlows: false,
   },
+  // MODO Presença (plano principal): 24 peças + 4 Reels, 1 marca, 4 redes, relatório mensal.
   presenca: {
-    priceCents: 9900,
-    monthlyCredits: 10,
+    priceCents: 19700,
+    monthlyCredits: 28,
     maxBrands: 1,
-    maxChannels: 3,
+    maxChannels: 4,
     maxUsers: 1,
-    maxCarouselsPerMonth: 4,
-    maxShortVideoScriptsPerMonth: 2,
+    maxCarouselsPerMonth: 24,
+    maxShortVideoScriptsPerMonth: 4,
     includedRevisionCycles: 2,
     scheduling: true,
     analytics: true,
     customApprovalFlows: false,
   },
+  // Planos fora da vitrine desde a fase 1 (sem assinantes). Mantidos para não quebrar fluxos internos.
   pro: {
     priceCents: 19900,
     monthlyCredits: 24,
@@ -216,18 +225,19 @@ export const planEntitlements: Record<PlanSlug, PlanEntitlement> = {
     analytics: true,
     customApprovalFlows: true,
   },
+  // MODO Agência: tudo do Presença por marca, 5 marcas, aprovação do cliente por link, vários usuários.
   agency_professional: {
-    priceCents: 19900,
-    monthlyCredits: 60,
+    priceCents: 39700,
+    monthlyCredits: 140,
     maxBrands: 5,
     maxChannels: 20,
-    maxUsers: 1,
-    maxCarouselsPerMonth: 20,
-    maxShortVideoScriptsPerMonth: 15,
+    maxUsers: 5,
+    maxCarouselsPerMonth: 120,
+    maxShortVideoScriptsPerMonth: 20,
     includedRevisionCycles: 3,
     scheduling: true,
     analytics: true,
-    customApprovalFlows: false,
+    customApprovalFlows: true,
   },
   agency_studio: {
     priceCents: 49900,

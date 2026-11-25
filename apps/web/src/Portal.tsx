@@ -16,7 +16,7 @@ const planNames: Record<Dashboard["usage"]["plan"], string> = {
   presenca: "MODO Presença",
   pro: "MODO Pro",
   business: "MODO Business",
-  agency_professional: "MODO Agency Professional",
+  agency_professional: "MODO Agência",
   agency_studio: "MODO Agency Studio",
   agency: "MODO Agency",
 };

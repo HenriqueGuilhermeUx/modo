@@ -9,7 +9,7 @@ import { colors, radii, spacing } from "../../src/theme";
 
 const planLabels = {
   trial: "Teste gratuito",
-  start: "MODO Começar",
+  start: "MODO Essencial",
   presenca: "MODO Presença",
   pro: "MODO Crescer",
   business: "MODO Business",

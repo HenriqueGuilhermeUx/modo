@@ -25,7 +25,7 @@ const stageCopy: Record<DiagnosticJob["stage"], string> = {
 };
 
 type PricingPlan = {
-  slug: "start" | "presenca" | "pro";
+  slug: "start" | "presenca" | "agency_professional";
   name: string;
   price: string;
   audience: string;

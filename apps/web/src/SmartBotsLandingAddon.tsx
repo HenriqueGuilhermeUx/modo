@@ -1,3 +1,5 @@
+// Congelado na fase 1 do roadmap: fora da landing (SmartBots não faz parte dos planos atuais).
+// Mantido para reativar se o SmartBots voltar como acessório pago.
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 

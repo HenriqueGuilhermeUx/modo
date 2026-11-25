@@ -7,7 +7,6 @@ import { captureLead } from "./api";
 import DiagnosticImpactResult from "./DiagnosticImpactResult";
 import IntelligenceLandingAddon from "./IntelligenceLandingAddon";
 import ProductPathGuideAddon from "./ProductPathGuideAddon";
-import SmartBotsLandingAddon from "./SmartBotsLandingAddon";
 import VideoLandingAddon from "./VideoLandingAddon";
 
 const CACHE_KEY = "modo.lastDiagnostic";
@@ -97,7 +96,6 @@ export default function ImpactLanding() {
       <AgencyEntryAddon />
       <ProductPathGuideAddon mode="public" />
       <IntelligenceLandingAddon />
-      <SmartBotsLandingAddon />
       <VideoLandingAddon />
       {target &&
         result &&

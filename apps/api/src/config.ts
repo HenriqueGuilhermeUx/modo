@@ -30,7 +30,7 @@ const ConfigSchema = z
       z.string().url().default("http://localhost:5173"),
     ),
     ALLOWED_ORIGINS: z.preprocess(emptyToUndefined, z.string().default("http://localhost:5173")),
-    DIAGNOSTIC_PROVIDER: z.enum(["demo", "n8n"]).default("demo"),
+    DIAGNOSTIC_PROVIDER: z.enum(["demo", "n8n", "openai"]).default("demo"),
     DEMO_DIAGNOSTIC_DELAY_MS: z.coerce.number().int().nonnegative().default(2600),
     N8N_DIAGNOSTIC_WEBHOOK_URL: optionalTrimmedString,
     N8N_WEBHOOK_SECRET: optionalTrimmedString,
@@ -144,6 +144,14 @@ const ConfigSchema = z
           message: "Informe um segredo quando DIAGNOSTIC_PROVIDER=n8n.",
         });
       }
+    }
+
+    if (values.DIAGNOSTIC_PROVIDER === "openai" && !values.OPENAI_API_KEY) {
+      context.addIssue({
+        code: "custom",
+        path: ["OPENAI_API_KEY"],
+        message: "Informe OPENAI_API_KEY quando DIAGNOSTIC_PROVIDER=openai.",
+      });
     }
 
     if (values.INTELLIGENCE_PROVIDER === "apify" && !values.APIFY_API_TOKEN) {

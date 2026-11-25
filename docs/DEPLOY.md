@@ -6,7 +6,7 @@ O repositório inclui `render.yaml`.
 
 1. Crie um Blueprint no Render e selecione o repositório.
 2. Defina `ALLOWED_ORIGINS` com a URL final do Netlify.
-3. Mantenha `DIAGNOSTIC_PROVIDER=demo` até o workflow estar pronto.
+3. Para o MODO Scan real, use `DIAGNOSTIC_PROVIDER=openai` (exige `OPENAI_API_KEY`). `demo` usa só regras fixas.
 4. Publique e valide `/health`.
 
 Build:
@@ -84,6 +84,17 @@ curl -X POST https://modo-api-3m10.onrender.com/api/v1/billing/accounts/marca_de
   -H "content-type: application/json" \
   -d '{"contentType":"carousel","referenceId":"carousel_demo_001"}'
 ```
+
+## MODO Scan com OpenAI
+
+```env
+DIAGNOSTIC_PROVIDER=openai
+OPENAI_API_KEY=sk-...
+# opcional, padrão gpt-5-mini
+OPENAI_TEXT_MODEL=gpt-5-mini
+```
+
+O provedor lê o site público, pede à OpenAI um diagnóstico estruturado (JSON Schema estrito) e valida o resultado. Se a chave faltar, o site não puder ser lido, a OpenAI falhar ou a resposta vier inválida, ele devolve o diagnóstico por regras (o mesmo do `demo`) e registra `[modo-scan]` no log. `/health` mostra `diagnosticProvider: "openai"`.
 
 ## n8n depois
 

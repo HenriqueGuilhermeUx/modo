@@ -56,6 +56,8 @@ export const DiagnosticResultSchema = z.object({
     recommendation: z.string(),
   }),
   campaigns: z.array(CampaignSchema).length(3),
+  /** true quando o texto público do site foi lido; false quando o diagnóstico usou só o segmento. */
+  sourceRead: z.boolean().optional(),
 });
 export type DiagnosticResult = z.infer<typeof DiagnosticResultSchema>;
 

@@ -9,3 +9,6 @@ coverage
 .DS_Store
 *.log
 .runtime/
+
+# build temporário da pré-renderização da landing
+**/dist-prerender

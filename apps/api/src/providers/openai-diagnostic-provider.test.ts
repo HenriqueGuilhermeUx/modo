@@ -100,6 +100,7 @@ describe("OpenAiDiagnosticProvider", () => {
     const result = await provider.generate(input);
 
     expect(result.brandSummary.name).toBe("Clínica Exemplo");
+    expect(result.sourceRead).toBe(true);
     expect(fetchImpl).toHaveBeenCalledTimes(1);
     const [url, init] = fetchImpl.mock.calls[0] as unknown as [string, RequestInit];
     expect(url).toBe("https://api.openai.com/v1/responses");
@@ -164,6 +165,7 @@ describe("OpenAiDiagnosticProvider", () => {
     const result = await provider.generate(input);
     expect(fetchImpl).not.toHaveBeenCalled();
     expect(DiagnosticResultSchema.safeParse(result).success).toBe(true);
+    expect(result.sourceRead).toBe(false);
   });
 
   it("does not call OpenAI without an API key", async () => {

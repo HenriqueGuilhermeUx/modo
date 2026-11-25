@@ -141,7 +141,7 @@ export function toDiagnosticResult(raw: unknown): DiagnosticResult {
       ? (campaign.hashtags as string[]).map(normalizeHashtag).filter(Boolean).slice(0, 6)
       : [],
   }));
-  return DiagnosticResultSchema.parse({ ...(raw as object), campaigns });
+  return DiagnosticResultSchema.parse({ ...(raw as object), campaigns, sourceRead: true });
 }
 
 /**

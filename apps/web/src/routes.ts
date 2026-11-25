@@ -134,27 +134,41 @@ export function resolveRoute(ctx: RouteContext): RouteKey {
   return "landing";
 }
 
-/** Atalhos exibidos no Portal (área /app). */
+/**
+ * Atalhos exibidos no Portal (área /app), na ordem do ciclo semanal:
+ * memória da marca → plano da semana → criar → aprovar/publicar → aprender.
+ *
+ * Fase 1 do roadmap (Foco): o menu mostra só o ciclo. As áreas abaixo saíram
+ * do menu mas as rotas continuam funcionando por URL (congeladas, não
+ * removidas): Campanhas, Anunciar & converter (/app/demand), Prospector
+ * (volta na fase 3 como acessório pago "Busca de clientes"), LinkedIn
+ * (coberto pelo Publisher), Integrações (Postiz/Metricool/Canva),
+ * Inteligência, SmartBots, Signal e Quick Start (unifica em "Criar").
+ */
 export const PORTAL_SHORTCUTS: ReadonlyArray<{
   href: string;
   label: string;
   kind: "plan" | "workspace";
 }> = [
   { href: "/app/onboarding", label: "Primeiros passos", kind: "plan" },
-  { href: "/app/base", label: "Base estratégica", kind: "plan" },
   { href: "/app/week", label: "Minha semana", kind: "plan" },
   { href: "/app/director", label: "Meu próximo movimento", kind: "plan" },
-  { href: "/app/campanhas", label: "Campanhas", kind: "plan" },
-  { href: "/app/demand", label: "Anunciar & converter", kind: "plan" },
-  { href: "/app/conexoes", label: "Conectar contas", kind: "plan" },
-  { href: "/app/prospector", label: "Prospector", kind: "plan" },
+  { href: "/app/base", label: "Memória da marca", kind: "plan" },
+  { href: "/app/criar", label: "Criar ↗", kind: "workspace" },
   { href: "/app/video", label: "MODO Video", kind: "plan" },
-  { href: "/app/publisher", label: "Publisher", kind: "plan" },
-  { href: "/app/linkedin", label: "LinkedIn", kind: "plan" },
-  { href: "/app/settings/integrations", label: "Integrações", kind: "plan" },
-  { href: "/app/inteligencia", label: "Inteligência", kind: "plan" },
-  { href: "/onboarding-smartbots.html", label: "SmartBots", kind: "plan" },
-  { href: "/app/signal", label: "Signal", kind: "plan" },
-  { href: "/app/criar", label: "Criar com MODO ↗", kind: "workspace" },
-  { href: "/app/content", label: "Quick Start ↗", kind: "workspace" },
+  { href: "/app/publisher", label: "Aprovar e publicar", kind: "plan" },
+  { href: "/app/conexoes", label: "Conectar contas", kind: "plan" },
+];
+
+/** Rotas que saíram do menu na fase 1, mas seguem acessíveis por URL. */
+export const FROZEN_FROM_MENU: ReadonlyArray<string> = [
+  "/app/campanhas",
+  "/app/demand",
+  "/app/prospector",
+  "/app/linkedin",
+  "/app/settings/integrations",
+  "/app/inteligencia",
+  "/onboarding-smartbots.html",
+  "/app/signal",
+  "/app/content",
 ];

@@ -41,7 +41,7 @@ const ConfigSchema = z
     OPENAI_API_KEY: optionalTrimmedString,
     OPENAI_ADS_API_KEY: optionalTrimmedString,
     OPENAI_TEXT_MODEL: z.preprocess(emptyToUndefined, z.string().default("gpt-5-mini")),
-    OPENAI_IMAGE_MODEL: z.preprocess(emptyToUndefined, z.string().default("gpt-image-1")),
+    OPENAI_IMAGE_MODEL: z.preprocess(emptyToUndefined, z.string().default("gpt-image-2")),
     VIDEO_IMAGE_MODEL: z.preprocess(emptyToUndefined, z.string().default("gpt-image-2")),
     VIDEO_IMAGE_QUALITY: z.enum(["low", "medium", "high"]).default("low"),
     PEXELS_API_KEY: optionalTrimmedString,

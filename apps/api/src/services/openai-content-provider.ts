@@ -7,6 +7,7 @@ import {
 } from "@modo/contracts/content";
 import { nicheTemplates, type NicheTemplate } from "@modo/contracts/niche-templates";
 import { ContentAssetService } from "./content-asset-service.js";
+import { recordCost, usageTokens } from "./cost-meter.js";
 import { formatCreativeContext, loadCreativeGenerationContext } from "./creative-context.js";
 
 interface OpenAiContentProviderOptions {
@@ -18,6 +19,7 @@ interface OpenAiContentProviderOptions {
 
 type OpenAiResponsePayload = {
   id?: string;
+  usage?: { input_tokens?: number; output_tokens?: number };
   output_text?: string;
   output?: Array<{
     content?: Array<{ type?: string; text?: string }>;
@@ -27,6 +29,7 @@ type OpenAiResponsePayload = {
 
 type OpenAiImagePayload = {
   data?: Array<{ b64_json?: string }>;
+  usage?: { input_tokens?: number; output_tokens?: number };
   error?: { message?: string };
 };
 
@@ -256,7 +259,8 @@ export class OpenAiContentProvider {
   constructor(options: OpenAiContentProviderOptions) {
     this.apiKey = options.apiKey;
     this.textModel = options.textModel || "gpt-5-mini";
-    this.imageModel = options.imageModel || "gpt-image-1";
+    // gpt-image-1 foi desligado pela OpenAI em 23/10/2026.
+    this.imageModel = options.imageModel || "gpt-image-2";
     this.assets = options.assets;
   }
 
@@ -278,6 +282,18 @@ export class OpenAiContentProvider {
       signal: AbortSignal.timeout(180_000),
     });
     const imagePayload = (await imageResponse.json()) as OpenAiImagePayload;
+    recordCost({
+      operation: "image",
+      purpose: `content_${request.contentType}`,
+      model: this.imageModel,
+      organizationId: request.organizationId,
+      reference: request.id,
+      quality: "medium",
+      size,
+      ok: imageResponse.ok,
+      error: imageResponse.ok ? undefined : imagePayload.error?.message?.slice(0, 200),
+      ...usageTokens(imagePayload.usage),
+    });
     if (!imageResponse.ok) {
       throw new Error(imagePayload.error?.message || `Falha de imagem (${imageResponse.status}).`);
     }
@@ -362,6 +378,16 @@ export class OpenAiContentProvider {
       signal: AbortSignal.timeout(90_000),
     });
     const textPayload = (await textResponse.json()) as OpenAiResponsePayload;
+    recordCost({
+      operation: "text",
+      purpose: `content_${request.contentType}`,
+      model: this.textModel,
+      organizationId: request.organizationId,
+      reference: request.id,
+      ok: textResponse.ok,
+      error: textResponse.ok ? undefined : textPayload.error?.message?.slice(0, 200),
+      ...usageTokens(textPayload.usage),
+    });
     if (!textResponse.ok) {
       throw new Error(textPayload.error?.message || `Falha de texto (${textResponse.status}).`);
     }

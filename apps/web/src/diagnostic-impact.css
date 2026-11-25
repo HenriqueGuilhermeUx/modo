@@ -38,6 +38,13 @@
 .impact-result-badge span {
   color: #0f9c70;
 }
+.impact-result-badge.is-unread {
+  border-color: #f3d9a4;
+  background: #fff8ea;
+}
+.impact-result-badge.is-unread span {
+  color: #b7791f;
+}
 .impact-diagnosis {
   display: grid;
   grid-template-columns: 76px 1fr;

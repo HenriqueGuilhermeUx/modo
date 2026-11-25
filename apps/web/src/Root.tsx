@@ -1,4 +1,5 @@
 import { lazy, Suspense, type ReactNode } from "react";
+import { prerenderedLanding } from "./prerender-snapshot";
 import { normalizePath, PORTAL_SHORTCUTS, resolveRoute, type RouteKey } from "./routes";
 const MobilePWA = lazy(() => import("./MobilePWA"));
 const CreativeEngineWorkspace = lazy(() => import("./CreativeEngineWorkspace"));
@@ -54,6 +55,11 @@ const VideoLabCommercial = lazy(() => import("./VideoLabCommercial"));
 const VideoWorkspace = lazy(() => import("./VideoWorkspaceV18"));
 const WeekWorkspace = lazy(() => import("./WeekWorkspace"));
 function RouteLoading() {
+  const snapshot = prerenderedLanding();
+  if (snapshot) {
+    // HTML pré-renderizado da landing: evita piscar o spinner enquanto o chunk carrega.
+    return <div style={{ display: "contents" }} dangerouslySetInnerHTML={{ __html: snapshot }} />;
+  }
   return (
     <main className="portal-loading">
       <img src="/logo.svg" alt="MODO" />

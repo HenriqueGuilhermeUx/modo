@@ -47,6 +47,8 @@ export default function DiagnosticImpactResult({
   onLeadSubmit,
   onActivate,
 }: Props) {
+  // Resultados antigos (sem o campo) eram sempre de site lido ou desconhecido.
+  const siteWasRead = result.sourceRead !== false;
   const firstCampaign = campaigns[0];
   const additionalCampaigns = campaigns.slice(1);
 
@@ -56,18 +58,38 @@ export default function DiagnosticImpactResult({
         <div className="impact-result-heading">
           <div>
             <div className="section-kicker">A MODO ENCONTROU</div>
-            <h2>
-              Existe uma oportunidade clara de ganhar mais atenção em{" "}
-              <strong>{result.brandSummary.name}</strong>.
-            </h2>
-            <p>
-              Você não receberá apenas uma análise. A MODO já transformou o que encontrou em ações
-              para publicar, demonstrar e vender melhor.
-            </p>
+            {siteWasRead ? (
+              <>
+                <h2>
+                  Existe uma oportunidade clara de ganhar mais atenção em{" "}
+                  <strong>{result.brandSummary.name}</strong>.
+                </h2>
+                <p>
+                  Você não receberá apenas uma análise. A MODO já transformou o que encontrou em
+                  ações para publicar, demonstrar e vender melhor.
+                </p>
+              </>
+            ) : (
+              <>
+                <h2>
+                  Não conseguimos ler o site de <strong>{result.brandSummary.name}</strong>.
+                </h2>
+                <p>
+                  As ideias abaixo partem só do segmento escolhido. Confira o endereço ou tente
+                  outra página com texto, como a página de serviços.
+                </p>
+              </>
+            )}
           </div>
-          <div className="impact-result-badge">
-            <span>✓</span> Site analisado
-          </div>
+          {siteWasRead ? (
+            <div className="impact-result-badge">
+              <span>✓</span> Site analisado
+            </div>
+          ) : (
+            <div className="impact-result-badge is-unread">
+              <span>!</span> Site não lido
+            </div>
+          )}
         </div>
 
         <section className="impact-action-plan">
@@ -77,8 +99,9 @@ export default function DiagnosticImpactResult({
               <h2>Três movimentos para colocar sua empresa em destaque.</h2>
             </div>
             <p>
-              Os temas abaixo foram escolhidos a partir do que a MODO encontrou no site — não são
-              uma lista genérica de ideias.
+              {siteWasRead
+                ? "Os temas abaixo foram escolhidos a partir do que a MODO encontrou no site — não são uma lista genérica de ideias."
+                : "Sem o texto do site, estes temas partem do segmento escolhido. Com o site legível, a análise fica específica."}
             </p>
           </div>
 

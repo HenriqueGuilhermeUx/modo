@@ -745,6 +745,7 @@ export function buildDiagnosticFromPage(
     },
     diagnosis,
     campaigns: campaignsFor(name, signals),
+    sourceRead,
   };
 }
 

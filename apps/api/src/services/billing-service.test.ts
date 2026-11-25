@@ -73,7 +73,7 @@ describe("BillingService", () => {
         contentType: "static_post",
         referenceId: "retry_post",
       }),
-    ).resolves.toMatchObject({ creditsRemaining: 3 });
+    ).resolves.toMatchObject({ creditsRemaining: 12 });
 
     const suspended = await service.setStatus("account_lifecycle", "suspended");
     expect(suspended.status).toBe("suspended");
@@ -90,17 +90,18 @@ describe("BillingService", () => {
     await service.initialize();
     await service.createOrUpdateDemoSubscription("account_limits", "start");
 
+    // Essencial inclui 1 Reel por mês: o segundo é bloqueado mesmo com créditos sobrando.
     await service.consume("account_limits", {
-      contentType: "carousel",
-      referenceId: "carousel_1",
+      contentType: "short_video_script",
+      referenceId: "reel_1",
     });
 
     await expect(
       service.consume("account_limits", {
-        contentType: "carousel",
-        referenceId: "carousel_2",
+        contentType: "short_video_script",
+        referenceId: "reel_2",
       }),
-    ).rejects.toMatchObject({ code: "CAROUSEL_LIMIT_REACHED" });
+    ).rejects.toMatchObject({ code: "VIDEO_SCRIPT_LIMIT_REACHED" });
   });
 
   it("blocks consumption when the monthly credit balance is exhausted", async () => {
@@ -108,7 +109,8 @@ describe("BillingService", () => {
     await service.initialize();
     await service.createOrUpdateDemoSubscription("account_balance", "start");
 
-    for (let index = 1; index <= 4; index += 1) {
+    // Essencial: 13 créditos (12 peças + 1 Reel).
+    for (let index = 1; index <= 13; index += 1) {
       await service.consume("account_balance", {
         contentType: "static_post",
         referenceId: `post_${index}`,
@@ -118,7 +120,7 @@ describe("BillingService", () => {
     await expect(
       service.consume("account_balance", {
         contentType: "static_post",
-        referenceId: "post_5",
+        referenceId: "post_14",
       }),
     ).rejects.toMatchObject({ code: "INSUFFICIENT_CREDITS" });
   });

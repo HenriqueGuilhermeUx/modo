@@ -14,11 +14,11 @@ const API_URL = (import.meta.env.VITE_API_URL || "http://localhost:4000").replac
 
 const planLabels: Record<string, string> = {
   trial: "Teste gratuito",
-  start: "MODO Começar",
+  start: "MODO Essencial",
   presenca: "MODO Presença",
   pro: "MODO Crescer",
   business: "MODO Business",
-  agency_professional: "MODO Agency Professional",
+  agency_professional: "MODO Agência",
   agency_studio: "MODO Agency Studio",
   agency: "MODO Agency",
 };

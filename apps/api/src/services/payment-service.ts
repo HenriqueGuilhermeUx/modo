@@ -8,11 +8,11 @@ const WOOVI_API = "https://api.woovi.com/api/v1";
 const REQUEST_TIMEOUT_MS = 20_000;
 
 const planNames: Record<PublicPlanSlug, string> = {
-  start: "MODO Começar",
+  start: "MODO Essencial",
   presenca: "MODO Presença",
   pro: "MODO Crescer",
   business: "MODO Business",
-  agency_professional: "MODO Agency Professional",
+  agency_professional: "MODO Agência",
   agency_studio: "MODO Agency Studio",
   agency: "MODO Agency",
 };

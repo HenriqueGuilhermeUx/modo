@@ -33,59 +33,59 @@ type PricingPlan = {
   limits: string[];
   cta: string;
   featured?: boolean;
+  /** Quando presente, o botão leva a esta página em vez de iniciar o checkout direto. */
+  href?: string;
 };
 
 const pricingPlans: PricingPlan[] = [
   {
     slug: "start",
-    name: "MODO Começar",
-    price: "49",
-    audience: "Para sair da tela em branco.",
-    description: "Direção, criação e uma rotina simples para começar a divulgar seu trabalho.",
+    name: "MODO Essencial",
+    price: "97",
+    audience: "Para o profissional liberal que está começando.",
+    description: "Seu plano da semana pronto, com 3 posts por semana para manter a constância.",
     limits: [
-      "4 créditos por mês",
-      "1 marca e até 2 canais",
-      "Posts, stories e 1 carrossel",
-      "1 Reel curto com MODO Video",
-      "Studio e exportação",
-      "1 ciclo de revisão",
+      "1 marca",
+      "Plano semanal",
+      "12 peças por mês",
+      "1 Reel por mês",
+      "Publicação em 2 redes",
     ],
-    cta: "Começar por R$ 49",
+    cta: "Começar com o Essencial",
   },
   {
     slug: "presenca",
     name: "MODO Presença",
-    price: "99",
-    audience: "Para publicar toda semana.",
-    description: "O plano principal para transformar divulgação em uma rotina que cabe na agenda.",
+    price: "197",
+    audience: "Para o pequeno negócio que quer constância.",
+    description:
+      "Toda segunda, a semana pronta: posts e Reels com a sua cara. Você aprova e a MODO publica.",
     limits: [
-      "10 créditos por mês",
-      "1 marca e até 3 canais",
-      "Posts, carrosséis e roteiros",
-      "Minha Semana e agendamento",
-      "2 Reels curtos com First Cut",
-      "2 ciclos de revisão",
-      "Signal e aprendizado",
+      "1 marca",
+      "Plano semanal",
+      "24 peças por mês",
+      "4 Reels por mês",
+      "Publicação em 4 redes",
+      "Relatório mensal do que funcionou",
     ],
     cta: "Ativar MODO Presença",
     featured: true,
   },
   {
-    slug: "pro",
-    name: "MODO Crescer",
-    price: "199",
-    audience: "Para quem já vende e quer avançar.",
-    description: "Mais campanhas, formatos e capacidade para gerar demanda com consistência.",
+    slug: "agency_professional",
+    name: "MODO Agência",
+    price: "397",
+    audience: "Para social medias e agências pequenas.",
+    description: "Tudo do Presença para cada cliente, com aprovação por link e vários usuários.",
     limits: [
-      "24 créditos por mês",
-      "Até 2 marcas e 4 canais",
-      "Campanhas coordenadas",
-      "Mais carrosséis e até 5 Reels",
-      "Agenda e publicação",
-      "3 ciclos de revisão",
-      "Insights orientados a resultado",
+      "5 marcas incluídas",
+      "Tudo do Presença por marca",
+      "Aprovação do cliente por link",
+      "Vários usuários",
+      "Marca extra: R$ 59/mês",
     ],
-    cta: "Escolher MODO Crescer",
+    cta: "Conhecer o plano Agência",
+    href: "/agency#planos",
   },
 ];
 
@@ -648,7 +648,9 @@ export default function App() {
                         ? "button button-primary button-full"
                         : "button button-outline button-full"
                     }
-                    onClick={() => activatePlan(plan.slug)}
+                    onClick={() =>
+                      plan.href ? (window.location.href = plan.href) : activatePlan(plan.slug)
+                    }
                   >
                     {plan.cta} ↗
                   </button>
@@ -656,8 +658,8 @@ export default function App() {
               ))}
             </div>
             <p className="fishing-business-note">
-              Precisa operar várias marcas, unidades ou usuários? O MODO Business continua
-              disponível sob consulta, sem desviar a experiência de quem está começando.
+              Precisa de mais? Reel extra por R$ 19. Os extras são contratados com o nosso time pelo
+              contato da MODO.
             </p>
           </div>
         </section>

@@ -29,11 +29,11 @@ type Tab = "overview" | "organizations" | "invitations" | "discounts";
 
 const planLabels: Record<PlanSlug, string> = {
   trial: "Teste",
-  start: "Start",
+  start: "Essencial",
   presenca: "Presença",
   pro: "Pro",
   business: "Business",
-  agency_professional: "Agency Professional",
+  agency_professional: "Agência",
   agency_studio: "Agency Studio",
   agency: "Agency",
 };

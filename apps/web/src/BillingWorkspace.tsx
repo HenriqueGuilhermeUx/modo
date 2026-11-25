@@ -15,27 +15,28 @@ import {
 } from "./api";
 
 const planNames: Record<PublicPlanSlug, string> = {
-  start: "MODO Começar",
+  start: "MODO Essencial",
   presenca: "MODO Presença",
   pro: "MODO Crescer",
   business: "MODO Business",
-  agency_professional: "MODO Professional",
+  agency_professional: "MODO Agência",
   agency_studio: "MODO Studio",
   agency: "MODO Agency",
 };
 
 const planDescriptions: Record<PublicPlanSlug, string> = {
-  start: "Para sair da tela em branco.",
-  presenca: "Para publicar toda semana.",
+  start: "12 peças e 1 Reel por mês, 2 redes.",
+  presenca: "24 peças e 4 Reels por mês, 4 redes e relatório mensal.",
   pro: "Para quem já vende e quer avançar.",
   business: "Para equipes e operações mais complexas.",
-  agency_professional: "Para social medias e publicitários independentes.",
+  agency_professional: "5 marcas, tudo do Presença por marca, aprovação por link.",
   agency_studio: "Para microagências e times enxutos.",
   agency: "Para operações com carteira ativa e escala.",
 };
 
-const directPlans: PublicPlanSlug[] = ["start", "presenca", "pro", "business"];
-const agencyPlans: PublicPlanSlug[] = ["agency_professional", "agency_studio", "agency"];
+// Fase 1: vitrine com três planos. Crescer, Business, Studio e Agency saíram da venda.
+const directPlans: PublicPlanSlug[] = ["start", "presenca"];
+const agencyPlans: PublicPlanSlug[] = ["agency_professional"];
 
 const statusLabels: Record<SubscriptionStatus, string> = {
   active: "Ativa",
@@ -72,7 +73,7 @@ export default function BillingWorkspace() {
     requestedPlan && allowedPlans.includes(requestedPlan as PublicPlanSlug)
       ? (requestedPlan as PublicPlanSlug)
       : agencyMode
-        ? "agency_studio"
+        ? "agency_professional"
         : "presenca";
   const homeHref = agencyMode ? "/app/agency" : "/app";
 
@@ -342,7 +343,7 @@ export default function BillingWorkspace() {
                     className={`billing-plan-card ${plan === slug ? "selected" : ""}`}
                     onClick={() => setPlan(slug)}
                   >
-                    {(agencyMode ? slug === "agency_studio" : slug === "presenca") && (
+                    {(agencyMode ? slug === "agency_professional" : slug === "presenca") && (
                       <em>Mais escolhido</em>
                     )}
                     <small>{planNames[slug]}</small>
@@ -352,7 +353,11 @@ export default function BillingWorkspace() {
                     </strong>
                     <p>{planDescriptions[slug]}</p>
                     <ul>
-                      <li>{item.monthlyCredits} créditos mensais</li>
+                      <li>
+                        {item.monthlyCredits - item.maxShortVideoScriptsPerMonth} peças +{" "}
+                        {item.maxShortVideoScriptsPerMonth} Reels por mês
+                        {agencyMode ? " (total da conta)" : ""}
+                      </li>
                       <li>
                         {item.maxBrands} {agencyMode ? "cliente(s)" : "marca(s)"}
                       </li>

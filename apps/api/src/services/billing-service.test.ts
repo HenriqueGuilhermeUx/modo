@@ -8,22 +8,22 @@ describe("BillingService", () => {
 
     const initial = await service.createOrUpdateDemoSubscription("account_test", "start");
     expect(initial.status).toBe("active");
-    expect(initial.creditsGranted).toBe(4);
-    expect(initial.creditsRemaining).toBe(4);
+    expect(initial.creditsGranted).toBe(13);
+    expect(initial.creditsRemaining).toBe(13);
 
     const first = await service.consume("account_test", {
       contentType: "carousel",
       referenceId: "content_carousel_1",
     });
-    expect(first.creditsUsed).toBe(2);
-    expect(first.creditsRemaining).toBe(2);
+    expect(first.creditsUsed).toBe(1);
+    expect(first.creditsRemaining).toBe(12);
     expect(first.usageByType.carousel).toBe(1);
 
     const duplicate = await service.consume("account_test", {
       contentType: "carousel",
       referenceId: "content_carousel_1",
     });
-    expect(duplicate.creditsUsed).toBe(2);
+    expect(duplicate.creditsUsed).toBe(1);
     expect(duplicate.usageByType.carousel).toBe(1);
   });
 
@@ -57,8 +57,8 @@ describe("BillingService", () => {
 
     expect(first.plan).toBe("presenca");
     expect(first.status).toBe("active");
-    expect(first.creditsGranted).toBe(10);
-    expect(duplicate.creditsGranted).toBe(10);
+    expect(first.creditsGranted).toBe(28);
+    expect(duplicate.creditsGranted).toBe(28);
   });
 
   it("keeps production available during retries and blocks it after suspension", async () => {

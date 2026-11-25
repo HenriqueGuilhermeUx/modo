@@ -10,7 +10,7 @@ const SUPPORT_EMAIL = "henriquecampos66@gmail.com";
 
 const planLabels = {
   trial: "Teste gratuito",
-  start: "MODO Começar",
+  start: "MODO Essencial",
   presenca: "MODO Presença",
   pro: "MODO Crescer",
   business: "MODO Business",

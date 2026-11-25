@@ -58,17 +58,21 @@ describe("DemoDiagnosticProvider evidence engine", () => {
     expect(nexjud.diagnosis.opportunity).toContain("resposta jurídica auditável");
     expect(nexa.diagnosis.opportunity).toContain("caminho do dinheiro e do risco");
 
-    expect(new Set([
-      sind.diagnosis.opportunity,
-      nexjud.diagnosis.opportunity,
-      nexa.diagnosis.opportunity,
-    ]).size).toBe(3);
+    expect(
+      new Set([
+        sind.diagnosis.opportunity,
+        nexjud.diagnosis.opportunity,
+        nexa.diagnosis.opportunity,
+      ]).size,
+    ).toBe(3);
 
-    expect(new Set([
-      sind.diagnosis.recommendation,
-      nexjud.diagnosis.recommendation,
-      nexa.diagnosis.recommendation,
-    ]).size).toBe(3);
+    expect(
+      new Set([
+        sind.diagnosis.recommendation,
+        nexjud.diagnosis.recommendation,
+        nexa.diagnosis.recommendation,
+      ]).size,
+    ).toBe(3);
 
     expect(sind.campaigns[0].title).toContain("convenção");
     expect(nexjud.campaigns[0].title).toContain("documento");

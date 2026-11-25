@@ -16,16 +16,22 @@ function decodeEntities(value: string) {
   };
   return value.replace(/&(#x?[0-9a-f]+|[a-z]+);/gi, (_match, entity: string) => {
     const normalized = entity.toLowerCase();
-    if (normalized.startsWith("#x")) return String.fromCodePoint(Number.parseInt(normalized.slice(2), 16));
-    if (normalized.startsWith("#")) return String.fromCodePoint(Number.parseInt(normalized.slice(1), 10));
+    if (normalized.startsWith("#x"))
+      return String.fromCodePoint(Number.parseInt(normalized.slice(2), 16));
+    if (normalized.startsWith("#"))
+      return String.fromCodePoint(Number.parseInt(normalized.slice(1), 10));
     return named[normalized] ?? " ";
   });
 }
 
 function cleanHtml(html: string) {
   const title = decodeEntities(
-    html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1]?.replace(/<[^>]+>/g, " ") ?? "Conteúdo da fonte",
-  ).replace(/\s+/g, " ").trim().slice(0, 300);
+    html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1]?.replace(/<[^>]+>/g, " ") ??
+      "Conteúdo da fonte",
+  )
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 300);
 
   const text = decodeEntities(
     html
@@ -68,7 +74,10 @@ async function readLimitedText(response: Response) {
   }
 }
 
-async function fetchSource(rawUrl: string, redirects = 0): Promise<{ response: Response; url: URL }> {
+async function fetchSource(
+  rawUrl: string,
+  redirects = 0,
+): Promise<{ response: Response; url: URL }> {
   if (redirects > MAX_REDIRECTS) throw new Error("O endereço fez redirecionamentos demais.");
   const url = await assertResolvedPublicHttpUrl(rawUrl);
   const response = await fetch(url, {
@@ -93,7 +102,11 @@ export async function extractPublicSource(rawUrl: string): Promise<SourceExtract
   if (!response.ok) throw new Error(`A fonte respondeu com o código ${response.status}.`);
 
   const contentType = (response.headers.get("content-type") || "").toLowerCase();
-  if (!contentType.includes("text/html") && !contentType.includes("text/plain") && !contentType.includes("application/xhtml+xml")) {
+  if (
+    !contentType.includes("text/html") &&
+    !contentType.includes("text/plain") &&
+    !contentType.includes("application/xhtml+xml")
+  ) {
     throw new Error("Neste momento, o Quick Start lê artigos, blogs, notícias e páginas de texto.");
   }
 

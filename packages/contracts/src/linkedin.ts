@@ -3,23 +3,25 @@ import { z } from "zod";
 export const LinkedInAuthorTypeSchema = z.enum(["member", "organization"]);
 export type LinkedInAuthorType = z.infer<typeof LinkedInAuthorTypeSchema>;
 
-export const LinkedInConnectRequestSchema = z.object({
-  authorType: LinkedInAuthorTypeSchema.default("member"),
-  organizationUrn: z
-    .string()
-    .trim()
-    .regex(/^urn:li:organization:\d+$/, "Informe uma URN de organização válida.")
-    .optional(),
-  organizationName: z.string().trim().min(2).max(160).optional(),
-}).superRefine((value, context) => {
-  if (value.authorType === "organization" && !value.organizationUrn) {
-    context.addIssue({
-      code: "custom",
-      path: ["organizationUrn"],
-      message: "Informe a URN da página da empresa.",
-    });
-  }
-});
+export const LinkedInConnectRequestSchema = z
+  .object({
+    authorType: LinkedInAuthorTypeSchema.default("member"),
+    organizationUrn: z
+      .string()
+      .trim()
+      .regex(/^urn:li:organization:\d+$/, "Informe uma URN de organização válida.")
+      .optional(),
+    organizationName: z.string().trim().min(2).max(160).optional(),
+  })
+  .superRefine((value, context) => {
+    if (value.authorType === "organization" && !value.organizationUrn) {
+      context.addIssue({
+        code: "custom",
+        path: ["organizationUrn"],
+        message: "Informe a URN da página da empresa.",
+      });
+    }
+  });
 export type LinkedInConnectRequest = z.infer<typeof LinkedInConnectRequestSchema>;
 
 export const LinkedInConnectResponseSchema = z.object({

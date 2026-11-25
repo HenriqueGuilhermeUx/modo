@@ -59,7 +59,10 @@ export default function PublisherWorkspace() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
 
-  const selectedBrand = useMemo(() => dashboard?.brands.find((brand) => brand.id === brandId) || null, [dashboard, brandId]);
+  const selectedBrand = useMemo(
+    () => dashboard?.brands.find((brand) => brand.id === brandId) || null,
+    [dashboard, brandId],
+  );
 
   async function load(targetBrandId?: string) {
     setLoading(true);
@@ -69,18 +72,23 @@ export default function PublisherWorkspace() {
         getPublisherHealth(),
         getLinkedInPublisherHealth().catch(() => null),
       ]);
-      const requested = targetBrandId || new URLSearchParams(window.location.search).get("brand") || currentDashboard.brands[0]?.id || "";
+      const requested =
+        targetBrandId ||
+        new URLSearchParams(window.location.search).get("brand") ||
+        currentDashboard.brands[0]?.id ||
+        "";
       setDashboard(currentDashboard);
       setHealth(currentHealth);
       setLinkedinHealth(currentLinkedInHealth);
       setBrandId(requested);
       if (requested) {
-        const [currentConnections, currentPublications, currentCalendar, currentInsight] = await Promise.all([
-          listNativeConnections(requested),
-          listNativePublications(requested),
-          getNativeCalendar(requested),
-          getNativeBrandInsight(requested),
-        ]);
+        const [currentConnections, currentPublications, currentCalendar, currentInsight] =
+          await Promise.all([
+            listNativeConnections(requested),
+            listNativePublications(requested),
+            getNativeCalendar(requested),
+            getNativeBrandInsight(requested),
+          ]);
         setConnections(currentConnections);
         setPublications(currentPublications);
         setCalendar(currentCalendar);
@@ -101,8 +109,10 @@ export default function PublisherWorkspace() {
     }
     const query = new URLSearchParams(window.location.search);
     for (const provider of ["instagram", "facebook", "threads", "linkedin"] as const) {
-      if (query.get(provider) === "connected") setMessage(`${providerLabels[provider]} conectado com sucesso à marca.`);
-      if (query.get(provider) === "error") setError(query.get("message") || `Não foi possível conectar ${providerLabels[provider]}.`);
+      if (query.get(provider) === "connected")
+        setMessage(`${providerLabels[provider]} conectado com sucesso à marca.`);
+      if (query.get(provider) === "error")
+        setError(query.get("message") || `Não foi possível conectar ${providerLabels[provider]}.`);
     }
     void load();
   }, []);
@@ -120,10 +130,14 @@ export default function PublisherWorkspace() {
     try {
       if (provider === "instagram") await importInstagramConnection(brandId);
       else await importLinkedInConnection(brandId);
-      setMessage(`${providerLabels[provider]} anterior vinculado a ${selectedBrand?.name || "esta marca"}.`);
+      setMessage(
+        `${providerLabels[provider]} anterior vinculado a ${selectedBrand?.name || "esta marca"}.`,
+      );
       await load(brandId);
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Não foi possível importar a conexão anterior.");
+      setError(
+        caught instanceof Error ? caught.message : "Não foi possível importar a conexão anterior.",
+      );
     } finally {
       setWorking("");
     }
@@ -137,7 +151,11 @@ export default function PublisherWorkspace() {
       const result = await startNativeConnection(provider, brandId);
       window.location.assign(result.authorizationUrl);
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : `Não foi possível iniciar ${providerLabels[provider]}.`);
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : `Não foi possível iniciar ${providerLabels[provider]}.`,
+      );
       setWorking("");
     }
   }
@@ -150,7 +168,9 @@ export default function PublisherWorkspace() {
       if (action === "cancel") await cancelNativePublication(id);
       if (action === "analytics") {
         const snapshot = await refreshNativeAnalytics(id);
-        setMessage(`Performance atualizada: ${snapshot.score}/100 · ${snapshot.learningSignal === "performed_well" ? "sinal positivo" : snapshot.learningSignal === "performed_poorly" ? "sinal de revisão" : "neutro"}.`);
+        setMessage(
+          `Performance atualizada: ${snapshot.score}/100 · ${snapshot.learningSignal === "performed_well" ? "sinal positivo" : snapshot.learningSignal === "performed_poorly" ? "sinal de revisão" : "neutro"}.`,
+        );
       }
       await load(brandId);
     } catch (caught) {
@@ -160,15 +180,43 @@ export default function PublisherWorkspace() {
     }
   }
 
-  if (loading && !dashboard) return <main className="portal-loading"><img src="/logo.svg" alt="MODO" /><div className="portal-spinner" /><p>Preparando a Central de Publicação...</p></main>;
-  if (!dashboard) return <main className="portal-loading"><p>{error || "Sua sessão expirou."}</p><a className="button button-primary" href="/app">Voltar</a></main>;
+  if (loading && !dashboard)
+    return (
+      <main className="portal-loading">
+        <img src="/logo.svg" alt="MODO" />
+        <div className="portal-spinner" />
+        <p>Preparando a Central de Publicação...</p>
+      </main>
+    );
+  if (!dashboard)
+    return (
+      <main className="portal-loading">
+        <p>{error || "Sua sessão expirou."}</p>
+        <a className="button button-primary" href="/app">
+          Voltar
+        </a>
+      </main>
+    );
 
   return (
     <div className="publisher-shell">
       <header className="workspace-header">
-        <a href="/app"><img src="/logo.svg" alt="MODO" /></a>
-        <nav><a href="/app">Painel</a><a href="/app/content">Criar</a><a className="active" href="/app/publisher">Publisher</a><a href="/app/settings/integrations">Integrações</a></nav>
-        <div className="workspace-balance"><small>Saldo</small><strong>{dashboard.usage.creditsRemaining}</strong><span>créditos</span></div>
+        <a href="/app">
+          <img src="/logo.svg" alt="MODO" />
+        </a>
+        <nav>
+          <a href="/app">Painel</a>
+          <a href="/app/content">Criar</a>
+          <a className="active" href="/app/publisher">
+            Publisher
+          </a>
+          <a href="/app/settings/integrations">Integrações</a>
+        </nav>
+        <div className="workspace-balance">
+          <small>Saldo</small>
+          <strong>{dashboard.usage.creditsRemaining}</strong>
+          <span>créditos</span>
+        </div>
       </header>
 
       <main className="publisher-main">
@@ -176,93 +224,284 @@ export default function PublisherWorkspace() {
           <div>
             <div className="section-kicker">MODO PUBLISHER · DISTRIBUIÇÃO + LEARNING</div>
             <h1>Crie com contexto. Publique na sua conta. Aprenda com o resultado.</h1>
-            <p>Conecte os canais de cada marca, publique imediatamente ou agende e acompanhe tudo na mesma operação da MODO.</p>
+            <p>
+              Conecte os canais de cada marca, publique imediatamente ou agende e acompanhe tudo na
+              mesma operação da MODO.
+            </p>
           </div>
-          <label>Marca<select value={brandId} onChange={(event) => void switchBrand(event.target.value)}>{dashboard.brands.map((brand) => <option key={brand.id} value={brand.id}>{brand.name}</option>)}</select></label>
+          <label>
+            Marca
+            <select value={brandId} onChange={(event) => void switchBrand(event.target.value)}>
+              {dashboard.brands.map((brand) => (
+                <option key={brand.id} value={brand.id}>
+                  {brand.name}
+                </option>
+              ))}
+            </select>
+          </label>
         </section>
 
         {message && <div className="workspace-success">{message}</div>}
         {error && <div className="portal-error">{error}</div>}
 
         <section className="publisher-kpis">
-          <article><small>PUBLICADOS · 30D</small><strong>{insight?.publishedCount ?? 0}</strong></article>
-          <article><small>AGENDADOS</small><strong>{insight?.scheduledCount ?? 0}</strong></article>
-          <article><small>QUALITY MÉDIO</small><strong>{insight?.averageQualityScore ?? 0}</strong><span>/100</span></article>
-          <article><small>PERFORMANCE</small><strong>{insight?.averagePerformanceScore ?? 0}</strong><span>/100</span></article>
+          <article>
+            <small>PUBLICADOS · 30D</small>
+            <strong>{insight?.publishedCount ?? 0}</strong>
+          </article>
+          <article>
+            <small>AGENDADOS</small>
+            <strong>{insight?.scheduledCount ?? 0}</strong>
+          </article>
+          <article>
+            <small>QUALITY MÉDIO</small>
+            <strong>{insight?.averageQualityScore ?? 0}</strong>
+            <span>/100</span>
+          </article>
+          <article>
+            <small>PERFORMANCE</small>
+            <strong>{insight?.averagePerformanceScore ?? 0}</strong>
+            <span>/100</span>
+          </article>
         </section>
 
         <section className="publisher-recommendation">
-          <div><small>PRÓXIMO MOVIMENTO</small><h2>O que os dados estão dizendo</h2></div>
-          <p>{insight?.recommendation || "A MODO começa a aprender assim que as primeiras publicações geram métricas."}</p>
+          <div>
+            <small>PRÓXIMO MOVIMENTO</small>
+            <h2>O que os dados estão dizendo</h2>
+          </div>
+          <p>
+            {insight?.recommendation ||
+              "A MODO começa a aprender assim que as primeiras publicações geram métricas."}
+          </p>
         </section>
 
         <section className="publisher-panel">
-          <div className="publisher-panel-heading"><div><small>CANAIS POR MARCA</small><h2>{selectedBrand?.name || "Marca"}</h2></div><span>{connections.length} conexão(ões)</span></div>
+          <div className="publisher-panel-heading">
+            <div>
+              <small>CANAIS POR MARCA</small>
+              <h2>{selectedBrand?.name || "Marca"}</h2>
+            </div>
+            <span>{connections.length} conexão(ões)</span>
+          </div>
           <div className="publisher-channel-grid">
-            {(["instagram", "facebook", "linkedin", "threads"] as NativePublisherProvider[]).map((provider) => {
-              const connected = connections.filter((item) => item.provider === provider && item.connected);
-              const configured = provider === "linkedin" ? Boolean(linkedinHealth?.configured) : (health?.providers[provider] ?? false);
-              const ready = connected.filter((item) => item.canPublish);
-              return (
-                <article key={provider} className={connected.length ? "connected" : ""}>
-                  <div><small>{provider.toUpperCase()}</small><h3>{providerLabels[provider]}</h3></div>
-                  {connected.length ? (
-                    <p>{connected.map((item) => `${item.displayName}${item.canPublish ? " · pronto" : " · reconectar"}`).join(" · ")}</p>
-                  ) : (
-                    <p>{configured ? "Pronto para conectar nesta marca." : "Credenciais do app ainda não configuradas."}</p>
-                  )}
-                  {provider === "instagram" && (
-                    <>
-                      <button className="button button-secondary" disabled={!configured || Boolean(working)} onClick={() => void connect("instagram")}>{working === "connect-instagram" ? "Abrindo Instagram..." : connected.length ? "Conectar outra conta" : "Conectar Instagram"}</button>
-                      {!connected.length && <button className="publisher-link-button" disabled={Boolean(working)} onClick={() => void syncExisting("instagram")}>{working === "sync-instagram" ? "Importando..." : "Usar conexão anterior"}</button>}
-                    </>
-                  )}
-                  {provider === "linkedin" && (
-                    <>
-                      <button className="button button-secondary" disabled={!configured || Boolean(working)} onClick={() => void connect("linkedin")}>{working === "connect-linkedin" ? "Abrindo LinkedIn..." : connected.length ? "Conectar outro perfil" : "Conectar LinkedIn"}</button>
-                      {!connected.length && <button className="publisher-link-button" disabled={Boolean(working)} onClick={() => void syncExisting("linkedin")}>{working === "sync-linkedin" ? "Vinculando..." : "Usar conexão anterior"}</button>}
-                    </>
-                  )}
-                  {provider === "facebook" && <button className="button button-secondary" disabled={!configured || Boolean(working)} onClick={() => void connect("facebook")}>{working === "connect-facebook" ? "Abrindo Meta..." : connected.length ? "Conectar outra Página" : "Conectar Facebook Pages"}</button>}
-                  {provider === "threads" && <button className="button button-secondary" disabled={!configured || Boolean(working)} onClick={() => void connect("threads")}>{working === "connect-threads" ? "Abrindo Threads..." : connected.length ? "Conectar outra conta" : "Conectar Threads"}</button>}
-                  {connected.length > 0 && ready.length === 0 && <small className="publisher-connection-warning">A conta está conectada, mas precisa de permissão de publicação ou reconexão.</small>}
-                </article>
-              );
-            })}
+            {(["instagram", "facebook", "linkedin", "threads"] as NativePublisherProvider[]).map(
+              (provider) => {
+                const connected = connections.filter(
+                  (item) => item.provider === provider && item.connected,
+                );
+                const configured =
+                  provider === "linkedin"
+                    ? Boolean(linkedinHealth?.configured)
+                    : (health?.providers[provider] ?? false);
+                const ready = connected.filter((item) => item.canPublish);
+                return (
+                  <article key={provider} className={connected.length ? "connected" : ""}>
+                    <div>
+                      <small>{provider.toUpperCase()}</small>
+                      <h3>{providerLabels[provider]}</h3>
+                    </div>
+                    {connected.length ? (
+                      <p>
+                        {connected
+                          .map(
+                            (item) =>
+                              `${item.displayName}${item.canPublish ? " · pronto" : " · reconectar"}`,
+                          )
+                          .join(" · ")}
+                      </p>
+                    ) : (
+                      <p>
+                        {configured
+                          ? "Pronto para conectar nesta marca."
+                          : "Credenciais do app ainda não configuradas."}
+                      </p>
+                    )}
+                    {provider === "instagram" && (
+                      <>
+                        <button
+                          className="button button-secondary"
+                          disabled={!configured || Boolean(working)}
+                          onClick={() => void connect("instagram")}
+                        >
+                          {working === "connect-instagram"
+                            ? "Abrindo Instagram..."
+                            : connected.length
+                              ? "Conectar outra conta"
+                              : "Conectar Instagram"}
+                        </button>
+                        {!connected.length && (
+                          <button
+                            className="publisher-link-button"
+                            disabled={Boolean(working)}
+                            onClick={() => void syncExisting("instagram")}
+                          >
+                            {working === "sync-instagram"
+                              ? "Importando..."
+                              : "Usar conexão anterior"}
+                          </button>
+                        )}
+                      </>
+                    )}
+                    {provider === "linkedin" && (
+                      <>
+                        <button
+                          className="button button-secondary"
+                          disabled={!configured || Boolean(working)}
+                          onClick={() => void connect("linkedin")}
+                        >
+                          {working === "connect-linkedin"
+                            ? "Abrindo LinkedIn..."
+                            : connected.length
+                              ? "Conectar outro perfil"
+                              : "Conectar LinkedIn"}
+                        </button>
+                        {!connected.length && (
+                          <button
+                            className="publisher-link-button"
+                            disabled={Boolean(working)}
+                            onClick={() => void syncExisting("linkedin")}
+                          >
+                            {working === "sync-linkedin"
+                              ? "Vinculando..."
+                              : "Usar conexão anterior"}
+                          </button>
+                        )}
+                      </>
+                    )}
+                    {provider === "facebook" && (
+                      <button
+                        className="button button-secondary"
+                        disabled={!configured || Boolean(working)}
+                        onClick={() => void connect("facebook")}
+                      >
+                        {working === "connect-facebook"
+                          ? "Abrindo Meta..."
+                          : connected.length
+                            ? "Conectar outra Página"
+                            : "Conectar Facebook Pages"}
+                      </button>
+                    )}
+                    {provider === "threads" && (
+                      <button
+                        className="button button-secondary"
+                        disabled={!configured || Boolean(working)}
+                        onClick={() => void connect("threads")}
+                      >
+                        {working === "connect-threads"
+                          ? "Abrindo Threads..."
+                          : connected.length
+                            ? "Conectar outra conta"
+                            : "Conectar Threads"}
+                      </button>
+                    )}
+                    {connected.length > 0 && ready.length === 0 && (
+                      <small className="publisher-connection-warning">
+                        A conta está conectada, mas precisa de permissão de publicação ou reconexão.
+                      </small>
+                    )}
+                  </article>
+                );
+              },
+            )}
           </div>
         </section>
 
         <section className="publisher-panel">
-          <div className="publisher-panel-heading"><div><small>CALENDÁRIO EDITORIAL</small><h2>Distribuição programada</h2></div><span>{calendar.length} item(ns)</span></div>
+          <div className="publisher-panel-heading">
+            <div>
+              <small>CALENDÁRIO EDITORIAL</small>
+              <h2>Distribuição programada</h2>
+            </div>
+            <span>{calendar.length} item(ns)</span>
+          </div>
           <div className="publisher-calendar">
-            {calendar.length === 0 && <div className="publisher-empty">Nenhuma publicação no período. Aprove conteúdo e escolha <strong>Agendar</strong>.</div>}
+            {calendar.length === 0 && (
+              <div className="publisher-empty">
+                Nenhuma publicação no período. Aprove conteúdo e escolha <strong>Agendar</strong>.
+              </div>
+            )}
             {calendar.map((item) => (
               <article key={item.publicationId}>
-                <time>{new Date(item.scheduledFor || item.publishedAt || Date.now()).toLocaleString("pt-BR")}</time>
-                <div><strong>{item.title}</strong><span>{providerLabels[item.provider]} · {statusLabel(item.status)}</span></div>
+                <time>
+                  {new Date(item.scheduledFor || item.publishedAt || Date.now()).toLocaleString(
+                    "pt-BR",
+                  )}
+                </time>
+                <div>
+                  <strong>{item.title}</strong>
+                  <span>
+                    {providerLabels[item.provider]} · {statusLabel(item.status)}
+                  </span>
+                </div>
               </article>
             ))}
           </div>
         </section>
 
         <section className="publisher-panel">
-          <div className="publisher-panel-heading"><div><small>OPERAÇÃO</small><h2>Publicações e performance</h2></div><span>{publications.length} registro(s)</span></div>
+          <div className="publisher-panel-heading">
+            <div>
+              <small>OPERAÇÃO</small>
+              <h2>Publicações e performance</h2>
+            </div>
+            <span>{publications.length} registro(s)</span>
+          </div>
           <div className="publisher-publications">
-            {publications.length === 0 && <div className="publisher-empty">As publicações da marca aparecerão aqui.</div>}
+            {publications.length === 0 && (
+              <div className="publisher-empty">As publicações da marca aparecerão aqui.</div>
+            )}
             {publications.map((publication) => {
               const destination = connections.find((item) => item.id === publication.connectionId);
               return (
                 <article key={publication.id}>
                   <div className="publisher-publication-main">
-                    <div><small>{providerLabels[publication.provider]} · {destination?.displayName || "conta vinculada"}</small><strong>{statusLabel(publication.status)}</strong></div>
-                    <span>{publication.publishedAt ? new Date(publication.publishedAt).toLocaleString("pt-BR") : publication.scheduledFor ? new Date(publication.scheduledFor).toLocaleString("pt-BR") : "Sem horário"}</span>
+                    <div>
+                      <small>
+                        {providerLabels[publication.provider]} ·{" "}
+                        {destination?.displayName || "conta vinculada"}
+                      </small>
+                      <strong>{statusLabel(publication.status)}</strong>
+                    </div>
+                    <span>
+                      {publication.publishedAt
+                        ? new Date(publication.publishedAt).toLocaleString("pt-BR")
+                        : publication.scheduledFor
+                          ? new Date(publication.scheduledFor).toLocaleString("pt-BR")
+                          : "Sem horário"}
+                    </span>
                     {publication.lastError && <p>{publication.lastError}</p>}
                   </div>
                   <div className="publisher-publication-actions">
-                    {publication.permalink && <a href={publication.permalink} target="_blank" rel="noreferrer">Abrir post</a>}
-                    {publication.status === "published" && <button disabled={Boolean(working)} onClick={() => void publicationAction(publication.id, "analytics")}>Atualizar desempenho</button>}
-                    {publication.status === "failed" && <button disabled={Boolean(working)} onClick={() => void publicationAction(publication.id, "retry")}>Tentar novamente</button>}
-                    {["draft", "scheduled", "retrying", "failed"].includes(publication.status) && <button disabled={Boolean(working)} onClick={() => void publicationAction(publication.id, "cancel")}>Cancelar</button>}
+                    {publication.permalink && (
+                      <a href={publication.permalink} target="_blank" rel="noreferrer">
+                        Abrir post
+                      </a>
+                    )}
+                    {publication.status === "published" && (
+                      <button
+                        disabled={Boolean(working)}
+                        onClick={() => void publicationAction(publication.id, "analytics")}
+                      >
+                        Atualizar desempenho
+                      </button>
+                    )}
+                    {publication.status === "failed" && (
+                      <button
+                        disabled={Boolean(working)}
+                        onClick={() => void publicationAction(publication.id, "retry")}
+                      >
+                        Tentar novamente
+                      </button>
+                    )}
+                    {["draft", "scheduled", "retrying", "failed"].includes(publication.status) && (
+                      <button
+                        disabled={Boolean(working)}
+                        onClick={() => void publicationAction(publication.id, "cancel")}
+                      >
+                        Cancelar
+                      </button>
+                    )}
                   </div>
                 </article>
               );

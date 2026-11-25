@@ -49,19 +49,29 @@ describe("NativePublisherV2Service", () => {
 
   it("publica vídeo do Facebook pelo fluxo de Reels start, upload e finish", async () => {
     const service = new NativePublisherV2Service({ facebookApiVersion: "v25.0" });
-    const fetchMock = vi.spyOn(globalThis, "fetch")
-      .mockResolvedValueOnce(new Response(JSON.stringify({
-        video_id: "video-123",
-        upload_url: "https://rupload.facebook.com/video-upload/v25.0/video-123",
-      }), { status: 200, headers: { "content-type": "application/json" } }))
-      .mockResolvedValueOnce(new Response(JSON.stringify({ success: true }), {
-        status: 200,
-        headers: { "content-type": "application/json" },
-      }))
-      .mockResolvedValueOnce(new Response(JSON.stringify({ success: true }), {
-        status: 200,
-        headers: { "content-type": "application/json" },
-      }));
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            video_id: "video-123",
+            upload_url: "https://rupload.facebook.com/video-upload/v25.0/video-123",
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ success: true }), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        }),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ success: true }), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        }),
+      );
 
     const result = await (service as any).publishFacebook(
       { provider_account_id: "page-456" },

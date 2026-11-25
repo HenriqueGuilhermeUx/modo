@@ -158,8 +158,9 @@ export class ActivationService {
       [...events].reverse().find((event) => event.name === name)?.createdAt || null;
     const latestReady = requests.find((request) => ["ready", "approved"].includes(request.status));
     const latestApproved = requests.find((request) => request.status === "approved");
-    const onboardingCompletedAt = firstEvent("onboarding_completed")
-      || (requests.length ? requests[requests.length - 1].createdAt : null);
+    const onboardingCompletedAt =
+      firstEvent("onboarding_completed") ||
+      (requests.length ? requests[requests.length - 1].createdAt : null);
 
     const steps: ActivationStep[] = [
       {

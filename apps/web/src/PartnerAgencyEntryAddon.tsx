@@ -11,7 +11,11 @@ export default function PartnerAgencyEntryAddon() {
   if (!target) return null;
 
   return createPortal(
-    <a className="partner-agency-entry" href="/partners" aria-label="Conhecer o programa MODO Partner">
+    <a
+      className="partner-agency-entry"
+      href="/partners"
+      aria-label="Conhecer o programa MODO Partner"
+    >
       MODO PARTNER <span>↗</span>
     </a>,
     target,

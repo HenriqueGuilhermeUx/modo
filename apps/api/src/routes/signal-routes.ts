@@ -33,7 +33,8 @@ export async function registerSignalRoutes(app: FastifyInstance, options: Option
       if (error instanceof SignalError || error instanceof AuthError) {
         return reply.code(error.statusCode).send({ code: error.code, message: error.message });
       }
-      const message = error instanceof Error ? error.message : "Não foi possível registrar o desempenho.";
+      const message =
+        error instanceof Error ? error.message : "Não foi possível registrar o desempenho.";
       const validation = error instanceof Error && error.name === "ZodError";
       return reply.code(validation ? 400 : 500).send({
         code: validation ? "INVALID_REQUEST" : "SIGNAL_INTERNAL_ERROR",
@@ -43,7 +44,10 @@ export async function registerSignalRoutes(app: FastifyInstance, options: Option
 
     scope.get("/api/v1/signal/summary/:brandId", async (request) => {
       const context = await options.auth.authenticate(bearerToken(request));
-      const brandId = z.string().uuid().parse((request.params as { brandId: string }).brandId);
+      const brandId = z
+        .string()
+        .uuid()
+        .parse((request.params as { brandId: string }).brandId);
       const brands = await options.auth.listBrands(context.organization.id);
       if (!brands.some((item) => item.id === brandId)) {
         throw new AuthError("BRAND_NOT_FOUND", 404, "Marca não encontrada nesta organização.");

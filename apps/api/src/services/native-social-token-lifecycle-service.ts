@@ -43,7 +43,10 @@ export class NativeSocialTokenLifecycleService {
   async initialize() {
     if (!this.pool) return;
     void this.refreshExpiringConnections().catch(() => undefined);
-    this.timer = setInterval(() => void this.refreshExpiringConnections().catch(() => undefined), 6 * 60 * 60_000);
+    this.timer = setInterval(
+      () => void this.refreshExpiringConnections().catch(() => undefined),
+      6 * 60 * 60_000,
+    );
     this.timer.unref?.();
   }
 
@@ -71,9 +74,10 @@ export class NativeSocialTokenLifecycleService {
         const secret = this.secretFor(connection.provider);
         if (!secret) continue;
         const token = this.decrypt(connection.encrypted_access_token, secret);
-        const next = connection.provider === "instagram"
-          ? await this.refreshInstagram(token)
-          : await this.refreshThreads(token);
+        const next =
+          connection.provider === "instagram"
+            ? await this.refreshInstagram(token)
+            : await this.refreshThreads(token);
         if (!next.accessToken) continue;
         await this.pool.query(
           `UPDATE modo_native_social_connections
@@ -98,7 +102,10 @@ export class NativeSocialTokenLifecycleService {
   }
 
   private async refreshInstagram(token: string) {
-    const base = (this.options.instagramGraphBaseUrl || "https://graph.instagram.com").replace(/\/$/, "");
+    const base = (this.options.instagramGraphBaseUrl || "https://graph.instagram.com").replace(
+      /\/$/,
+      "",
+    );
     const url = new URL(`${base}/refresh_access_token`);
     url.searchParams.set("grant_type", "ig_refresh_token");
     url.searchParams.set("access_token", token);
@@ -114,8 +121,9 @@ export class NativeSocialTokenLifecycleService {
 
   private async readRefresh(url: URL, currentToken: string) {
     const response = await fetch(url, { signal: AbortSignal.timeout(20_000) });
-    const payload = await response.json().catch(() => ({})) as RefreshPayload;
-    if (!response.ok) throw new Error(payload.error?.message || `Token refresh failed (${response.status}).`);
+    const payload = (await response.json().catch(() => ({}))) as RefreshPayload;
+    if (!response.ok)
+      throw new Error(payload.error?.message || `Token refresh failed (${response.status}).`);
     return {
       accessToken: payload.access_token || currentToken,
       expiresIn: Math.max(24 * 60 * 60, Number(payload.expires_in || 5_184_000)),
@@ -123,7 +131,9 @@ export class NativeSocialTokenLifecycleService {
   }
 
   private secretFor(provider: Provider) {
-    return provider === "instagram" ? this.options.instagramEncryptionSecret : this.options.threadsAppSecret;
+    return provider === "instagram"
+      ? this.options.instagramEncryptionSecret
+      : this.options.threadsAppSecret;
   }
 
   private key(secret: string) {
@@ -141,8 +151,15 @@ export class NativeSocialTokenLifecycleService {
   private decrypt(value: string, secret: string) {
     const [iv, tag, encrypted] = value.split(".");
     if (!iv || !tag || !encrypted) throw new Error("Token social armazenado inválido.");
-    const decipher = createDecipheriv("aes-256-gcm", this.key(secret), Buffer.from(iv, "base64url"));
+    const decipher = createDecipheriv(
+      "aes-256-gcm",
+      this.key(secret),
+      Buffer.from(iv, "base64url"),
+    );
     decipher.setAuthTag(Buffer.from(tag, "base64url"));
-    return Buffer.concat([decipher.update(Buffer.from(encrypted, "base64url")), decipher.final()]).toString("utf8");
+    return Buffer.concat([
+      decipher.update(Buffer.from(encrypted, "base64url")),
+      decipher.final(),
+    ]).toString("utf8");
   }
 }

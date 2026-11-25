@@ -7,10 +7,7 @@ import {
 } from "@modo/contracts/content";
 import { nicheTemplates, type NicheTemplate } from "@modo/contracts/niche-templates";
 import { ContentAssetService } from "./content-asset-service.js";
-import {
-  formatCreativeContext,
-  loadCreativeGenerationContext,
-} from "./creative-context.js";
+import { formatCreativeContext, loadCreativeGenerationContext } from "./creative-context.js";
 
 interface OpenAiContentProviderOptions {
   apiKey: string;
@@ -168,20 +165,26 @@ function formatNicheTemplate(template: NicheTemplate) {
 function normalizeForFormat(request: ContentRequest, raw: GeneratedContent): GeneratedContent {
   const base = { ...raw, visualAssets: [] as ContentVisualAsset[] };
   if (request.contentType === "carousel") {
-    const slides = base.slides.length > 0 ? base.slides.slice(0, 7) : [
-      { title: base.hook, body: "Apresente o problema ou oportunidade central." },
-      { title: "O que muda", body: base.caption.slice(0, 600) },
-      { title: "Como funciona", body: base.visualDirection.slice(0, 600) },
-      { title: "Próximo passo", body: base.cta },
-    ];
+    const slides =
+      base.slides.length > 0
+        ? base.slides.slice(0, 7)
+        : [
+            { title: base.hook, body: "Apresente o problema ou oportunidade central." },
+            { title: "O que muda", body: base.caption.slice(0, 600) },
+            { title: "Como funciona", body: base.visualDirection.slice(0, 600) },
+            { title: "Próximo passo", body: base.cta },
+          ];
     return GeneratedContentSchema.parse({ ...base, slides, script: [], storyFrames: [] });
   }
   if (request.contentType === "story") {
-    const storyFrames = base.storyFrames.length > 0 ? base.storyFrames.slice(0, 3) : [
-      { headline: base.hook, body: base.caption.slice(0, 420), interaction: "" },
-      { headline: base.title, body: base.visualDirection.slice(0, 420), interaction: "" },
-      { headline: "Próximo passo", body: base.cta, interaction: "" },
-    ];
+    const storyFrames =
+      base.storyFrames.length > 0
+        ? base.storyFrames.slice(0, 3)
+        : [
+            { headline: base.hook, body: base.caption.slice(0, 420), interaction: "" },
+            { headline: base.title, body: base.visualDirection.slice(0, 420), interaction: "" },
+            { headline: "Próximo passo", body: base.cta, interaction: "" },
+          ];
     return GeneratedContentSchema.parse({ ...base, slides: [], script: [], storyFrames });
   }
   if (request.contentType === "short_video_script") {
@@ -190,7 +193,11 @@ function normalizeForFormat(request: ContentRequest, raw: GeneratedContent): Gen
   return GeneratedContentSchema.parse({ ...base, slides: [], script: [], storyFrames: [] });
 }
 
-function visualSpecsFor(request: ContentRequest, generated: GeneratedContent, brand: Brand): VisualSpec[] {
+function visualSpecsFor(
+  request: ContentRequest,
+  generated: GeneratedContent,
+  brand: Brand,
+): VisualSpec[] {
   if (request.contentType === "carousel") {
     return generated.slides.map((slide, index) => ({
       kind: "carousel_slide" as const,
@@ -253,12 +260,7 @@ export class OpenAiContentProvider {
     this.assets = options.assets;
   }
 
-  private async generateImage(
-    request: ContentRequest,
-    brand: Brand,
-    prompt: string,
-    size: string,
-  ) {
+  private async generateImage(request: ContentRequest, brand: Brand, prompt: string, size: string) {
     const imageResponse = await fetch("https://api.openai.com/v1/images/generations", {
       method: "POST",
       headers: {
@@ -275,7 +277,7 @@ export class OpenAiContentProvider {
       }),
       signal: AbortSignal.timeout(180_000),
     });
-    const imagePayload = await imageResponse.json() as OpenAiImagePayload;
+    const imagePayload = (await imageResponse.json()) as OpenAiImagePayload;
     if (!imageResponse.ok) {
       throw new Error(imagePayload.error?.message || `Falha de imagem (${imageResponse.status}).`);
     }
@@ -296,11 +298,14 @@ export class OpenAiContentProvider {
     );
     const formattedContext = formatCreativeContext(creativeContext, request.channel);
     const nicheTemplate = nicheTemplates[brand.niche];
-    const contextNotes = creativeContext.contextStatus === "degraded"
-      ? ["Conteúdo gerado com contexto de marca incompleto — revise com atenção."]
-      : creativeContext.contextStatus === "unavailable"
-        ? ["A memória estratégica da marca não pôde ser carregada nesta geração — revise com atenção."]
-        : [];
+    const contextNotes =
+      creativeContext.contextStatus === "degraded"
+        ? ["Conteúdo gerado com contexto de marca incompleto — revise com atenção."]
+        : creativeContext.contextStatus === "unavailable"
+          ? [
+              "A memória estratégica da marca não pôde ser carregada nesta geração — revise com atenção.",
+            ]
+          : [];
 
     if (creativeContext.contextStatus !== "ok") {
       console.warn("[MODO_CREATIVE_CONTEXT_WARNING]", {
@@ -322,11 +327,15 @@ export class OpenAiContentProvider {
       `OBJETIVO: ${request.objective}`,
       `BRIEFING: ${request.brief}`,
       formatInstruction(request),
-      formattedContext ? `CONTEXTO REAL APRENDIDO PELA MODO — PRIORIDADE SOBRE O MODELO DO SEGMENTO:\n${formattedContext}` : "",
+      formattedContext
+        ? `CONTEXTO REAL APRENDIDO PELA MODO — PRIORIDADE SOBRE O MODELO DO SEGMENTO:\n${formattedContext}`
+        : "",
       `MODELO DO SEGMENTO — SUGESTÕES DE DIREÇÃO:\n${formatNicheTemplate(nicheTemplate)}`,
       "HIERARQUIA OBRIGATÓRIA: fatos e restrições do briefing > Base Estratégica e memória real > mapa do canal e objetivo comercial > modelo genérico do segmento.",
       "Crie uma entrega que possa ser aprovada por um cliente real e usada em campanha. O visual deve representar a oferta, o público e o contexto, não apenas produzir uma imagem genérica bonita.",
-    ].filter(Boolean).join("\n\n");
+    ]
+      .filter(Boolean)
+      .join("\n\n");
 
     const textResponse = await fetch("https://api.openai.com/v1/responses", {
       method: "POST",
@@ -352,7 +361,7 @@ export class OpenAiContentProvider {
       }),
       signal: AbortSignal.timeout(90_000),
     });
-    const textPayload = await textResponse.json() as OpenAiResponsePayload;
+    const textPayload = (await textResponse.json()) as OpenAiResponsePayload;
     if (!textResponse.ok) {
       throw new Error(textPayload.error?.message || `Falha de texto (${textResponse.status}).`);
     }
@@ -376,7 +385,12 @@ export class OpenAiContentProvider {
       if (specs.length > 0) {
         const visualAssets = await mapWithConcurrency(specs, 2, async (spec) => {
           try {
-            const asset = await this.generateImage(request, brand, spec.imagePrompt, sizeFor(request));
+            const asset = await this.generateImage(
+              request,
+              brand,
+              spec.imagePrompt,
+              sizeFor(request),
+            );
             return {
               ...spec,
               imageUrl: asset.url,
@@ -390,7 +404,9 @@ export class OpenAiContentProvider {
             };
           }
         });
-        const firstGenerated = visualAssets.find((asset) => asset.imageStatus === "generated" && asset.imageUrl);
+        const firstGenerated = visualAssets.find(
+          (asset) => asset.imageStatus === "generated" && asset.imageUrl,
+        );
         const failedCount = visualAssets.filter((asset) => asset.imageStatus === "failed").length;
         const output: GeneratedContent = GeneratedContentSchema.parse({
           ...generated,
@@ -398,9 +414,13 @@ export class OpenAiContentProvider {
           imageAlt: firstGenerated?.imageAlt || generated.imageAlt,
           imageStatus: firstGenerated ? "generated" : "failed",
           visualAssets,
-          adaptationNotes: failedCount > 0
-            ? [...generated.adaptationNotes, `${failedCount} visual(is) complementar(es) não foi(ram) concluído(s) e pode(m) ser regenerado(s).`].slice(0, 10)
-            : generated.adaptationNotes,
+          adaptationNotes:
+            failedCount > 0
+              ? [
+                  ...generated.adaptationNotes,
+                  `${failedCount} visual(is) complementar(es) não foi(ram) concluído(s) e pode(m) ser regenerado(s).`,
+                ].slice(0, 10)
+              : generated.adaptationNotes,
         });
         return { output, providerRunId: textPayload.id || `openai:${request.id}` };
       }

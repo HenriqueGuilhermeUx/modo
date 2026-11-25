@@ -34,7 +34,9 @@ function auth(request: FastifyRequest, expected: string) {
 }
 
 function unsupportedExecution(actionType: string) {
-  return /(publish|publication|post\.send|budget|spend|ads?\.(create|update|launch)|campaign\.launch)/i.test(actionType);
+  return /(publish|publication|post\.send|budget|spend|ads?\.(create|update|launch)|campaign\.launch)/i.test(
+    actionType,
+  );
 }
 
 function numberSignal(signals: Record<string, unknown>, names: string[]) {
@@ -49,7 +51,11 @@ function buildProposal(input: z.infer<typeof GrowthRequestSchema>, workspaceId: 
   const signals = input.signals || {};
   const openDeals = numberSignal(signals, ["openDeals", "open_deals", "pipelineCount"]);
   const leads = numberSignal(signals, ["leads", "newLeads", "new_leads"]);
-  const cancelledSlots = numberSignal(signals, ["cancelledSlots", "cancelled_slots", "availableSlots"]);
+  const cancelledSlots = numberSignal(signals, [
+    "cancelledSlots",
+    "cancelled_slots",
+    "availableSlots",
+  ]);
   const wonDeals = numberSignal(signals, ["wonDeals", "won_deals", "customers"]);
 
   let objective = input.goal?.trim() || "Gerar demanda qualificada e acelerar conversão";
@@ -68,12 +74,16 @@ function buildProposal(input: z.infer<typeof GrowthRequestSchema>, workspaceId: 
     reasons.push("volume relevante de leads pede ativação antes de ampliar aquisição");
   }
   if (openDeals > 0) reasons.push(`${openDeals} oportunidade(s) abertas no funil`);
-  if (wonDeals > 0) reasons.push("base de clientes permite explorar prova social, indicação e reativação");
+  if (wonDeals > 0)
+    reasons.push("base de clientes permite explorar prova social, indicação e reativação");
   if (!reasons.length) reasons.push("sinal operacional recebido do NexOffice");
 
   const audience = input.audience?.trim() || "segmento prioritário do workspace";
   const offer = input.offer?.trim() || "oferta principal do negócio";
-  const channels = cancelledSlots > 0 ? ["WhatsApp", "Instagram Stories", "Google Business Profile"] : ["Instagram", "WhatsApp", "LinkedIn/Google Business Profile conforme perfil B2B/B2C"];
+  const channels =
+    cancelledSlots > 0
+      ? ["WhatsApp", "Instagram Stories", "Google Business Profile"]
+      : ["Instagram", "WhatsApp", "LinkedIn/Google Business Profile conforme perfil B2B/B2C"];
 
   return {
     id: `modo-${input.correlationId}`,
@@ -93,8 +103,16 @@ function buildProposal(input: z.infer<typeof GrowthRequestSchema>, workspaceId: 
       { format: "follow-up", angle: "retomar interesse com contexto", cta: "Confirmar interesse" },
     ],
     experiments: [
-      { name: "Mensagem A/B", metric: "taxa de resposta", variants: ["benefício direto", "prova social"] },
-      { name: "CTA A/B", metric: "conversão em contato", variants: ["falar agora", "receber proposta"] },
+      {
+        name: "Mensagem A/B",
+        metric: "taxa de resposta",
+        variants: ["benefício direto", "prova social"],
+      },
+      {
+        name: "CTA A/B",
+        metric: "conversão em contato",
+        variants: ["falar agora", "receber proposta"],
+      },
     ],
     governance: {
       planningOnly: true,
@@ -125,17 +143,28 @@ export async function registerNexOfficeRoutes(app: FastifyInstance, options: Bri
     if (!access.ok) return reply.code(access.status).send({ success: false, error: access.error });
 
     const parsed = GrowthRequestSchema.safeParse(request.body);
-    if (!parsed.success) return reply.code(400).send({ success: false, error: "invalid_request", issues: parsed.error.issues });
+    if (!parsed.success)
+      return reply
+        .code(400)
+        .send({ success: false, error: "invalid_request", issues: parsed.error.issues });
     if (unsupportedExecution(parsed.data.actionType)) {
       return reply.code(409).send({
         success: false,
         error: "human_approval_and_native_publisher_required",
-        message: "O bridge NexOffice → MODO planeja e recomenda; publicação e orçamento exigem fluxo nativo de aprovação do MODO.",
+        message:
+          "O bridge NexOffice → MODO planeja e recomenda; publicação e orçamento exigem fluxo nativo de aprovação do MODO.",
       });
     }
 
     const proposal = buildProposal(parsed.data, access.workspaceId);
-    request.log.info({ workspaceId: access.workspaceId, correlationId: parsed.data.correlationId, actionType: parsed.data.actionType }, "NexOffice growth signal processed by MODO");
+    request.log.info(
+      {
+        workspaceId: access.workspaceId,
+        correlationId: parsed.data.correlationId,
+        actionType: parsed.data.actionType,
+      },
+      "NexOffice growth signal processed by MODO",
+    );
     return { success: true, proposal };
   });
 }

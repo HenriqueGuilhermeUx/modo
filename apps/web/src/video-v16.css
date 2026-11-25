@@ -16,7 +16,7 @@
 .video-v16-control-note {
   display: block;
   margin-top: 10px;
-  color: rgba(255, 255, 255, .58);
+  color: rgba(255, 255, 255, 0.58);
   line-height: 1.45;
 }
 
@@ -27,9 +27,9 @@
 .video-v16-takes-panel {
   margin-top: 18px;
   padding: 18px;
-  border: 1px solid rgba(255, 255, 255, .11);
+  border: 1px solid rgba(255, 255, 255, 0.11);
   border-radius: 20px;
-  background: rgba(6, 15, 37, .62);
+  background: rgba(6, 15, 37, 0.62);
 }
 
 .video-v16-takes-heading {
@@ -51,7 +51,7 @@
 
 .video-v16-takes-heading small,
 .video-v16-takes-heading > span {
-  color: rgba(255, 255, 255, .6);
+  color: rgba(255, 255, 255, 0.6);
 }
 
 .video-v16-takes-heading > span {
@@ -59,14 +59,14 @@
   font-size: 12px;
   padding: 6px 9px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, .06);
+  background: rgba(255, 255, 255, 0.06);
 }
 
 .video-v16-takes-empty {
   padding: 18px;
   border-radius: 14px;
-  background: rgba(255, 255, 255, .04);
-  color: rgba(255, 255, 255, .62);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.62);
   font-size: 13px;
 }
 
@@ -79,14 +79,14 @@
 .video-v16-take {
   min-width: 0;
   padding: 10px;
-  border: 1px solid rgba(255, 255, 255, .09);
+  border: 1px solid rgba(255, 255, 255, 0.09);
   border-radius: 16px;
-  background: rgba(255, 255, 255, .035);
+  background: rgba(255, 255, 255, 0.035);
 }
 
 .video-v16-take.active {
-  border-color: rgba(46, 209, 154, .55);
-  box-shadow: inset 0 0 0 1px rgba(46, 209, 154, .12);
+  border-color: rgba(46, 209, 154, 0.55);
+  box-shadow: inset 0 0 0 1px rgba(46, 209, 154, 0.12);
 }
 
 .video-v16-take-preview {
@@ -112,12 +112,12 @@
   right: 8px;
   padding: 5px 8px;
   border-radius: 999px;
-  background: rgba(46, 209, 154, .94);
+  background: rgba(46, 209, 154, 0.94);
   color: #06162b;
   font-size: 10px;
   font-weight: 800;
   text-transform: uppercase;
-  letter-spacing: .05em;
+  letter-spacing: 0.05em;
 }
 
 .video-v16-take-meta {
@@ -132,7 +132,7 @@
 }
 
 .video-v16-take-meta small {
-  color: rgba(255, 255, 255, .55);
+  color: rgba(255, 255, 255, 0.55);
   text-transform: uppercase;
   font-size: 10px;
 }

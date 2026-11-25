@@ -40,7 +40,9 @@ function profileFrequencies(profile: VideoSoundtrackProfile) {
 export function chooseVideoSoundtrackProfile(scenes: SoundtrackScene[]): VideoSoundtrackProfile {
   const broll = scenes.filter((scene) => scene.visualType === "broll_video").length;
   const kinetic = scenes.filter((scene) => scene.visualType === "kinetic_text").length;
-  const structured = scenes.filter((scene) => scene.visualType === "interface" || scene.visualType === "data_card").length;
+  const structured = scenes.filter(
+    (scene) => scene.visualType === "interface" || scene.visualType === "data_card",
+  ).length;
   if (broll >= Math.max(1, structured)) return "warm";
   if (kinetic >= 2) return "pulse";
   return "focus";
@@ -78,7 +80,9 @@ export function createVideoSoundtrackDataUri(profile: VideoSoundtrackProfile) {
   for (let index = 0; index < sampleCount; index += 1) {
     const time = index / sampleRate;
     const edgeFade = Math.min(1, time / 0.08, (seconds - time) / 0.08);
-    const pulse = 0.72 + Math.max(0, Math.sin(Math.PI * 2 * beatHz * time)) * (profile === "pulse" ? 0.28 : 0.12);
+    const pulse =
+      0.72 +
+      Math.max(0, Math.sin(Math.PI * 2 * beatHz * time)) * (profile === "pulse" ? 0.28 : 0.12);
     const pad =
       Math.sin(Math.PI * 2 * frequencies[0] * time) * 0.52 +
       Math.sin(Math.PI * 2 * frequencies[1] * time) * 0.28 +
@@ -104,7 +108,8 @@ export function soundtrackVolumeAtFrame(input: {
   const fadeIn = Math.min(1, input.frame / fadeFrames);
   const fadeOut = Math.min(1, Math.max(0, input.totalFrames - input.frame) / fadeFrames);
   const voiceActive = input.scenes.some(
-    (scene) => Boolean(scene.audioUrl) && input.frame >= scene.startFrame && input.frame < scene.endFrame,
+    (scene) =>
+      Boolean(scene.audioUrl) && input.frame >= scene.startFrame && input.frame < scene.endFrame,
   );
   const duck = voiceActive ? 0.28 : 1;
   return Math.max(0, Math.min(1, baseVolume * fadeIn * fadeOut * duck));

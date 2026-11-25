@@ -9,7 +9,10 @@ import {
   type VideoSceneUpdate,
 } from "@modo/contracts/video";
 
-const API_URL = (process.env.EXPO_PUBLIC_API_URL || "https://modo-api-3m10.onrender.com").replace(/\/$/, "");
+const API_URL = (process.env.EXPO_PUBLIC_API_URL || "https://modo-api-3m10.onrender.com").replace(
+  /\/$/,
+  "",
+);
 
 export class MobileVideoError extends Error {
   constructor(
@@ -33,7 +36,8 @@ async function request<T>(path: string, token: string, init?: RequestInit): Prom
   });
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) {
-    const source = payload && typeof payload === "object" ? payload as Record<string, unknown> : {};
+    const source =
+      payload && typeof payload === "object" ? (payload as Record<string, unknown>) : {};
     throw new MobileVideoError(
       String(source.message || "Não foi possível concluir a operação de vídeo."),
       response.status,
@@ -43,16 +47,21 @@ async function request<T>(path: string, token: string, init?: RequestInit): Prom
   return payload as T;
 }
 
-export async function createVideoProject(token: string, input: VideoProjectCreate): Promise<VideoProject> {
-  const payload = await request<{ project: unknown }>(
-    "/api/v1/video-projects",
-    token,
-    { method: "POST", body: JSON.stringify(VideoProjectCreateSchema.parse(input)) },
-  );
+export async function createVideoProject(
+  token: string,
+  input: VideoProjectCreate,
+): Promise<VideoProject> {
+  const payload = await request<{ project: unknown }>("/api/v1/video-projects", token, {
+    method: "POST",
+    body: JSON.stringify(VideoProjectCreateSchema.parse(input)),
+  });
   return VideoProjectSchema.parse(payload.project);
 }
 
-export async function getLatestVideoProject(token: string, contentRequestId: string): Promise<VideoProject | null> {
+export async function getLatestVideoProject(
+  token: string,
+  contentRequestId: string,
+): Promise<VideoProject | null> {
   const payload = await request<{ project: unknown | null }>(
     `/api/v1/video-projects/by-content/${encodeURIComponent(contentRequestId)}`,
     token,
@@ -82,7 +91,11 @@ export async function updateVideoScene(
   return VideoProjectSchema.parse(payload.project);
 }
 
-export async function regenerateVideoScene(token: string, id: string, sceneIndex: number): Promise<VideoProject> {
+export async function regenerateVideoScene(
+  token: string,
+  id: string,
+  sceneIndex: number,
+): Promise<VideoProject> {
   const payload = await request<{ project: unknown }>(
     `/api/v1/video-projects/${encodeURIComponent(id)}/scenes/${sceneIndex}/regenerate`,
     token,
@@ -91,7 +104,11 @@ export async function regenerateVideoScene(token: string, id: string, sceneIndex
   return VideoProjectSchema.parse(payload.project);
 }
 
-export async function approveVideoScene(token: string, id: string, sceneIndex: number): Promise<VideoProject> {
+export async function approveVideoScene(
+  token: string,
+  id: string,
+  sceneIndex: number,
+): Promise<VideoProject> {
   const payload = await request<{ project: unknown }>(
     `/api/v1/video-projects/${encodeURIComponent(id)}/scenes/${sceneIndex}/approve`,
     token,
@@ -118,7 +135,11 @@ export async function retryVideoProject(token: string, id: string): Promise<Vide
   return VideoProjectSchema.parse(payload.project);
 }
 
-export async function getVideoSceneTakes(token: string, id: string, sceneIndex: number): Promise<VideoSceneTake[]> {
+export async function getVideoSceneTakes(
+  token: string,
+  id: string,
+  sceneIndex: number,
+): Promise<VideoSceneTake[]> {
   const payload = await request<unknown>(
     `/api/v1/video-projects/${encodeURIComponent(id)}/scenes/${sceneIndex}/takes`,
     token,

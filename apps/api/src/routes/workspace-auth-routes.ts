@@ -42,7 +42,10 @@ async function passwordAction<T>(operation: () => Promise<T>) {
 
 export async function registerWorkspaceAuthRoutes(app: FastifyInstance, options: Options) {
   const workspaceAuth = new WorkspaceAuthService(options);
-  const billing = new BillingService({ databaseUrl: options.databaseUrl, databaseSsl: options.databaseSsl });
+  const billing = new BillingService({
+    databaseUrl: options.databaseUrl,
+    databaseSsl: options.databaseSsl,
+  });
   const resendConfigured = Boolean(process.env.RESEND_API_KEY?.trim());
   const senderConfigured = Boolean(
     (process.env.PASSWORD_RESET_EMAIL_FROM || process.env.HUMAN_SUPPORT_EMAIL_FROM)?.trim(),
@@ -65,7 +68,10 @@ export async function registerWorkspaceAuthRoutes(app: FastifyInstance, options:
       `/api/v1/auth/${workspaceType}/register`,
       { config: { rateLimit: { max: 8, timeWindow: "15 minutes" } } },
       async (request, reply) => {
-        const session = await workspaceAuth.register(RegisterRequestSchema.parse(request.body), workspaceType);
+        const session = await workspaceAuth.register(
+          RegisterRequestSchema.parse(request.body),
+          workspaceType,
+        );
         await billing.createOrUpdateDemoSubscription(session.organization.id, "trial");
         return reply.code(201).send(session);
       },

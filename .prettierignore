@@ -1,0 +1,12 @@
+node_modules
+**/dist
+**/.vite
+coverage
+package-lock.json
+n8n/
+docs/
+infra/
+*.md
+*.json
+*.yml
+*.yaml

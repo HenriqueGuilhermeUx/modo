@@ -28,16 +28,22 @@ function decodeEntities(value: string) {
   };
   return value.replace(/&(#x?[0-9a-f]+|[a-z]+);/gi, (_match, entity: string) => {
     const normalized = entity.toLowerCase();
-    if (normalized.startsWith("#x")) return String.fromCodePoint(Number.parseInt(normalized.slice(2), 16));
-    if (normalized.startsWith("#")) return String.fromCodePoint(Number.parseInt(normalized.slice(1), 10));
+    if (normalized.startsWith("#x"))
+      return String.fromCodePoint(Number.parseInt(normalized.slice(2), 16));
+    if (normalized.startsWith("#"))
+      return String.fromCodePoint(Number.parseInt(normalized.slice(1), 10));
     return named[normalized] ?? " ";
   });
 }
 
 function cleanHtml(html: string) {
   const title = decodeEntities(
-    html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1]?.replace(/<[^>]+>/g, " ") ?? "Conteúdo da fonte",
-  ).replace(/\s+/g, " ").trim().slice(0, 300);
+    html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1]?.replace(/<[^>]+>/g, " ") ??
+      "Conteúdo da fonte",
+  )
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 300);
 
   const text = decodeEntities(
     html
@@ -63,7 +69,14 @@ function extractLinks(html: string, baseUrl: URL) {
   const matcher = /<a\b[^>]*\bhref\s*=\s*["']([^"']+)["'][^>]*>/gi;
   for (const match of html.matchAll(matcher)) {
     const raw = match[1]?.trim();
-    if (!raw || raw.startsWith("#") || raw.startsWith("mailto:") || raw.startsWith("tel:") || raw.startsWith("javascript:")) continue;
+    if (
+      !raw ||
+      raw.startsWith("#") ||
+      raw.startsWith("mailto:") ||
+      raw.startsWith("tel:") ||
+      raw.startsWith("javascript:")
+    )
+      continue;
     try {
       const url = new URL(raw, baseUrl);
       if (!["http:", "https:"].includes(url.protocol)) continue;
@@ -103,7 +116,10 @@ async function readLimitedText(response: Response) {
   }
 }
 
-async function fetchSource(rawUrl: string, redirects = 0): Promise<{ response: Response; url: URL }> {
+async function fetchSource(
+  rawUrl: string,
+  redirects = 0,
+): Promise<{ response: Response; url: URL }> {
   if (redirects > MAX_REDIRECTS) throw new Error("O endereço fez redirecionamentos demais.");
   const url = await assertResolvedPublicHttpUrl(rawUrl);
   const response = await fetch(url, {
@@ -128,7 +144,11 @@ async function extractPage(rawUrl: string): Promise<ExtractedPage> {
   if (!response.ok) throw new Error(`A fonte respondeu com o código ${response.status}.`);
 
   const contentType = (response.headers.get("content-type") || "").toLowerCase();
-  if (!contentType.includes("text/html") && !contentType.includes("text/plain") && !contentType.includes("application/xhtml+xml")) {
+  if (
+    !contentType.includes("text/html") &&
+    !contentType.includes("text/plain") &&
+    !contentType.includes("application/xhtml+xml")
+  ) {
     throw new Error("Neste momento, a MODO analisa páginas públicas de texto.");
   }
 
@@ -143,22 +163,69 @@ async function extractPage(rawUrl: string): Promise<ExtractedPage> {
     title: cleaned.title,
     text: cleaned.text,
     wordCount: cleaned.text.split(/\s+/).filter(Boolean).length,
-    links: contentType.includes("text/html") || contentType.includes("application/xhtml+xml")
-      ? extractLinks(raw, url)
-      : [],
+    links:
+      contentType.includes("text/html") || contentType.includes("application/xhtml+xml")
+        ? extractLinks(raw, url)
+        : [],
   };
 }
 
 const positivePathTokens = [
-  "produto", "product", "solucao", "solucoes", "solution", "features", "funcionalidades",
-  "como-funciona", "como_funciona", "how-it-works", "precos", "preco", "pricing", "planos",
-  "cases", "casos", "clientes", "depoimentos", "seguranca", "security", "faq", "sobre", "about",
-  "metodologia", "tecnologia", "beneficios", "benefits", "compliance", "transparencia",
+  "produto",
+  "product",
+  "solucao",
+  "solucoes",
+  "solution",
+  "features",
+  "funcionalidades",
+  "como-funciona",
+  "como_funciona",
+  "how-it-works",
+  "precos",
+  "preco",
+  "pricing",
+  "planos",
+  "cases",
+  "casos",
+  "clientes",
+  "depoimentos",
+  "seguranca",
+  "security",
+  "faq",
+  "sobre",
+  "about",
+  "metodologia",
+  "tecnologia",
+  "beneficios",
+  "benefits",
+  "compliance",
+  "transparencia",
 ];
 const negativePathTokens = [
-  "login", "signin", "signup", "cadastro", "app", "admin", "dashboard", "painel", "checkout",
-  "cart", "carrinho", "privacidade", "privacy", "termos", "terms", "cookies", "contato", "contact",
-  "wp-json", "feed", "tag", "author", "categoria", "category",
+  "login",
+  "signin",
+  "signup",
+  "cadastro",
+  "app",
+  "admin",
+  "dashboard",
+  "painel",
+  "checkout",
+  "cart",
+  "carrinho",
+  "privacidade",
+  "privacy",
+  "termos",
+  "terms",
+  "cookies",
+  "contato",
+  "contact",
+  "wp-json",
+  "feed",
+  "tag",
+  "author",
+  "categoria",
+  "category",
 ];
 
 function scoreSiteLink(rawUrl: string) {
@@ -199,7 +266,9 @@ export async function extractPublicSite(rawUrl: string): Promise<PublicSiteExtra
   const pages = [
     home,
     ...additional
-      .filter((result): result is PromiseFulfilledResult<ExtractedPage> => result.status === "fulfilled")
+      .filter(
+        (result): result is PromiseFulfilledResult<ExtractedPage> => result.status === "fulfilled",
+      )
       .map((result) => result.value),
   ];
 

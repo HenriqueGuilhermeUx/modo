@@ -71,27 +71,47 @@ export class InstagramV2ComplianceService {
       throw new InstagramError("INSTAGRAM_SIGNED_REQUEST_INVALID", 400, "signed_request inválido.");
     }
 
-    const expected = createHmac("sha256", this.options.clientSecret).update(encodedPayload).digest();
+    const expected = createHmac("sha256", this.options.clientSecret)
+      .update(encodedPayload)
+      .digest();
     let received: Buffer;
     try {
       received = Buffer.from(encodedSignature.replace(/-/g, "+").replace(/_/g, "/"), "base64");
     } catch {
-      throw new InstagramError("INSTAGRAM_SIGNED_REQUEST_INVALID", 400, "Assinatura da Meta inválida.");
+      throw new InstagramError(
+        "INSTAGRAM_SIGNED_REQUEST_INVALID",
+        400,
+        "Assinatura da Meta inválida.",
+      );
     }
 
     if (received.length !== expected.length || !timingSafeEqual(received, expected)) {
-      throw new InstagramError("INSTAGRAM_SIGNED_REQUEST_INVALID", 400, "Assinatura da Meta inválida.");
+      throw new InstagramError(
+        "INSTAGRAM_SIGNED_REQUEST_INVALID",
+        400,
+        "Assinatura da Meta inválida.",
+      );
     }
 
     let payload: SignedRequestPayload;
     try {
-      payload = JSON.parse(Buffer.from(encodedPayload, "base64url").toString("utf8")) as SignedRequestPayload;
+      payload = JSON.parse(
+        Buffer.from(encodedPayload, "base64url").toString("utf8"),
+      ) as SignedRequestPayload;
     } catch {
-      throw new InstagramError("INSTAGRAM_SIGNED_REQUEST_INVALID", 400, "Conteúdo do signed_request inválido.");
+      throw new InstagramError(
+        "INSTAGRAM_SIGNED_REQUEST_INVALID",
+        400,
+        "Conteúdo do signed_request inválido.",
+      );
     }
 
     if (payload.algorithm && payload.algorithm.toUpperCase() !== "HMAC-SHA256") {
-      throw new InstagramError("INSTAGRAM_SIGNED_REQUEST_INVALID", 400, "Algoritmo do signed_request não suportado.");
+      throw new InstagramError(
+        "INSTAGRAM_SIGNED_REQUEST_INVALID",
+        400,
+        "Algoritmo do signed_request não suportado.",
+      );
     }
 
     const instagramUserId = String(payload.user_id || "").trim();

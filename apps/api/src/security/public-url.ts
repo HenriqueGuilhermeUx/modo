@@ -7,16 +7,27 @@ function isPrivateIpv4(hostname: string): boolean {
   const parts = hostname.split(".").map(Number);
   if (parts.length !== 4 || parts.some((part) => Number.isNaN(part))) return false;
   const [a, b] = parts;
-  return a === 10 || a === 127 || (a === 169 && b === 254) ||
-    (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) ||
-    (a === 100 && b >= 64 && b <= 127);
+  return (
+    a === 10 ||
+    a === 127 ||
+    (a === 169 && b === 254) ||
+    (a === 172 && b >= 16 && b <= 31) ||
+    (a === 192 && b === 168) ||
+    (a === 100 && b >= 64 && b <= 127)
+  );
 }
 
 function isPrivateIpv6(hostname: string): boolean {
   const normalized = hostname.toLowerCase();
-  return normalized === "::1" || normalized.startsWith("fc") || normalized.startsWith("fd") ||
-    normalized.startsWith("fe80") || normalized.startsWith("::ffff:127.") ||
-    normalized.startsWith("::ffff:10.") || normalized.startsWith("::ffff:192.168.");
+  return (
+    normalized === "::1" ||
+    normalized.startsWith("fc") ||
+    normalized.startsWith("fd") ||
+    normalized.startsWith("fe80") ||
+    normalized.startsWith("::ffff:127.") ||
+    normalized.startsWith("::ffff:10.") ||
+    normalized.startsWith("::ffff:192.168.")
+  );
 }
 
 function assertPublicAddress(address: string) {
@@ -28,11 +39,16 @@ function assertPublicAddress(address: string) {
 
 export function assertPublicHttpUrl(rawUrl: string): URL {
   const url = new URL(rawUrl);
-  if (!["http:", "https:"].includes(url.protocol)) throw new Error("A URL deve usar HTTP ou HTTPS.");
+  if (!["http:", "https:"].includes(url.protocol))
+    throw new Error("A URL deve usar HTTP ou HTTPS.");
   if (url.username || url.password) throw new Error("URLs com credenciais não são permitidas.");
 
   const hostname = url.hostname.toLowerCase().replace(/\.$/, "");
-  if (forbiddenHostnames.has(hostname) || hostname.endsWith(".local") || hostname.endsWith(".internal")) {
+  if (
+    forbiddenHostnames.has(hostname) ||
+    hostname.endsWith(".local") ||
+    hostname.endsWith(".internal")
+  ) {
     throw new Error("Endereços locais ou internos não são permitidos.");
   }
 

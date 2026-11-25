@@ -25,8 +25,12 @@ export default function SpecialistApplicationPage() {
   const [experienceYears, setExperienceYears] = useState(1);
   const [portfolioUrl, setPortfolioUrl] = useState("");
   const [linkedinUrl, setLinkedinUrl] = useState("");
-  const [availability, setAvailability] = useState<"project" | "part_time" | "recurring" | "full_time_interest">("project");
-  const [engagementPreference, setEngagementPreference] = useState<"freelance" | "partner" | "contractor" | "open">("open");
+  const [availability, setAvailability] = useState<
+    "project" | "part_time" | "recurring" | "full_time_interest"
+  >("project");
+  const [engagementPreference, setEngagementPreference] = useState<
+    "freelance" | "partner" | "contractor" | "open"
+  >("open");
   const [about, setAbout] = useState("");
   const [consent, setConsent] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -35,9 +39,13 @@ export default function SpecialistApplicationPage() {
 
   function toggleRole(role: SpecialistRole) {
     if (role === primaryRole) return;
-    setSecondaryRoles((current) => current.includes(role)
-      ? current.filter((item) => item !== role)
-      : current.length < 6 ? [...current, role] : current);
+    setSecondaryRoles((current) =>
+      current.includes(role)
+        ? current.filter((item) => item !== role)
+        : current.length < 6
+          ? [...current, role]
+          : current,
+    );
   }
 
   async function submit(event: FormEvent) {
@@ -72,8 +80,16 @@ export default function SpecialistApplicationPage() {
   return (
     <div className="talent-page discreet-talent-page">
       <header className="talent-header">
-        <a href="/"><img src="/logo.svg" alt="MODO" /></a>
-        <nav><a href="/">Modo</a><a className="active" href="/rede-modo/convite">Cadastro por convite</a><a href="/app">Entrar</a></nav>
+        <a href="/">
+          <img src="/logo.svg" alt="MODO" />
+        </a>
+        <nav>
+          <a href="/">Modo</a>
+          <a className="active" href="/rede-modo/convite">
+            Cadastro por convite
+          </a>
+          <a href="/app">Entrar</a>
+        </nav>
       </header>
 
       <main>
@@ -82,42 +98,228 @@ export default function SpecialistApplicationPage() {
             <span>✓</span>
             <small>PERFIL RECEBIDO</small>
             <h1>Seu portfólio entrou no banco futuro de talentos da Modo.</h1>
-            <p>Esta é uma curadoria em formação. O cadastro não cria perfil público, não distribui projetos automaticamente e não representa promessa de contratação imediata.</p>
-            <div><strong>Próximas etapas</strong><span>1. Revisão do perfil e do portfólio.</span><span>2. Permanência no banco futuro quando houver aderência.</span><span>3. Contato somente diante de uma necessidade real.</span><span>4. Alinhamento de escopo e confidencialidade antes de qualquer projeto.</span></div>
-            <a className="button button-primary" href="/">Voltar para a Modo</a>
+            <p>
+              Esta é uma curadoria em formação. O cadastro não cria perfil público, não distribui
+              projetos automaticamente e não representa promessa de contratação imediata.
+            </p>
+            <div>
+              <strong>Próximas etapas</strong>
+              <span>1. Revisão do perfil e do portfólio.</span>
+              <span>2. Permanência no banco futuro quando houver aderência.</span>
+              <span>3. Contato somente diante de uma necessidade real.</span>
+              <span>4. Alinhamento de escopo e confidencialidade antes de qualquer projeto.</span>
+            </div>
+            <a className="button button-primary" href="/">
+              Voltar para a Modo
+            </a>
           </section>
         ) : (
           <>
             <section className="talent-hero discreet-talent-hero">
-              <div><div className="section-kicker">CADASTRO POR CONVITE</div><h1>Banco futuro de talentos do Time Modo.</h1><p>Esta página é destinada a profissionais convidados. Estamos formando uma base curada para necessidades futuras, sem promessa de projeto ou contratação imediata.</p><div className="talent-pills"><span>Projetos pontuais</span><span>Briefing organizado</span><span>Curadoria de qualidade</span><span>Sem perfil público</span></div></div>
-              <aside><small>CURADORIA EM FASE PILOTO</small><strong>Cadastro não significa contratação.</strong><p>A Modo avalia portfólio, disponibilidade e compatibilidade. O contato acontece somente quando existir demanda real e autorização para avançar.</p></aside>
+              <div>
+                <div className="section-kicker">CADASTRO POR CONVITE</div>
+                <h1>Banco futuro de talentos do Time Modo.</h1>
+                <p>
+                  Esta página é destinada a profissionais convidados. Estamos formando uma base
+                  curada para necessidades futuras, sem promessa de projeto ou contratação imediata.
+                </p>
+                <div className="talent-pills">
+                  <span>Projetos pontuais</span>
+                  <span>Briefing organizado</span>
+                  <span>Curadoria de qualidade</span>
+                  <span>Sem perfil público</span>
+                </div>
+              </div>
+              <aside>
+                <small>CURADORIA EM FASE PILOTO</small>
+                <strong>Cadastro não significa contratação.</strong>
+                <p>
+                  A Modo avalia portfólio, disponibilidade e compatibilidade. O contato acontece
+                  somente quando existir demanda real e autorização para avançar.
+                </p>
+              </aside>
             </section>
 
             <section className="talent-principles">
-              <article><span>01</span><strong>Banco para demandas futuras</strong><p>O cadastro organiza referências profissionais; não funciona como vaga aberta ou distribuição automática de projetos.</p></article>
-              <article><span>02</span><strong>Cliente protegido</strong><p>Dados, escopo e acessos só são compartilhados depois de autorização e alinhamento.</p></article>
-              <article><span>03</span><strong>Tecnologia como apoio</strong><p>A ferramenta organiza a operação; o profissional entra quando seu julgamento agrega valor.</p></article>
+              <article>
+                <span>01</span>
+                <strong>Banco para demandas futuras</strong>
+                <p>
+                  O cadastro organiza referências profissionais; não funciona como vaga aberta ou
+                  distribuição automática de projetos.
+                </p>
+              </article>
+              <article>
+                <span>02</span>
+                <strong>Cliente protegido</strong>
+                <p>
+                  Dados, escopo e acessos só são compartilhados depois de autorização e alinhamento.
+                </p>
+              </article>
+              <article>
+                <span>03</span>
+                <strong>Tecnologia como apoio</strong>
+                <p>
+                  A ferramenta organiza a operação; o profissional entra quando seu julgamento
+                  agrega valor.
+                </p>
+              </article>
             </section>
 
             <form className="talent-form" onSubmit={submit}>
-              <div className="talent-form-heading"><div><small>PERFIL PROFISSIONAL</small><h2>Conte o que você faz bem.</h2></div><p>Preencha com informações reais. O portfólio é a principal referência da análise.</p></div>
+              <div className="talent-form-heading">
+                <div>
+                  <small>PERFIL PROFISSIONAL</small>
+                  <h2>Conte o que você faz bem.</h2>
+                </div>
+                <p>
+                  Preencha com informações reais. O portfólio é a principal referência da análise.
+                </p>
+              </div>
               {error && <div className="portal-error">{error}</div>}
               <div className="talent-form-grid">
-                <label>Nome completo<input required value={name} onChange={(event) => setName(event.target.value)} /></label>
-                <label>E-mail profissional<input required type="email" value={email} onChange={(event) => setEmail(event.target.value)} /></label>
-                <label>WhatsApp<input value={whatsapp} onChange={(event) => setWhatsapp(event.target.value)} /></label>
-                <label>Cidade/UF<input value={city} onChange={(event) => setCity(event.target.value)} /></label>
-                <label>Especialidade principal<select value={primaryRole} onChange={(event) => { const next = event.target.value as SpecialistRole; setPrimaryRole(next); setSecondaryRoles((current) => current.filter((item) => item !== next)); }}>{(Object.keys(roleLabels) as SpecialistRole[]).map((role) => <option value={role} key={role}>{roleLabels[role]}</option>)}</select></label>
-                <label>Anos de experiência<input type="number" min="0" max="60" value={experienceYears} onChange={(event) => setExperienceYears(Number(event.target.value))} /></label>
-                <label>Portfólio<input required type="url" placeholder="https://" value={portfolioUrl} onChange={(event) => setPortfolioUrl(event.target.value)} /></label>
-                <label>LinkedIn <span>(opcional)</span><input type="url" placeholder="https://" value={linkedinUrl} onChange={(event) => setLinkedinUrl(event.target.value)} /></label>
-                <label>Disponibilidade<select value={availability} onChange={(event) => setAvailability(event.target.value as typeof availability)}><option value="project">Projetos pontuais</option><option value="part_time">Parte do tempo</option><option value="recurring">Trabalho recorrente</option><option value="full_time_interest">Interesse futuro em dedicação integral</option></select></label>
-                <label>Forma de colaboração<select value={engagementPreference} onChange={(event) => setEngagementPreference(event.target.value as typeof engagementPreference)}><option value="open">Aberto a formatos</option><option value="freelance">Freelancer por projeto</option><option value="partner">Parceria</option><option value="contractor">Prestação recorrente</option></select></label>
+                <label>
+                  Nome completo
+                  <input required value={name} onChange={(event) => setName(event.target.value)} />
+                </label>
+                <label>
+                  E-mail profissional
+                  <input
+                    required
+                    type="email"
+                    value={email}
+                    onChange={(event) => setEmail(event.target.value)}
+                  />
+                </label>
+                <label>
+                  WhatsApp
+                  <input value={whatsapp} onChange={(event) => setWhatsapp(event.target.value)} />
+                </label>
+                <label>
+                  Cidade/UF
+                  <input value={city} onChange={(event) => setCity(event.target.value)} />
+                </label>
+                <label>
+                  Especialidade principal
+                  <select
+                    value={primaryRole}
+                    onChange={(event) => {
+                      const next = event.target.value as SpecialistRole;
+                      setPrimaryRole(next);
+                      setSecondaryRoles((current) => current.filter((item) => item !== next));
+                    }}
+                  >
+                    {(Object.keys(roleLabels) as SpecialistRole[]).map((role) => (
+                      <option value={role} key={role}>
+                        {roleLabels[role]}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  Anos de experiência
+                  <input
+                    type="number"
+                    min="0"
+                    max="60"
+                    value={experienceYears}
+                    onChange={(event) => setExperienceYears(Number(event.target.value))}
+                  />
+                </label>
+                <label>
+                  Portfólio
+                  <input
+                    required
+                    type="url"
+                    placeholder="https://"
+                    value={portfolioUrl}
+                    onChange={(event) => setPortfolioUrl(event.target.value)}
+                  />
+                </label>
+                <label>
+                  LinkedIn <span>(opcional)</span>
+                  <input
+                    type="url"
+                    placeholder="https://"
+                    value={linkedinUrl}
+                    onChange={(event) => setLinkedinUrl(event.target.value)}
+                  />
+                </label>
+                <label>
+                  Disponibilidade
+                  <select
+                    value={availability}
+                    onChange={(event) => setAvailability(event.target.value as typeof availability)}
+                  >
+                    <option value="project">Projetos pontuais</option>
+                    <option value="part_time">Parte do tempo</option>
+                    <option value="recurring">Trabalho recorrente</option>
+                    <option value="full_time_interest">
+                      Interesse futuro em dedicação integral
+                    </option>
+                  </select>
+                </label>
+                <label>
+                  Forma de colaboração
+                  <select
+                    value={engagementPreference}
+                    onChange={(event) =>
+                      setEngagementPreference(event.target.value as typeof engagementPreference)
+                    }
+                  >
+                    <option value="open">Aberto a formatos</option>
+                    <option value="freelance">Freelancer por projeto</option>
+                    <option value="partner">Parceria</option>
+                    <option value="contractor">Prestação recorrente</option>
+                  </select>
+                </label>
               </div>
-              <fieldset><legend>Outras competências</legend><div className="talent-role-grid">{(Object.keys(roleLabels) as SpecialistRole[]).filter((role) => role !== primaryRole).map((role) => <button type="button" className={secondaryRoles.includes(role) ? "selected" : ""} onClick={() => toggleRole(role)} key={role}>{roleLabels[role]}</button>)}</div></fieldset>
-              <label>Sobre seu trabalho<textarea required minLength={40} value={about} onChange={(event) => setAbout(event.target.value)} placeholder="Tipos de projeto, segmentos, forma de pensar, ferramentas e trabalhos que melhor representam você." /></label>
-              <label className="talent-consent"><input type="checkbox" checked={consent} onChange={(event) => setConsent(event.target.checked)} required /><span>Autorizo a Modo a armazenar estes dados para avaliar meu perfil e entrar em contato sobre oportunidades futuras. O cadastro não garante contratação, vaga ou projeto.</span></label>
-              <button className="button button-primary button-full" disabled={submitting || !consent}>{submitting ? "Enviando perfil..." : "Enviar perfil para curadoria"}</button>
+              <fieldset>
+                <legend>Outras competências</legend>
+                <div className="talent-role-grid">
+                  {(Object.keys(roleLabels) as SpecialistRole[])
+                    .filter((role) => role !== primaryRole)
+                    .map((role) => (
+                      <button
+                        type="button"
+                        className={secondaryRoles.includes(role) ? "selected" : ""}
+                        onClick={() => toggleRole(role)}
+                        key={role}
+                      >
+                        {roleLabels[role]}
+                      </button>
+                    ))}
+                </div>
+              </fieldset>
+              <label>
+                Sobre seu trabalho
+                <textarea
+                  required
+                  minLength={40}
+                  value={about}
+                  onChange={(event) => setAbout(event.target.value)}
+                  placeholder="Tipos de projeto, segmentos, forma de pensar, ferramentas e trabalhos que melhor representam você."
+                />
+              </label>
+              <label className="talent-consent">
+                <input
+                  type="checkbox"
+                  checked={consent}
+                  onChange={(event) => setConsent(event.target.checked)}
+                  required
+                />
+                <span>
+                  Autorizo a Modo a armazenar estes dados para avaliar meu perfil e entrar em
+                  contato sobre oportunidades futuras. O cadastro não garante contratação, vaga ou
+                  projeto.
+                </span>
+              </label>
+              <button
+                className="button button-primary button-full"
+                disabled={submitting || !consent}
+              >
+                {submitting ? "Enviando perfil..." : "Enviar perfil para curadoria"}
+              </button>
             </form>
           </>
         )}

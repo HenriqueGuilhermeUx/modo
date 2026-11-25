@@ -1,8 +1,4 @@
-import type {
-  Dashboard,
-  LoginRequest,
-  RegisterRequest,
-} from "@modo/contracts";
+import type { Dashboard, LoginRequest, RegisterRequest } from "@modo/contracts";
 import * as SecureStore from "expo-secure-store";
 import {
   createContext,
@@ -13,12 +9,7 @@ import {
   useMemo,
   useState,
 } from "react";
-import {
-  getDashboard,
-  login,
-  logout,
-  register,
-} from "./api";
+import { getDashboard, login, logout, register } from "./api";
 
 const TOKEN_KEY = "modo.mobile.session";
 
@@ -77,15 +68,21 @@ export function SessionProvider({ children }: PropsWithChildren) {
     setDashboard(current);
   }, []);
 
-  const signIn = useCallback(async (input: LoginRequest) => {
-    const session = await login(input);
-    await applySession(session.token);
-  }, [applySession]);
+  const signIn = useCallback(
+    async (input: LoginRequest) => {
+      const session = await login(input);
+      await applySession(session.token);
+    },
+    [applySession],
+  );
 
-  const signUp = useCallback(async (input: RegisterRequest) => {
-    const session = await register(input);
-    await applySession(session.token);
-  }, [applySession]);
+  const signUp = useCallback(
+    async (input: RegisterRequest) => {
+      const session = await register(input);
+      await applySession(session.token);
+    },
+    [applySession],
+  );
 
   const signOut = useCallback(async () => {
     const currentToken = token;
@@ -105,16 +102,19 @@ export function SessionProvider({ children }: PropsWithChildren) {
     }
   }, [clear, token]);
 
-  const value = useMemo<SessionContextValue>(() => ({
-    token,
-    dashboard,
-    loading,
-    signIn,
-    signUp,
-    signOut,
-    refresh,
-    updateDashboard: setDashboard,
-  }), [dashboard, loading, refresh, signIn, signOut, signUp, token]);
+  const value = useMemo<SessionContextValue>(
+    () => ({
+      token,
+      dashboard,
+      loading,
+      signIn,
+      signUp,
+      signOut,
+      refresh,
+      updateDashboard: setDashboard,
+    }),
+    [dashboard, loading, refresh, signIn, signOut, signUp, token],
+  );
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;
 }

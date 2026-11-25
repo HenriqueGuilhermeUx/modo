@@ -104,7 +104,12 @@ export type InvitationPreview = z.infer<typeof InvitationPreviewSchema>;
 
 export const InvitationAcceptRequestSchema = z.object({
   name: z.string().trim().min(2).max(100),
-  password: z.string().min(8).max(128).regex(/[A-Za-z]/).regex(/[0-9]/),
+  password: z
+    .string()
+    .min(8)
+    .max(128)
+    .regex(/[A-Za-z]/)
+    .regex(/[0-9]/),
   organizationName: z.string().trim().min(2).max(120),
 });
 export type InvitationAcceptRequest = z.infer<typeof InvitationAcceptRequestSchema>;
@@ -112,24 +117,36 @@ export type InvitationAcceptRequest = z.infer<typeof InvitationAcceptRequestSche
 export const DiscountKindSchema = z.enum(["percent", "fixed_cents"]);
 export type DiscountKind = z.infer<typeof DiscountKindSchema>;
 
-export const AdminDiscountCampaignCreateSchema = z.object({
-  name: z.string().trim().min(2).max(120),
-  code: z.string().trim().toUpperCase().min(3).max(32).regex(/^[A-Z0-9_-]+$/),
-  kind: DiscountKindSchema,
-  value: z.number().int().positive(),
-  plans: z.array(PublicPlanSlugSchema).min(1).max(4),
-  maxRedemptions: z.number().int().min(1).max(100000),
-  startsAt: z.string().datetime(),
-  endsAt: z.string().datetime(),
-  active: z.boolean().default(true),
-}).superRefine((value, context) => {
-  if (value.kind === "percent" && value.value > 100) {
-    context.addIssue({ code: "custom", path: ["value"], message: "Percentual máximo: 100%." });
-  }
-  if (new Date(value.endsAt) <= new Date(value.startsAt)) {
-    context.addIssue({ code: "custom", path: ["endsAt"], message: "O término deve ser posterior ao início." });
-  }
-});
+export const AdminDiscountCampaignCreateSchema = z
+  .object({
+    name: z.string().trim().min(2).max(120),
+    code: z
+      .string()
+      .trim()
+      .toUpperCase()
+      .min(3)
+      .max(32)
+      .regex(/^[A-Z0-9_-]+$/),
+    kind: DiscountKindSchema,
+    value: z.number().int().positive(),
+    plans: z.array(PublicPlanSlugSchema).min(1).max(4),
+    maxRedemptions: z.number().int().min(1).max(100000),
+    startsAt: z.string().datetime(),
+    endsAt: z.string().datetime(),
+    active: z.boolean().default(true),
+  })
+  .superRefine((value, context) => {
+    if (value.kind === "percent" && value.value > 100) {
+      context.addIssue({ code: "custom", path: ["value"], message: "Percentual máximo: 100%." });
+    }
+    if (new Date(value.endsAt) <= new Date(value.startsAt)) {
+      context.addIssue({
+        code: "custom",
+        path: ["endsAt"],
+        message: "O término deve ser posterior ao início.",
+      });
+    }
+  });
 export type AdminDiscountCampaignCreate = z.infer<typeof AdminDiscountCampaignCreateSchema>;
 
 export const AdminDiscountCampaignSchema = AdminDiscountCampaignCreateSchema.extend({
@@ -144,17 +161,24 @@ export const AdminDiscountCampaignListSchema = z.object({
 });
 
 export const AdminCreditAdjustmentSchema = z.object({
-  credits: z.number().int().min(-1000).max(1000).refine((value) => value !== 0),
+  credits: z
+    .number()
+    .int()
+    .min(-1000)
+    .max(1000)
+    .refine((value) => value !== 0),
   reason: z.string().trim().min(3).max(300),
 });
 export type AdminCreditAdjustment = z.infer<typeof AdminCreditAdjustmentSchema>;
 
-export const AdminSubscriptionUpdateSchema = z.object({
-  plan: PlanSlugSchema.optional(),
-  status: SubscriptionStatusSchema.optional(),
-}).refine((value) => value.plan || value.status, {
-  message: "Informe plano ou status.",
-});
+export const AdminSubscriptionUpdateSchema = z
+  .object({
+    plan: PlanSlugSchema.optional(),
+    status: SubscriptionStatusSchema.optional(),
+  })
+  .refine((value) => value.plan || value.status, {
+    message: "Informe plano ou status.",
+  });
 export type AdminSubscriptionUpdate = z.infer<typeof AdminSubscriptionUpdateSchema>;
 
 export const AdminOrganizationUsageSchema = z.object({

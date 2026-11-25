@@ -241,15 +241,19 @@ export class ContentService {
   }
 
   async markProcessing(id: string) {
-    return this.updateInternal(id, (item) => ({
-      ...item,
-      status: "processing",
-      error: null,
-      updatedAt: new Date().toISOString(),
-    }), `UPDATE modo_content_requests
+    return this.updateInternal(
+      id,
+      (item) => ({
+        ...item,
+        status: "processing",
+        error: null,
+        updatedAt: new Date().toISOString(),
+      }),
+      `UPDATE modo_content_requests
         SET status='processing', error=NULL, updated_at=NOW()
         WHERE id=$1 AND status IN ('queued','revision_requested')
-        RETURNING *`);
+        RETURNING *`,
+    );
   }
 
   async complete(id: string, output: GeneratedContent, providerRunId?: string) {
@@ -307,7 +311,8 @@ export class ContentService {
          RETURNING *`,
         [id, organizationId],
       );
-      if (!result.rowCount) throw this.invalidTransition("Somente conteúdos prontos podem ser aprovados.");
+      if (!result.rowCount)
+        throw this.invalidTransition("Somente conteúdos prontos podem ser aprovados.");
       return mapRow(result.rows[0]);
     }
     return this.updateMemory(id, (item) => {

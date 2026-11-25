@@ -9,9 +9,12 @@ describe("OpenAiVideoVisualProvider", () => {
   it("gera imagem vertical editorial sem texto embutido", async () => {
     const image = Buffer.from("modo-scene-image");
     const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      new Response(JSON.stringify({
-        data: [{ b64_json: image.toString("base64") }],
-      }), { status: 200, headers: { "content-type": "application/json" } }),
+      new Response(
+        JSON.stringify({
+          data: [{ b64_json: image.toString("base64") }],
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      ),
     );
     const provider = new OpenAiVideoVisualProvider("test-key", "gpt-image-2", "low");
 
@@ -55,12 +58,14 @@ describe("OpenAiVideoVisualProvider", () => {
     );
     const provider = new OpenAiVideoVisualProvider("test-key");
 
-    await expect(provider.generate({
-      brandName: "MODO",
-      headline: "Cena",
-      visualDirection: "Cena editorial",
-      sceneIndex: 1,
-      revision: 0,
-    })).rejects.toThrow("image generation unavailable");
+    await expect(
+      provider.generate({
+        brandName: "MODO",
+        headline: "Cena",
+        visualDirection: "Cena editorial",
+        sceneIndex: 1,
+        revision: 0,
+      }),
+    ).rejects.toThrow("image generation unavailable");
   });
 });

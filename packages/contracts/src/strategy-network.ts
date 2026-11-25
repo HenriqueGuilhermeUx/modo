@@ -70,7 +70,17 @@ export const BrandFoundationProfileSchema = BrandFoundationUpsertSchema.extend({
 });
 
 export const ChannelPlanItemSchema = z.object({
-  channel: z.enum(["instagram", "facebook", "linkedin", "tiktok", "youtube", "whatsapp", "email", "blog", "other"]),
+  channel: z.enum([
+    "instagram",
+    "facebook",
+    "linkedin",
+    "tiktok",
+    "youtube",
+    "whatsapp",
+    "email",
+    "blog",
+    "other",
+  ]),
   role: z.string().trim().max(500).default(""),
   primaryObjective: z.string().trim().max(500).default(""),
   audience: z.string().trim().max(1000).default(""),
@@ -98,7 +108,9 @@ export const RevenueMapUpsertSchema = z.object({
   primaryOffer: LongTextSchema,
   priceContext: z.string().trim().max(500).default(""),
   revenueObjective: LongTextSchema,
-  funnelStage: z.enum(["awareness", "consideration", "lead", "opportunity", "sale", "retention"]).default("lead"),
+  funnelStage: z
+    .enum(["awareness", "consideration", "lead", "opportunity", "sale", "retention"])
+    .default("lead"),
   conversionDestination: z.string().trim().max(1000).default(""),
   targetAudience: LongTextSchema,
   primaryConversion: z.string().trim().max(500).default(""),

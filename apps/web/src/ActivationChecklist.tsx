@@ -16,7 +16,11 @@ export default function ActivationChecklist() {
   useEffect(() => {
     getActivationSummary()
       .then(setSummary)
-      .catch((caught) => setError(caught instanceof Error ? caught.message : "Não foi possível carregar sua jornada."));
+      .catch((caught) =>
+        setError(
+          caught instanceof Error ? caught.message : "Não foi possível carregar sua jornada.",
+        ),
+      );
   }, []);
 
   if (error) return null;
@@ -34,12 +38,22 @@ export default function ActivationChecklist() {
       <div className="activation-heading">
         <div>
           <small>{summary.activated ? "PRIMEIRO CICLO CONCLUÍDO" : "SUA JORNADA NA MODO"}</small>
-          <h2>{summary.activated ? "Sua operação já consegue criar, aprovar e exportar." : "Um próximo passo por vez."}</h2>
-          <p>{summary.activated ? "Agora a Modo pode repetir o processo, aprender com os resultados e ampliar campanhas." : "A Modo mostra o que falta para você chegar à primeira entrega pronta para uso."}</p>
+          <h2>
+            {summary.activated
+              ? "Sua operação já consegue criar, aprovar e exportar."
+              : "Um próximo passo por vez."}
+          </h2>
+          <p>
+            {summary.activated
+              ? "Agora a Modo pode repetir o processo, aprender com os resultados e ampliar campanhas."
+              : "A Modo mostra o que falta para você chegar à primeira entrega pronta para uso."}
+          </p>
         </div>
         <div className="activation-score">
           <strong>{summary.progress}%</strong>
-          <span>{summary.completedCount}/{summary.totalSteps} etapas</span>
+          <span>
+            {summary.completedCount}/{summary.totalSteps} etapas
+          </span>
         </div>
       </div>
 
@@ -66,10 +80,15 @@ export default function ActivationChecklist() {
           <strong>{summary.nextAction.label}</strong>
           <p>{summary.nextAction.description}</p>
         </div>
-        <a className="button button-primary" href={summary.nextAction.path}>{summary.nextAction.label} →</a>
+        <a className="button button-primary" href={summary.nextAction.path}>
+          {summary.nextAction.label} →
+        </a>
       </div>
 
-      <p className="activation-trust">A Modo acompanha apenas ações dentro da sua operação para simplificar a jornada. Nada é publicado automaticamente.</p>
+      <p className="activation-trust">
+        A Modo acompanha apenas ações dentro da sua operação para simplificar a jornada. Nada é
+        publicado automaticamente.
+      </p>
     </section>
   );
 }

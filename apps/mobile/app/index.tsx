@@ -18,6 +18,12 @@ export default function EntryScreen() {
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, alignItems: "center", justifyContent: "center", gap: spacing.lg, backgroundColor: colors.background },
+  screen: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: spacing.lg,
+    backgroundColor: colors.background,
+  },
   copy: { color: colors.muted, fontSize: 14, fontWeight: "700" },
 });

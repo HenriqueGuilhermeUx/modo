@@ -120,7 +120,13 @@ export async function registerStrategyNetworkRoutes(app: FastifyInstance, option
       enabled: true,
       storage: service.storage,
       organizationId: context.organizationId,
-      modules: ["brand_foundation", "channel_map", "revenue_map", "human_support", "specialist_network"],
+      modules: [
+        "brand_foundation",
+        "channel_map",
+        "revenue_map",
+        "human_support",
+        "specialist_network",
+      ],
       humanSupportNotification: notifier.configured ? "configured" : "not_configured",
     };
   });
@@ -186,20 +192,22 @@ export async function registerStrategyNetworkRoutes(app: FastifyInstance, option
       const input = HumanSupportRequestCreateSchema.parse(request.body);
       await assertCurationEligibility(context.organizationId, input);
       const created = await service.createSupportRequest(context, input);
-      await notifier.notifyNewRequest({
-        requestId: created.id,
-        requesterEmail: context.email,
-        brandId: created.brandId,
-        contentRequestId: created.contentRequestId,
-        supportType: created.type,
-        urgency: created.urgency,
-        createdAt: created.createdAt,
-      }).catch((error) => {
-        console.error("[MODO_HUMAN_SUPPORT_NOTIFICATION_FAILED]", {
+      await notifier
+        .notifyNewRequest({
           requestId: created.id,
-          error: error instanceof Error ? error.message : String(error),
+          requesterEmail: context.email,
+          brandId: created.brandId,
+          contentRequestId: created.contentRequestId,
+          supportType: created.type,
+          urgency: created.urgency,
+          createdAt: created.createdAt,
+        })
+        .catch((error) => {
+          console.error("[MODO_HUMAN_SUPPORT_NOTIFICATION_FAILED]", {
+            requestId: created.id,
+            error: error instanceof Error ? error.message : String(error),
+          });
         });
-      });
       return reply.code(201).send(created);
     },
   );
@@ -228,7 +236,8 @@ export async function registerStrategyNetworkRoutes(app: FastifyInstance, option
     }
     const message = error instanceof Error ? error.message : "Ocorreu um erro inesperado.";
     const name = error instanceof Error ? error.name : "UnknownError";
-    const validation = name === "ZodError" || message.includes("URL") || message.includes("Endereços");
+    const validation =
+      name === "ZodError" || message.includes("URL") || message.includes("Endereços");
     return reply.code(validation ? 400 : 500).send({
       code: validation ? "INVALID_REQUEST" : "INTERNAL_ERROR",
       message: validation ? message : "Ocorreu um erro inesperado.",

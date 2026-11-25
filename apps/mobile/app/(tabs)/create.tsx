@@ -1,6 +1,10 @@
 import { contentCreditCost, type ContentUnitType } from "@modo/contracts";
 import type { ContentObjective, ContentRequest } from "@modo/contracts/content";
-import type { NativeConnection, NativePublication, NativePublisherProvider } from "@modo/contracts/native-publisher";
+import type {
+  NativeConnection,
+  NativePublication,
+  NativePublisherProvider,
+} from "@modo/contracts/native-publisher";
 import { Redirect, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
 import {
@@ -23,28 +27,64 @@ import {
   startPublisherConnection,
 } from "../../src/publisher";
 import { useSession } from "../../src/session";
-import { Button, Card, ErrorNotice, Field, Pill, Screen, SectionHeading, typography } from "../../src/ui";
+import {
+  Button,
+  Card,
+  ErrorNotice,
+  Field,
+  Pill,
+  Screen,
+  SectionHeading,
+  typography,
+} from "../../src/ui";
 import { colors, radii, spacing } from "../../src/theme";
 
 const channels = ["Instagram", "Facebook", "LinkedIn"] as const;
-type Channel = typeof channels[number];
+type Channel = (typeof channels)[number];
 
 type PublishMode = "now" | "schedule";
 
 const objectives: Array<{ value: ContentObjective; label: string; copy: string }> = [
-  { value: "autoridade", label: "Construir autoridade", copy: "Ensinar e fortalecer posicionamento." },
+  {
+    value: "autoridade",
+    label: "Construir autoridade",
+    copy: "Ensinar e fortalecer posicionamento.",
+  },
   { value: "demanda", label: "Atrair oportunidades", copy: "Gerar interesse e novas conversas." },
-  { value: "conversao", label: "Divulgar uma oferta", copy: "Apresentar valor e orientar a próxima ação." },
-  { value: "educacao", label: "Explicar um tema", copy: "Organizar uma ideia de forma útil e clara." },
+  {
+    value: "conversao",
+    label: "Divulgar uma oferta",
+    copy: "Apresentar valor e orientar a próxima ação.",
+  },
+  {
+    value: "educacao",
+    label: "Explicar um tema",
+    copy: "Organizar uma ideia de forma útil e clara.",
+  },
   { value: "relacionamento", label: "Manter presença", copy: "Criar proximidade e continuidade." },
 ];
 
-const formats: Array<{ value: ContentUnitType; label: string; channels?: Channel[]; instruction?: string }> = [
+const formats: Array<{
+  value: ContentUnitType;
+  label: string;
+  channels?: Channel[];
+  instruction?: string;
+}> = [
   { value: "static_post", label: "Post com imagem" },
   { value: "carousel", label: "Carrossel" },
   { value: "story", label: "Stories", channels: ["Instagram", "Facebook"] },
-  { value: "short_video_script", label: "Roteiro curto", channels: ["Instagram", "Facebook", "LinkedIn"] },
-  { value: "channel_adaptation", label: "Texto longo", channels: ["LinkedIn"], instruction: "Produza um texto longo para LinkedIn, com estrutura editorial, subtítulos curtos e conclusão prática." },
+  {
+    value: "short_video_script",
+    label: "Roteiro curto",
+    channels: ["Instagram", "Facebook", "LinkedIn"],
+  },
+  {
+    value: "channel_adaptation",
+    label: "Texto longo",
+    channels: ["LinkedIn"],
+    instruction:
+      "Produza um texto longo para LinkedIn, com estrutura editorial, subtítulos curtos e conclusão prática.",
+  },
 ];
 
 const statusLabels: Record<ContentRequest["status"], string> = {
@@ -121,7 +161,9 @@ export default function CreateScreen() {
   const requestedChannel = selectedParam(params.channel);
   const initialSchedule = defaultSchedule();
   const [brandId, setBrandId] = useState(dashboard?.brands[0]?.id || "");
-  const [channel, setChannel] = useState<Channel>(channels.includes(requestedChannel as Channel) ? requestedChannel as Channel : "Instagram");
+  const [channel, setChannel] = useState<Channel>(
+    channels.includes(requestedChannel as Channel) ? (requestedChannel as Channel) : "Instagram",
+  );
   const [objective, setObjective] = useState<ContentObjective>("autoridade");
   const [contentType, setContentType] = useState<ContentUnitType>("static_post");
   const [brief, setBrief] = useState("");
@@ -147,11 +189,17 @@ export default function CreateScreen() {
   }, [brandId, dashboard]);
 
   useEffect(() => {
-    if (requestedChannel && channels.includes(requestedChannel as Channel)) setChannel(requestedChannel as Channel);
+    if (requestedChannel && channels.includes(requestedChannel as Channel))
+      setChannel(requestedChannel as Channel);
   }, [requestedChannel]);
 
   useEffect(() => {
-    if (!request || !token || !["queued", "processing", "revision_requested"].includes(request.status)) return;
+    if (
+      !request ||
+      !token ||
+      !["queued", "processing", "revision_requested"].includes(request.status)
+    )
+      return;
     const timer = setInterval(() => {
       getContent(token, request.id)
         .then(setRequest)
@@ -165,17 +213,28 @@ export default function CreateScreen() {
   }, [request?.id, request?.status, token]);
 
   if (dashboard && dashboard.brands.length === 0) return <Redirect href="/setup" />;
-  if (!dashboard) return <Screen><Text style={typography.body}>Sincronizando sua conta...</Text></Screen>;
+  if (!dashboard)
+    return (
+      <Screen>
+        <Text style={typography.body}>Sincronizando sua conta...</Text>
+      </Screen>
+    );
 
-  const availableFormats = formats.filter((item) => !item.channels || item.channels.includes(channel));
+  const availableFormats = formats.filter(
+    (item) => !item.channels || item.channels.includes(channel),
+  );
   const selectedFormat = formats.find((item) => item.value === contentType);
   const cost = contentCreditCost[contentType];
-  const canCreate = Boolean(brandId && brief.trim().length >= 10 && dashboard.usage.creditsRemaining >= cost);
+  const canCreate = Boolean(
+    brandId && brief.trim().length >= 10 && dashboard.usage.creditsRemaining >= cost,
+  );
   const compactOptions = width < 390;
 
   function changeChannel(next: Channel) {
     setChannel(next);
-    const valid = formats.some((item) => item.value === contentType && (!item.channels || item.channels.includes(next)));
+    const valid = formats.some(
+      (item) => item.value === contentType && (!item.channels || item.channels.includes(next)),
+    );
     if (!valid) setContentType("static_post");
   }
 
@@ -190,7 +249,13 @@ export default function CreateScreen() {
     setConnections([]);
     try {
       const finalBrief = [selectedFormat?.instruction, brief.trim()].filter(Boolean).join("\n\n");
-      const result = await createContent(token, { brandId, channel, objective, contentType, brief: finalBrief });
+      const result = await createContent(token, {
+        brandId,
+        channel,
+        objective,
+        contentType,
+        brief: finalBrief,
+      });
       setRequest(result.request);
       updateDashboard({ ...dashboard!, usage: result.usage });
     } catch (caught) {
@@ -235,15 +300,26 @@ export default function CreateScreen() {
         listPublisherConnections(token, target.brandId),
         listPublisherPublications(token, target.brandId),
       ]);
-      const eligible = allConnections.filter((item) => item.provider === provider && item.connected && item.canPublish);
+      const eligible = allConnections.filter(
+        (item) => item.provider === provider && item.connected && item.canPublish,
+      );
       setConnections(eligible);
-      setConnectionId((current) => eligible.some((item) => item.id === current) ? current : eligible[0]?.id || "");
+      setConnectionId((current) =>
+        eligible.some((item) => item.id === current) ? current : eligible[0]?.id || "",
+      );
       const existing = publications.find(
-        (item) => item.contentRequestId === target.id && item.provider === provider && item.status !== "cancelled",
+        (item) =>
+          item.contentRequestId === target.id &&
+          item.provider === provider &&
+          item.status !== "cancelled",
       );
       setPublication(existing || null);
     } catch (caught) {
-      setPublisherError(caught instanceof Error ? caught.message : "Não foi possível carregar suas contas de publicação.");
+      setPublisherError(
+        caught instanceof Error
+          ? caught.message
+          : "Não foi possível carregar suas contas de publicação.",
+      );
     } finally {
       setPublisherLoading(false);
     }
@@ -257,10 +333,14 @@ export default function CreateScreen() {
     try {
       const provider = providerForChannel(request.channel);
       const authorizationUrl = await startPublisherConnection(token, provider, request.brandId);
-      setPublisherMessage(`Conclua a autorização de ${providerLabels[provider]} e volte ao app. Depois toque em “Atualizar conexões”.`);
+      setPublisherMessage(
+        `Conclua a autorização de ${providerLabels[provider]} e volte ao app. Depois toque em “Atualizar conexões”.`,
+      );
       await Linking.openURL(authorizationUrl);
     } catch (caught) {
-      setPublisherError(caught instanceof Error ? caught.message : "Não foi possível iniciar a conexão da rede.");
+      setPublisherError(
+        caught instanceof Error ? caught.message : "Não foi possível iniciar a conexão da rede.",
+      );
     } finally {
       setConnecting(false);
     }
@@ -273,7 +353,8 @@ export default function CreateScreen() {
     setPublisherMessage("");
     try {
       const provider = providerForChannel(request.channel);
-      const scheduledFor = publishMode === "schedule" ? scheduleIso(scheduleDate, scheduleTime) : undefined;
+      const scheduledFor =
+        publishMode === "schedule" ? scheduleIso(scheduleDate, scheduleTime) : undefined;
       if (publishMode === "schedule" && !scheduledFor) {
         setPublisherError("Informe uma data e hora futuras no formato AAAA-MM-DD e HH:MM.");
         return;
@@ -296,7 +377,9 @@ export default function CreateScreen() {
             : "A publicação foi enviada ao Publisher e está sendo processada.",
       );
     } catch (caught) {
-      setPublisherError(caught instanceof Error ? caught.message : "Não foi possível publicar esta entrega.");
+      setPublisherError(
+        caught instanceof Error ? caught.message : "Não foi possível publicar esta entrega.",
+      );
     } finally {
       setPublishing(false);
     }
@@ -309,9 +392,13 @@ export default function CreateScreen() {
     try {
       await cancelPublisherPublication(token, publication.id);
       setPublication(null);
-      setPublisherMessage("Agendamento cancelado. Você pode escolher uma nova data ou publicar agora.");
+      setPublisherMessage(
+        "Agendamento cancelado. Você pode escolher uma nova data ou publicar agora.",
+      );
     } catch (caught) {
-      setPublisherError(caught instanceof Error ? caught.message : "Não foi possível cancelar a publicação.");
+      setPublisherError(
+        caught instanceof Error ? caught.message : "Não foi possível cancelar a publicação.",
+      );
     } finally {
       setPublishing(false);
     }
@@ -326,7 +413,9 @@ export default function CreateScreen() {
       setPublication(retried);
       setPublisherMessage("Nova tentativa enviada ao Publisher.");
     } catch (caught) {
-      setPublisherError(caught instanceof Error ? caught.message : "Não foi possível reenviar a publicação.");
+      setPublisherError(
+        caught instanceof Error ? caught.message : "Não foi possível reenviar a publicação.",
+      );
     } finally {
       setPublishing(false);
     }
@@ -349,7 +438,13 @@ export default function CreateScreen() {
             <Text style={typography.label}>Contexto ativo</Text>
             <View style={styles.options}>
               {dashboard.brands.map((brand) => (
-                <Option key={brand.id} selected={brandId === brand.id} label={brand.name} onPress={() => setBrandId(brand.id)} compact={compactOptions} />
+                <Option
+                  key={brand.id}
+                  selected={brandId === brand.id}
+                  label={brand.name}
+                  onPress={() => setBrandId(brand.id)}
+                  compact={compactOptions}
+                />
               ))}
             </View>
           </View>
@@ -357,7 +452,17 @@ export default function CreateScreen() {
 
         <View style={styles.group}>
           <Text style={typography.label}>Canal</Text>
-          <View style={styles.options}>{channels.map((item) => <Option key={item} selected={channel === item} label={item} onPress={() => changeChannel(item)} compact={compactOptions} />)}</View>
+          <View style={styles.options}>
+            {channels.map((item) => (
+              <Option
+                key={item}
+                selected={channel === item}
+                label={item}
+                onPress={() => changeChannel(item)}
+                compact={compactOptions}
+              />
+            ))}
+          </View>
         </View>
 
         <View style={styles.group}>
@@ -371,7 +476,11 @@ export default function CreateScreen() {
                 onPress={() => setObjective(item.value)}
                 style={[styles.objective, objective === item.value && styles.objectiveSelected]}
               >
-                <Text style={[styles.objectiveTitle, objective === item.value && styles.selectedText]}>{item.label}</Text>
+                <Text
+                  style={[styles.objectiveTitle, objective === item.value && styles.selectedText]}
+                >
+                  {item.label}
+                </Text>
                 <Text style={styles.objectiveCopy}>{item.copy}</Text>
               </Pressable>
             ))}
@@ -381,7 +490,15 @@ export default function CreateScreen() {
         <View style={styles.group}>
           <Text style={typography.label}>Formato recomendado</Text>
           <View style={styles.options}>
-            {availableFormats.map((item) => <Option key={item.value} selected={contentType === item.value} label={item.label} onPress={() => setContentType(item.value)} compact={compactOptions} />)}
+            {availableFormats.map((item) => (
+              <Option
+                key={item.value}
+                selected={contentType === item.value}
+                label={item.label}
+                onPress={() => setContentType(item.value)}
+                compact={compactOptions}
+              />
+            ))}
           </View>
         </View>
 
@@ -397,36 +514,91 @@ export default function CreateScreen() {
 
         <View style={styles.costRow}>
           <Text style={typography.small}>Custo desta criação</Text>
-          <Pill tone={dashboard.usage.creditsRemaining >= cost ? "green" : "warning"}>{cost} crédito{cost > 1 ? "s" : ""}</Pill>
+          <Pill tone={dashboard.usage.creditsRemaining >= cost ? "green" : "warning"}>
+            {cost} crédito{cost > 1 ? "s" : ""}
+          </Pill>
         </View>
-        {dashboard.usage.creditsRemaining < cost ? <ErrorNotice message="Seu saldo atual não cobre este formato. Seus direitos são sincronizados com a conta MODO." /> : null}
+        {dashboard.usage.creditsRemaining < cost ? (
+          <ErrorNotice message="Seu saldo atual não cobre este formato. Seus direitos são sincronizados com a conta MODO." />
+        ) : null}
         {error ? <ErrorNotice message={error} /> : null}
-        <Button onPress={() => void submit()} disabled={!canCreate} loading={submitting}>Criar para revisão</Button>
+        <Button onPress={() => void submit()} disabled={!canCreate} loading={submitting}>
+          Criar para revisão
+        </Button>
       </Card>
 
       {request ? (
         <Card style={styles.result}>
           <View style={styles.resultHead}>
-            <View><Text style={styles.eyebrow}>ENTREGA</Text><Text style={typography.h2}>{output?.title || "Produção em andamento"}</Text></View>
-            <Pill tone={request.status === "approved" ? "green" : request.status === "failed" ? "warning" : "blue"}>{statusLabels[request.status]}</Pill>
+            <View>
+              <Text style={styles.eyebrow}>ENTREGA</Text>
+              <Text style={typography.h2}>{output?.title || "Produção em andamento"}</Text>
+            </View>
+            <Pill
+              tone={
+                request.status === "approved"
+                  ? "green"
+                  : request.status === "failed"
+                    ? "warning"
+                    : "blue"
+              }
+            >
+              {statusLabels[request.status]}
+            </Pill>
           </View>
 
           {output?.imageUrl ? (
-            <Pressable accessibilityRole="imagebutton" onPress={() => void Linking.openURL(output.imageUrl!)}>
-              <Image source={{ uri: output.imageUrl }} resizeMode="cover" style={styles.image} accessibilityLabel={output.imageAlt || "Imagem criada pela MODO"} />
+            <Pressable
+              accessibilityRole="imagebutton"
+              onPress={() => void Linking.openURL(output.imageUrl!)}
+            >
+              <Image
+                source={{ uri: output.imageUrl }}
+                resizeMode="cover"
+                style={styles.image}
+                accessibilityLabel={output.imageAlt || "Imagem criada pela MODO"}
+              />
             </Pressable>
           ) : null}
 
           {output ? (
             <>
-              <View style={styles.outputBlock}><Text style={styles.outputLabel}>TEXTO</Text><Text selectable style={styles.outputText}>{output.caption}</Text></View>
-              <View style={styles.outputBlock}><Text style={styles.outputLabel}>CHAMADA</Text><Text selectable style={styles.outputText}>{output.cta}</Text></View>
-              {output.hashtags.length ? <Text selectable style={styles.hashtags}>{output.hashtags.join(" ")}</Text> : null}
-              {request.status === "ready" ? <Button onPress={() => void approve()} loading={approving}>Aprovar entrega</Button> : null}
-              {request.status === "approved" ? <Button variant="ghost" onPress={() => void shareCopy()}>Compartilhar texto aprovado</Button> : null}
+              <View style={styles.outputBlock}>
+                <Text style={styles.outputLabel}>TEXTO</Text>
+                <Text selectable style={styles.outputText}>
+                  {output.caption}
+                </Text>
+              </View>
+              <View style={styles.outputBlock}>
+                <Text style={styles.outputLabel}>CHAMADA</Text>
+                <Text selectable style={styles.outputText}>
+                  {output.cta}
+                </Text>
+              </View>
+              {output.hashtags.length ? (
+                <Text selectable style={styles.hashtags}>
+                  {output.hashtags.join(" ")}
+                </Text>
+              ) : null}
+              {request.status === "ready" ? (
+                <Button onPress={() => void approve()} loading={approving}>
+                  Aprovar entrega
+                </Button>
+              ) : null}
+              {request.status === "approved" ? (
+                <Button variant="ghost" onPress={() => void shareCopy()}>
+                  Compartilhar texto aprovado
+                </Button>
+              ) : null}
             </>
           ) : (
-            <View style={styles.processing}><Text style={styles.processingMark}>✦</Text><Text style={typography.body}>Texto, direção visual e imagem estão sendo preparados. Você pode continuar usando o aplicativo.</Text></View>
+            <View style={styles.processing}>
+              <Text style={styles.processingMark}>✦</Text>
+              <Text style={typography.body}>
+                Texto, direção visual e imagem estão sendo preparados. Você pode continuar usando o
+                aplicativo.
+              </Text>
+            </View>
           )}
         </Card>
       ) : null}
@@ -437,34 +609,87 @@ export default function CreateScreen() {
             <View>
               <Text style={styles.publisherEyebrow}>MODO PUBLISHER</Text>
               <Text style={typography.h2}>Aprovou. Agora publique ou agende.</Text>
-              <Text style={typography.small}>A mesma peça segue para {providerLabels[provider]} pela conta oficial conectada à sua marca.</Text>
+              <Text style={typography.small}>
+                A mesma peça segue para {providerLabels[provider]} pela conta oficial conectada à
+                sua marca.
+              </Text>
             </View>
             <Pill tone="green">APROVADO</Pill>
           </View>
 
           {publisherError ? <ErrorNotice message={publisherError} /> : null}
-          {publisherMessage ? <View style={styles.publisherSuccess}><Text style={styles.publisherSuccessText}>{publisherMessage}</Text></View> : null}
+          {publisherMessage ? (
+            <View style={styles.publisherSuccess}>
+              <Text style={styles.publisherSuccessText}>{publisherMessage}</Text>
+            </View>
+          ) : null}
 
           {publisherLoading ? (
-            <View style={styles.processing}><Text style={styles.processingMark}>↗</Text><Text style={typography.body}>Carregando contas e publicações...</Text></View>
+            <View style={styles.processing}>
+              <Text style={styles.processingMark}>↗</Text>
+              <Text style={typography.body}>Carregando contas e publicações...</Text>
+            </View>
           ) : publication ? (
             <View style={styles.publicationStatus}>
               <View style={styles.publicationTop}>
-                <View><Text style={styles.outputLabel}>{providerLabels[publication.provider].toUpperCase()}</Text><Text style={typography.h3}>{publicationLabels[publication.status]}</Text></View>
-                <Pill tone={publication.status === "published" ? "green" : publication.status === "failed" ? "warning" : "blue"}>{publicationLabels[publication.status]}</Pill>
+                <View>
+                  <Text style={styles.outputLabel}>
+                    {providerLabels[publication.provider].toUpperCase()}
+                  </Text>
+                  <Text style={typography.h3}>{publicationLabels[publication.status]}</Text>
+                </View>
+                <Pill
+                  tone={
+                    publication.status === "published"
+                      ? "green"
+                      : publication.status === "failed"
+                        ? "warning"
+                        : "blue"
+                  }
+                >
+                  {publicationLabels[publication.status]}
+                </Pill>
               </View>
-              {publicationDate(publication) ? <Text style={typography.small}>{publicationDate(publication)}</Text> : null}
+              {publicationDate(publication) ? (
+                <Text style={typography.small}>{publicationDate(publication)}</Text>
+              ) : null}
               {publication.lastError ? <ErrorNotice message={publication.lastError} /> : null}
-              {publication.permalink ? <Button variant="ghost" onPress={() => void Linking.openURL(publication.permalink!)}>Abrir publicação</Button> : null}
-              {publication.status === "scheduled" ? <Button variant="ghost" onPress={() => void cancelPublication()} loading={publishing}>Cancelar agendamento</Button> : null}
-              {publication.status === "failed" ? <Button onPress={() => void retryPublication()} loading={publishing}>Tentar publicar novamente</Button> : null}
+              {publication.permalink ? (
+                <Button
+                  variant="ghost"
+                  onPress={() => void Linking.openURL(publication.permalink!)}
+                >
+                  Abrir publicação
+                </Button>
+              ) : null}
+              {publication.status === "scheduled" ? (
+                <Button
+                  variant="ghost"
+                  onPress={() => void cancelPublication()}
+                  loading={publishing}
+                >
+                  Cancelar agendamento
+                </Button>
+              ) : null}
+              {publication.status === "failed" ? (
+                <Button onPress={() => void retryPublication()} loading={publishing}>
+                  Tentar publicar novamente
+                </Button>
+              ) : null}
             </View>
           ) : connections.length === 0 ? (
             <View style={styles.connectBox}>
               <Text style={typography.h3}>Conecte {providerLabels[provider]} uma vez.</Text>
-              <Text style={typography.small}>A autorização é feita pelo provedor oficial. Depois a MODO pode publicar e agendar pela conta escolhida.</Text>
-              <Button onPress={() => void connectProvider()} loading={connecting}>Conectar {providerLabels[provider]}</Button>
-              <Button variant="ghost" onPress={() => void loadPublisher()}>Atualizar conexões</Button>
+              <Text style={typography.small}>
+                A autorização é feita pelo provedor oficial. Depois a MODO pode publicar e agendar
+                pela conta escolhida.
+              </Text>
+              <Button onPress={() => void connectProvider()} loading={connecting}>
+                Conectar {providerLabels[provider]}
+              </Button>
+              <Button variant="ghost" onPress={() => void loadPublisher()}>
+                Atualizar conexões
+              </Button>
             </View>
           ) : (
             <View style={styles.publisherForm}>
@@ -475,7 +700,9 @@ export default function CreateScreen() {
                     <Option
                       key={item.id}
                       selected={connectionId === item.id}
-                      label={item.username ? `@${item.username.replace(/^@/, "")}` : item.displayName}
+                      label={
+                        item.username ? `@${item.username.replace(/^@/, "")}` : item.displayName
+                      }
                       onPress={() => setConnectionId(item.id)}
                       compact={compactOptions}
                     />
@@ -486,22 +713,50 @@ export default function CreateScreen() {
               <View style={styles.group}>
                 <Text style={typography.label}>Quando vai ao ar?</Text>
                 <View style={styles.options}>
-                  <Option selected={publishMode === "now"} label="Publicar agora" onPress={() => setPublishMode("now")} compact={compactOptions} />
-                  <Option selected={publishMode === "schedule"} label="Agendar" onPress={() => setPublishMode("schedule")} compact={compactOptions} />
+                  <Option
+                    selected={publishMode === "now"}
+                    label="Publicar agora"
+                    onPress={() => setPublishMode("now")}
+                    compact={compactOptions}
+                  />
+                  <Option
+                    selected={publishMode === "schedule"}
+                    label="Agendar"
+                    onPress={() => setPublishMode("schedule")}
+                    compact={compactOptions}
+                  />
                 </View>
               </View>
 
               {publishMode === "schedule" ? (
                 <View style={styles.scheduleGrid}>
-                  <Field label="Data" value={scheduleDate} onChangeText={setScheduleDate} placeholder="AAAA-MM-DD" autoCapitalize="none" />
-                  <Field label="Hora" value={scheduleTime} onChangeText={setScheduleTime} placeholder="09:00" autoCapitalize="none" />
+                  <Field
+                    label="Data"
+                    value={scheduleDate}
+                    onChangeText={setScheduleDate}
+                    placeholder="AAAA-MM-DD"
+                    autoCapitalize="none"
+                  />
+                  <Field
+                    label="Hora"
+                    value={scheduleTime}
+                    onChangeText={setScheduleTime}
+                    placeholder="09:00"
+                    autoCapitalize="none"
+                  />
                 </View>
               ) : null}
 
-              <Button onPress={() => void publishApproved()} disabled={!connectionId} loading={publishing}>
+              <Button
+                onPress={() => void publishApproved()}
+                disabled={!connectionId}
+                loading={publishing}
+              >
                 {publishMode === "schedule" ? "Agendar publicação" : "Publicar agora"}
               </Button>
-              <Button variant="ghost" onPress={() => void loadPublisher()}>Atualizar contas</Button>
+              <Button variant="ghost" onPress={() => void loadPublisher()}>
+                Atualizar contas
+              </Button>
             </View>
           )}
         </Card>
@@ -510,7 +765,17 @@ export default function CreateScreen() {
   );
 }
 
-function Option({ selected, label, onPress, compact }: { selected: boolean; label: string; onPress: () => void; compact: boolean }) {
+function Option({
+  selected,
+  label,
+  onPress,
+  compact,
+}: {
+  selected: boolean;
+  label: string;
+  onPress: () => void;
+  compact: boolean;
+}) {
   return (
     <Pressable
       accessibilityRole="radio"
@@ -527,21 +792,51 @@ const styles = StyleSheet.create({
   form: { gap: spacing.lg },
   group: { gap: spacing.sm },
   options: { flexDirection: "row", flexWrap: "wrap", gap: 9 },
-  option: { minHeight: 43, justifyContent: "center", borderRadius: radii.pill, paddingHorizontal: 14, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface },
+  option: {
+    minHeight: 43,
+    justifyContent: "center",
+    borderRadius: radii.pill,
+    paddingHorizontal: 14,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+  },
   optionCompact: { paddingHorizontal: 11 },
   optionSelected: { borderColor: colors.blue, backgroundColor: colors.blueSoft },
   optionText: { color: colors.muted, fontSize: 12, fontWeight: "800" },
   selectedText: { color: colors.blue },
   objectives: { gap: 9 },
-  objective: { borderWidth: 1, borderColor: colors.border, borderRadius: radii.medium, padding: spacing.md, gap: 4 },
+  objective: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radii.medium,
+    padding: spacing.md,
+    gap: 4,
+  },
   objectiveSelected: { borderColor: colors.blue, backgroundColor: colors.blueSoft },
   objectiveTitle: { color: colors.text, fontSize: 14, fontWeight: "900" },
   objectiveCopy: { color: colors.muted, fontSize: 12, lineHeight: 18 },
   costRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   result: { gap: spacing.lg },
-  resultHead: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: spacing.md },
-  eyebrow: { color: colors.blue, fontSize: 10, fontWeight: "900", letterSpacing: 1.2, marginBottom: 5 },
-  image: { width: "100%", aspectRatio: 1, borderRadius: radii.medium, backgroundColor: colors.background },
+  resultHead: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    gap: spacing.md,
+  },
+  eyebrow: {
+    color: colors.blue,
+    fontSize: 10,
+    fontWeight: "900",
+    letterSpacing: 1.2,
+    marginBottom: 5,
+  },
+  image: {
+    width: "100%",
+    aspectRatio: 1,
+    borderRadius: radii.medium,
+    backgroundColor: colors.background,
+  },
   outputBlock: { gap: 7 },
   outputLabel: { color: colors.blue, fontSize: 10, fontWeight: "900", letterSpacing: 1.1 },
   outputText: { color: colors.text, fontSize: 15, lineHeight: 24 },
@@ -549,13 +844,43 @@ const styles = StyleSheet.create({
   processing: { alignItems: "center", paddingVertical: spacing.lg, gap: spacing.sm },
   processingMark: { color: colors.blue, fontSize: 34 },
   publisherCard: { gap: spacing.lg, borderColor: "#BFD0FF" },
-  publisherHead: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", gap: spacing.md },
-  publisherEyebrow: { color: colors.green, fontSize: 10, fontWeight: "900", letterSpacing: 1.2, marginBottom: 5 },
-  publisherSuccess: { borderRadius: radii.medium, backgroundColor: colors.greenSoft, padding: spacing.md },
+  publisherHead: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    gap: spacing.md,
+  },
+  publisherEyebrow: {
+    color: colors.green,
+    fontSize: 10,
+    fontWeight: "900",
+    letterSpacing: 1.2,
+    marginBottom: 5,
+  },
+  publisherSuccess: {
+    borderRadius: radii.medium,
+    backgroundColor: colors.greenSoft,
+    padding: spacing.md,
+  },
   publisherSuccessText: { color: "#087A56", fontSize: 13, lineHeight: 20, fontWeight: "800" },
   publisherForm: { gap: spacing.lg },
-  connectBox: { gap: spacing.md, padding: spacing.md, borderRadius: radii.medium, backgroundColor: colors.blueSoft },
+  connectBox: {
+    gap: spacing.md,
+    padding: spacing.md,
+    borderRadius: radii.medium,
+    backgroundColor: colors.blueSoft,
+  },
   scheduleGrid: { gap: spacing.md },
-  publicationStatus: { gap: spacing.md, padding: spacing.md, borderRadius: radii.medium, backgroundColor: colors.background },
-  publicationTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: spacing.md },
+  publicationStatus: {
+    gap: spacing.md,
+    padding: spacing.md,
+    borderRadius: radii.medium,
+    backgroundColor: colors.background,
+  },
+  publicationTop: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: spacing.md,
+  },
 });

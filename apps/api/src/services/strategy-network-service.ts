@@ -172,7 +172,8 @@ export class StrategyNetworkService {
       [hashToken(token)],
     );
     const row = result.rows[0];
-    if (!row) throw new StrategyNetworkError("UNAUTHORIZED", 401, "Sua sessão expirou. Entre novamente.");
+    if (!row)
+      throw new StrategyNetworkError("UNAUTHORIZED", 401, "Sua sessão expirou. Entre novamente.");
     return { userId: row.user_id, organizationId: row.organization_id, email: row.email };
   }
 
@@ -183,11 +184,18 @@ export class StrategyNetworkService {
       [brandId, organizationId],
     );
     if (!result.rowCount) {
-      throw new StrategyNetworkError("BRAND_NOT_FOUND", 404, "Marca não encontrada nesta organização.");
+      throw new StrategyNetworkError(
+        "BRAND_NOT_FOUND",
+        404,
+        "Marca não encontrada nesta organização.",
+      );
     }
   }
 
-  async getFoundation(organizationId: string, brandId: string): Promise<BrandFoundationProfile | null> {
+  async getFoundation(
+    organizationId: string,
+    brandId: string,
+  ): Promise<BrandFoundationProfile | null> {
     await this.assertBrand(organizationId, brandId);
     if (!this.pool) return this.foundations.get(`${organizationId}:${brandId}`) ?? null;
     const result = await this.pool.query<{
@@ -199,17 +207,32 @@ export class StrategyNetworkService {
       [brandId, organizationId],
     );
     const row = result.rows[0];
-    return row ? { organizationId, brandId, foundation: row.foundation, status: row.status, updatedAt: row.updated_at.toISOString() } : null;
+    return row
+      ? {
+          organizationId,
+          brandId,
+          foundation: row.foundation,
+          status: row.status,
+          updatedAt: row.updated_at.toISOString(),
+        }
+      : null;
   }
 
-  async upsertFoundation(organizationId: string, input: BrandFoundationUpsert): Promise<BrandFoundationProfile> {
+  async upsertFoundation(
+    organizationId: string,
+    input: BrandFoundationUpsert,
+  ): Promise<BrandFoundationProfile> {
     await this.assertBrand(organizationId, input.brandId);
     if (!this.pool) {
       const item = { ...input, organizationId, updatedAt: nowIso() };
       this.foundations.set(`${organizationId}:${input.brandId}`, item);
       return item;
     }
-    const result = await this.pool.query<{ foundation: BrandFoundationProfile["foundation"]; status: BrandFoundationProfile["status"]; updated_at: Date }>(
+    const result = await this.pool.query<{
+      foundation: BrandFoundationProfile["foundation"];
+      status: BrandFoundationProfile["status"];
+      updated_at: Date;
+    }>(
       `INSERT INTO modo_brand_foundations(brand_id,organization_id,foundation,status,updated_at)
        VALUES($1,$2,$3::jsonb,$4,NOW())
        ON CONFLICT(brand_id) DO UPDATE SET
@@ -219,18 +242,36 @@ export class StrategyNetworkService {
       [input.brandId, organizationId, JSON.stringify(input.foundation), input.status],
     );
     const row = result.rows[0];
-    return { organizationId, brandId: input.brandId, foundation: row.foundation, status: row.status, updatedAt: row.updated_at.toISOString() };
+    return {
+      organizationId,
+      brandId: input.brandId,
+      foundation: row.foundation,
+      status: row.status,
+      updatedAt: row.updated_at.toISOString(),
+    };
   }
 
   async getChannelMap(organizationId: string, brandId: string): Promise<ChannelMap | null> {
     await this.assertBrand(organizationId, brandId);
     if (!this.pool) return this.channelMaps.get(`${organizationId}:${brandId}`) ?? null;
-    const result = await this.pool.query<{ channels: ChannelMap["channels"]; status: ChannelMap["status"]; updated_at: Date }>(
+    const result = await this.pool.query<{
+      channels: ChannelMap["channels"];
+      status: ChannelMap["status"];
+      updated_at: Date;
+    }>(
       "SELECT channels,status,updated_at FROM modo_channel_maps WHERE brand_id=$1 AND organization_id=$2 LIMIT 1",
       [brandId, organizationId],
     );
     const row = result.rows[0];
-    return row ? { organizationId, brandId, channels: row.channels, status: row.status, updatedAt: row.updated_at.toISOString() } : null;
+    return row
+      ? {
+          organizationId,
+          brandId,
+          channels: row.channels,
+          status: row.status,
+          updatedAt: row.updated_at.toISOString(),
+        }
+      : null;
   }
 
   async upsertChannelMap(organizationId: string, input: ChannelMapUpsert): Promise<ChannelMap> {
@@ -240,7 +281,11 @@ export class StrategyNetworkService {
       this.channelMaps.set(`${organizationId}:${input.brandId}`, item);
       return item;
     }
-    const result = await this.pool.query<{ channels: ChannelMap["channels"]; status: ChannelMap["status"]; updated_at: Date }>(
+    const result = await this.pool.query<{
+      channels: ChannelMap["channels"];
+      status: ChannelMap["status"];
+      updated_at: Date;
+    }>(
       `INSERT INTO modo_channel_maps(brand_id,organization_id,channels,status,updated_at)
        VALUES($1,$2,$3::jsonb,$4,NOW())
        ON CONFLICT(brand_id) DO UPDATE SET
@@ -250,18 +295,36 @@ export class StrategyNetworkService {
       [input.brandId, organizationId, JSON.stringify(input.channels), input.status],
     );
     const row = result.rows[0];
-    return { organizationId, brandId: input.brandId, channels: row.channels, status: row.status, updatedAt: row.updated_at.toISOString() };
+    return {
+      organizationId,
+      brandId: input.brandId,
+      channels: row.channels,
+      status: row.status,
+      updatedAt: row.updated_at.toISOString(),
+    };
   }
 
   async getRevenueMap(organizationId: string, brandId: string): Promise<RevenueMap | null> {
     await this.assertBrand(organizationId, brandId);
     if (!this.pool) return this.revenueMaps.get(`${organizationId}:${brandId}`) ?? null;
-    const result = await this.pool.query<{ payload: Omit<RevenueMap, "organizationId" | "updatedAt">; status: RevenueMap["status"]; updated_at: Date }>(
+    const result = await this.pool.query<{
+      payload: Omit<RevenueMap, "organizationId" | "updatedAt">;
+      status: RevenueMap["status"];
+      updated_at: Date;
+    }>(
       "SELECT payload,status,updated_at FROM modo_revenue_maps WHERE brand_id=$1 AND organization_id=$2 LIMIT 1",
       [brandId, organizationId],
     );
     const row = result.rows[0];
-    return row ? { ...row.payload, organizationId, brandId, status: row.status, updatedAt: row.updated_at.toISOString() } : null;
+    return row
+      ? {
+          ...row.payload,
+          organizationId,
+          brandId,
+          status: row.status,
+          updatedAt: row.updated_at.toISOString(),
+        }
+      : null;
   }
 
   async upsertRevenueMap(organizationId: string, input: RevenueMapUpsert): Promise<RevenueMap> {
@@ -272,7 +335,11 @@ export class StrategyNetworkService {
       return item;
     }
     const payload = { ...input };
-    const result = await this.pool.query<{ payload: Omit<RevenueMap, "organizationId" | "updatedAt">; status: RevenueMap["status"]; updated_at: Date }>(
+    const result = await this.pool.query<{
+      payload: Omit<RevenueMap, "organizationId" | "updatedAt">;
+      status: RevenueMap["status"];
+      updated_at: Date;
+    }>(
       `INSERT INTO modo_revenue_maps(brand_id,organization_id,payload,status,updated_at)
        VALUES($1,$2,$3::jsonb,$4,NOW())
        ON CONFLICT(brand_id) DO UPDATE SET
@@ -282,10 +349,19 @@ export class StrategyNetworkService {
       [input.brandId, organizationId, JSON.stringify(payload), input.status],
     );
     const row = result.rows[0];
-    return { ...row.payload, organizationId, brandId: input.brandId, status: row.status, updatedAt: row.updated_at.toISOString() };
+    return {
+      ...row.payload,
+      organizationId,
+      brandId: input.brandId,
+      status: row.status,
+      updatedAt: row.updated_at.toISOString(),
+    };
   }
 
-  async createSupportRequest(context: AuthContext, input: HumanSupportRequestCreate): Promise<HumanSupportRequest> {
+  async createSupportRequest(
+    context: AuthContext,
+    input: HumanSupportRequestCreate,
+  ): Promise<HumanSupportRequest> {
     await this.assertBrand(context.organizationId, input.brandId);
     const createdAt = nowIso();
     const item: HumanSupportRequest = {
@@ -308,22 +384,52 @@ export class StrategyNetworkService {
       return item;
     }
     const result = await this.pool.query<{
-      id: string; organization_id: string; user_id: string; brand_id: string; content_request_id: string | null;
-      support_type: HumanSupportRequest["type"]; context: string; desired_outcome: string; urgency: HumanSupportRequest["urgency"];
-      status: HumanSupportRequest["status"]; pricing_status: HumanSupportRequest["pricingStatus"]; created_at: Date; updated_at: Date;
+      id: string;
+      organization_id: string;
+      user_id: string;
+      brand_id: string;
+      content_request_id: string | null;
+      support_type: HumanSupportRequest["type"];
+      context: string;
+      desired_outcome: string;
+      urgency: HumanSupportRequest["urgency"];
+      status: HumanSupportRequest["status"];
+      pricing_status: HumanSupportRequest["pricingStatus"];
+      created_at: Date;
+      updated_at: Date;
     }>(
       `INSERT INTO modo_human_support_requests(
         id,organization_id,user_id,brand_id,content_request_id,support_type,context,desired_outcome,urgency
       ) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
-      [item.id,item.organizationId,item.userId,item.brandId,item.contentRequestId,item.type,item.context,item.desiredOutcome,item.urgency],
+      [
+        item.id,
+        item.organizationId,
+        item.userId,
+        item.brandId,
+        item.contentRequestId,
+        item.type,
+        item.context,
+        item.desiredOutcome,
+        item.urgency,
+      ],
     );
     return this.mapSupportRow(result.rows[0]);
   }
 
   private mapSupportRow(row: {
-    id: string; organization_id: string; user_id: string; brand_id: string; content_request_id: string | null;
-    support_type: HumanSupportRequest["type"]; context: string; desired_outcome: string; urgency: HumanSupportRequest["urgency"];
-    status: HumanSupportRequest["status"]; pricing_status: HumanSupportRequest["pricingStatus"]; created_at: Date; updated_at: Date;
+    id: string;
+    organization_id: string;
+    user_id: string;
+    brand_id: string;
+    content_request_id: string | null;
+    support_type: HumanSupportRequest["type"];
+    context: string;
+    desired_outcome: string;
+    urgency: HumanSupportRequest["urgency"];
+    status: HumanSupportRequest["status"];
+    pricing_status: HumanSupportRequest["pricingStatus"];
+    created_at: Date;
+    updated_at: Date;
   }): HumanSupportRequest {
     return {
       id: row.id,
@@ -343,7 +449,8 @@ export class StrategyNetworkService {
   }
 
   async listSupportRequests(organizationId: string): Promise<HumanSupportRequest[]> {
-    if (!this.pool) return this.supportRequests.filter((item) => item.organizationId === organizationId);
+    if (!this.pool)
+      return this.supportRequests.filter((item) => item.organizationId === organizationId);
     const result = await this.pool.query(
       "SELECT * FROM modo_human_support_requests WHERE organization_id=$1 ORDER BY created_at DESC LIMIT 100",
       [organizationId],
@@ -351,7 +458,9 @@ export class StrategyNetworkService {
     return result.rows.map((row) => this.mapSupportRow(row));
   }
 
-  async createSpecialistApplication(input: SpecialistApplicationCreate): Promise<SpecialistApplication> {
+  async createSpecialistApplication(
+    input: SpecialistApplicationCreate,
+  ): Promise<SpecialistApplication> {
     const createdAt = nowIso();
     const item: SpecialistApplication = {
       ...input,
@@ -361,24 +470,57 @@ export class StrategyNetworkService {
       updatedAt: createdAt,
     };
     if (!this.pool) {
-      const duplicate = this.applications.some((candidate) => candidate.email === input.email && candidate.portfolioUrl === input.portfolioUrl);
-      if (duplicate) throw new StrategyNetworkError("APPLICATION_ALREADY_EXISTS", 409, "Esta candidatura já foi recebida.");
+      const duplicate = this.applications.some(
+        (candidate) =>
+          candidate.email === input.email && candidate.portfolioUrl === input.portfolioUrl,
+      );
+      if (duplicate)
+        throw new StrategyNetworkError(
+          "APPLICATION_ALREADY_EXISTS",
+          409,
+          "Esta candidatura já foi recebida.",
+        );
       this.applications.unshift(item);
       return item;
     }
     try {
       const result = await this.pool.query<{
-        id: string; name: string; email: string; whatsapp: string; city: string;
-        primary_role: SpecialistApplication["primaryRole"]; secondary_roles: SpecialistApplication["secondaryRoles"];
-        experience_years: number; portfolio_url: string; linkedin_url: string;
-        availability: SpecialistApplication["availability"]; engagement_preference: SpecialistApplication["engagementPreference"];
-        about: string; status: SpecialistApplication["status"]; created_at: Date; updated_at: Date;
+        id: string;
+        name: string;
+        email: string;
+        whatsapp: string;
+        city: string;
+        primary_role: SpecialistApplication["primaryRole"];
+        secondary_roles: SpecialistApplication["secondaryRoles"];
+        experience_years: number;
+        portfolio_url: string;
+        linkedin_url: string;
+        availability: SpecialistApplication["availability"];
+        engagement_preference: SpecialistApplication["engagementPreference"];
+        about: string;
+        status: SpecialistApplication["status"];
+        created_at: Date;
+        updated_at: Date;
       }>(
         `INSERT INTO modo_specialist_applications(
           id,name,email,whatsapp,city,primary_role,secondary_roles,experience_years,
           portfolio_url,linkedin_url,availability,engagement_preference,about
         ) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING *`,
-        [item.id,item.name,item.email,item.whatsapp,item.city,item.primaryRole,item.secondaryRoles,item.experienceYears,item.portfolioUrl,item.linkedinUrl || "",item.availability,item.engagementPreference,item.about],
+        [
+          item.id,
+          item.name,
+          item.email,
+          item.whatsapp,
+          item.city,
+          item.primaryRole,
+          item.secondaryRoles,
+          item.experienceYears,
+          item.portfolioUrl,
+          item.linkedinUrl || "",
+          item.availability,
+          item.engagementPreference,
+          item.about,
+        ],
       );
       const row = result.rows[0];
       return {
@@ -402,7 +544,12 @@ export class StrategyNetworkService {
       };
     } catch (error) {
       const code = (error as { code?: string }).code;
-      if (code === "23505") throw new StrategyNetworkError("APPLICATION_ALREADY_EXISTS", 409, "Esta candidatura já foi recebida.");
+      if (code === "23505")
+        throw new StrategyNetworkError(
+          "APPLICATION_ALREADY_EXISTS",
+          409,
+          "Esta candidatura já foi recebida.",
+        );
       throw error;
     }
   }

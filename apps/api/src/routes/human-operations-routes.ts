@@ -5,15 +5,44 @@ import {
   HumanOperationsService,
 } from "../services/human-operations-service.js";
 
-const SupportStatusSchema = z.enum(["requested", "triage", "proposal", "in_progress", "completed", "declined"]);
-const PricingStatusSchema = z.enum(["under_review", "proposal_required", "included", "not_available"]);
-const ApplicationStatusSchema = z.enum(["received", "under_review", "approved", "talent_pool", "declined"]);
-const PartnerApplicationStatusSchema = z.enum(["received", "under_review", "interview", "approved", "waitlist", "declined"]);
+const SupportStatusSchema = z.enum([
+  "requested",
+  "triage",
+  "proposal",
+  "in_progress",
+  "completed",
+  "declined",
+]);
+const PricingStatusSchema = z.enum([
+  "under_review",
+  "proposal_required",
+  "included",
+  "not_available",
+]);
+const ApplicationStatusSchema = z.enum([
+  "received",
+  "under_review",
+  "approved",
+  "talent_pool",
+  "declined",
+]);
+const PartnerApplicationStatusSchema = z.enum([
+  "received",
+  "under_review",
+  "interview",
+  "approved",
+  "waitlist",
+  "declined",
+]);
 
 function bearer(request: FastifyRequest) {
   const value = request.headers.authorization;
   if (!value?.startsWith("Bearer ")) {
-    throw new HumanOperationsError("ADMIN_UNAUTHORIZED", 401, "Acesso administrativo não autorizado.");
+    throw new HumanOperationsError(
+      "ADMIN_UNAUTHORIZED",
+      401,
+      "Acesso administrativo não autorizado.",
+    );
   }
   return value.slice(7).trim();
 }
@@ -44,13 +73,18 @@ export async function registerHumanOperationsRoutes(app: FastifyInstance, option
 
   app.patch("/api/v1/admin/human-operations/support-requests/:id", async (request) => {
     await authenticate(request);
-    const id = z.string().uuid().parse((request.params as { id: string }).id);
-    const input = z.object({
-      status: SupportStatusSchema.optional(),
-      pricingStatus: PricingStatusSchema.optional(),
-      internalNotes: z.string().trim().max(5000).optional(),
-      assignedApplicationId: z.string().uuid().nullable().optional(),
-    }).parse(request.body);
+    const id = z
+      .string()
+      .uuid()
+      .parse((request.params as { id: string }).id);
+    const input = z
+      .object({
+        status: SupportStatusSchema.optional(),
+        pricingStatus: PricingStatusSchema.optional(),
+        internalNotes: z.string().trim().max(5000).optional(),
+        assignedApplicationId: z.string().uuid().nullable().optional(),
+      })
+      .parse(request.body);
     return operations.updateSupportRequest(id, input);
   });
 
@@ -61,11 +95,16 @@ export async function registerHumanOperationsRoutes(app: FastifyInstance, option
 
   app.patch("/api/v1/admin/human-operations/applications/:id", async (request) => {
     await authenticate(request);
-    const id = z.string().uuid().parse((request.params as { id: string }).id);
-    const input = z.object({
-      status: ApplicationStatusSchema.optional(),
-      internalNotes: z.string().trim().max(5000).optional(),
-    }).parse(request.body);
+    const id = z
+      .string()
+      .uuid()
+      .parse((request.params as { id: string }).id);
+    const input = z
+      .object({
+        status: ApplicationStatusSchema.optional(),
+        internalNotes: z.string().trim().max(5000).optional(),
+      })
+      .parse(request.body);
     return operations.updateApplication(id, input);
   });
 
@@ -76,11 +115,16 @@ export async function registerHumanOperationsRoutes(app: FastifyInstance, option
 
   app.patch("/api/v1/admin/human-operations/partner-applications/:id", async (request) => {
     await authenticate(request);
-    const id = z.string().uuid().parse((request.params as { id: string }).id);
-    const input = z.object({
-      status: PartnerApplicationStatusSchema.optional(),
-      internalNotes: z.string().trim().max(5000).optional(),
-    }).parse(request.body);
+    const id = z
+      .string()
+      .uuid()
+      .parse((request.params as { id: string }).id);
+    const input = z
+      .object({
+        status: PartnerApplicationStatusSchema.optional(),
+        internalNotes: z.string().trim().max(5000).optional(),
+      })
+      .parse(request.body);
     return operations.updatePartnerApplication(id, input);
   });
 

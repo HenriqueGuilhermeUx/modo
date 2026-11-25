@@ -42,11 +42,29 @@ export default function InvitationWorkspace() {
   }
 
   if (loading) {
-    return <main className="invite-page"><img src="/logo.svg" alt="MODO" /><div className="portal-spinner" /><p>Validando seu convite...</p></main>;
+    return (
+      <main className="invite-page">
+        <img src="/logo.svg" alt="MODO" />
+        <div className="portal-spinner" />
+        <p>Validando seu convite...</p>
+      </main>
+    );
   }
 
   if (!preview) {
-    return <main className="invite-page"><section><img src="/logo.svg" alt="MODO" /><span>CONVITE ENCERRADO</span><h1>Este acesso não está mais disponível.</h1><p>{error || "Solicite um novo convite à equipe MODO."}</p><a className="button button-primary" href="/">Voltar ao site</a></section></main>;
+    return (
+      <main className="invite-page">
+        <section>
+          <img src="/logo.svg" alt="MODO" />
+          <span>CONVITE ENCERRADO</span>
+          <h1>Este acesso não está mais disponível.</h1>
+          <p>{error || "Solicite um novo convite à equipe MODO."}</p>
+          <a className="button button-primary" href="/">
+            Voltar ao site
+          </a>
+        </section>
+      </main>
+    );
   }
 
   return (
@@ -55,22 +73,61 @@ export default function InvitationWorkspace() {
         <img src="/logo.svg" alt="MODO" />
         <span>VOCÊ FOI CONVIDADO</span>
         <h1>Sua presença começa com direção.</h1>
-        <p>Crie sua conta e siga por um onboarding guiado que explica a MODO, configura LinkedIn e outros canais e gera seu primeiro plano criativo.</p>
+        <p>
+          Crie sua conta e siga por um onboarding guiado que explica a MODO, configura LinkedIn e
+          outros canais e gera seu primeiro plano criativo.
+        </p>
         <div className="invite-benefits">
-          <article><small>CONTA</small><strong>{preview.email}</strong></article>
-          <article><small>PLANO INICIAL</small><strong>{planLabels[preview.plan]}</strong></article>
-          <article><small>BÔNUS</small><strong>{preview.bonusCredits} créditos</strong></article>
-          <article><small>VALIDADE</small><strong>{new Date(preview.expiresAt).toLocaleDateString("pt-BR")}</strong></article>
+          <article>
+            <small>CONTA</small>
+            <strong>{preview.email}</strong>
+          </article>
+          <article>
+            <small>PLANO INICIAL</small>
+            <strong>{planLabels[preview.plan]}</strong>
+          </article>
+          <article>
+            <small>BÔNUS</small>
+            <strong>{preview.bonusCredits} créditos</strong>
+          </article>
+          <article>
+            <small>VALIDADE</small>
+            <strong>{new Date(preview.expiresAt).toLocaleDateString("pt-BR")}</strong>
+          </article>
         </div>
         {preview.note && <blockquote>{preview.note}</blockquote>}
         {error && <div className="portal-error">{error}</div>}
         <form onSubmit={handleSubmit}>
-          <label>Seu nome<input value={name} onChange={(event) => setName(event.target.value)} required /></label>
-          <label>Nome da empresa<input value={organizationName} onChange={(event) => setOrganizationName(event.target.value)} required /></label>
-          <label>Crie uma senha<input type="password" value={password} onChange={(event) => setPassword(event.target.value)} minLength={8} required /><small>Mínimo de 8 caracteres, com letra e número.</small></label>
-          <button className="button button-primary button-full" disabled={submitting}>{submitting ? "Criando seu ambiente..." : "Aceitar e começar onboarding"}</button>
+          <label>
+            Seu nome
+            <input value={name} onChange={(event) => setName(event.target.value)} required />
+          </label>
+          <label>
+            Nome da empresa
+            <input
+              value={organizationName}
+              onChange={(event) => setOrganizationName(event.target.value)}
+              required
+            />
+          </label>
+          <label>
+            Crie uma senha
+            <input
+              type="password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              minLength={8}
+              required
+            />
+            <small>Mínimo de 8 caracteres, com letra e número.</small>
+          </label>
+          <button className="button button-primary button-full" disabled={submitting}>
+            {submitting ? "Criando seu ambiente..." : "Aceitar e começar onboarding"}
+          </button>
         </form>
-        <small className="invite-company">MODO é uma solução da Alternative Ventures — CNPJ 61.920.356/0001-38.</small>
+        <small className="invite-company">
+          MODO é uma solução da Alternative Ventures — CNPJ 61.920.356/0001-38.
+        </small>
       </section>
     </main>
   );

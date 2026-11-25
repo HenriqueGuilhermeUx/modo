@@ -68,8 +68,14 @@ function publicContent(item: ContentRequest) {
 }
 
 export async function registerAgencyApprovalRoutes(app: FastifyInstance, options: Options) {
-  const auth = new AuthService({ databaseUrl: options.databaseUrl, databaseSsl: options.databaseSsl });
-  const content = new ContentService({ databaseUrl: options.databaseUrl, databaseSsl: options.databaseSsl });
+  const auth = new AuthService({
+    databaseUrl: options.databaseUrl,
+    databaseSsl: options.databaseSsl,
+  });
+  const content = new ContentService({
+    databaseUrl: options.databaseUrl,
+    databaseSsl: options.databaseSsl,
+  });
   const assets = new ContentAssetService({
     databaseUrl: options.databaseUrl,
     databaseSsl: options.databaseSsl,
@@ -119,7 +125,8 @@ export async function registerAgencyApprovalRoutes(app: FastifyInstance, options
 
   async function assertBrand(organizationId: string, brandId: string): Promise<Brand> {
     const brand = (await auth.listBrands(organizationId)).find((item) => item.id === brandId);
-    if (!brand) throw new AuthError("BRAND_NOT_FOUND", 404, "Cliente não encontrado nesta agência.");
+    if (!brand)
+      throw new AuthError("BRAND_NOT_FOUND", 404, "Cliente não encontrado nesta agência.");
     return brand;
   }
 
@@ -138,12 +145,25 @@ export async function registerAgencyApprovalRoutes(app: FastifyInstance, options
         [tokenHash],
       );
       const row = result.rows[0];
-      if (!row) throw new ContentError("APPROVAL_LINK_INVALID", 404, "Este link de aprovação expirou ou não é mais válido.");
-      return { organizationId: row.organization_id, brandId: row.brand_id, expiresAt: row.expires_at };
+      if (!row)
+        throw new ContentError(
+          "APPROVAL_LINK_INVALID",
+          404,
+          "Este link de aprovação expirou ou não é mais válido.",
+        );
+      return {
+        organizationId: row.organization_id,
+        brandId: row.brand_id,
+        expiresAt: row.expires_at,
+      };
     }
     const link = memoryLinks.get(tokenHash);
     if (!link || link.revokedAt || link.expiresAt <= new Date()) {
-      throw new ContentError("APPROVAL_LINK_INVALID", 404, "Este link de aprovação expirou ou não é mais válido.");
+      throw new ContentError(
+        "APPROVAL_LINK_INVALID",
+        404,
+        "Este link de aprovação expirou ou não é mais válido.",
+      );
     }
     return link;
   }
@@ -158,7 +178,10 @@ export async function registerAgencyApprovalRoutes(app: FastifyInstance, options
 
   app.post("/api/v1/agency/brands/:brandId/approval-links", async (request, reply) => {
     const current = await auth.authenticate(bearerToken(request));
-    const brandId = z.string().uuid().parse((request.params as { brandId: string }).brandId);
+    const brandId = z
+      .string()
+      .uuid()
+      .parse((request.params as { brandId: string }).brandId);
     const brand = await assertBrand(current.organization.id, brandId);
     const rawToken = randomBytes(32).toString("base64url");
     const tokenHash = hashToken(rawToken);
@@ -178,7 +201,11 @@ export async function registerAgencyApprovalRoutes(app: FastifyInstance, options
       );
     } else {
       for (const link of memoryLinks.values()) {
-        if (link.organizationId === current.organization.id && link.brandId === brandId && !link.revokedAt) {
+        if (
+          link.organizationId === current.organization.id &&
+          link.brandId === brandId &&
+          !link.revokedAt
+        ) {
           link.revokedAt = new Date();
         }
       }
@@ -200,7 +227,11 @@ export async function registerAgencyApprovalRoutes(app: FastifyInstance, options
   });
 
   app.get("/api/v1/agency/approvals/:token", async (request) => {
-    const token = z.string().min(20).max(200).parse((request.params as { token: string }).token);
+    const token = z
+      .string()
+      .min(20)
+      .max(200)
+      .parse((request.params as { token: string }).token);
     const context = await resolveLink(token);
     const brand = await assertBrand(context.organizationId, context.brandId);
     const items = (await content.list(context.organizationId))
@@ -214,22 +245,36 @@ export async function registerAgencyApprovalRoutes(app: FastifyInstance, options
   });
 
   app.post("/api/v1/agency/approvals/:token/content/:contentId/approve", async (request) => {
-    const params = z.object({ token: z.string().min(20).max(200), contentId: z.string().uuid() }).parse(request.params);
+    const params = z
+      .object({ token: z.string().min(20).max(200), contentId: z.string().uuid() })
+      .parse(request.params);
     const context = await resolveLink(params.token);
     await assertLinkedContent(context, params.contentId);
     return publicContent(await content.approve(params.contentId, context.organizationId));
   });
 
-  app.post("/api/v1/agency/approvals/:token/content/:contentId/revision", async (request, reply) => {
-    const params = z.object({ token: z.string().min(20).max(200), contentId: z.string().uuid() }).parse(request.params);
-    const input = ContentRevisionRequestSchema.parse(request.body);
-    const context = await resolveLink(params.token);
-    await assertLinkedContent(context, params.contentId);
-    const revised = await content.requestRevision(params.contentId, context.organizationId, input.instructions);
-    const brand = await assertBrand(context.organizationId, context.brandId);
-    void automation.dispatch(revised, brand).catch((error) => {
-      request.log.error({ error, contentRequestId: revised.id }, "Falha ao gerar revisão solicitada no portal Agency");
-    });
-    return reply.code(202).send(publicContent(revised));
-  });
+  app.post(
+    "/api/v1/agency/approvals/:token/content/:contentId/revision",
+    async (request, reply) => {
+      const params = z
+        .object({ token: z.string().min(20).max(200), contentId: z.string().uuid() })
+        .parse(request.params);
+      const input = ContentRevisionRequestSchema.parse(request.body);
+      const context = await resolveLink(params.token);
+      await assertLinkedContent(context, params.contentId);
+      const revised = await content.requestRevision(
+        params.contentId,
+        context.organizationId,
+        input.instructions,
+      );
+      const brand = await assertBrand(context.organizationId, context.brandId);
+      void automation.dispatch(revised, brand).catch((error) => {
+        request.log.error(
+          { error, contentRequestId: revised.id },
+          "Falha ao gerar revisão solicitada no portal Agency",
+        );
+      });
+      return reply.code(202).send(publicContent(revised));
+    },
+  );
 }

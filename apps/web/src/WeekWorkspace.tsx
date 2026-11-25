@@ -45,7 +45,10 @@ export default function WeekWorkspace() {
   const [success, setSuccess] = useState("");
 
   async function load() {
-    const [currentDashboard, currentRequests] = await Promise.all([getDashboard(), listContentRequests()]);
+    const [currentDashboard, currentRequests] = await Promise.all([
+      getDashboard(),
+      listContentRequests(),
+    ]);
     setDashboard(currentDashboard);
     setRequests(currentRequests);
     const nextBrandId = brandId || currentDashboard.brands[0]?.id || "";
@@ -59,25 +62,71 @@ export default function WeekWorkspace() {
       return;
     }
     load()
-      .catch((caught) => setError(caught instanceof Error ? caught.message : "Não foi possível montar sua semana."))
+      .catch((caught) =>
+        setError(caught instanceof Error ? caught.message : "Não foi possível montar sua semana."),
+      )
       .finally(() => setLoading(false));
   }, []);
 
   useEffect(() => {
     if (!brandId || !dashboard) return;
-    listCreativeRecommendations(brandId).then(setRecommendations).catch(() => undefined);
+    listCreativeRecommendations(brandId)
+      .then(setRecommendations)
+      .catch(() => undefined);
   }, [brandId]);
 
   const tasks = useMemo<WeekTask[]>(() => {
     const result: WeekTask[] = [];
     for (const request of requests.filter((item) => item.brandId === brandId)) {
-      if (request.status === "ready") result.push({ id: request.id, kind: "approve", title: `Revisar: ${requestTitle(request)}`, copy: "Leia a entrega, aprove ou escolha um ajuste guiado.", minutes: 4, priority: 100, href: `/app/content?open=${request.id}`, request });
-      if (request.status === "failed") result.push({ id: request.id, kind: "fix", title: `Reenviar produção com falha`, copy: request.error || "A automação precisa ser reenviada.", minutes: 2, priority: 95, href: `/app/content?open=${request.id}`, request });
-      if (["queued", "processing", "revision_requested"].includes(request.status)) result.push({ id: request.id, kind: "wait", title: `A MODO está produzindo: ${requestTitle(request)}`, copy: "Nenhuma ação necessária agora. O resultado aparecerá automaticamente.", minutes: 0, priority: 45, href: `/app/content?open=${request.id}`, request });
-      if (request.status === "approved") result.push({ id: request.id, kind: "publish", title: `Publicar e acompanhar: ${requestTitle(request)}`, copy: "Use o Studio para exportar e depois ensine a MODO com o resultado.", minutes: 8, priority: 78, href: `/app/studio/${request.id}`, request });
+      if (request.status === "ready")
+        result.push({
+          id: request.id,
+          kind: "approve",
+          title: `Revisar: ${requestTitle(request)}`,
+          copy: "Leia a entrega, aprove ou escolha um ajuste guiado.",
+          minutes: 4,
+          priority: 100,
+          href: `/app/content?open=${request.id}`,
+          request,
+        });
+      if (request.status === "failed")
+        result.push({
+          id: request.id,
+          kind: "fix",
+          title: `Reenviar produção com falha`,
+          copy: request.error || "A automação precisa ser reenviada.",
+          minutes: 2,
+          priority: 95,
+          href: `/app/content?open=${request.id}`,
+          request,
+        });
+      if (["queued", "processing", "revision_requested"].includes(request.status))
+        result.push({
+          id: request.id,
+          kind: "wait",
+          title: `A MODO está produzindo: ${requestTitle(request)}`,
+          copy: "Nenhuma ação necessária agora. O resultado aparecerá automaticamente.",
+          minutes: 0,
+          priority: 45,
+          href: `/app/content?open=${request.id}`,
+          request,
+        });
+      if (request.status === "approved")
+        result.push({
+          id: request.id,
+          kind: "publish",
+          title: `Publicar e acompanhar: ${requestTitle(request)}`,
+          copy: "Use o Studio para exportar e depois ensine a MODO com o resultado.",
+          minutes: 8,
+          priority: 78,
+          href: `/app/studio/${request.id}`,
+          request,
+        });
     }
 
-    for (const recommendation of recommendations.filter((item) => ["suggested", "accepted"].includes(item.status))) {
+    for (const recommendation of recommendations.filter((item) =>
+      ["suggested", "accepted"].includes(item.status),
+    )) {
       const capture = recommendation.kind === "capture" && recommendation.captureMission;
       result.push({
         id: recommendation.id,
@@ -103,7 +152,9 @@ export default function WeekWorkspace() {
     setActionId(task.id);
     try {
       await setCreativeRecommendationStatus(task.id, "completed");
-      setRecommendations((current) => current.map((item) => item.id === task.id ? { ...item, status: "completed" } : item));
+      setRecommendations((current) =>
+        current.map((item) => (item.id === task.id ? { ...item, status: "completed" } : item)),
+      );
       setSuccess("Missão concluída. A MODO guardou esse sinal.");
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Não foi possível concluir a missão.");
@@ -123,41 +174,166 @@ export default function WeekWorkspace() {
           ? "O cliente informou que este conteúdo gerou conversa, reação ou oportunidade."
           : "O cliente informou que este conteúdo ainda não apresentou resultado percebido.",
       });
-      setSuccess(positive ? "Ótimo. Esse padrão ganhará peso nos próximos planos." : "Entendido. A MODO testará outro ângulo ou formato.");
+      setSuccess(
+        positive
+          ? "Ótimo. Esse padrão ganhará peso nos próximos planos."
+          : "Entendido. A MODO testará outro ângulo ou formato.",
+      );
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Não foi possível registrar o resultado.");
+      setError(
+        caught instanceof Error ? caught.message : "Não foi possível registrar o resultado.",
+      );
     } finally {
       setActionId("");
     }
   }
 
   function openSignal(request: ContentRequest) {
-    window.sessionStorage.setItem("modo.signalPrefill", JSON.stringify({ brandId: request.brandId, contentRequestId: request.id }));
+    window.sessionStorage.setItem(
+      "modo.signalPrefill",
+      JSON.stringify({ brandId: request.brandId, contentRequestId: request.id }),
+    );
     window.location.href = "/app/signal";
   }
 
-  if (loading || !dashboard) return <main className="portal-loading"><img src="/logo.svg" alt="MODO" /><div className="portal-spinner" /><p>Organizando sua semana...</p></main>;
+  if (loading || !dashboard)
+    return (
+      <main className="portal-loading">
+        <img src="/logo.svg" alt="MODO" />
+        <div className="portal-spinner" />
+        <p>Organizando sua semana...</p>
+      </main>
+    );
 
   return (
     <div className="week-shell">
       <header className="workspace-header">
-        <a href="/app"><img src="/logo.svg" alt="MODO" /></a>
-        <nav><a href="/app">Painel</a><a className="active" href="/app/week">Minha semana</a><a href="/app/director">Diretor</a><a href="/app/content">Criar</a><a href="/app/linkedin">LinkedIn</a><a href="/app/signal">Signal</a></nav>
-        <div className="workspace-balance"><small>Tempo estimado</small><strong>{totalMinutes}</strong><span>minutos</span></div>
+        <a href="/app">
+          <img src="/logo.svg" alt="MODO" />
+        </a>
+        <nav>
+          <a href="/app">Painel</a>
+          <a className="active" href="/app/week">
+            Minha semana
+          </a>
+          <a href="/app/director">Diretor</a>
+          <a href="/app/content">Criar</a>
+          <a href="/app/linkedin">LinkedIn</a>
+          <a href="/app/signal">Signal</a>
+        </nav>
+        <div className="workspace-balance">
+          <small>Tempo estimado</small>
+          <strong>{totalMinutes}</strong>
+          <span>minutos</span>
+        </div>
       </header>
 
       <main className="week-main">
         <section className="week-hero">
-          <div><div className="section-kicker">SUA SEMANA EM MODO PRESENÇA</div><h1>Menos decisões soltas. Próximos passos claros.</h1><p>A MODO reúne o que precisa ser aprovado, gravado, publicado e medido. Faça uma coisa por vez.</p></div>
-          <label>Marca<select value={brandId} onChange={(event) => setBrandId(event.target.value)}>{dashboard.brands.map((brand) => <option key={brand.id} value={brand.id}>{brand.name}</option>)}</select></label>
+          <div>
+            <div className="section-kicker">SUA SEMANA EM MODO PRESENÇA</div>
+            <h1>Menos decisões soltas. Próximos passos claros.</h1>
+            <p>
+              A MODO reúne o que precisa ser aprovado, gravado, publicado e medido. Faça uma coisa
+              por vez.
+            </p>
+          </div>
+          <label>
+            Marca
+            <select value={brandId} onChange={(event) => setBrandId(event.target.value)}>
+              {dashboard.brands.map((brand) => (
+                <option key={brand.id} value={brand.id}>
+                  {brand.name}
+                </option>
+              ))}
+            </select>
+          </label>
         </section>
 
-        <section className="week-summary"><article><small>AÇÕES</small><strong>{tasks.length}</strong><span>organizadas</span></article><article><small>PRIORIDADE</small><strong>{urgent}</strong><span>pedem atenção</span></article><article><small>TEMPO</small><strong>{totalMinutes}</strong><span>minutos estimados</span></article><article><small>REGRA</small><strong>1</strong><span>próximo passo por vez</span></article></section>
+        <section className="week-summary">
+          <article>
+            <small>AÇÕES</small>
+            <strong>{tasks.length}</strong>
+            <span>organizadas</span>
+          </article>
+          <article>
+            <small>PRIORIDADE</small>
+            <strong>{urgent}</strong>
+            <span>pedem atenção</span>
+          </article>
+          <article>
+            <small>TEMPO</small>
+            <strong>{totalMinutes}</strong>
+            <span>minutos estimados</span>
+          </article>
+          <article>
+            <small>REGRA</small>
+            <strong>1</strong>
+            <span>próximo passo por vez</span>
+          </article>
+        </section>
         {error && <div className="portal-error">{error}</div>}
         {success && <div className="workspace-success">{success}</div>}
 
         <section className="week-list">
-          {tasks.length === 0 ? <div className="week-empty"><strong>Sua semana está livre.</strong><p>Gere um plano no Diretor ou comece pelo Quick Start.</p><a className="button button-primary" href="/app/content">Começar conteúdo</a></div> : tasks.map((task, index) => <article className={`week-task ${task.kind}`} key={`${task.kind}-${task.id}`}><div className="week-task-order">{String(index + 1).padStart(2, "0")}</div><div className="week-task-content"><div><span>{kindLabels[task.kind]}</span><em>{task.minutes ? `${task.minutes} min` : "automático"}</em></div><h2>{task.title}</h2><p>{task.copy}</p>{task.kind === "publish" && task.request && <div className="week-signal-buttons"><button disabled={actionId === task.id} onClick={() => void quickSignal(task.request!, true)}>✓ Gerou conversa ou resultado</button><button disabled={actionId === task.id} onClick={() => void quickSignal(task.request!, false)}>Ainda não funcionou</button><button onClick={() => openSignal(task.request!)}>Informar métricas</button></div>}</div><div className="week-task-actions"><a className="button button-outline" href={task.href}>{task.kind === "capture" ? "Ver missão" : task.kind === "publish" ? "Abrir no Studio" : "Abrir"}</a>{task.recommendation && <button className="button button-primary" disabled={actionId === task.id} onClick={() => void markRecommendation(task)}>Marcar concluída</button>}</div></article>)}
+          {tasks.length === 0 ? (
+            <div className="week-empty">
+              <strong>Sua semana está livre.</strong>
+              <p>Gere um plano no Diretor ou comece pelo Quick Start.</p>
+              <a className="button button-primary" href="/app/content">
+                Começar conteúdo
+              </a>
+            </div>
+          ) : (
+            tasks.map((task, index) => (
+              <article className={`week-task ${task.kind}`} key={`${task.kind}-${task.id}`}>
+                <div className="week-task-order">{String(index + 1).padStart(2, "0")}</div>
+                <div className="week-task-content">
+                  <div>
+                    <span>{kindLabels[task.kind]}</span>
+                    <em>{task.minutes ? `${task.minutes} min` : "automático"}</em>
+                  </div>
+                  <h2>{task.title}</h2>
+                  <p>{task.copy}</p>
+                  {task.kind === "publish" && task.request && (
+                    <div className="week-signal-buttons">
+                      <button
+                        disabled={actionId === task.id}
+                        onClick={() => void quickSignal(task.request!, true)}
+                      >
+                        ✓ Gerou conversa ou resultado
+                      </button>
+                      <button
+                        disabled={actionId === task.id}
+                        onClick={() => void quickSignal(task.request!, false)}
+                      >
+                        Ainda não funcionou
+                      </button>
+                      <button onClick={() => openSignal(task.request!)}>Informar métricas</button>
+                    </div>
+                  )}
+                </div>
+                <div className="week-task-actions">
+                  <a className="button button-outline" href={task.href}>
+                    {task.kind === "capture"
+                      ? "Ver missão"
+                      : task.kind === "publish"
+                        ? "Abrir no Studio"
+                        : "Abrir"}
+                  </a>
+                  {task.recommendation && (
+                    <button
+                      className="button button-primary"
+                      disabled={actionId === task.id}
+                      onClick={() => void markRecommendation(task)}
+                    >
+                      Marcar concluída
+                    </button>
+                  )}
+                </div>
+              </article>
+            ))
+          )}
         </section>
       </main>
     </div>

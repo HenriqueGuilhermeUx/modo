@@ -6,19 +6,32 @@ describe("PexelsVideoBrollProvider", () => {
     const fetchImpl = vi.fn(async (input: string | URL | Request, _init?: RequestInit) => {
       const url = String(input);
       if (url.startsWith("https://api.pexels.com/v1/videos/search")) {
-        return new Response(JSON.stringify({
-          videos: [
-            {
-              id: 42,
-              url: "https://www.pexels.com/video/42/",
-              user: { name: "Ana Criadora", url: "https://www.pexels.com/@ana" },
-              video_files: [
-                { file_type: "video/mp4", width: 1920, height: 1080, link: "https://cdn.example.com/landscape.mp4" },
-                { file_type: "video/mp4", width: 720, height: 1280, link: "https://cdn.example.com/portrait.mp4" },
-              ],
-            },
-          ],
-        }), { status: 200, headers: { "content-type": "application/json" } });
+        return new Response(
+          JSON.stringify({
+            videos: [
+              {
+                id: 42,
+                url: "https://www.pexels.com/video/42/",
+                user: { name: "Ana Criadora", url: "https://www.pexels.com/@ana" },
+                video_files: [
+                  {
+                    file_type: "video/mp4",
+                    width: 1920,
+                    height: 1080,
+                    link: "https://cdn.example.com/landscape.mp4",
+                  },
+                  {
+                    file_type: "video/mp4",
+                    width: 720,
+                    height: 1280,
+                    link: "https://cdn.example.com/portrait.mp4",
+                  },
+                ],
+              },
+            ],
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
       }
       return new Response(new Uint8Array(Buffer.from("fake-mp4")), {
         status: 200,
@@ -27,7 +40,11 @@ describe("PexelsVideoBrollProvider", () => {
     });
 
     const provider = new PexelsVideoBrollProvider("pexels-key", fetchImpl as typeof fetch);
-    const asset = await provider.fetchClip({ query: "equipe trabalhando", sceneIndex: 2, revision: 0 });
+    const asset = await provider.fetchClip({
+      query: "equipe trabalhando",
+      sceneIndex: 2,
+      revision: 0,
+    });
 
     const searchUrl = new URL(String(fetchImpl.mock.calls[0][0]));
     expect(searchUrl.pathname).toBe("/v1/videos/search");
@@ -53,14 +70,26 @@ describe("PexelsVideoBrollProvider", () => {
     const fetchImpl = vi.fn(async (input: string | URL | Request, _init?: RequestInit) => {
       const url = String(input);
       if (url.startsWith("https://api.pexels.com/v1/videos/search")) {
-        return new Response(JSON.stringify({
-          videos: [{
-            id: 1,
-            url: "https://www.pexels.com/video/1/",
-            user: { name: "Pexels", url: "https://www.pexels.com" },
-            video_files: [{ file_type: "video/mp4", width: 720, height: 1280, link: "https://cdn.example.com/clip.mp4" }],
-          }],
-        }), { status: 200 });
+        return new Response(
+          JSON.stringify({
+            videos: [
+              {
+                id: 1,
+                url: "https://www.pexels.com/video/1/",
+                user: { name: "Pexels", url: "https://www.pexels.com" },
+                video_files: [
+                  {
+                    file_type: "video/mp4",
+                    width: 720,
+                    height: 1280,
+                    link: "https://cdn.example.com/clip.mp4",
+                  },
+                ],
+              },
+            ],
+          }),
+          { status: 200 },
+        );
       }
       return new Response(new Uint8Array(Buffer.from("123456789")), {
         status: 200,
@@ -69,7 +98,8 @@ describe("PexelsVideoBrollProvider", () => {
     });
 
     const provider = new PexelsVideoBrollProvider("key", fetchImpl as typeof fetch, 4);
-    await expect(provider.fetchClip({ query: "cidade", sceneIndex: 1, revision: 0 }))
-      .rejects.toThrow("excede o limite");
+    await expect(
+      provider.fetchClip({ query: "cidade", sceneIndex: 1, revision: 0 }),
+    ).rejects.toThrow("excede o limite");
   });
 });

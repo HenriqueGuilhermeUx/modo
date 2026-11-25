@@ -27,7 +27,8 @@ const presets: Preset[] = [
     title: "Construir autoridade",
     description: "Ensinar algo importante e posicionar a marca como referência.",
     objective: "autoridade",
-    direction: "Crie um conteúdo que demonstre conhecimento prático, revele um ponto pouco compreendido pelo público e posicione a marca como uma referência confiável.",
+    direction:
+      "Crie um conteúdo que demonstre conhecimento prático, revele um ponto pouco compreendido pelo público e posicione a marca como uma referência confiável.",
   },
   {
     id: "demand",
@@ -35,7 +36,8 @@ const presets: Preset[] = [
     title: "Atrair clientes",
     description: "Gerar interesse e aproximar pessoas com potencial de compra.",
     objective: "demanda",
-    direction: "Crie um conteúdo que faça o público reconhecer uma necessidade, enxergar o custo de não agir e considerar a solução oferecida pela marca.",
+    direction:
+      "Crie um conteúdo que faça o público reconhecer uma necessidade, enxergar o custo de não agir e considerar a solução oferecida pela marca.",
   },
   {
     id: "offer",
@@ -43,7 +45,8 @@ const presets: Preset[] = [
     title: "Apresentar uma oferta",
     description: "Explicar um produto, serviço, condição ou novidade.",
     objective: "conversao",
-    direction: "Apresente a oferta com clareza, conecte problema, benefício e diferencial, reduza esforço de entendimento e conduza para uma próxima ação concreta.",
+    direction:
+      "Apresente a oferta com clareza, conecte problema, benefício e diferencial, reduza esforço de entendimento e conduza para uma próxima ação concreta.",
   },
   {
     id: "objection",
@@ -51,7 +54,8 @@ const presets: Preset[] = [
     title: "Quebrar uma objeção",
     description: "Responder uma dúvida que impede o cliente de avançar.",
     objective: "conversao",
-    direction: "Trabalhe uma objeção real do público sem tom defensivo. Mostre contexto, evidência e uma forma segura de avançar na decisão.",
+    direction:
+      "Trabalhe uma objeção real do público sem tom defensivo. Mostre contexto, evidência e uma forma segura de avançar na decisão.",
   },
   {
     id: "education",
@@ -59,7 +63,8 @@ const presets: Preset[] = [
     title: "Educar o público",
     description: "Simplificar um tema e entregar valor prático.",
     objective: "educacao",
-    direction: "Explique um tema relevante de forma simples, útil e aplicável. Organize a mensagem em passos, critérios ou erros comuns que o público possa reconhecer.",
+    direction:
+      "Explique um tema relevante de forma simples, útil e aplicável. Organize a mensagem em passos, critérios ou erros comuns que o público possa reconhecer.",
   },
   {
     id: "proof",
@@ -67,7 +72,8 @@ const presets: Preset[] = [
     title: "Mostrar resultado",
     description: "Transformar caso, prova ou conquista em confiança.",
     objective: "conversao",
-    direction: "Mostre um resultado, transformação ou evidência concreta. Contextualize o ponto de partida, as decisões tomadas e o valor percebido, sem promessas exageradas.",
+    direction:
+      "Mostre um resultado, transformação ou evidência concreta. Contextualize o ponto de partida, as decisões tomadas e o valor percebido, sem promessas exageradas.",
   },
   {
     id: "human",
@@ -75,7 +81,8 @@ const presets: Preset[] = [
     title: "Humanizar a marca",
     description: "Mostrar bastidores, pessoas, cultura ou processo.",
     objective: "relacionamento",
-    direction: "Aproxime a marca do público mostrando pessoas, escolhas, bastidores ou valores reais. Priorize familiaridade, verdade e conexão.",
+    direction:
+      "Aproxime a marca do público mostrando pessoas, escolhas, bastidores ou valores reais. Priorize familiaridade, verdade e conexão.",
   },
   {
     id: "free",
@@ -114,7 +121,9 @@ export default function CreativeDirector({
 }: CreativeDirectorProps) {
   const [presetId, setPresetId] = useState("authority");
   const [tone, setTone] = useState<(typeof tones)[number]>("Profissional");
-  const [desiredAction, setDesiredAction] = useState<(typeof actions)[number]>("Conhecer melhor a solução");
+  const [desiredAction, setDesiredAction] = useState<(typeof actions)[number]>(
+    "Conhecer melhor a solução",
+  );
   const [details, setDetails] = useState("");
 
   const preset = useMemo(
@@ -130,7 +139,9 @@ export default function CreativeDirector({
       `FORMATO: ${formatLabels[contentType]}.`,
       `TOM: ${tone.toLowerCase()}.`,
       `AÇÃO DESEJADA: ${desiredAction}.`,
-      details.trim() ? `INFORMAÇÕES IMPORTANTES: ${details.trim()}` : "Use o contexto já conhecido da marca para escolher o melhor ângulo.",
+      details.trim()
+        ? `INFORMAÇÕES IMPORTANTES: ${details.trim()}`
+        : "Use o contexto já conhecido da marca para escolher o melhor ângulo.",
       "Entregue uma ideia específica, sem clichês, com gancho forte, mensagem central clara e chamada para ação coerente.",
     ].join("\n");
     onChange(finalBrief);
@@ -162,7 +173,10 @@ export default function CreativeDirector({
             onClick={() => selectPreset(item)}
           >
             <span>{item.icon}</span>
-            <div><strong>{item.title}</strong><small>{item.description}</small></div>
+            <div>
+              <strong>{item.title}</strong>
+              <small>{item.description}</small>
+            </div>
           </button>
         ))}
       </div>
@@ -182,8 +196,30 @@ export default function CreativeDirector({
       ) : (
         <>
           <div className="creative-options">
-            <label>Tom da mensagem<select value={tone} onChange={(event) => setTone(event.target.value as (typeof tones)[number])}>{tones.map((item) => <option key={item}>{item}</option>)}</select></label>
-            <label>Próxima ação<select value={desiredAction} onChange={(event) => setDesiredAction(event.target.value as (typeof actions)[number])}>{actions.map((item) => <option key={item}>{item}</option>)}</select></label>
+            <label>
+              Tom da mensagem
+              <select
+                value={tone}
+                onChange={(event) => setTone(event.target.value as (typeof tones)[number])}
+              >
+                {tones.map((item) => (
+                  <option key={item}>{item}</option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Próxima ação
+              <select
+                value={desiredAction}
+                onChange={(event) =>
+                  setDesiredAction(event.target.value as (typeof actions)[number])
+                }
+              >
+                {actions.map((item) => (
+                  <option key={item}>{item}</option>
+                ))}
+              </select>
+            </label>
           </div>
           <label className="creative-details-field">
             O que o Diretor precisa saber? <span>(opcional)</span>
@@ -196,7 +232,10 @@ export default function CreativeDirector({
           </label>
           <div className="creative-director-note">
             <span>✓</span>
-            <p><strong>Briefing pronto.</strong> Objetivo definido como {objective}. A MODO escolherá o ângulo, o gancho, a estrutura e a chamada para ação.</p>
+            <p>
+              <strong>Briefing pronto.</strong> Objetivo definido como {objective}. A MODO escolherá
+              o ângulo, o gancho, a estrutura e a chamada para ação.
+            </p>
           </div>
         </>
       )}

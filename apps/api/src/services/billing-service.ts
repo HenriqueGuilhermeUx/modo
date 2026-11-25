@@ -113,9 +113,7 @@ function addBillingMonth(date: Date) {
   const originalDay = next.getUTCDate();
   next.setUTCDate(1);
   next.setUTCMonth(next.getUTCMonth() + 1);
-  const lastDay = new Date(
-    Date.UTC(next.getUTCFullYear(), next.getUTCMonth() + 1, 0),
-  ).getUTCDate();
+  const lastDay = new Date(Date.UTC(next.getUTCFullYear(), next.getUTCMonth() + 1, 0)).getUTCDate();
   next.setUTCDate(Math.min(originalDay, lastDay));
   return next;
 }
@@ -207,10 +205,7 @@ export class BillingService {
     await this.pool?.end();
   }
 
-  async createOrUpdateDemoSubscription(
-    accountId: string,
-    plan: PlanSlug,
-  ): Promise<BillingUsage> {
+  async createOrUpdateDemoSubscription(accountId: string, plan: PlanSlug): Promise<BillingUsage> {
     const referenceId = `demo:${randomUUID()}`;
     if (this.pool) return this.openPostgresCycle(accountId, plan, referenceId, false);
     return this.openMemoryCycle(accountId, plan, referenceId, false);
@@ -293,12 +288,7 @@ export class BillingService {
     return this.consumeMemory(accountId, input);
   }
 
-  private openMemoryCycle(
-    accountId: string,
-    plan: PlanSlug,
-    referenceId: string,
-    paid: boolean,
-  ) {
+  private openMemoryCycle(accountId: string, plan: PlanSlug, referenceId: string, paid: boolean) {
     const existingGrant = this.memoryLedger.find(
       (entry) =>
         entry.accountId === accountId &&
@@ -451,14 +441,7 @@ export class BillingService {
          RETURNING account_id, plan_slug, status, period_start, period_end`,
         [accountId, plan, periodStart, periodEnd],
       );
-      await this.insertPostgresGrant(
-        client,
-        accountId,
-        plan,
-        periodStart,
-        referenceId,
-        paid,
-      );
+      await this.insertPostgresGrant(client, accountId, plan, periodStart, referenceId, paid);
       const usage = await this.buildPostgresUsage(client, result.rows[0]);
       await client.query("COMMIT");
       return usage;
@@ -549,10 +532,7 @@ export class BillingService {
     return result.rows[0];
   }
 
-  private async normalizePostgresExpiration(
-    client: PoolClient,
-    subscription: SubscriptionRow,
-  ) {
+  private async normalizePostgresExpiration(client: PoolClient, subscription: SubscriptionRow) {
     if (
       new Date() < subscription.period_end ||
       !["active", "retrying"].includes(subscription.status)
@@ -672,8 +652,7 @@ export class BillingService {
     }
     if (
       contentType === "short_video_script" &&
-      usage.usageByType.short_video_script >=
-        usage.entitlements.maxShortVideoScriptsPerMonth
+      usage.usageByType.short_video_script >= usage.entitlements.maxShortVideoScriptsPerMonth
     ) {
       throw new BillingError(
         "VIDEO_SCRIPT_LIMIT_REACHED",

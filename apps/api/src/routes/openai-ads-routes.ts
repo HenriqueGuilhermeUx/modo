@@ -33,7 +33,9 @@ export async function registerOpenAiAdsRoutes(
       try {
         await options.auth.authenticate(bearerToken(request));
       } catch {
-        return reply.code(401).send({ code: "UNAUTHORIZED", message: "Faça login para continuar." });
+        return reply
+          .code(401)
+          .send({ code: "UNAUTHORIZED", message: "Faça login para continuar." });
       }
 
       if (!options.apiKey) {

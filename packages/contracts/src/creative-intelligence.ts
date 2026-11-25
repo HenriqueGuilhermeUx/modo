@@ -53,19 +53,21 @@ export type CreativeProfile = z.infer<typeof CreativeProfileSchema>;
 export const CreativeProfileUpsertSchema = CreativeProfileSchema.omit({
   accountId: true,
   updatedAt: true,
-}).partial({
-  peopleAvailable: true,
-  comfortableOnCamera: true,
-  weeklyMinutesAvailable: true,
-  locations: true,
-  productsOrServicesToShow: true,
-  proofAvailable: true,
-  recurringQuestions: true,
-  currentPriorities: true,
-  prohibitedTopics: true,
-  preferredChannels: true,
-  notes: true,
-}).extend({ brandId: z.string().uuid() });
+})
+  .partial({
+    peopleAvailable: true,
+    comfortableOnCamera: true,
+    weeklyMinutesAvailable: true,
+    locations: true,
+    productsOrServicesToShow: true,
+    proofAvailable: true,
+    recurringQuestions: true,
+    currentPriorities: true,
+    prohibitedTopics: true,
+    preferredChannels: true,
+    notes: true,
+  })
+  .extend({ brandId: z.string().uuid() });
 export type CreativeProfileUpsert = z.infer<typeof CreativeProfileUpsertSchema>;
 
 export const CaptureMissionSchema = z.object({
@@ -115,22 +117,24 @@ export const CreativePlanSchema = z.object({
 });
 export type CreativePlan = z.infer<typeof CreativePlanSchema>;
 
-export const CreativeFeedbackSchema = z.object({
-  recommendationId: z.string().uuid().optional(),
-  contentRequestId: z.string().uuid().optional(),
-  signal: z.enum([
-    "accepted",
-    "dismissed",
-    "approved",
-    "revision_requested",
-    "published",
-    "performed_well",
-    "performed_poorly",
-  ]),
-  score: z.number().min(0).max(100).optional(),
-  notes: z.string().trim().max(1500).optional(),
-  metrics: z.record(z.string(), z.number()).optional(),
-}).refine((value) => value.recommendationId || value.contentRequestId, {
-  message: "Informe recommendationId ou contentRequestId.",
-});
+export const CreativeFeedbackSchema = z
+  .object({
+    recommendationId: z.string().uuid().optional(),
+    contentRequestId: z.string().uuid().optional(),
+    signal: z.enum([
+      "accepted",
+      "dismissed",
+      "approved",
+      "revision_requested",
+      "published",
+      "performed_well",
+      "performed_poorly",
+    ]),
+    score: z.number().min(0).max(100).optional(),
+    notes: z.string().trim().max(1500).optional(),
+    metrics: z.record(z.string(), z.number()).optional(),
+  })
+  .refine((value) => value.recommendationId || value.contentRequestId, {
+    message: "Informe recommendationId ou contentRequestId.",
+  });
 export type CreativeFeedback = z.infer<typeof CreativeFeedbackSchema>;

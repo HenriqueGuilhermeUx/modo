@@ -42,12 +42,16 @@ function brandHref(path: string, brandId: string) {
 }
 
 function formatDate(value: string) {
-  return new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short" }).format(new Date(value));
+  return new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short" }).format(
+    new Date(value),
+  );
 }
 
 function contactAgencyPro() {
   const subject = encodeURIComponent("Quero conhecer o MODO Agency Pro");
-  const body = encodeURIComponent("Olá, quero conversar sobre uma operação MODO Agency Pro para mais de 40 clientes com implantação assistida.");
+  const body = encodeURIComponent(
+    "Olá, quero conversar sobre uma operação MODO Agency Pro para mais de 40 clientes com implantação assistida.",
+  );
   window.location.href = `mailto:henriquecampos66@gmail.com?subject=${subject}&body=${body}`;
 }
 
@@ -94,14 +98,21 @@ export default function AgencyWorkspace() {
       const publicationEntries = await Promise.all(
         nextDashboard.brands.map(async (brand) => {
           const publications = await listNativePublications(brand.id).catch(() => []);
-          return [brand.id, publications.filter((item) => ["scheduled", "publishing", "published"].includes(item.status)).length] as const;
+          return [
+            brand.id,
+            publications.filter((item) =>
+              ["scheduled", "publishing", "published"].includes(item.status),
+            ).length,
+          ] as const;
         }),
       );
       setPublicationCount(Object.fromEntries(publicationEntries));
       setError("");
     } catch (caught) {
       setDashboard(null);
-      setError(caught instanceof Error ? caught.message : "Não foi possível carregar sua operação Agency.");
+      setError(
+        caught instanceof Error ? caught.message : "Não foi possível carregar sua operação Agency.",
+      );
     } finally {
       setLoading(false);
     }
@@ -125,7 +136,9 @@ export default function AgencyWorkspace() {
       window.sessionStorage.setItem("modo.accountMode", "agency");
       await loadAgency();
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Não foi possível entrar na MODO Agency.");
+      setError(
+        caught instanceof Error ? caught.message : "Não foi possível entrar na MODO Agency.",
+      );
     } finally {
       setSubmitting(false);
     }
@@ -167,7 +180,9 @@ export default function AgencyWorkspace() {
     try {
       setApprovalShare(await createAgencyApprovalLink(brandId));
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Não foi possível gerar o portal de aprovação.");
+      setError(
+        caught instanceof Error ? caught.message : "Não foi possível gerar o portal de aprovação.",
+      );
     } finally {
       setApprovalBusy("");
     }
@@ -187,14 +202,17 @@ export default function AgencyWorkspace() {
   }
 
   const clientStats = useMemo(() => {
-    if (!dashboard) return {} as Record<string, { waiting: number; approved: number; total: number }>;
+    if (!dashboard)
+      return {} as Record<string, { waiting: number; approved: number; total: number }>;
     return Object.fromEntries(
       dashboard.brands.map((brand) => {
         const brandContent = contents.filter((item) => item.brandId === brand.id);
         return [
           brand.id,
           {
-            waiting: brandContent.filter((item) => ["ready", "revision_requested"].includes(item.status)).length,
+            waiting: brandContent.filter((item) =>
+              ["ready", "revision_requested"].includes(item.status),
+            ).length,
             approved: brandContent.filter((item) => item.status === "approved").length,
             total: brandContent.length,
           },
@@ -218,14 +236,24 @@ export default function AgencyWorkspace() {
     return (
       <main className="agency-auth-shell">
         <section className="agency-auth-brand">
-          <a href="/agency" className="agency-auth-logo"><img src="/logo.svg" alt="MODO" /><span>AGENCY</span></a>
+          <a href="/agency" className="agency-auth-logo">
+            <img src="/logo.svg" alt="MODO" />
+            <span>AGENCY</span>
+          </a>
           <div className="agency-auth-kicker">OPERAÇÃO MULTI-CLIENTE</div>
           <h1>Um cérebro de marketing para cada cliente da sua agência.</h1>
-          <p>Entre para organizar contexto, criação, aprovação, publicação e aprendizado sem misturar contas ou perder a sua criatividade.</p>
+          <p>
+            Entre para organizar contexto, criação, aprovação, publicação e aprendizado sem misturar
+            contas ou perder a sua criatividade.
+          </p>
           <div className="agency-auth-plan">
             <small>PLANO ESCOLHIDO</small>
             <strong>{agencyPlanNames[chosenPlan] || "MODO Studio"}</strong>
-            <span>{chosenPlan === "agency-pro" ? "Plano personalizado com implantação assistida e condições definidas com o time MODO." : "Você começa com um cliente no teste e ativa a carteira completa quando quiser."}</span>
+            <span>
+              {chosenPlan === "agency-pro"
+                ? "Plano personalizado com implantação assistida e condições definidas com o time MODO."
+                : "Você começa com um cliente no teste e ativa a carteira completa quando quiser."}
+            </span>
           </div>
           <div className="agency-auth-benefits">
             <span>✓ Contexto separado por cliente</span>
@@ -237,23 +265,78 @@ export default function AgencyWorkspace() {
 
         <section className="agency-auth-card">
           <div className="agency-auth-tabs">
-            <button type="button" className={authMode === "register" ? "active" : ""} onClick={() => setAuthMode("register")}>Criar conta Agency</button>
-            <button type="button" className={authMode === "login" ? "active" : ""} onClick={() => setAuthMode("login")}>Entrar</button>
+            <button
+              type="button"
+              className={authMode === "register" ? "active" : ""}
+              onClick={() => setAuthMode("register")}
+            >
+              Criar conta Agency
+            </button>
+            <button
+              type="button"
+              className={authMode === "login" ? "active" : ""}
+              onClick={() => setAuthMode("login")}
+            >
+              Entrar
+            </button>
           </div>
           <form onSubmit={handleAuth}>
             {authMode === "register" && (
               <>
-                <label>Seu nome<input value={name} onChange={(event) => setName(event.target.value)} required /></label>
-                <label>Nome da agência ou operação<input value={agencyName} onChange={(event) => setAgencyName(event.target.value)} required /></label>
+                <label>
+                  Seu nome
+                  <input value={name} onChange={(event) => setName(event.target.value)} required />
+                </label>
+                <label>
+                  Nome da agência ou operação
+                  <input
+                    value={agencyName}
+                    onChange={(event) => setAgencyName(event.target.value)}
+                    required
+                  />
+                </label>
               </>
             )}
-            <label>E-mail<input type="email" value={email} onChange={(event) => setEmail(event.target.value)} required /></label>
-            <label>Senha<input type="password" value={password} onChange={(event) => setPassword(event.target.value)} minLength={8} required /></label>
+            <label>
+              E-mail
+              <input
+                type="email"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                required
+              />
+            </label>
+            <label>
+              Senha
+              <input
+                type="password"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                minLength={8}
+                required
+              />
+            </label>
             {error && <div className="agency-ws-error">{error}</div>}
-            <button className="agency-ws-primary" disabled={submitting}>{submitting ? "Processando..." : authMode === "register" ? "Criar minha operação Agency" : "Entrar na MODO Agency"}</button>
+            <button className="agency-ws-primary" disabled={submitting}>
+              {submitting
+                ? "Processando..."
+                : authMode === "register"
+                  ? "Criar minha operação Agency"
+                  : "Entrar na MODO Agency"}
+            </button>
           </form>
-          {chosenPlan === "agency-pro" && <button className="agency-ws-secondary agency-auth-contact" type="button" onClick={contactAgencyPro}>Falar sobre Agency Pro</button>}
-          <a href="/agency" className="agency-auth-back">← Voltar para MODO Agency</a>
+          {chosenPlan === "agency-pro" && (
+            <button
+              className="agency-ws-secondary agency-auth-contact"
+              type="button"
+              onClick={contactAgencyPro}
+            >
+              Falar sobre Agency Pro
+            </button>
+          )}
+          <a href="/agency" className="agency-auth-back">
+            ← Voltar para MODO Agency
+          </a>
         </section>
       </main>
     );
@@ -261,10 +344,16 @@ export default function AgencyWorkspace() {
 
   const usage = dashboard.usage;
   const clientLimitReached = dashboard.brands.length >= usage.entitlements.maxBrands;
-  const agencyPlan = agencyPlanNames[usage.plan] || (usage.plan === "trial" ? "Teste Agency" : String(usage.plan));
-  const awaitingApproval = contents.filter((item) => ["ready", "revision_requested"].includes(item.status)).length;
+  const agencyPlan =
+    agencyPlanNames[usage.plan] || (usage.plan === "trial" ? "Teste Agency" : String(usage.plan));
+  const awaitingApproval = contents.filter((item) =>
+    ["ready", "revision_requested"].includes(item.status),
+  ).length;
   const approved = contents.filter((item) => item.status === "approved").length;
-  const scheduledOrPublished = Object.values(publicationCount).reduce((sum, value) => sum + value, 0);
+  const scheduledOrPublished = Object.values(publicationCount).reduce(
+    (sum, value) => sum + value,
+    0,
+  );
 
   function activatePlan() {
     const plan = selectedAgencyPlan();
@@ -280,20 +369,40 @@ export default function AgencyWorkspace() {
   return (
     <div className="agency-ws-shell">
       <aside className="agency-ws-sidebar">
-        <a className="agency-ws-brand" href="/agency"><img src="/logo.svg" alt="MODO" /><span>AGENCY</span></a>
-        <div className="agency-ws-agency-name"><small>WORKSPACE</small><strong>{dashboard.organization.name}</strong></div>
+        <a className="agency-ws-brand" href="/agency">
+          <img src="/logo.svg" alt="MODO" />
+          <span>AGENCY</span>
+        </a>
+        <div className="agency-ws-agency-name">
+          <small>WORKSPACE</small>
+          <strong>{dashboard.organization.name}</strong>
+        </div>
         <nav>
-          <a className="active" href="#carteira"><span>⌂</span> Carteira</a>
-          <a href="#operacao"><span>◎</span> Operação</a>
-          <a href="/app/publisher?mode=agency"><span>↗</span> Publisher</a>
-          <a href="/app/content?mode=agency"><span>✦</span> Criar</a>
-          <a href="/app/inteligencia?mode=agency"><span>◫</span> Inteligência</a>
-          <a href="/app/planos?mode=agency"><span>◇</span> Plano</a>
+          <a className="active" href="#carteira">
+            <span>⌂</span> Carteira
+          </a>
+          <a href="#operacao">
+            <span>◎</span> Operação
+          </a>
+          <a href="/app/publisher?mode=agency">
+            <span>↗</span> Publisher
+          </a>
+          <a href="/app/content?mode=agency">
+            <span>✦</span> Criar
+          </a>
+          <a href="/app/inteligencia?mode=agency">
+            <span>◫</span> Inteligência
+          </a>
+          <a href="/app/planos?mode=agency">
+            <span>◇</span> Plano
+          </a>
         </nav>
         <div className="agency-ws-account">
           <strong>{dashboard.user.name}</strong>
           <span>{dashboard.user.email}</span>
-          <button type="button" onClick={handleLogout}>Sair</button>
+          <button type="button" onClick={handleLogout}>
+            Sair
+          </button>
         </div>
       </aside>
 
@@ -301,40 +410,102 @@ export default function AgencyWorkspace() {
         <header className="agency-ws-topbar">
           <div>
             <div className="agency-ws-kicker">MODO AGENCY · {agencyPlan.toUpperCase()}</div>
-            <h1>Sua carteira, <strong>sem perder o contexto de ninguém.</strong></h1>
-            <p>Cada cliente abaixo usa o mesmo coração da MODO, mas com memória, estratégia, conteúdo e redes totalmente separados.</p>
+            <h1>
+              Sua carteira, <strong>sem perder o contexto de ninguém.</strong>
+            </h1>
+            <p>
+              Cada cliente abaixo usa o mesmo coração da MODO, mas com memória, estratégia, conteúdo
+              e redes totalmente separados.
+            </p>
           </div>
           <div className="agency-ws-top-actions">
-            {usage.plan === "trial" && <button className="agency-ws-secondary" type="button" onClick={activatePlan}>Ativar plano</button>}
-            <button className="agency-ws-primary" type="button" onClick={() => setShowClientForm(true)} disabled={clientLimitReached}>+ Novo cliente</button>
+            {usage.plan === "trial" && (
+              <button className="agency-ws-secondary" type="button" onClick={activatePlan}>
+                Ativar plano
+              </button>
+            )}
+            <button
+              className="agency-ws-primary"
+              type="button"
+              onClick={() => setShowClientForm(true)}
+              disabled={clientLimitReached}
+            >
+              + Novo cliente
+            </button>
           </div>
         </header>
 
         {error && <div className="agency-ws-error wide">{error}</div>}
 
         <section className="agency-ws-stats" id="operacao">
-          <article><small>CLIENTES ATIVOS</small><strong>{dashboard.brands.length}<span>/{usage.entitlements.maxBrands}</span></strong><p>workspaces de marca separados</p></article>
-          <article><small>AGUARDANDO REVISÃO</small><strong>{awaitingApproval}</strong><p>conteúdos pedindo decisão</p></article>
-          <article><small>APROVADOS</small><strong>{approved}</strong><p>conteúdos liberados</p></article>
-          <article><small>PUBLICAÇÃO</small><strong>{scheduledOrPublished}</strong><p>agendados ou publicados</p></article>
+          <article>
+            <small>CLIENTES ATIVOS</small>
+            <strong>
+              {dashboard.brands.length}
+              <span>/{usage.entitlements.maxBrands}</span>
+            </strong>
+            <p>workspaces de marca separados</p>
+          </article>
+          <article>
+            <small>AGUARDANDO REVISÃO</small>
+            <strong>{awaitingApproval}</strong>
+            <p>conteúdos pedindo decisão</p>
+          </article>
+          <article>
+            <small>APROVADOS</small>
+            <strong>{approved}</strong>
+            <p>conteúdos liberados</p>
+          </article>
+          <article>
+            <small>PUBLICAÇÃO</small>
+            <strong>{scheduledOrPublished}</strong>
+            <p>agendados ou publicados</p>
+          </article>
         </section>
 
         {usage.plan === "trial" && (
           <section className="agency-ws-upgrade">
-            <div><small>TESTE A OPERAÇÃO REAL</small><h2>Cadastre o primeiro cliente e use o motor completo.</h2><p>Quando estiver pronto para abrir a carteira, ative o plano Agency escolhido e amplie sua capacidade de clientes.</p></div>
-            <button className="agency-ws-primary" type="button" onClick={activatePlan}>Liberar minha carteira ↗</button>
+            <div>
+              <small>TESTE A OPERAÇÃO REAL</small>
+              <h2>Cadastre o primeiro cliente e use o motor completo.</h2>
+              <p>
+                Quando estiver pronto para abrir a carteira, ative o plano Agency escolhido e amplie
+                sua capacidade de clientes.
+              </p>
+            </div>
+            <button className="agency-ws-primary" type="button" onClick={activatePlan}>
+              Liberar minha carteira ↗
+            </button>
           </section>
         )}
 
         <section className="agency-ws-clients" id="carteira">
           <div className="agency-ws-section-head">
-            <div><small>CARTEIRA</small><h2>Clientes</h2></div>
-            <div className="agency-ws-capacity"><span style={{ width: `${Math.min(100, (dashboard.brands.length / Math.max(1, usage.entitlements.maxBrands)) * 100)}%` }} /></div>
+            <div>
+              <small>CARTEIRA</small>
+              <h2>Clientes</h2>
+            </div>
+            <div className="agency-ws-capacity">
+              <span
+                style={{
+                  width: `${Math.min(100, (dashboard.brands.length / Math.max(1, usage.entitlements.maxBrands)) * 100)}%`,
+                }}
+              />
+            </div>
           </div>
 
           {dashboard.brands.length === 0 ? (
-            <button className="agency-ws-empty" type="button" onClick={() => setShowClientForm(true)}>
-              <span>+</span><strong>Cadastre seu primeiro cliente</strong><p>A MODO criará um espaço independente para estratégia, memória, conteúdo e publicação.</p>
+            <button
+              className="agency-ws-empty"
+              type="button"
+              onClick={() => setShowClientForm(true)}
+            >
+              <span>+</span>
+              <strong>Cadastre seu primeiro cliente</strong>
+              <p>
+                A MODO criará um espaço independente para estratégia, memória, conteúdo e
+                publicação.
+              </p>
             </button>
           ) : (
             <div className="agency-ws-client-grid">
@@ -346,21 +517,53 @@ export default function AgencyWorkspace() {
                   <article className="agency-ws-client-card" key={brand.id}>
                     <div className="agency-ws-client-head">
                       <div className="agency-ws-avatar">{brand.name.slice(0, 2).toUpperCase()}</div>
-                      <div><h3>{brand.name}</h3><p>{nicheLabels[brand.niche]}</p></div>
-                      <span className={connections > 0 ? "connected" : "pending"}>{connections > 0 ? `${connections} rede${connections > 1 ? "s" : ""}` : "Conectar redes"}</span>
+                      <div>
+                        <h3>{brand.name}</h3>
+                        <p>{nicheLabels[brand.niche]}</p>
+                      </div>
+                      <span className={connections > 0 ? "connected" : "pending"}>
+                        {connections > 0
+                          ? `${connections} rede${connections > 1 ? "s" : ""}`
+                          : "Conectar redes"}
+                      </span>
                     </div>
                     <div className="agency-ws-client-health">
-                      <div><small>Conteúdos</small><strong>{stats.total}</strong></div>
-                      <div><small>Revisão</small><strong>{stats.waiting}</strong></div>
-                      <div><small>Publicação</small><strong>{publications}</strong></div>
+                      <div>
+                        <small>Conteúdos</small>
+                        <strong>{stats.total}</strong>
+                      </div>
+                      <div>
+                        <small>Revisão</small>
+                        <strong>{stats.waiting}</strong>
+                      </div>
+                      <div>
+                        <small>Publicação</small>
+                        <strong>{publications}</strong>
+                      </div>
                     </div>
-                    <div className="agency-ws-client-context"><small>CONTEXTO</small><span>{brand.websiteUrl || brand.instagramHandle || "Pronto para completar a base estratégica"}</span><b>Atualizado {formatDate(brand.updatedAt)}</b></div>
+                    <div className="agency-ws-client-context">
+                      <small>CONTEXTO</small>
+                      <span>
+                        {brand.websiteUrl ||
+                          brand.instagramHandle ||
+                          "Pronto para completar a base estratégica"}
+                      </span>
+                      <b>Atualizado {formatDate(brand.updatedAt)}</b>
+                    </div>
                     <div className="agency-ws-client-actions">
                       <a href={brandHref("/app/base", brand.id)}>Base</a>
                       <a href={brandHref("/app/director", brand.id)}>Diretor</a>
                       <a href={brandHref("/app/content", brand.id)}>Criar</a>
-                      <button type="button" onClick={() => void handleApprovalLink(brand.id)} disabled={approvalBusy === brand.id}>{approvalBusy === brand.id ? "Gerando..." : "Aprovar"}</button>
-                      <a className="primary" href={brandHref("/app/publisher", brand.id)}>Publicar ↗</a>
+                      <button
+                        type="button"
+                        onClick={() => void handleApprovalLink(brand.id)}
+                        disabled={approvalBusy === brand.id}
+                      >
+                        {approvalBusy === brand.id ? "Gerando..." : "Aprovar"}
+                      </button>
+                      <a className="primary" href={brandHref("/app/publisher", brand.id)}>
+                        Publicar ↗
+                      </a>
                     </div>
                   </article>
                 );
@@ -369,50 +572,171 @@ export default function AgencyWorkspace() {
           )}
 
           {clientLimitReached && (
-            <div className="agency-ws-limit"><strong>Limite de clientes atingido.</strong><span>Amplie o plano para abrir novas contas sem apagar histórico.</span><a href="/app/planos?mode=agency">Ver planos Agency →</a></div>
+            <div className="agency-ws-limit">
+              <strong>Limite de clientes atingido.</strong>
+              <span>Amplie o plano para abrir novas contas sem apagar histórico.</span>
+              <a href="/app/planos?mode=agency">Ver planos Agency →</a>
+            </div>
           )}
         </section>
 
         <section className="agency-ws-flow">
-          <div><small>FLUXO PADRÃO</small><h2>O trabalho da agência continua humano. <strong>A operação deixa de ser fragmentada.</strong></h2></div>
+          <div>
+            <small>FLUXO PADRÃO</small>
+            <h2>
+              O trabalho da agência continua humano.{" "}
+              <strong>A operação deixa de ser fragmentada.</strong>
+            </h2>
+          </div>
           <ol>
-            <li><span>1</span><div><strong>Contexto</strong><p>Base, oferta, público e restrições por cliente.</p></div></li>
-            <li><span>2</span><div><strong>Direção</strong><p>A MODO cruza objetivo com histórico e canal.</p></div></li>
-            <li><span>3</span><div><strong>Criação + aprovação</strong><p>Sua ideia entra, você edita e o cliente decide por um link seguro.</p></div></li>
-            <li><span>4</span><div><strong>Publicação</strong><p>Conta certa, horário certo e aprendizado depois.</p></div></li>
+            <li>
+              <span>1</span>
+              <div>
+                <strong>Contexto</strong>
+                <p>Base, oferta, público e restrições por cliente.</p>
+              </div>
+            </li>
+            <li>
+              <span>2</span>
+              <div>
+                <strong>Direção</strong>
+                <p>A MODO cruza objetivo com histórico e canal.</p>
+              </div>
+            </li>
+            <li>
+              <span>3</span>
+              <div>
+                <strong>Criação + aprovação</strong>
+                <p>Sua ideia entra, você edita e o cliente decide por um link seguro.</p>
+              </div>
+            </li>
+            <li>
+              <span>4</span>
+              <div>
+                <strong>Publicação</strong>
+                <p>Conta certa, horário certo e aprendizado depois.</p>
+              </div>
+            </li>
           </ol>
         </section>
       </main>
 
       {showClientForm && (
-        <div className="agency-ws-modal-backdrop" role="presentation" onMouseDown={() => setShowClientForm(false)}>
-          <section className="agency-ws-modal" role="dialog" aria-modal="true" aria-labelledby="agency-new-client" onMouseDown={(event) => event.stopPropagation()}>
-            <button className="agency-ws-modal-close" type="button" onClick={() => setShowClientForm(false)}>×</button>
+        <div
+          className="agency-ws-modal-backdrop"
+          role="presentation"
+          onMouseDown={() => setShowClientForm(false)}
+        >
+          <section
+            className="agency-ws-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="agency-new-client"
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <button
+              className="agency-ws-modal-close"
+              type="button"
+              onClick={() => setShowClientForm(false)}
+            >
+              ×
+            </button>
             <small>NOVO CLIENTE</small>
             <h2 id="agency-new-client">Abra um novo cérebro de marketing.</h2>
-            <p>Esse cadastro cria uma marca isolada dentro da sua agência. Depois você completa estratégia, conecta redes e começa a produzir.</p>
+            <p>
+              Esse cadastro cria uma marca isolada dentro da sua agência. Depois você completa
+              estratégia, conecta redes e começa a produzir.
+            </p>
             <form onSubmit={handleCreateClient}>
-              <label>Nome do cliente<input value={clientName} onChange={(event) => setClientName(event.target.value)} required /></label>
-              <label>Site <span>(opcional)</span><input value={clientWebsite} onChange={(event) => setClientWebsite(event.target.value)} placeholder="www.cliente.com.br" /></label>
-              <label>Instagram <span>(opcional)</span><input value={clientInstagram} onChange={(event) => setClientInstagram(event.target.value)} placeholder="@cliente" /></label>
-              <label>Segmento<select value={clientNiche} onChange={(event) => setClientNiche(event.target.value as Niche)}>{(Object.keys(nicheLabels) as Niche[]).map((niche) => <option value={niche} key={niche}>{nicheLabels[niche]}</option>)}</select></label>
+              <label>
+                Nome do cliente
+                <input
+                  value={clientName}
+                  onChange={(event) => setClientName(event.target.value)}
+                  required
+                />
+              </label>
+              <label>
+                Site <span>(opcional)</span>
+                <input
+                  value={clientWebsite}
+                  onChange={(event) => setClientWebsite(event.target.value)}
+                  placeholder="www.cliente.com.br"
+                />
+              </label>
+              <label>
+                Instagram <span>(opcional)</span>
+                <input
+                  value={clientInstagram}
+                  onChange={(event) => setClientInstagram(event.target.value)}
+                  placeholder="@cliente"
+                />
+              </label>
+              <label>
+                Segmento
+                <select
+                  value={clientNiche}
+                  onChange={(event) => setClientNiche(event.target.value as Niche)}
+                >
+                  {(Object.keys(nicheLabels) as Niche[]).map((niche) => (
+                    <option value={niche} key={niche}>
+                      {nicheLabels[niche]}
+                    </option>
+                  ))}
+                </select>
+              </label>
               {error && <div className="agency-ws-error">{error}</div>}
-              <button className="agency-ws-primary" disabled={submitting}>{submitting ? "Criando workspace..." : "Criar cliente na MODO"}</button>
+              <button className="agency-ws-primary" disabled={submitting}>
+                {submitting ? "Criando workspace..." : "Criar cliente na MODO"}
+              </button>
             </form>
           </section>
         </div>
       )}
 
       {approvalShare && (
-        <div className="agency-ws-modal-backdrop" role="presentation" onMouseDown={() => setApprovalShare(null)}>
-          <section className="agency-ws-modal agency-ws-share-modal" role="dialog" aria-modal="true" onMouseDown={(event) => event.stopPropagation()}>
-            <button className="agency-ws-modal-close" type="button" onClick={() => setApprovalShare(null)}>×</button>
+        <div
+          className="agency-ws-modal-backdrop"
+          role="presentation"
+          onMouseDown={() => setApprovalShare(null)}
+        >
+          <section
+            className="agency-ws-modal agency-ws-share-modal"
+            role="dialog"
+            aria-modal="true"
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <button
+              className="agency-ws-modal-close"
+              type="button"
+              onClick={() => setApprovalShare(null)}
+            >
+              ×
+            </button>
             <small>APROVAÇÃO DO CLIENTE</small>
             <h2>Envie este portal para {approvalShare.brandName}.</h2>
-            <p>O cliente verá somente os conteúdos compartilhados desta marca. Ele poderá aprovar ou solicitar um ajuste sem acessar sua operação interna.</p>
-            <div className="agency-ws-share-link"><span>{approvalShare.approvalUrl}</span><button type="button" onClick={() => void copyApprovalLink()}>{copiedApproval ? "Copiado ✓" : "Copiar link"}</button></div>
-            <div className="agency-ws-share-trust">Link válido por 30 dias. Ao gerar um novo portal para este cliente, o link anterior é revogado automaticamente.</div>
-            <a className="agency-ws-primary agency-ws-share-open" href={approvalShare.approvalUrl} target="_blank" rel="noreferrer">Abrir portal como cliente ↗</a>
+            <p>
+              O cliente verá somente os conteúdos compartilhados desta marca. Ele poderá aprovar ou
+              solicitar um ajuste sem acessar sua operação interna.
+            </p>
+            <div className="agency-ws-share-link">
+              <span>{approvalShare.approvalUrl}</span>
+              <button type="button" onClick={() => void copyApprovalLink()}>
+                {copiedApproval ? "Copiado ✓" : "Copiar link"}
+              </button>
+            </div>
+            <div className="agency-ws-share-trust">
+              Link válido por 30 dias. Ao gerar um novo portal para este cliente, o link anterior é
+              revogado automaticamente.
+            </div>
+            <a
+              className="agency-ws-primary agency-ws-share-open"
+              href={approvalShare.approvalUrl}
+              target="_blank"
+              rel="noreferrer"
+            >
+              Abrir portal como cliente ↗
+            </a>
           </section>
         </div>
       )}

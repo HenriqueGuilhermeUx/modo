@@ -23,9 +23,7 @@ async function request(path: string, init?: RequestInit) {
 }
 
 export async function getPerformanceSummary(brandId: string) {
-  return PerformanceSummarySchema.parse(
-    await request(`/api/v1/signal/summary/${brandId}`),
-  );
+  return PerformanceSummarySchema.parse(await request(`/api/v1/signal/summary/${brandId}`));
 }
 
 export async function recordPerformanceSignal(input: PerformanceSignalCreate) {

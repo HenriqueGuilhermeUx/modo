@@ -14,6 +14,8 @@ describe("MetricoolService", () => {
 
   it("refuses provisioning until the integrator account is configured", async () => {
     const service = new MetricoolService({});
-    await expect(service.provision("org-1", "brand-1")).rejects.toThrow(/Metricool ainda não está configurado/);
+    await expect(service.provision("org-1", "brand-1")).rejects.toThrow(
+      /Metricool ainda não está configurado/,
+    );
   });
 });

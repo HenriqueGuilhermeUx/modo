@@ -21,12 +21,15 @@ const ConfigSchema = z
   .object({
     NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
     PORT: z.coerce.number().int().positive().default(4000),
-    PUBLIC_API_URL: z.preprocess(emptyToUndefined, z.string().url().default("http://localhost:4000")),
-    PUBLIC_WEB_URL: z.preprocess(emptyToUndefined, z.string().url().default("http://localhost:5173")),
-    ALLOWED_ORIGINS: z.preprocess(
+    PUBLIC_API_URL: z.preprocess(
       emptyToUndefined,
-      z.string().default("http://localhost:5173"),
+      z.string().url().default("http://localhost:4000"),
     ),
+    PUBLIC_WEB_URL: z.preprocess(
+      emptyToUndefined,
+      z.string().url().default("http://localhost:5173"),
+    ),
+    ALLOWED_ORIGINS: z.preprocess(emptyToUndefined, z.string().default("http://localhost:5173")),
     DIAGNOSTIC_PROVIDER: z.enum(["demo", "n8n"]).default("demo"),
     DEMO_DIAGNOSTIC_DELAY_MS: z.coerce.number().int().nonnegative().default(2600),
     N8N_DIAGNOSTIC_WEBHOOK_URL: optionalTrimmedString,
@@ -99,9 +102,11 @@ const ConfigSchema = z
     INSTAGRAM_TOKEN_ENCRYPTION_SECRET: optionalTrimmedString,
     INSTAGRAM_SCOPES: z.preprocess(
       emptyToUndefined,
-      z.string().default(
-        "instagram_business_basic,instagram_business_content_publish,instagram_business_manage_insights,instagram_business_manage_comments",
-      ),
+      z
+        .string()
+        .default(
+          "instagram_business_basic,instagram_business_content_publish,instagram_business_manage_insights,instagram_business_manage_comments",
+        ),
     ),
     INSTAGRAM_API_VERSION: z.preprocess(emptyToUndefined, z.string().default("v25.0")),
     INSTAGRAM_GRAPH_BASE_URL: z.preprocess(

@@ -14,7 +14,12 @@ function AssetActions({ request }: { request: ContentRequest }) {
   if (!output?.imageUrl) return null;
   return (
     <div className="delivery-image-actions">
-      <a className="button button-secondary" href={output.imageUrl} target="_blank" rel="noreferrer">
+      <a
+        className="button button-secondary"
+        href={output.imageUrl}
+        target="_blank"
+        rel="noreferrer"
+      >
         Ver imagem em tela cheia
       </a>
       <a className="button button-primary" href={`/app/studio/${request.id}`}>
@@ -27,8 +32,11 @@ function AssetActions({ request }: { request: ContentRequest }) {
 function VisualSet({ request }: { request: ContentRequest }) {
   const output = request.output;
   if (!output || !["carousel", "story"].includes(request.contentType)) return null;
-  const expected = request.contentType === "carousel" ? output.slides.length : output.storyFrames.length;
-  const generated = output.visualAssets.filter((asset) => asset.imageStatus === "generated" && asset.imageUrl);
+  const expected =
+    request.contentType === "carousel" ? output.slides.length : output.storyFrames.length;
+  const generated = output.visualAssets.filter(
+    (asset) => asset.imageStatus === "generated" && asset.imageUrl,
+  );
 
   return (
     <section className="delivery-visual-set">
@@ -36,7 +44,9 @@ function VisualSet({ request }: { request: ContentRequest }) {
         <div>
           <small>ARTES DO FORMATO</small>
           <h4>{request.contentType === "carousel" ? "Slides visuais" : "Stories visuais"}</h4>
-          <p>{generated.length} de {expected} arte(s) visual(is) concluída(s).</p>
+          <p>
+            {generated.length} de {expected} arte(s) visual(is) concluída(s).
+          </p>
         </div>
         <span className={generated.length === expected && expected > 0 ? "complete" : "partial"}>
           {generated.length === expected && expected > 0 ? "Kit completo" : "Entrega parcial"}
@@ -44,10 +54,18 @@ function VisualSet({ request }: { request: ContentRequest }) {
       </div>
       <div className="delivery-asset-grid">
         {output.visualAssets.map((asset) => (
-          <article key={`${asset.kind}-${asset.index}`} className={`delivery-asset-card ${asset.kind} ${asset.imageStatus}`}>
+          <article
+            key={`${asset.kind}-${asset.index}`}
+            className={`delivery-asset-card ${asset.kind} ${asset.imageStatus}`}
+          >
             {asset.imageUrl ? (
               <a href={asset.imageUrl} target="_blank" rel="noreferrer">
-                <img src={asset.imageUrl} alt={asset.imageAlt || asset.label} loading="lazy" crossOrigin="anonymous" />
+                <img
+                  src={asset.imageUrl}
+                  alt={asset.imageAlt || asset.label}
+                  loading="lazy"
+                  crossOrigin="anonymous"
+                />
               </a>
             ) : (
               <div className="delivery-asset-missing">Visual não concluído</div>
@@ -55,14 +73,19 @@ function VisualSet({ request }: { request: ContentRequest }) {
             <div>
               <small>{String(asset.index).padStart(2, "0")}</small>
               <strong>{asset.label}</strong>
-              {asset.imageUrl && <a href={asset.imageUrl} target="_blank" rel="noreferrer">Abrir arte ↗</a>}
+              {asset.imageUrl && (
+                <a href={asset.imageUrl} target="_blank" rel="noreferrer">
+                  Abrir arte ↗
+                </a>
+              )}
             </div>
           </article>
         ))}
       </div>
       {output.visualAssets.length === 0 && (
         <div className="delivery-legacy-note">
-          Este pedido foi produzido antes da geração de kits visuais. Crie um novo carrossel ou uma nova sequência de Stories a partir da peça aprovada para receber as artes individuais.
+          Este pedido foi produzido antes da geração de kits visuais. Crie um novo carrossel ou uma
+          nova sequência de Stories a partir da peça aprovada para receber as artes individuais.
         </div>
       )}
     </section>
@@ -81,7 +104,10 @@ function FormatStructure({ request }: { request: ContentRequest }) {
           {output.slides.map((slide, index) => (
             <article key={`${slide.title}-${index}`}>
               <span>{String(index + 1).padStart(2, "0")}</span>
-              <div><strong>{slide.title}</strong><p>{slide.body}</p></div>
+              <div>
+                <strong>{slide.title}</strong>
+                <p>{slide.body}</p>
+              </div>
             </article>
           ))}
         </div>
@@ -100,7 +126,11 @@ function FormatStructure({ request }: { request: ContentRequest }) {
               <div>
                 <strong>{frame.headline}</strong>
                 <p>{frame.body}</p>
-                {frame.interaction && <p><b>Interação:</b> {frame.interaction}</p>}
+                {frame.interaction && (
+                  <p>
+                    <b>Interação:</b> {frame.interaction}
+                  </p>
+                )}
               </div>
             </article>
           ))}
@@ -119,8 +149,12 @@ function FormatStructure({ request }: { request: ContentRequest }) {
               <span>{String(index + 1).padStart(2, "0")}</span>
               <div>
                 <strong>{scene.scene}</strong>
-                <p><b>Visual:</b> {scene.visual}</p>
-                <p><b>Locução:</b> {scene.voiceover}</p>
+                <p>
+                  <b>Visual:</b> {scene.visual}
+                </p>
+                <p>
+                  <b>Locução:</b> {scene.voiceover}
+                </p>
               </div>
             </article>
           ))}
@@ -131,7 +165,9 @@ function FormatStructure({ request }: { request: ContentRequest }) {
             <strong>Transforme este roteiro em um MP4 vertical.</strong>
             <p>15, 30 ou 45 segundos · montagem automática · legendas · 9:16</p>
           </div>
-          <a className="button button-primary" href={`/app/video/${request.id}`}>Montar vídeo</a>
+          <a className="button button-primary" href={`/app/video/${request.id}`}>
+            Montar vídeo
+          </a>
         </div>
       </section>
     );
@@ -160,10 +196,18 @@ export default function ContentDeliveryPanel({ request }: { request: ContentRequ
       {output.imageUrl ? (
         <section className="delivery-primary-asset">
           <div className="delivery-image-heading">
-            <div><small>CRIATIVO PRINCIPAL</small><strong>Imagem contextual pronta</strong></div>
+            <div>
+              <small>CRIATIVO PRINCIPAL</small>
+              <strong>Imagem contextual pronta</strong>
+            </div>
             <span>IA + contexto da marca</span>
           </div>
-          <img src={output.imageUrl} alt={output.imageAlt || output.title} loading="lazy" crossOrigin="anonymous" />
+          <img
+            src={output.imageUrl}
+            alt={output.imageAlt || output.title}
+            loading="lazy"
+            crossOrigin="anonymous"
+          />
           <div className="delivery-image-footer">
             <p>{output.imageAlt || "Imagem produzida a partir do briefing e da direção visual."}</p>
             <AssetActions request={request} />
@@ -172,19 +216,42 @@ export default function ContentDeliveryPanel({ request }: { request: ContentRequ
       ) : (
         <section className={`content-image-state ${output.imageStatus}`}>
           <small>CRIATIVO VISUAL</small>
-          <strong>{output.imageStatus === "failed" ? "O texto está pronto, mas a imagem não foi concluída" : "Imagem ainda não gerada"}</strong>
-          <p>O conteúdo permanece disponível para revisão. Uma nova entrega visual pode ser solicitada sem perder a estratégia.</p>
+          <strong>
+            {output.imageStatus === "failed"
+              ? "O texto está pronto, mas a imagem não foi concluída"
+              : "Imagem ainda não gerada"}
+          </strong>
+          <p>
+            O conteúdo permanece disponível para revisão. Uma nova entrega visual pode ser
+            solicitada sem perder a estratégia.
+          </p>
         </section>
       )}
 
       <section className="delivery-copy-card">
-        <div className="delivery-copy-lead"><small>GANCHO</small><h3>{output.hook}</h3></div>
-        <div className="delivery-copy-grid">
-          <article><small>TÍTULO</small><p>{output.title}</p></article>
-          <article><small>CHAMADA PARA AÇÃO</small><p>{output.cta}</p></article>
+        <div className="delivery-copy-lead">
+          <small>GANCHO</small>
+          <h3>{output.hook}</h3>
         </div>
-        <article><small>LEGENDA</small><p className="content-caption">{output.caption}</p></article>
-        <div className="content-hashtags">{output.hashtags.map((tag) => <span key={tag}>{tag}</span>)}</div>
+        <div className="delivery-copy-grid">
+          <article>
+            <small>TÍTULO</small>
+            <p>{output.title}</p>
+          </article>
+          <article>
+            <small>CHAMADA PARA AÇÃO</small>
+            <p>{output.cta}</p>
+          </article>
+        </div>
+        <article>
+          <small>LEGENDA</small>
+          <p className="content-caption">{output.caption}</p>
+        </article>
+        <div className="content-hashtags">
+          {output.hashtags.map((tag) => (
+            <span key={tag}>{tag}</span>
+          ))}
+        </div>
       </section>
 
       <VisualSet request={request} />
@@ -192,9 +259,19 @@ export default function ContentDeliveryPanel({ request }: { request: ContentRequ
 
       <details className="delivery-technical-details">
         <summary>Ver direção visual e orientações de adaptação</summary>
-        <section><small>DIREÇÃO VISUAL</small><p>{output.visualDirection}</p></section>
+        <section>
+          <small>DIREÇÃO VISUAL</small>
+          <p>{output.visualDirection}</p>
+        </section>
         {output.adaptationNotes.length > 0 && (
-          <section><small>NOTAS DE ADAPTAÇÃO</small><ul>{output.adaptationNotes.map((note) => <li key={note}>{note}</li>)}</ul></section>
+          <section>
+            <small>NOTAS DE ADAPTAÇÃO</small>
+            <ul>
+              {output.adaptationNotes.map((note) => (
+                <li key={note}>{note}</li>
+              ))}
+            </ul>
+          </section>
         )}
       </details>
     </div>

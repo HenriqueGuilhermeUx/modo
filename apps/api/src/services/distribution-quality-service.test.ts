@@ -19,7 +19,8 @@ const request: ContentRequest = {
   output: {
     hook: "Conteúdo sem contexto vira ruído.",
     title: "Contexto antes de conteúdo",
-    caption: "A MODO organiza o contexto da empresa e transforma informação real em uma presença digital consistente, clara e útil para o público.",
+    caption:
+      "A MODO organiza o contexto da empresa e transforma informação real em uma presença digital consistente, clara e útil para o público.",
     cta: "Veja como organizar sua presença digital.",
     hashtags: ["modo", "marketing", "conteudo"],
     visualDirection: "Visual editorial, limpo e coerente com a marca.",

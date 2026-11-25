@@ -111,7 +111,11 @@ export class WorkspaceAuthService {
       if (existing.rowCount) {
         user = existing.rows[0];
         if (!verifyPassword(input.password, user.password_salt, user.password_hash)) {
-          throw new AuthError("INVALID_CREDENTIALS", 401, "A senha não corresponde ao usuário já existente.");
+          throw new AuthError(
+            "INVALID_CREDENTIALS",
+            401,
+            "A senha não corresponde ao usuário já existente.",
+          );
         }
         const workspace = await client.query(
           `SELECT o.id
@@ -280,7 +284,11 @@ export class WorkspaceAuthService {
 
   private requirePool() {
     if (!this.pool) {
-      throw new AuthError("WORKSPACE_AUTH_UNAVAILABLE", 503, "Autenticação por workspace requer PostgreSQL.");
+      throw new AuthError(
+        "WORKSPACE_AUTH_UNAVAILABLE",
+        503,
+        "Autenticação por workspace requer PostgreSQL.",
+      );
     }
     return this.pool;
   }

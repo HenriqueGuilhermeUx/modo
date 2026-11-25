@@ -7,7 +7,9 @@ import {
 
 const API_URL = (import.meta.env.VITE_API_URL || "http://localhost:4000").replace(/\/$/, "");
 
-export async function createPartnerApplication(input: PartnerApplicationCreate): Promise<PartnerApplication> {
+export async function createPartnerApplication(
+  input: PartnerApplicationCreate,
+): Promise<PartnerApplication> {
   const parsed = PartnerApplicationCreateSchema.parse(input);
   const response = await fetch(`${API_URL}/api/v1/public/partner-applications`, {
     method: "POST",

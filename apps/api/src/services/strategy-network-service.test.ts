@@ -2,30 +2,59 @@ import { describe, expect, it } from "vitest";
 import { StrategyNetworkError, StrategyNetworkService } from "./strategy-network-service.js";
 
 const foundation = {
-  audience: { priority: "Pequenas empresas", context: "", pains: ["Falta de direção"], desires: [], objections: [], decisionTriggers: [] },
+  audience: {
+    priority: "Pequenas empresas",
+    context: "",
+    pains: ["Falta de direção"],
+    desires: [],
+    objections: [],
+    decisionTriggers: [],
+  },
   worldview: { belief: "Marketing precisa ser simples", marketProblem: "", desiredChange: "" },
   positioning: { category: "", differentiator: "", forWhom: "", notForWhom: "", territory: "" },
   promise: { transformation: "", mainBenefit: "", boundaries: "" },
-  personality: { attributes: [], tone: "", preferredWords: [], prohibitedWords: [], visualStyle: "" },
+  personality: {
+    attributes: [],
+    tone: "",
+    preferredWords: [],
+    prohibitedWords: [],
+    visualStyle: "",
+  },
   proof: { origin: "", cases: [], numbers: [], testimonials: [] },
   universe: { environments: [], people: [], objects: [], themes: [], visualReferences: [] },
-  humanPresence: { spokespersons: [], team: [], customers: [], cameraAvailability: "low" as const, notes: "" },
+  humanPresence: {
+    spokespersons: [],
+    team: [],
+    customers: [],
+    cameraAvailability: "low" as const,
+    notes: "",
+  },
 };
 
 describe("StrategyNetworkService", () => {
   it("persiste a fundação por organização e marca", async () => {
     const service = new StrategyNetworkService();
-    const saved = await service.upsertFoundation("org-1", { brandId: "00000000-0000-4000-8000-000000000001", foundation, status: "complete" });
+    const saved = await service.upsertFoundation("org-1", {
+      brandId: "00000000-0000-4000-8000-000000000001",
+      foundation,
+      status: "complete",
+    });
     expect(saved.organizationId).toBe("org-1");
     expect(saved.status).toBe("complete");
-    expect((await service.getFoundation("org-1", saved.brandId))?.foundation.audience.priority).toBe("Pequenas empresas");
+    expect(
+      (await service.getFoundation("org-1", saved.brandId))?.foundation.audience.priority,
+    ).toBe("Pequenas empresas");
     expect(await service.getFoundation("org-2", saved.brandId)).toBeNull();
   });
 
   it("cria solicitação humana sem preço ou contratação automática", async () => {
     const service = new StrategyNetworkService();
     const request = await service.createSupportRequest(
-      { organizationId: "org-1", userId: "00000000-0000-4000-8000-000000000010", email: "cliente@modo.test" },
+      {
+        organizationId: "org-1",
+        userId: "00000000-0000-4000-8000-000000000010",
+        email: "cliente@modo.test",
+      },
       {
         brandId: "00000000-0000-4000-8000-000000000001",
         contentRequestId: null,
@@ -57,6 +86,8 @@ describe("StrategyNetworkService", () => {
       consent: true as const,
     };
     await service.createSpecialistApplication(input);
-    await expect(service.createSpecialistApplication(input)).rejects.toBeInstanceOf(StrategyNetworkError);
+    await expect(service.createSpecialistApplication(input)).rejects.toBeInstanceOf(
+      StrategyNetworkError,
+    );
   });
 });

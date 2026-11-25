@@ -357,9 +357,10 @@ export class InstagramService {
       });
       return this.frontendRedirect("connected");
     } catch (error) {
-      const message = error instanceof Error
-        ? error.message
-        : "Não foi possível concluir a conexão com o Instagram.";
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Não foi possível concluir a conexão com o Instagram.";
       return this.frontendRedirect("error", message);
     }
   }
@@ -418,7 +419,9 @@ export class InstagramService {
   async disconnect(accountId: string) {
     this.connections.delete(accountId);
     if (this.pool) {
-      await this.pool.query("DELETE FROM modo_instagram_connections WHERE account_id=$1", [accountId]);
+      await this.pool.query("DELETE FROM modo_instagram_connections WHERE account_id=$1", [
+        accountId,
+      ]);
     }
     return { disconnected: true };
   }
@@ -526,9 +529,7 @@ export class InstagramService {
     return { deauthorized: true };
   }
 
-  async handleDataDeletionRequest(
-    signedRequest: string,
-  ): Promise<InstagramDataDeletionResponse> {
+  async handleDataDeletionRequest(signedRequest: string): Promise<InstagramDataDeletionResponse> {
     const payload = this.decodeMetaSignedRequest(signedRequest);
     const instagramUserId = String(payload.user_id || "").trim();
     if (!instagramUserId) {
@@ -602,7 +603,10 @@ export class InstagramService {
       throw new InstagramError(
         "INSTAGRAM_CODE_EXCHANGE_FAILED",
         statusCodeForProvider(response.status),
-        safeProviderMessage(payload, "Não foi possível trocar o código de autorização do Instagram."),
+        safeProviderMessage(
+          payload,
+          "Não foi possível trocar o código de autorização do Instagram.",
+        ),
       );
     }
     return payload;
@@ -619,7 +623,10 @@ export class InstagramService {
       throw new InstagramError(
         "INSTAGRAM_LONG_TOKEN_EXCHANGE_FAILED",
         statusCodeForProvider(response.status),
-        safeProviderMessage(payload, "Não foi possível criar o token de longa duração do Instagram."),
+        safeProviderMessage(
+          payload,
+          "Não foi possível criar o token de longa duração do Instagram.",
+        ),
       );
     }
     return payload;
@@ -631,7 +638,8 @@ export class InstagramService {
     detailed.searchParams.set("access_token", accessToken);
     const detailedResponse = await fetch(detailed, { signal: AbortSignal.timeout(20_000) });
     const detailedPayload = (await detailedResponse.json().catch(() => ({}))) as IdentityPayload;
-    if (detailedResponse.ok && detailedPayload.id && detailedPayload.username) return detailedPayload;
+    if (detailedResponse.ok && detailedPayload.id && detailedPayload.username)
+      return detailedPayload;
 
     const fallback = new URL(`${this.graphBaseUrl}/${this.apiVersion}/me`);
     fallback.searchParams.set("fields", "id,username");
@@ -642,7 +650,10 @@ export class InstagramService {
       throw new InstagramError(
         "INSTAGRAM_IDENTITY_FAILED",
         statusCodeForProvider(response.status),
-        safeProviderMessage(payload, "Não foi possível identificar a conta profissional do Instagram."),
+        safeProviderMessage(
+          payload,
+          "Não foi possível identificar a conta profissional do Instagram.",
+        ),
       );
     }
     return payload;
@@ -650,7 +661,9 @@ export class InstagramService {
 
   private async waitForContainer(creationId: string, accessToken: string) {
     for (let attempt = 0; attempt < CONTAINER_POLL_ATTEMPTS; attempt += 1) {
-      const url = new URL(`${this.graphBaseUrl}/${this.apiVersion}/${encodeURIComponent(creationId)}`);
+      const url = new URL(
+        `${this.graphBaseUrl}/${this.apiVersion}/${encodeURIComponent(creationId)}`,
+      );
       url.searchParams.set("fields", "status_code");
       url.searchParams.set("access_token", accessToken);
       const response = await fetch(url, { signal: AbortSignal.timeout(15_000) });
@@ -745,7 +758,10 @@ export class InstagramService {
     } catch {
       throw new InstagramError("INSTAGRAM_STATE_INVALID", 400, "Assinatura OAuth inválida.");
     }
-    if (received.length !== expectedSignature.length || !timingSafeEqual(received, expectedSignature)) {
+    if (
+      received.length !== expectedSignature.length ||
+      !timingSafeEqual(received, expectedSignature)
+    ) {
       throw new InstagramError("INSTAGRAM_STATE_INVALID", 400, "Assinatura OAuth inválida.");
     }
 
@@ -753,15 +769,27 @@ export class InstagramService {
     try {
       payload = JSON.parse(Buffer.from(encoded, "base64url").toString("utf8")) as OAuthStatePayload;
     } catch {
-      throw new InstagramError("INSTAGRAM_STATE_INVALID", 400, "Conteúdo do estado OAuth inválido.");
+      throw new InstagramError(
+        "INSTAGRAM_STATE_INVALID",
+        400,
+        "Conteúdo do estado OAuth inválido.",
+      );
     }
     if (!payload.nonce || !payload.accountId || payload.expiresAt <= Date.now()) {
-      throw new InstagramError("INSTAGRAM_STATE_EXPIRED", 400, "A autorização expirou. Inicie novamente pela MODO.");
+      throw new InstagramError(
+        "INSTAGRAM_STATE_EXPIRED",
+        400,
+        "A autorização expirou. Inicie novamente pela MODO.",
+      );
     }
 
     const stored = await this.consumeState(payload.nonce);
     if (!stored || stored.accountId !== payload.accountId || stored.brandId !== payload.brandId) {
-      throw new InstagramError("INSTAGRAM_STATE_REUSED", 400, "Esta autorização já foi utilizada ou não é válida.");
+      throw new InstagramError(
+        "INSTAGRAM_STATE_REUSED",
+        400,
+        "Esta autorização já foi utilizada ou não é válida.",
+      );
     }
     return payload;
   }
@@ -772,24 +800,40 @@ export class InstagramService {
     if (!encodedSignature || !encodedPayload) {
       throw new InstagramError("INSTAGRAM_SIGNED_REQUEST_INVALID", 400, "signed_request inválido.");
     }
-    const expected = createHmac("sha256", this.options.clientSecret!).update(encodedPayload).digest();
+    const expected = createHmac("sha256", this.options.clientSecret!)
+      .update(encodedPayload)
+      .digest();
     let received: Buffer;
     try {
       received = Buffer.from(encodedSignature.replace(/-/g, "+").replace(/_/g, "/"), "base64");
     } catch {
-      throw new InstagramError("INSTAGRAM_SIGNED_REQUEST_INVALID", 400, "Assinatura da Meta inválida.");
+      throw new InstagramError(
+        "INSTAGRAM_SIGNED_REQUEST_INVALID",
+        400,
+        "Assinatura da Meta inválida.",
+      );
     }
     if (received.length !== expected.length || !timingSafeEqual(received, expected)) {
-      throw new InstagramError("INSTAGRAM_SIGNED_REQUEST_INVALID", 400, "Assinatura da Meta inválida.");
+      throw new InstagramError(
+        "INSTAGRAM_SIGNED_REQUEST_INVALID",
+        400,
+        "Assinatura da Meta inválida.",
+      );
     }
     try {
-      const payload = JSON.parse(Buffer.from(encodedPayload, "base64url").toString("utf8")) as SignedRequestPayload;
+      const payload = JSON.parse(
+        Buffer.from(encodedPayload, "base64url").toString("utf8"),
+      ) as SignedRequestPayload;
       if (payload.algorithm && payload.algorithm.toUpperCase() !== "HMAC-SHA256") {
         throw new Error("Algoritmo não suportado");
       }
       return payload;
     } catch {
-      throw new InstagramError("INSTAGRAM_SIGNED_REQUEST_INVALID", 400, "Conteúdo do signed_request inválido.");
+      throw new InstagramError(
+        "INSTAGRAM_SIGNED_REQUEST_INVALID",
+        400,
+        "Conteúdo do signed_request inválido.",
+      );
     }
   }
 
@@ -815,7 +859,11 @@ export class InstagramService {
   private decrypt(value: string) {
     const [ivValue, tagValue, encryptedValue] = value.split(".");
     if (!ivValue || !tagValue || !encryptedValue) {
-      throw new InstagramError("INSTAGRAM_TOKEN_INVALID", 500, "O token armazenado do Instagram é inválido.");
+      throw new InstagramError(
+        "INSTAGRAM_TOKEN_INVALID",
+        500,
+        "O token armazenado do Instagram é inválido.",
+      );
     }
     const decipher = createDecipheriv(
       "aes-256-gcm",
@@ -861,12 +909,14 @@ export class InstagramService {
         [nonce],
       );
       const row = result.rows[0];
-      return row ? {
-        nonce: row.nonce,
-        accountId: row.account_id,
-        brandId: row.brand_id,
-        expiresAt: row.expires_at.getTime(),
-      } : null;
+      return row
+        ? {
+            nonce: row.nonce,
+            accountId: row.account_id,
+            brandId: row.brand_id,
+            expiresAt: row.expires_at.getTime(),
+          }
+        : null;
     }
     const state = this.states.get(nonce) ?? null;
     this.states.delete(nonce);
@@ -915,18 +965,20 @@ export class InstagramService {
         [accountId],
       );
       const row = result.rows[0];
-      return row ? {
-        accountId: row.account_id,
-        brandId: row.brand_id,
-        instagramUserId: row.instagram_user_id,
-        instagramUsername: row.instagram_username,
-        profilePictureUrl: row.profile_picture_url,
-        accessTokenEncrypted: row.access_token_encrypted,
-        tokenExpiresAt: row.token_expires_at,
-        scopes: row.scopes || [],
-        connectedAt: row.connected_at,
-        updatedAt: row.updated_at,
-      } : null;
+      return row
+        ? {
+            accountId: row.account_id,
+            brandId: row.brand_id,
+            instagramUserId: row.instagram_user_id,
+            instagramUsername: row.instagram_username,
+            profilePictureUrl: row.profile_picture_url,
+            accessTokenEncrypted: row.access_token_encrypted,
+            tokenExpiresAt: row.token_expires_at,
+            scopes: row.scopes || [],
+            connectedAt: row.connected_at,
+            updatedAt: row.updated_at,
+          }
+        : null;
     }
     return this.connections.get(accountId) ?? null;
   }
@@ -969,14 +1021,12 @@ export class InstagramService {
     if (!this.pool) return;
     await this.pool.query("BEGIN");
     try {
-      await this.pool.query(
-        "DELETE FROM modo_instagram_publications WHERE instagram_user_id=$1",
-        [instagramUserId],
-      );
-      await this.pool.query(
-        "DELETE FROM modo_instagram_connections WHERE instagram_user_id=$1",
-        [instagramUserId],
-      );
+      await this.pool.query("DELETE FROM modo_instagram_publications WHERE instagram_user_id=$1", [
+        instagramUserId,
+      ]);
+      await this.pool.query("DELETE FROM modo_instagram_connections WHERE instagram_user_id=$1", [
+        instagramUserId,
+      ]);
       await this.pool.query("COMMIT");
     } catch (error) {
       await this.pool.query("ROLLBACK");

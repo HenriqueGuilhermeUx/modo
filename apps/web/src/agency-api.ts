@@ -40,13 +40,16 @@ export type AgencyApprovalPortal = {
 };
 
 export async function createAgencyApprovalLink(brandId: string): Promise<AgencyApprovalLink> {
-  const response = await fetch(`${API_URL}/api/v1/agency/brands/${encodeURIComponent(brandId)}/approval-links`, {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      authorization: `Bearer ${getSessionToken()}`,
+  const response = await fetch(
+    `${API_URL}/api/v1/agency/brands/${encodeURIComponent(brandId)}/approval-links`,
+    {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        authorization: `Bearer ${getSessionToken()}`,
+      },
     },
-  });
+  );
   return parse<AgencyApprovalLink>(response);
 }
 
@@ -55,19 +58,32 @@ export async function getAgencyApprovalPortal(token: string): Promise<AgencyAppr
   return parse<AgencyApprovalPortal>(response);
 }
 
-export async function approveAgencyContent(token: string, contentId: string): Promise<AgencyApprovalItem> {
-  const response = await fetch(`${API_URL}/api/v1/agency/approvals/${encodeURIComponent(token)}/content/${encodeURIComponent(contentId)}/approve`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-  });
+export async function approveAgencyContent(
+  token: string,
+  contentId: string,
+): Promise<AgencyApprovalItem> {
+  const response = await fetch(
+    `${API_URL}/api/v1/agency/approvals/${encodeURIComponent(token)}/content/${encodeURIComponent(contentId)}/approve`,
+    {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+    },
+  );
   return parse<AgencyApprovalItem>(response);
 }
 
-export async function requestAgencyContentRevision(token: string, contentId: string, instructions: string): Promise<AgencyApprovalItem> {
-  const response = await fetch(`${API_URL}/api/v1/agency/approvals/${encodeURIComponent(token)}/content/${encodeURIComponent(contentId)}/revision`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ instructions }),
-  });
+export async function requestAgencyContentRevision(
+  token: string,
+  contentId: string,
+  instructions: string,
+): Promise<AgencyApprovalItem> {
+  const response = await fetch(
+    `${API_URL}/api/v1/agency/approvals/${encodeURIComponent(token)}/content/${encodeURIComponent(contentId)}/revision`,
+    {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ instructions }),
+    },
+  );
   return parse<AgencyApprovalItem>(response);
 }

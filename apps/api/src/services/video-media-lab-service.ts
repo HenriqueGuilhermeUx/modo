@@ -36,7 +36,8 @@ function finiteNumber(value: string | null, fallback: number) {
 
 export function sceneMediaState(scene: Pick<VideoScene, "imageUrl" | "videoUrl">): SceneMediaState {
   const source = scene.videoUrl || scene.imageUrl;
-  if (!source) return { focalX: 50, focalY: 50, zoom: 1, trimStartSeconds: 0, durationSeconds: null };
+  if (!source)
+    return { focalX: 50, focalY: 50, zoom: 1, trimStartSeconds: 0, durationSeconds: null };
   try {
     const url = new URL(source);
     const duration = finiteNumber(url.searchParams.get("mldur"), Number.NaN);
@@ -58,7 +59,8 @@ function withMediaState(source: string, state: SceneMediaState) {
   url.searchParams.set("mlfy", String(Math.round(state.focalY * 10) / 10));
   url.searchParams.set("mlz", String(Math.round(state.zoom * 100) / 100));
   url.searchParams.set("mltrim", String(Math.round(state.trimStartSeconds * 100) / 100));
-  if (state.durationSeconds) url.searchParams.set("mldur", String(Math.round(state.durationSeconds * 100) / 100));
+  if (state.durationSeconds)
+    url.searchParams.set("mldur", String(Math.round(state.durationSeconds * 100) / 100));
   else url.searchParams.delete("mldur");
   return url.toString();
 }
@@ -77,7 +79,11 @@ function withoutMediaState(source: string | null) {
 function decodeBase64(value: string) {
   const normalized = value.replace(/\s+/g, "");
   if (!normalized || !/^[A-Za-z0-9+/]+={0,2}$/.test(normalized)) {
-    throw new VideoError("VIDEO_MEDIA_INVALID_DATA", 400, "O arquivo enviado não está em Base64 válido.");
+    throw new VideoError(
+      "VIDEO_MEDIA_INVALID_DATA",
+      400,
+      "O arquivo enviado não está em Base64 válido.",
+    );
   }
   const data = Buffer.from(normalized, "base64");
   if (!data.length) throw new VideoError("VIDEO_MEDIA_EMPTY", 400, "O arquivo enviado está vazio.");
@@ -86,25 +92,39 @@ function decodeBase64(value: string) {
 
 function validateSignature(mimeType: VideoSceneMediaUpload["mimeType"], data: Buffer) {
   if (mimeType === "image/png") {
-    return data.length >= 8 && data.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]));
+    return (
+      data.length >= 8 && data.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))
+    );
   }
   if (mimeType === "image/jpeg") {
     return data.length >= 3 && data[0] === 0xff && data[1] === 0xd8 && data[2] === 0xff;
   }
   if (mimeType === "image/webp") {
-    return data.length >= 12 && data.subarray(0, 4).toString("ascii") === "RIFF" && data.subarray(8, 12).toString("ascii") === "WEBP";
+    return (
+      data.length >= 12 &&
+      data.subarray(0, 4).toString("ascii") === "RIFF" &&
+      data.subarray(8, 12).toString("ascii") === "WEBP"
+    );
   }
   return data.length >= 12 && data.subarray(4, 8).toString("ascii") === "ftyp";
 }
 
 function cleanFileName(value: string) {
-  return value.replace(/[\\/\u0000-\u001f]/g, "_").trim().slice(0, 240) || "media";
+  return (
+    value
+      .replace(/[\\/\u0000-\u001f]/g, "_")
+      .trim()
+      .slice(0, 240) || "media"
+  );
 }
 
 export class VideoMediaLabService {
   private readonly runtime: RuntimeVideoService;
 
-  constructor(private readonly video: VideoService, private readonly publicApiUrl: string) {
+  constructor(
+    private readonly video: VideoService,
+    private readonly publicApiUrl: string,
+  ) {
     this.runtime = video as unknown as RuntimeVideoService;
   }
 
@@ -164,12 +184,21 @@ export class VideoMediaLabService {
   }) {
     this.assertOrganization(input.project, input.organizationId);
     if (["queued", "rendering"].includes(input.project.status)) {
-      throw new VideoError("VIDEO_SCENE_BUSY", 409, "Aguarde o render atual terminar antes de ajustar a mídia.");
+      throw new VideoError(
+        "VIDEO_SCENE_BUSY",
+        409,
+        "Aguarde o render atual terminar antes de ajustar a mídia.",
+      );
     }
     const scene = input.project.scenes.find((item) => item.index === input.sceneIndex);
     if (!scene) throw new VideoError("VIDEO_SCENE_NOT_FOUND", 404, "Cena de vídeo não encontrada.");
     const source = scene.videoUrl || scene.imageUrl;
-    if (!source) throw new VideoError("VIDEO_MEDIA_REQUIRED", 409, "Esta cena não possui imagem ou vídeo para enquadrar.");
+    if (!source)
+      throw new VideoError(
+        "VIDEO_MEDIA_REQUIRED",
+        409,
+        "Esta cena não possui imagem ou vídeo para enquadrar.",
+      );
 
     const current = sceneMediaState(scene);
     const next: SceneMediaState = {
@@ -181,7 +210,11 @@ export class VideoMediaLabService {
     };
 
     if (!scene.videoUrl && next.trimStartSeconds > 0) {
-      throw new VideoError("VIDEO_MEDIA_TRIM_VIDEO_ONLY", 409, "Trim é aplicado apenas a cenas com vídeo.");
+      throw new VideoError(
+        "VIDEO_MEDIA_TRIM_VIDEO_ONLY",
+        409,
+        "Trim é aplicado apenas a cenas com vídeo.",
+      );
     }
     if (scene.videoUrl && next.trimStartSeconds > 0 && !next.durationSeconds) {
       throw new VideoError(
@@ -201,13 +234,15 @@ export class VideoMediaLabService {
       }
     }
 
-    const scenes = input.project.scenes.map((item) => item.index === input.sceneIndex
-      ? {
-          ...item,
-          imageUrl: item.imageUrl ? withMediaState(item.imageUrl, next) : null,
-          videoUrl: item.videoUrl ? withMediaState(item.videoUrl, next) : null,
-        }
-      : item);
+    const scenes = input.project.scenes.map((item) =>
+      item.index === input.sceneIndex
+        ? {
+            ...item,
+            imageUrl: item.imageUrl ? withMediaState(item.imageUrl, next) : null,
+            videoUrl: item.videoUrl ? withMediaState(item.videoUrl, next) : null,
+          }
+        : item,
+    );
     return this.persistScenes(input.project, input.organizationId, scenes);
   }
 
@@ -219,7 +254,11 @@ export class VideoMediaLabService {
   }) {
     this.assertOrganization(input.project, input.organizationId);
     if (["queued", "rendering"].includes(input.project.status)) {
-      throw new VideoError("VIDEO_SCENE_BUSY", 409, "Aguarde o render atual terminar antes de enviar outra mídia.");
+      throw new VideoError(
+        "VIDEO_SCENE_BUSY",
+        409,
+        "Aguarde o render atual terminar antes de enviar outra mídia.",
+      );
     }
     const scene = input.project.scenes.find((item) => item.index === input.sceneIndex);
     if (!scene) throw new VideoError("VIDEO_SCENE_NOT_FOUND", 404, "Cena de vídeo não encontrada.");
@@ -235,7 +274,11 @@ export class VideoMediaLabService {
       );
     }
     if (!validateSignature(input.upload.mimeType, data)) {
-      throw new VideoError("VIDEO_MEDIA_SIGNATURE_MISMATCH", 400, "O conteúdo do arquivo não corresponde ao formato informado.");
+      throw new VideoError(
+        "VIDEO_MEDIA_SIGNATURE_MISMATCH",
+        400,
+        "O conteúdo do arquivo não corresponde ao formato informado.",
+      );
     }
 
     const token = randomUUID();
@@ -295,16 +338,18 @@ export class VideoMediaLabService {
       durationSeconds: isVideo ? input.upload.durationSeconds || null : null,
     };
     const rawUrl = this.sceneAssetUrl(token);
-    const scenes = selected.scenes.map((item) => item.index === input.sceneIndex
-      ? {
-          ...item,
-          imageUrl: isVideo ? null : withMediaState(rawUrl, initial),
-          videoUrl: isVideo ? withMediaState(rawUrl, initial) : null,
-          assetSource: "upload" as const,
-          assetRevision: revision,
-          stockCredit: null,
-        }
-      : item);
+    const scenes = selected.scenes.map((item) =>
+      item.index === input.sceneIndex
+        ? {
+            ...item,
+            imageUrl: isVideo ? null : withMediaState(rawUrl, initial),
+            videoUrl: isVideo ? withMediaState(rawUrl, initial) : null,
+            assetSource: "upload" as const,
+            assetRevision: revision,
+            stockCredit: null,
+          }
+        : item,
+    );
     return this.persistScenes(selected, input.organizationId, scenes);
   }
 
@@ -331,10 +376,18 @@ export class VideoMediaLabService {
     return result;
   }
 
-  async listSceneTakes(project: VideoProject, organizationId: string, sceneIndex: number): Promise<VideoSceneTake[]> {
+  async listSceneTakes(
+    project: VideoProject,
+    organizationId: string,
+    sceneIndex: number,
+  ): Promise<VideoSceneTake[]> {
     this.assertOrganization(project, organizationId);
     const takes = await this.video.listSceneTakes(project.id, organizationId, sceneIndex);
-    const metadata = await this.metadataForTokens(project.id, organizationId, takes.map((take) => take.token));
+    const metadata = await this.metadataForTokens(
+      project.id,
+      organizationId,
+      takes.map((take) => take.token),
+    );
     const scene = project.scenes.find((item) => item.index === sceneIndex);
     const activeBase = withoutMediaState(scene?.videoUrl || scene?.imageUrl || null);
     return takes.map((take) => {
@@ -358,7 +411,9 @@ export class VideoMediaLabService {
     token: string;
   }) {
     this.assertOrganization(input.project, input.organizationId);
-    const metadata = await this.metadataForTokens(input.project.id, input.organizationId, [input.token]);
+    const metadata = await this.metadataForTokens(input.project.id, input.organizationId, [
+      input.token,
+    ]);
     const info = metadata.get(input.token);
     const selected = await this.video.selectSceneTake({
       id: input.project.id,
@@ -379,15 +434,17 @@ export class VideoMediaLabService {
       trimStartSeconds: 0,
       durationSeconds: info.metadata?.durationSeconds || null,
     };
-    const scenes = selected.scenes.map((item) => item.index === input.sceneIndex
-      ? {
-          ...item,
-          imageUrl: item.imageUrl ? withMediaState(item.imageUrl, state) : null,
-          videoUrl: item.videoUrl ? withMediaState(item.videoUrl, state) : null,
-          assetSource: "upload" as const,
-          stockCredit: null,
-        }
-      : item);
+    const scenes = selected.scenes.map((item) =>
+      item.index === input.sceneIndex
+        ? {
+            ...item,
+            imageUrl: item.imageUrl ? withMediaState(item.imageUrl, state) : null,
+            videoUrl: item.videoUrl ? withMediaState(item.videoUrl, state) : null,
+            assetSource: "upload" as const,
+            stockCredit: null,
+          }
+        : item,
+    );
     return this.persistScenes(selected, input.organizationId, scenes);
   }
 }

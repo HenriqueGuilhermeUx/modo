@@ -76,7 +76,9 @@ describe("PaymentService Woovi", () => {
   it("reuses the open checkout for the same plan instead of duplicating a subscription", async () => {
     const fetchMock = vi.fn(async (_input: string | URL | Request, init?: RequestInit) => {
       const body = JSON.parse(String(init?.body || "{}")) as { correlationID: string };
-      return new Response(JSON.stringify(subscriptionResponse(body.correlationID)), { status: 201 });
+      return new Response(JSON.stringify(subscriptionResponse(body.correlationID)), {
+        status: 201,
+      });
     });
     vi.stubGlobal("fetch", fetchMock);
     const service = new PaymentService({ appId: "woovi-app-id" });
@@ -92,19 +94,28 @@ describe("PaymentService Woovi", () => {
   it("blocks a second plan while another subscription is open", async () => {
     const fetchMock = vi.fn(async (_input: string | URL | Request, init?: RequestInit) => {
       const body = JSON.parse(String(init?.body || "{}")) as { correlationID: string };
-      return new Response(JSON.stringify(subscriptionResponse(body.correlationID)), { status: 201 });
+      return new Response(JSON.stringify(subscriptionResponse(body.correlationID)), {
+        status: 201,
+      });
     });
     vi.stubGlobal("fetch", fetchMock);
     const service = new PaymentService({ appId: "woovi-app-id" });
     await service.createCheckout(accountId, checkoutInput);
 
-    await expect(service.createCheckout(accountId, { ...checkoutInput, plan: "pro" }))
-      .rejects.toMatchObject<Partial<PaymentError>>({ code: "SUBSCRIPTION_ALREADY_EXISTS", statusCode: 409 });
+    await expect(
+      service.createCheckout(accountId, { ...checkoutInput, plan: "pro" }),
+    ).rejects.toMatchObject<Partial<PaymentError>>({
+      code: "SUBSCRIPTION_ALREADY_EXISTS",
+      statusCode: 409,
+    });
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
   it("validates webhook authorization without plain comparison", () => {
-    const service = new PaymentService({ appId: "woovi-app-id", webhookAuthorization: "webhook-secret" });
+    const service = new PaymentService({
+      appId: "woovi-app-id",
+      webhookAuthorization: "webhook-secret",
+    });
     expect(() => service.validateWebhookAuthorization("webhook-secret")).not.toThrow();
     expect(() => service.validateWebhookAuthorization("wrong-secret")).toThrowError(PaymentError);
   });
@@ -112,9 +123,14 @@ describe("PaymentService Woovi", () => {
   it("processes a paid webhook once and ignores duplicate delivery", async () => {
     const correlationID = `modo:${accountId}:presenca:22222222-2222-4222-8222-222222222222`;
     const subscription = subscriptionResponse(correlationID).subscription;
-    const fetchMock = vi.fn(async () => new Response(JSON.stringify({ subscription }), { status: 200 }));
+    const fetchMock = vi.fn(
+      async () => new Response(JSON.stringify({ subscription }), { status: 200 }),
+    );
     vi.stubGlobal("fetch", fetchMock);
-    const service = new PaymentService({ appId: "woovi-app-id", webhookAuthorization: "webhook-secret" });
+    const service = new PaymentService({
+      appId: "woovi-app-id",
+      webhookAuthorization: "webhook-secret",
+    });
 
     const payload = {
       event: "PIX_AUTOMATIC_COBR_COMPLETED",

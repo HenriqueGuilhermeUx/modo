@@ -17,29 +17,46 @@ const sample = (): VideoProject => ({
   brollProvider: null,
   status: "ready",
   renderer: "remotion",
-  scenes: [{
-    index: 1, startFrame: 0, endFrame: 225,
-    headline: "Presença que converte",
-    caption: "Primeiro corte de marca",
-    visual: "Brand gradient",
-    imageUrl: null,
-    videoUrl: null,
-    visualType: "kinetic_text",
-    motion: "static",
-    assetSource: "native",
-    assetRevision: 0,
-    visualPrompt: null,
-    stockQuery: null,
-    stockCredit: null,
-  }, {
-    index: 2, startFrame: 225, endFrame: 450,
-    headline: "O projeto completo", caption: "Segundo momento do vídeo",
-    visual: "Brand gradient", imageUrl: null, videoUrl: null,
-    visualType: "kinetic_text", motion: "static", transition: "cut",
-    assetSource: "native", assetRevision: 0,
-    visualPrompt: null, stockQuery: null, stockCredit: null,
-  }],
-  outputUrl: null, mimeType: null, error: null,
+  scenes: [
+    {
+      index: 1,
+      startFrame: 0,
+      endFrame: 225,
+      headline: "Presença que converte",
+      caption: "Primeiro corte de marca",
+      visual: "Brand gradient",
+      imageUrl: null,
+      videoUrl: null,
+      visualType: "kinetic_text",
+      motion: "static",
+      assetSource: "native",
+      assetRevision: 0,
+      visualPrompt: null,
+      stockQuery: null,
+      stockCredit: null,
+    },
+    {
+      index: 2,
+      startFrame: 225,
+      endFrame: 450,
+      headline: "O projeto completo",
+      caption: "Segundo momento do vídeo",
+      visual: "Brand gradient",
+      imageUrl: null,
+      videoUrl: null,
+      visualType: "kinetic_text",
+      motion: "static",
+      transition: "cut",
+      assetSource: "native",
+      assetRevision: 0,
+      visualPrompt: null,
+      stockQuery: null,
+      stockCredit: null,
+    },
+  ],
+  outputUrl: null,
+  mimeType: null,
+  error: null,
   createdAt: "2026-10-25T18:00:00.000Z",
   updatedAt: "2026-10-25T18:00:00.000Z",
 });
@@ -56,38 +73,56 @@ describe("MODO project to HyperFrames preview", () => {
   it("rejects timelines that cannot be represented without distortion", () => {
     const project = sample();
     project.scenes[0].endFrame = 450;
-    expect(() => exportVideoProjectHyperframesPreview(project, "Marca")).toThrow(/UNSUPPORTED_SCENE_DURATION/);
-    project.scenes = Array.from({length: 9}, (_, i) => ({...sample().scenes[0], index: i + 1 }));
-    expect(() => exportVideoProjectHyperframesPreview(project, "Marca")).toThrow(/UNSUPPORTED_SCENE_COUNT/);
+    expect(() => exportVideoProjectHyperframesPreview(project, "Marca")).toThrow(
+      /UNSUPPORTED_SCENE_DURATION/,
+    );
+    project.scenes = Array.from({ length: 9 }, (_, i) => ({ ...sample().scenes[0], index: i + 1 }));
+    expect(() => exportVideoProjectHyperframesPreview(project, "Marca")).toThrow(
+      /UNSUPPORTED_SCENE_COUNT/,
+    );
   });
 
   it("rejects unsupported external media, voice and motion without dropping them", () => {
     const project = sample();
     project.scenes[0].imageUrl = "https://example.com/image.png";
-    expect(() => exportVideoProjectHyperframesPreview(project, "Marca")).toThrow(/UNSUPPORTED_MEDIA/);
+    expect(() => exportVideoProjectHyperframesPreview(project, "Marca")).toThrow(
+      /UNSUPPORTED_MEDIA/,
+    );
     project.scenes[0].imageUrl = null;
     project.scenes[0].motion = "push_in";
-    expect(() => exportVideoProjectHyperframesPreview(project, "Marca")).toThrow(/UNSUPPORTED_MEDIA/);
+    expect(() => exportVideoProjectHyperframesPreview(project, "Marca")).toThrow(
+      /UNSUPPORTED_MEDIA/,
+    );
     project.scenes[0].motion = "static";
     project.voiceover = true;
-    expect(() => exportVideoProjectHyperframesPreview(project, "Marca")).toThrow(/UNSUPPORTED_PROJECT/);
+    expect(() => exportVideoProjectHyperframesPreview(project, "Marca")).toThrow(
+      /UNSUPPORTED_PROJECT/,
+    );
   });
 
   it("rejects gaps, overlaps and text truncation instead of changing original meaning", () => {
     const project = sample();
     project.scenes[0].startFrame = 20;
-    expect(() => exportVideoProjectHyperframesPreview(project, "Marca")).toThrow(/UNSUPPORTED_TIMELINE/);
+    expect(() => exportVideoProjectHyperframesPreview(project, "Marca")).toThrow(
+      /UNSUPPORTED_TIMELINE/,
+    );
     project.scenes[0].startFrame = 0;
     project.scenes[0].headline = "x".repeat(181);
-    expect(() => exportVideoProjectHyperframesPreview(project, "Marca")).toThrow(/UNSUPPORTED_TEXT/);
+    expect(() => exportVideoProjectHyperframesPreview(project, "Marca")).toThrow(
+      /UNSUPPORTED_TEXT/,
+    );
     project.scenes[0].headline = "Título";
     project.scenes[1].startFrame = 230;
-    expect(() => exportVideoProjectHyperframesPreview(project, "Marca")).toThrow(/UNSUPPORTED_TIMELINE/);
+    expect(() => exportVideoProjectHyperframesPreview(project, "Marca")).toThrow(
+      /UNSUPPORTED_TIMELINE/,
+    );
     project.scenes[1].startFrame = 225;
     const result = exportVideoProjectHyperframesPreview(project, "Marca");
     expect(result.durationSeconds).toBe(15);
     expect(result.unsupportedRemotionFeaturesExcluded).toBe(false);
     project.durationSeconds = 30;
-    expect(() => exportVideoProjectHyperframesPreview(project, "Marca")).toThrow(/UNSUPPORTED_TOTAL_DURATION/);
+    expect(() => exportVideoProjectHyperframesPreview(project, "Marca")).toThrow(
+      /UNSUPPORTED_TOTAL_DURATION/,
+    );
   });
 });

@@ -127,7 +127,9 @@ function googlePlaceId(mapsUrl: string) {
 function fingerprintFor(lead: Omit<NormalizedLead, "fingerprint">) {
   const placeId = googlePlaceId(lead.mapsUrl);
   const phone = lead.phone.replace(/\D/g, "");
-  const addressKey = normalizedWords(`${lead.businessName}|${lead.address}|${lead.city}|${lead.state}`);
+  const addressKey = normalizedWords(
+    `${lead.businessName}|${lead.address}|${lead.city}|${lead.state}`,
+  );
   const fallback = normalizedWords(`${lead.businessName}|${lead.city}|${lead.category}`);
   const key = placeId
     ? `place:${placeId}`
@@ -329,10 +331,15 @@ export class IntelligenceLeadService {
       const ids = ordered.map((item) => item.row.id);
       const counts = await this.occurrenceCounts(client, ids);
       await client.query("COMMIT");
-      return ordered.map(({ row, position }) => mapLead({
-        ...row,
-        occurrence_count: counts.get(row.id) || 1,
-      }, position));
+      return ordered.map(({ row, position }) =>
+        mapLead(
+          {
+            ...row,
+            occurrence_count: counts.get(row.id) || 1,
+          },
+          position,
+        ),
+      );
     } catch (error) {
       await client.query("ROLLBACK");
       throw error;
@@ -358,11 +365,18 @@ export class IntelligenceLeadService {
         .filter((lead) => lead.organization_id === organizationId)
         .filter((lead) => !filters.status || lead.pipeline_status === filters.status)
         .filter((lead) => !filters.priority || lead.priority === filters.priority)
-        .filter((lead) => !search || [lead.business_name, lead.phone, lead.city, lead.category]
-          .some((value) => value.toLowerCase().includes(search)))
+        .filter(
+          (lead) =>
+            !search ||
+            [lead.business_name, lead.phone, lead.city, lead.category].some((value) =>
+              value.toLowerCase().includes(search),
+            ),
+        )
         .sort((a, b) => b.updated_at.getTime() - a.updated_at.getTime())
         .slice(0, limit)
-        .map((lead, index) => mapLead({ ...lead, occurrence_count: lead.missionIds.size }, index + 1));
+        .map((lead, index) =>
+          mapLead({ ...lead, occurrence_count: lead.missionIds.size }, index + 1),
+        );
     }
 
     const result = await this.pool.query<LeadRow>(
@@ -444,11 +458,7 @@ export class IntelligenceLeadService {
     return new Map(result.rows.map((row) => [row.lead_id, Number(row.count || 1)]));
   }
 
-  private syncMemory(
-    organizationId: string,
-    missionId: string,
-    normalized: NormalizedLead[],
-  ) {
+  private syncMemory(organizationId: string, missionId: string, normalized: NormalizedLead[]) {
     return normalized.map((lead) => {
       const indexKey = `${organizationId}:${lead.fingerprint}`;
       const existingId = this.memoryIndex.get(indexKey);

@@ -290,11 +290,16 @@ export class CreativeIntelligenceService {
     const channels: CreativeChannel[] = profile.preferredChannels.length
       ? profile.preferredChannels
       : ["instagram", "linkedin"];
-    const person = profile.peopleAvailable[0] || "fundador, especialista ou pessoa responsável pela marca";
-    const location = profile.locations[0] || "ambiente real de trabalho, com luz frontal e pouco ruído";
-    const question = profile.recurringQuestions[0] || "a dúvida que mais impede o cliente de avançar";
+    const person =
+      profile.peopleAvailable[0] || "fundador, especialista ou pessoa responsável pela marca";
+    const location =
+      profile.locations[0] || "ambiente real de trabalho, com luz frontal e pouco ruído";
+    const question =
+      profile.recurringQuestions[0] || "a dúvida que mais impede o cliente de avançar";
     const proof = profile.proofAvailable[0] || "um caso, resultado, processo ou evidência concreta";
-    const priority = profile.currentPriorities[0] || "o principal produto, serviço ou objetivo comercial do momento";
+    const priority =
+      profile.currentPriorities[0] ||
+      "o principal produto, serviço ou objetivo comercial do momento";
 
     const drafts: Omit<CreativeRecommendation, "id" | "createdAt" | "updatedAt" | "status">[] = [
       {
@@ -302,14 +307,21 @@ export class CreativeIntelligenceService {
         brandId: brand.id,
         kind: "campaign",
         title: `Campanha de 7 dias para ${priority}`,
-        rationale: "Uma campanha coordenada cria repetição estratégica e reduz a dependência de publicações isoladas.",
+        rationale:
+          "Uma campanha coordenada cria repetição estratégica e reduz a dependência de publicações isoladas.",
         objective: "demanda",
         channels,
         effortMinutes: Math.min(90, Math.max(25, profile.weeklyMinutesAvailable)),
         expectedOutcome: "Aumentar reconhecimento, compreensão da oferta e conversas comerciais.",
         brief: `Crie uma campanha multicanal de sete dias para ${brand.name}, centrada em ${priority}. Combine educação, prova, objeção, bastidor e chamada comercial sem repetir o mesmo texto entre canais.`,
         captureMission: null,
-        derivativeAssets: ["post de autoridade", "carrossel educativo", "stories de objeção", "post de prova", "CTA comercial"],
+        derivativeAssets: [
+          "post de autoridade",
+          "carrossel educativo",
+          "stories de objeção",
+          "post de prova",
+          "CTA comercial",
+        ],
         priorityScore: 94 + learned.campaign,
       },
       {
@@ -317,11 +329,15 @@ export class CreativeIntelligenceService {
         brandId: brand.id,
         kind: "capture",
         title: "Grave uma história real que só sua empresa pode contar",
-        rationale: "Histórias próprias criam diferenciação, humanidade e matéria-prima impossível de copiar.",
+        rationale:
+          "Histórias próprias criam diferenciação, humanidade e matéria-prima impossível de copiar.",
         objective: "relacionamento",
-        channels: ["reels", "linkedin", "stories"].filter((item) => channels.includes(item as CreativeChannel) || item === "reels") as CreativeChannel[],
+        channels: ["reels", "linkedin", "stories"].filter(
+          (item) => channels.includes(item as CreativeChannel) || item === "reels",
+        ) as CreativeChannel[],
         effortMinutes: profile.comfortableOnCamera ? 12 : 18,
-        expectedOutcome: "Aproximar a marca, gerar confiança e alimentar vários conteúdos derivados.",
+        expectedOutcome:
+          "Aproximar a marca, gerar confiança e alimentar vários conteúdos derivados.",
         brief: `Transforme uma decisão, erro, mudança ou aprendizado real de ${brand.name} em uma história com contexto, tensão, decisão, aprendizado e conselho prático.`,
         captureMission: {
           person,
@@ -329,7 +345,8 @@ export class CreativeIntelligenceService {
           location,
           duration: "45 a 75 segundos",
           framing: "Plano médio, câmera vertical na altura dos olhos, olhar direto para a lente.",
-          openingLine: "Teve uma decisão na nossa empresa que mudou completamente a forma como trabalhamos.",
+          openingLine:
+            "Teve uma decisão na nossa empresa que mudou completamente a forma como trabalhamos.",
           structure: [
             "Explique rapidamente o contexto.",
             "Conte qual era o risco ou dificuldade.",
@@ -337,10 +354,27 @@ export class CreativeIntelligenceService {
             "Compartilhe o aprendizado sem transformar em propaganda.",
             "Feche com um conselho ou pergunta.",
           ],
-          bRoll: ["equipe trabalhando", "detalhe do processo", "ambiente da empresa", "produto ou tela relacionada"],
-          checklist: ["celular na vertical", "luz de frente", "ambiente silencioso", "gravar duas versões", "não decorar palavra por palavra"],
+          bRoll: [
+            "equipe trabalhando",
+            "detalhe do processo",
+            "ambiente da empresa",
+            "produto ou tela relacionada",
+          ],
+          checklist: [
+            "celular na vertical",
+            "luz de frente",
+            "ambiente silencioso",
+            "gravar duas versões",
+            "não decorar palavra por palavra",
+          ],
         },
-        derivativeAssets: ["Reel", "post de LinkedIn", "carrossel de aprendizado", "3 stories", "legenda curta"],
+        derivativeAssets: [
+          "Reel",
+          "post de LinkedIn",
+          "carrossel de aprendizado",
+          "3 stories",
+          "legenda curta",
+        ],
         priorityScore: (profile.comfortableOnCamera ? 93 : 84) + learned.capture,
       },
       {
@@ -348,14 +382,20 @@ export class CreativeIntelligenceService {
         brandId: brand.id,
         kind: "create",
         title: `Responda: ${question}`,
-        rationale: "Responder dúvidas reais reduz insegurança e aproxima pessoas com intenção de compra.",
+        rationale:
+          "Responder dúvidas reais reduz insegurança e aproxima pessoas com intenção de compra.",
         objective: "educacao",
         channels,
         effortMinutes: 5,
         expectedOutcome: "Aumentar clareza, salvamentos e avanço na decisão.",
         brief: `Crie um conteúdo para ${brand.name} respondendo com clareza: ${question}. Use uma abertura que mostre por que essa dúvida importa, resposta prática e CTA coerente.`,
         captureMission: null,
-        derivativeAssets: ["post", "carrossel", "stories de perguntas", "versão curta para LinkedIn"],
+        derivativeAssets: [
+          "post",
+          "carrossel",
+          "stories de perguntas",
+          "versão curta para LinkedIn",
+        ],
         priorityScore: 89 + learned.create,
       },
       {
@@ -378,7 +418,8 @@ export class CreativeIntelligenceService {
         brandId: brand.id,
         kind: "capture",
         title: "Mostre um bastidor que revela qualidade",
-        rationale: "O público costuma ver o resultado, mas não enxerga as escolhas que sustentam a qualidade.",
+        rationale:
+          "O público costuma ver o resultado, mas não enxerga as escolhas que sustentam a qualidade.",
         objective: "autoridade",
         channels: ["stories", "reels", "instagram", "facebook"] as CreativeChannel[],
         effortMinutes: 7,
@@ -391,11 +432,25 @@ export class CreativeIntelligenceService {
           duration: "20 a 40 segundos",
           framing: "Comece com detalhes do processo e finalize com a pessoa explicando a decisão.",
           openingLine: "Esse detalhe parece pequeno, mas muda o resultado final.",
-          structure: ["Mostre o detalhe", "explique por que ele existe", "conecte com o benefício para o cliente"],
+          structure: [
+            "Mostre o detalhe",
+            "explique por que ele existe",
+            "conecte com o benefício para o cliente",
+          ],
           bRoll: ["mãos executando", "ferramentas ou tela", "antes e depois", "checagem final"],
-          checklist: ["gravar cenas de 3 a 5 segundos", "evitar zoom digital", "captar som ambiente", "mostrar algo real"],
+          checklist: [
+            "gravar cenas de 3 a 5 segundos",
+            "evitar zoom digital",
+            "captar som ambiente",
+            "mostrar algo real",
+          ],
         },
-        derivativeAssets: ["Reel curto", "sequência de stories", "post de bastidor", "foto com legenda"],
+        derivativeAssets: [
+          "Reel curto",
+          "sequência de stories",
+          "post de bastidor",
+          "foto com legenda",
+        ],
         priorityScore: 82 + learned.capture,
       },
       {
@@ -403,14 +458,21 @@ export class CreativeIntelligenceService {
         brandId: brand.id,
         kind: "repurpose",
         title: "Transforme uma única matéria-prima em cinco conteúdos",
-        rationale: "Reaproveitamento inteligente aumenta consistência sem exigir novas ideias todos os dias.",
+        rationale:
+          "Reaproveitamento inteligente aumenta consistência sem exigir novas ideias todos os dias.",
         objective: "autoridade",
         channels,
         effortMinutes: 10,
         expectedOutcome: "Aumentar volume e consistência com menor esforço do cliente.",
         brief: `Escolha um vídeo, áudio, reunião, artigo, apresentação ou resposta de especialista de ${brand.name} e transforme em cinco peças complementares, adaptadas à linguagem de cada canal.`,
         captureMission: null,
-        derivativeAssets: ["post de opinião", "carrossel", "roteiro curto", "stories", "documento LinkedIn"],
+        derivativeAssets: [
+          "post de opinião",
+          "carrossel",
+          "roteiro curto",
+          "stories",
+          "documento LinkedIn",
+        ],
         priorityScore: 80 + learned.repurpose,
       },
     ];
@@ -431,7 +493,8 @@ export class CreativeIntelligenceService {
     return {
       brandId: brand.id,
       headline: `Próximos movimentos criativos para ${brand.name}`,
-      rationale: "A MODO combinou contexto da marca, disponibilidade do cliente, canais escolhidos e sinais de uso para criar um plano executável.",
+      rationale:
+        "A MODO combinou contexto da marca, disponibilidade do cliente, canais escolhidos e sinais de uso para criar um plano executável.",
       recommendations,
       generatedAt: now,
     };
@@ -451,9 +514,15 @@ export class CreativeIntelligenceService {
       if (!result.rowCount) throw this.notFound();
       return mapRecommendation(result.rows[0]);
     }
-    const index = this.recommendations.findIndex((item) => item.id === id && item.accountId === accountId);
+    const index = this.recommendations.findIndex(
+      (item) => item.id === id && item.accountId === accountId,
+    );
     if (index < 0) throw this.notFound();
-    this.recommendations[index] = { ...this.recommendations[index], status, updatedAt: new Date().toISOString() };
+    this.recommendations[index] = {
+      ...this.recommendations[index],
+      status,
+      updatedAt: new Date().toISOString(),
+    };
     return this.recommendations[index];
   }
 

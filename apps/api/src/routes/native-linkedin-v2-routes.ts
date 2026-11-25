@@ -1,7 +1,10 @@
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import { z } from "zod";
 import { AuthError, AuthService } from "../services/auth-service.js";
-import { NativeLinkedInOAuthError, NativeLinkedInOAuthService } from "../services/native-linkedin-oauth-service.js";
+import {
+  NativeLinkedInOAuthError,
+  NativeLinkedInOAuthService,
+} from "../services/native-linkedin-oauth-service.js";
 
 interface Options {
   databaseUrl?: string;
@@ -16,12 +19,16 @@ interface Options {
 
 function bearerToken(request: FastifyRequest) {
   const value = request.headers.authorization;
-  if (!value?.startsWith("Bearer ")) throw new AuthError("UNAUTHORIZED", 401, "Faça login para continuar.");
+  if (!value?.startsWith("Bearer "))
+    throw new AuthError("UNAUTHORIZED", 401, "Faça login para continuar.");
   return value.slice(7).trim();
 }
 
 export async function registerNativeLinkedInV2Routes(app: FastifyInstance, options: Options) {
-  const auth = new AuthService({ databaseUrl: options.databaseUrl, databaseSsl: options.databaseSsl });
+  const auth = new AuthService({
+    databaseUrl: options.databaseUrl,
+    databaseSsl: options.databaseSsl,
+  });
   const linkedin = new NativeLinkedInOAuthService({
     databaseUrl: options.databaseUrl,
     databaseSsl: options.databaseSsl,
@@ -40,10 +47,15 @@ export async function registerNativeLinkedInV2Routes(app: FastifyInstance, optio
       return reply.code(error.statusCode).send({ code: error.code, message: error.message });
     }
     if (error instanceof z.ZodError) {
-      return reply.code(400).send({ code: "INVALID_REQUEST", message: "Dados inválidos para conectar o LinkedIn." });
+      return reply
+        .code(400)
+        .send({ code: "INVALID_REQUEST", message: "Dados inválidos para conectar o LinkedIn." });
     }
     request.log.error({ error }, "Publisher LinkedIn OAuth error");
-    return reply.code(500).send({ code: "LINKEDIN_V2_INTERNAL_ERROR", message: "Não foi possível concluir a conexão com o LinkedIn." });
+    return reply.code(500).send({
+      code: "LINKEDIN_V2_INTERNAL_ERROR",
+      message: "Não foi possível concluir a conexão com o LinkedIn.",
+    });
   });
 
   async function requireBrand(request: FastifyRequest, brandId: string) {
@@ -69,7 +81,12 @@ export async function registerNativeLinkedInV2Routes(app: FastifyInstance, optio
   });
 
   app.get("/api/v2/publisher/oauth/linkedin/callback", async (request, reply) => {
-    const query = request.query as { state?: string; code?: string; error?: string; error_description?: string };
+    const query = request.query as {
+      state?: string;
+      code?: string;
+      error?: string;
+      error_description?: string;
+    };
     try {
       const result = await linkedin.completeAuthorization({
         state: query.state,
@@ -77,10 +94,16 @@ export async function registerNativeLinkedInV2Routes(app: FastifyInstance, optio
         error: query.error,
         errorDescription: query.error_description,
       });
-      return reply.redirect(`${options.publicWebUrl || "http://localhost:5173"}/app/publisher?brand=${encodeURIComponent(result.brandId)}&linkedin=connected`);
+      return reply.redirect(
+        `${options.publicWebUrl || "http://localhost:5173"}/app/publisher?brand=${encodeURIComponent(result.brandId)}&linkedin=connected`,
+      );
     } catch (error) {
-      const message = encodeURIComponent(error instanceof Error ? error.message.slice(0, 300) : "Autorização não concluída.");
-      return reply.redirect(`${options.publicWebUrl || "http://localhost:5173"}/app/publisher?linkedin=error&message=${message}`);
+      const message = encodeURIComponent(
+        error instanceof Error ? error.message.slice(0, 300) : "Autorização não concluída.",
+      );
+      return reply.redirect(
+        `${options.publicWebUrl || "http://localhost:5173"}/app/publisher?linkedin=error&message=${message}`,
+      );
     }
   });
 }

@@ -17,11 +17,7 @@ const planNames: Record<PublicPlanSlug, string> = {
   agency: "MODO Agency",
 };
 
-const agencyPlans = new Set<PublicPlanSlug>([
-  "agency_professional",
-  "agency_studio",
-  "agency",
-]);
+const agencyPlans = new Set<PublicPlanSlug>(["agency_professional", "agency_studio", "agency"]);
 
 interface DiscountQuoteLike {
   reservationId: string;
@@ -32,7 +28,11 @@ interface DiscountQuoteLike {
 }
 
 interface DiscountProvider {
-  reserveDiscount(accountId: string, plan: PublicPlanSlug, code?: string): Promise<DiscountQuoteLike | null>;
+  reserveDiscount(
+    accountId: string,
+    plan: PublicPlanSlug,
+    code?: string,
+  ): Promise<DiscountQuoteLike | null>;
   linkDiscountToProvider(reservationId: string, providerId: string): Promise<void>;
   releaseDiscount(reservationId: string): Promise<void>;
 }
@@ -157,7 +157,11 @@ export class PaymentService {
     const openSubscription = await this.findOpenSubscription(accountId);
     if (openSubscription) {
       const current = this.parseCorrelationID(openSubscription.correlationID);
-      if (current.plan === input.plan && openSubscription.paymentLinkUrl && openSubscription.pixRecurring?.emv) {
+      if (
+        current.plan === input.plan &&
+        openSubscription.paymentLinkUrl &&
+        openSubscription.pixRecurring?.emv
+      ) {
         return this.checkoutPayload(openSubscription);
       }
       throw new PaymentError(
@@ -208,7 +212,9 @@ export class PaymentService {
         signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
       });
 
-      const payload = (await response.json().catch(() => ({}))) as Partial<WooviSubscriptionResponse> & {
+      const payload = (await response
+        .json()
+        .catch(() => ({}))) as Partial<WooviSubscriptionResponse> & {
         message?: string;
         errors?: Array<{ message?: string }>;
       };
@@ -222,12 +228,15 @@ export class PaymentService {
         throw new PaymentError(
           "CHECKOUT_CREATION_FAILED",
           502,
-          payload.errors?.[0]?.message || payload.message || "Não foi possível iniciar o Pix Automático.",
+          payload.errors?.[0]?.message ||
+            payload.message ||
+            "Não foi possível iniciar o Pix Automático.",
         );
       }
 
       await this.persist(accountId, input.plan, subscription);
-      if (discount) await this.discounts?.linkDiscountToProvider(discount.reservationId, subscription.globalID);
+      if (discount)
+        await this.discounts?.linkDiscountToProvider(discount.reservationId, subscription.globalID);
       return this.checkoutPayload(subscription, discount);
     } catch (error) {
       if (discount) await this.discounts?.releaseDiscount(discount.reservationId);
@@ -309,7 +318,9 @@ export class PaymentService {
       throw new PaymentError(
         "SUBSCRIPTION_CANCEL_FAILED",
         502,
-        payload.errors?.[0]?.message || payload.message || "Não foi possível cancelar a assinatura na Woovi.",
+        payload.errors?.[0]?.message ||
+          payload.message ||
+          "Não foi possível cancelar a assinatura na Woovi.",
       );
     }
 
@@ -331,14 +342,13 @@ export class PaymentService {
   }
 
   async fetchSubscription(globalID: string) {
-    const response = await fetch(
-      `${WOOVI_API}/subscriptions/${encodeURIComponent(globalID)}`,
-      {
-        headers: { Authorization: this.requireAppId() },
-        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-      },
-    );
-    const payload = (await response.json().catch(() => ({}))) as Partial<WooviSubscriptionResponse> & {
+    const response = await fetch(`${WOOVI_API}/subscriptions/${encodeURIComponent(globalID)}`, {
+      headers: { Authorization: this.requireAppId() },
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+    });
+    const payload = (await response
+      .json()
+      .catch(() => ({}))) as Partial<WooviSubscriptionResponse> & {
       message?: string;
       errors?: Array<{ message?: string }>;
     };
@@ -346,7 +356,9 @@ export class PaymentService {
       throw new PaymentError(
         "SUBSCRIPTION_LOOKUP_FAILED",
         502,
-        payload.errors?.[0]?.message || payload.message || "Não foi possível consultar a assinatura.",
+        payload.errors?.[0]?.message ||
+          payload.message ||
+          "Não foi possível consultar a assinatura.",
       );
     }
     return payload.subscription;
@@ -382,7 +394,10 @@ export class PaymentService {
   }
 
   private parseCorrelationID(value: string) {
-    const match = /^modo:([0-9a-f-]{36}):(start|presenca|pro|business|agency_professional|agency_studio|agency):([0-9a-f-]{36})$/i.exec(value);
+    const match =
+      /^modo:([0-9a-f-]{36}):(start|presenca|pro|business|agency_professional|agency_studio|agency):([0-9a-f-]{36})$/i.exec(
+        value,
+      );
     if (!match) {
       throw new PaymentError("INVALID_CORRELATION_ID", 400, "Correlação Woovi inválida.");
     }
@@ -398,7 +413,11 @@ export class PaymentService {
     );
     const workspaceType = result.rows[0]?.workspace_type;
     if (!workspaceType) {
-      throw new PaymentError("PAYMENT_ACCOUNT_NOT_FOUND", 404, "Conta MODO não encontrada para cobrança.");
+      throw new PaymentError(
+        "PAYMENT_ACCOUNT_NOT_FOUND",
+        404,
+        "Conta MODO não encontrada para cobrança.",
+      );
     }
 
     const isAgencyWorkspace = workspaceType === "agency";
@@ -489,20 +508,25 @@ export class PaymentService {
       return result.rows[0]?.raw || null;
     }
 
-    return [...this.memorySubscriptions.values()].reverse().find((subscription) => {
-      try {
-        const sameAccount = this.parseCorrelationID(subscription.correlationID).accountId === accountId;
-        const state = `${subscription.status} ${subscription.pixRecurring?.status || ""}`.toUpperCase();
-        return sameAccount && !/(CANCELED|CANCELLED|REJECTED)/.test(state);
-      } catch {
-        return false;
-      }
-    }) || null;
+    return (
+      [...this.memorySubscriptions.values()].reverse().find((subscription) => {
+        try {
+          const sameAccount =
+            this.parseCorrelationID(subscription.correlationID).accountId === accountId;
+          const state =
+            `${subscription.status} ${subscription.pixRecurring?.status || ""}`.toUpperCase();
+          return sameAccount && !/(CANCELED|CANCELLED|REJECTED)/.test(state);
+        } catch {
+          return false;
+        }
+      }) || null
+    );
   }
 
   private async findLatestProviderId(accountId: string) {
     const open = await this.findOpenSubscription(accountId);
-    if (!open) throw new PaymentError("SUBSCRIPTION_NOT_FOUND", 404, "Assinatura Woovi não encontrada.");
+    if (!open)
+      throw new PaymentError("SUBSCRIPTION_NOT_FOUND", 404, "Assinatura Woovi não encontrada.");
     return open.globalID;
   }
 

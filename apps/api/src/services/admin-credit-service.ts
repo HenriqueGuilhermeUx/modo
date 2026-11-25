@@ -36,7 +36,11 @@ export class AdminCreditService {
         [accountId],
       );
       if (!subscription.rowCount) {
-        throw new PlatformAdminError("SUBSCRIPTION_NOT_FOUND", 404, "Assinatura da organização não encontrada.");
+        throw new PlatformAdminError(
+          "SUBSCRIPTION_NOT_FOUND",
+          404,
+          "Assinatura da organização não encontrada.",
+        );
       }
       await client.query(
         `INSERT INTO modo_credit_ledger(
@@ -62,7 +66,12 @@ export class AdminCreditService {
   }
 
   private requirePool() {
-    if (!this.pool) throw new PlatformAdminError("ADMIN_DATABASE_REQUIRED", 503, "Ajustes administrativos exigem PostgreSQL.");
+    if (!this.pool)
+      throw new PlatformAdminError(
+        "ADMIN_DATABASE_REQUIRED",
+        503,
+        "Ajustes administrativos exigem PostgreSQL.",
+      );
     return this.pool;
   }
 }

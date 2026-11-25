@@ -25,7 +25,11 @@ function speechInput(text: string) {
   const normalized = text.replace(/\s+/g, " ").trim();
   if (normalized.length <= 4096) return normalized;
   const clipped = normalized.slice(0, 4096);
-  const lastSentence = Math.max(clipped.lastIndexOf(". "), clipped.lastIndexOf("! "), clipped.lastIndexOf("? "));
+  const lastSentence = Math.max(
+    clipped.lastIndexOf(". "),
+    clipped.lastIndexOf("! "),
+    clipped.lastIndexOf("? "),
+  );
   return (lastSentence >= 1200 ? clipped.slice(0, lastSentence + 1) : clipped).trim();
 }
 
@@ -64,8 +68,11 @@ export class OpenAiVideoVoiceProvider implements VideoVoiceProvider {
     });
 
     if (!response.ok) {
-      const payload = await response.json().catch(() => ({})) as any;
-      throw new Error(safeText(payload.error?.message) || `O provider de voz rejeitou a narração (${response.status}).`);
+      const payload = (await response.json().catch(() => ({}))) as any;
+      throw new Error(
+        safeText(payload.error?.message) ||
+          `O provider de voz rejeitou a narração (${response.status}).`,
+      );
     }
 
     const data = Buffer.from(await response.arrayBuffer());

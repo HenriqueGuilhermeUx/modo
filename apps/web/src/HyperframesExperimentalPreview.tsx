@@ -21,17 +21,20 @@ export default function HyperframesExperimentalPreview({ project }: Props) {
     project.scenes.length >= 1 &&
     project.scenes.length <= 8 &&
     project.scenes[project.scenes.length - 1].endFrame === project.durationSeconds * project.fps &&
-    project.scenes.every((scene, index, scenes) =>
-      scene.visualType === "kinetic_text" &&
-      scene.assetSource === "native" &&
-      scene.motion === "static" &&
-      (scene.transition === "cut" || !scene.transition) &&
-      !scene.imageUrl && !scene.videoUrl &&
-      scene.headline.length <= 180 && scene.caption.length <= 280 &&
-      scene.startFrame === (index ? scenes[index - 1].endFrame : 0) &&
-      scene.endFrame > scene.startFrame &&
-      scene.endFrame - scene.startFrame >= 30 &&
-      scene.endFrame - scene.startFrame <= 360
+    project.scenes.every(
+      (scene, index, scenes) =>
+        scene.visualType === "kinetic_text" &&
+        scene.assetSource === "native" &&
+        scene.motion === "static" &&
+        (scene.transition === "cut" || !scene.transition) &&
+        !scene.imageUrl &&
+        !scene.videoUrl &&
+        scene.headline.length <= 180 &&
+        scene.caption.length <= 280 &&
+        scene.startFrame === (index ? scenes[index - 1].endFrame : 0) &&
+        scene.endFrame > scene.startFrame &&
+        scene.endFrame - scene.startFrame >= 30 &&
+        scene.endFrame - scene.startFrame <= 360,
     );
 
   async function exportPreview() {
@@ -70,14 +73,18 @@ export default function HyperframesExperimentalPreview({ project }: Props) {
         <div>
           <small>LAB EXPERIMENTAL · HYPERFRAMES</small>
           <h3>Exportar composição HTML para teste</h3>
-          <p>Somente projetos compatíveis com tipografia estática. Não renderiza nem publica vídeo.</p>
+          <p>
+            Somente projetos compatíveis com tipografia estática. Não renderiza nem publica vídeo.
+          </p>
         </div>
         <span aria-label="Piloto não publicável">Não publicável</span>
       </div>
       <div className="video-hyperframes-storyboard">
         {project.scenes.map((scene) => (
           <article key={scene.index}>
-            <small>Cena {scene.index} · {((scene.endFrame - scene.startFrame) / project.fps).toFixed(1)}s</small>
+            <small>
+              Cena {scene.index} · {((scene.endFrame - scene.startFrame) / project.fps).toFixed(1)}s
+            </small>
             <strong>{scene.headline}</strong>
             <p>{scene.caption}</p>
           </article>
@@ -85,17 +92,27 @@ export default function HyperframesExperimentalPreview({ project }: Props) {
       </div>
       {!supported && (
         <p role="status" className="video-hyperframes-warning">
-          Este vídeo usa recursos ainda não compatíveis com o piloto. O renderizador Remotion permanece inalterado.
+          Este vídeo usa recursos ainda não compatíveis com o piloto. O renderizador Remotion
+          permanece inalterado.
         </p>
       )}
-      <button type="button" className="button button-secondary"
-        disabled={!supported || working} onClick={() => void exportPreview()}>
+      <button
+        type="button"
+        className="button button-secondary"
+        disabled={!supported || working}
+        onClick={() => void exportPreview()}
+      >
         {working ? "Preparando composição..." : "Exportar HTML de teste"}
       </button>
-      {error && <p role="alert" className="portal-error">{error}</p>}
+      {error && (
+        <p role="alert" className="portal-error">
+          {error}
+        </p>
+      )}
       {message && <p role="status">{message}</p>}
       <p className="video-hyperframes-disclaimer">
-        Arquivo técnico para avaliação isolada. Não contém MP4, direitos de publicação nem autorização de uso de mídia.
+        Arquivo técnico para avaliação isolada. Não contém MP4, direitos de publicação nem
+        autorização de uso de mídia.
       </p>
     </section>
   );

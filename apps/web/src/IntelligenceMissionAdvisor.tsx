@@ -45,64 +45,249 @@ interface IntentPreset {
 const nicheIdeas: Record<IntelligenceNiche, NicheIdeas> = {
   saude_estetica: {
     label: "Saúde e estética",
-    audiences: ["clínicas de estética", "consultórios odontológicos", "dermatologistas", "salões de beleza", "academias e studios"],
-    activities: ["estética avançada", "harmonização facial", "depilação a laser", "bem-estar", "saúde preventiva"],
-    interests: ["captação de pacientes", "agenda ociosa", "reputação no Google", "tratamentos premium", "fidelização"],
-    partners: ["laboratórios", "farmácias de manipulação", "distribuidores de cosméticos", "influenciadores locais"],
-    radar: ["novos tratamentos", "promoções de procedimentos", "avaliações negativas", "antes e depois", "tendências de autocuidado"],
+    audiences: [
+      "clínicas de estética",
+      "consultórios odontológicos",
+      "dermatologistas",
+      "salões de beleza",
+      "academias e studios",
+    ],
+    activities: [
+      "estética avançada",
+      "harmonização facial",
+      "depilação a laser",
+      "bem-estar",
+      "saúde preventiva",
+    ],
+    interests: [
+      "captação de pacientes",
+      "agenda ociosa",
+      "reputação no Google",
+      "tratamentos premium",
+      "fidelização",
+    ],
+    partners: [
+      "laboratórios",
+      "farmácias de manipulação",
+      "distribuidores de cosméticos",
+      "influenciadores locais",
+    ],
+    radar: [
+      "novos tratamentos",
+      "promoções de procedimentos",
+      "avaliações negativas",
+      "antes e depois",
+      "tendências de autocuidado",
+    ],
   },
   servicos_profissionais: {
     label: "Serviços profissionais",
-    audiences: ["escritórios de advocacia", "contabilidades", "consultorias", "agências", "empresas de tecnologia"],
-    activities: ["serviços jurídicos", "BPO financeiro", "consultoria empresarial", "compliance", "transformação digital"],
-    interests: ["geração de demanda", "redução de custos", "automação", "produtividade", "aquisição de clientes"],
-    partners: ["associações empresariais", "coworkings", "software houses", "consultores independentes"],
-    radar: ["novas ofertas de consultoria", "conteúdo de autoridade", "posicionamento premium", "nichos atendidos", "provas sociais"],
+    audiences: [
+      "escritórios de advocacia",
+      "contabilidades",
+      "consultorias",
+      "agências",
+      "empresas de tecnologia",
+    ],
+    activities: [
+      "serviços jurídicos",
+      "BPO financeiro",
+      "consultoria empresarial",
+      "compliance",
+      "transformação digital",
+    ],
+    interests: [
+      "geração de demanda",
+      "redução de custos",
+      "automação",
+      "produtividade",
+      "aquisição de clientes",
+    ],
+    partners: [
+      "associações empresariais",
+      "coworkings",
+      "software houses",
+      "consultores independentes",
+    ],
+    radar: [
+      "novas ofertas de consultoria",
+      "conteúdo de autoridade",
+      "posicionamento premium",
+      "nichos atendidos",
+      "provas sociais",
+    ],
   },
   imoveis: {
     label: "Imóveis",
-    audiences: ["imobiliárias", "corretores autônomos", "construtoras", "administradoras de condomínios", "investidores imobiliários"],
-    activities: ["lançamentos imobiliários", "locação", "venda de imóveis", "condomínios", "investimento imobiliário"],
-    interests: ["imóveis em lançamento", "alto padrão", "renda com aluguel", "financiamento", "valorização regional"],
+    audiences: [
+      "imobiliárias",
+      "corretores autônomos",
+      "construtoras",
+      "administradoras de condomínios",
+      "investidores imobiliários",
+    ],
+    activities: [
+      "lançamentos imobiliários",
+      "locação",
+      "venda de imóveis",
+      "condomínios",
+      "investimento imobiliário",
+    ],
+    interests: [
+      "imóveis em lançamento",
+      "alto padrão",
+      "renda com aluguel",
+      "financiamento",
+      "valorização regional",
+    ],
     partners: ["arquitetos", "engenheiros", "correspondentes bancários", "empresas de mudança"],
-    radar: ["novos lançamentos", "preço por metro quadrado", "bairros em valorização", "campanhas de imobiliárias", "condições de financiamento"],
+    radar: [
+      "novos lançamentos",
+      "preço por metro quadrado",
+      "bairros em valorização",
+      "campanhas de imobiliárias",
+      "condições de financiamento",
+    ],
   },
   varejo: {
     label: "Varejo e e-commerce",
-    audiences: ["lojas de bairro", "e-commerces", "distribuidores", "franquias", "marketplaces regionais"],
+    audiences: [
+      "lojas de bairro",
+      "e-commerces",
+      "distribuidores",
+      "franquias",
+      "marketplaces regionais",
+    ],
     activities: ["moda", "beleza", "casa e decoração", "eletrônicos", "alimentos e bebidas"],
-    interests: ["aumentar ticket médio", "giro de estoque", "promoções", "frete", "recorrência de compra"],
+    interests: [
+      "aumentar ticket médio",
+      "giro de estoque",
+      "promoções",
+      "frete",
+      "recorrência de compra",
+    ],
     partners: ["influenciadores", "fornecedores", "operadores logísticos", "shopping centers"],
-    radar: ["produtos mais vendidos", "campanhas promocionais", "combos", "frete grátis", "avaliações de produto"],
+    radar: [
+      "produtos mais vendidos",
+      "campanhas promocionais",
+      "combos",
+      "frete grátis",
+      "avaliações de produto",
+    ],
   },
   educacao: {
     label: "Educação",
-    audiences: ["escolas particulares", "cursos livres", "faculdades", "professores independentes", "empresas de treinamento"],
-    activities: ["educação infantil", "idiomas", "cursos profissionalizantes", "treinamento corporativo", "ensino online"],
-    interests: ["novas matrículas", "evasão", "empregabilidade", "certificação", "aprendizado prático"],
-    partners: ["empresas locais", "associações de pais", "plataformas educacionais", "recrutadores"],
-    radar: ["campanhas de matrícula", "novos cursos", "bolsas e descontos", "avaliações de alunos", "tendências de carreira"],
+    audiences: [
+      "escolas particulares",
+      "cursos livres",
+      "faculdades",
+      "professores independentes",
+      "empresas de treinamento",
+    ],
+    activities: [
+      "educação infantil",
+      "idiomas",
+      "cursos profissionalizantes",
+      "treinamento corporativo",
+      "ensino online",
+    ],
+    interests: [
+      "novas matrículas",
+      "evasão",
+      "empregabilidade",
+      "certificação",
+      "aprendizado prático",
+    ],
+    partners: [
+      "empresas locais",
+      "associações de pais",
+      "plataformas educacionais",
+      "recrutadores",
+    ],
+    radar: [
+      "campanhas de matrícula",
+      "novos cursos",
+      "bolsas e descontos",
+      "avaliações de alunos",
+      "tendências de carreira",
+    ],
   },
   creator: {
     label: "Creator e marca pessoal",
-    audiences: ["criadores de conteúdo", "especialistas", "infoprodutores", "palestrantes", "comunidades digitais"],
-    activities: ["produção de conteúdo", "mentoria", "cursos online", "eventos", "comunidades pagas"],
-    interests: ["crescimento de audiência", "monetização", "engajamento", "autoridade", "parcerias de marca"],
-    partners: ["agências de influência", "marcas patrocinadoras", "produtoras", "gestores de tráfego"],
-    radar: ["formatos virais", "lançamentos", "collabs", "assuntos emergentes", "ofertas de mentoria"],
+    audiences: [
+      "criadores de conteúdo",
+      "especialistas",
+      "infoprodutores",
+      "palestrantes",
+      "comunidades digitais",
+    ],
+    activities: [
+      "produção de conteúdo",
+      "mentoria",
+      "cursos online",
+      "eventos",
+      "comunidades pagas",
+    ],
+    interests: [
+      "crescimento de audiência",
+      "monetização",
+      "engajamento",
+      "autoridade",
+      "parcerias de marca",
+    ],
+    partners: [
+      "agências de influência",
+      "marcas patrocinadoras",
+      "produtoras",
+      "gestores de tráfego",
+    ],
+    radar: [
+      "formatos virais",
+      "lançamentos",
+      "collabs",
+      "assuntos emergentes",
+      "ofertas de mentoria",
+    ],
   },
   outro: {
     label: "Seu segmento",
-    audiences: ["empresas locais", "pequenas empresas", "profissionais autônomos", "redes e franquias", "compradores corporativos"],
-    activities: ["serviços especializados", "comércio local", "indústria", "tecnologia", "atendimento ao consumidor"],
-    interests: ["aquisição de clientes", "redução de custos", "crescimento", "reputação", "digitalização"],
+    audiences: [
+      "empresas locais",
+      "pequenas empresas",
+      "profissionais autônomos",
+      "redes e franquias",
+      "compradores corporativos",
+    ],
+    activities: [
+      "serviços especializados",
+      "comércio local",
+      "indústria",
+      "tecnologia",
+      "atendimento ao consumidor",
+    ],
+    interests: [
+      "aquisição de clientes",
+      "redução de custos",
+      "crescimento",
+      "reputação",
+      "digitalização",
+    ],
     partners: ["associações comerciais", "fornecedores", "consultores", "influenciadores do setor"],
-    radar: ["novos concorrentes", "ofertas", "reclamações", "tendências", "mudanças de comportamento"],
+    radar: [
+      "novos concorrentes",
+      "ofertas",
+      "reclamações",
+      "tendências",
+      "mudanças de comportamento",
+    ],
   },
 };
 
 function lines(value: string) {
-  return value.split("\n").map((item) => item.trim()).filter(Boolean);
+  return value
+    .split("\n")
+    .map((item) => item.trim())
+    .filter(Boolean);
 }
 
 function appendUnique(current: string, values: string[]) {
@@ -130,7 +315,8 @@ function guidance(playbook: IntelligencePlaybook, ideas: NicheIdeas, brandName: 
     return {
       eyebrow: "QUEM PODE COMPRAR DE VOCÊ?",
       title: "Monte uma busca comercial com foco.",
-      description: "Escolha o tipo de empresa que procura e defina uma única cidade ou região. A Modo transforma isso em uma busca comercial utilizável.",
+      description:
+        "Escolha o tipo de empresa que procura e defina uma única cidade ou região. A Modo transforma isso em uma busca comercial utilizável.",
       strategyName: `Prospecção recomendada · ${ideas.label}`,
       objective: `Encontrar empresas de ${ideas.label.toLocaleLowerCase("pt-BR")} com contato comercial público, presença digital e sinais de necessidade compatíveis com a oferta da ${brandName}.`,
       groups: [
@@ -147,7 +333,8 @@ function guidance(playbook: IntelligencePlaybook, ideas: NicheIdeas, brandName: 
     return {
       eyebrow: "O QUE VALE A PENA OBSERVAR?",
       title: "Transforme curiosidade em sinais de mercado.",
-      description: "Escolha primeiro o que quer descobrir. Depois informe a região e, quando tiver, nomes ou URLs reais de concorrentes para dar mais contexto.",
+      description:
+        "Escolha primeiro o que quer descobrir. Depois informe a região e, quando tiver, nomes ou URLs reais de concorrentes para dar mais contexto.",
       strategyName: `Radar recomendado · ${ideas.label}`,
       objective: `Mapear concorrentes, ofertas, reputação, interesses do público e oportunidades de posicionamento para a ${brandName} no segmento de ${ideas.label.toLocaleLowerCase("pt-BR")}.`,
       groups: [
@@ -163,19 +350,49 @@ function guidance(playbook: IntelligencePlaybook, ideas: NicheIdeas, brandName: 
   return {
     eyebrow: "O QUE PRECISA SER COMPARADO?",
     title: "Monitore preços que mudam decisões.",
-    description: "Escolha o tipo de comparação e cadastre URLs exatas de produtos equivalentes. Comece pelos itens mais importantes, não pelo catálogo inteiro.",
+    description:
+      "Escolha o tipo de comparação e cadastre URLs exatas de produtos equivalentes. Comece pelos itens mais importantes, não pelo catálogo inteiro.",
     strategyName: `Preços recomendados · ${ideas.label}`,
     objective: `Comparar preço, disponibilidade, promoção e posicionamento dos produtos prioritários da ${brandName} com concorrentes diretos.`,
     groups: [
-      { label: "Linhas prioritárias", values: ["produto campeão de vendas", "produto de entrada", "linha premium", "combo promocional", "produto com maior margem"], target: "keywords" as const },
-      { label: "Sinais para comparar", values: ["preço atual", "preço promocional", "disponibilidade", "frete", "vendedor", "parcelamento"], target: "keywords" as const },
-      { label: "Canais relevantes", values: ["site do concorrente", "marketplace", "loja oficial", "revendedor autorizado"], target: "competitors" as const },
+      {
+        label: "Linhas prioritárias",
+        values: [
+          "produto campeão de vendas",
+          "produto de entrada",
+          "linha premium",
+          "combo promocional",
+          "produto com maior margem",
+        ],
+        target: "keywords" as const,
+      },
+      {
+        label: "Sinais para comparar",
+        values: [
+          "preço atual",
+          "preço promocional",
+          "disponibilidade",
+          "frete",
+          "vendedor",
+          "parcelamento",
+        ],
+        target: "keywords" as const,
+      },
+      {
+        label: "Canais relevantes",
+        values: ["site do concorrente", "marketplace", "loja oficial", "revendedor autorizado"],
+        target: "competitors" as const,
+      },
     ],
     recommended: ["produto campeão de vendas", "preço atual", "disponibilidade"],
   };
 }
 
-function intentPresets(playbook: IntelligencePlaybook, ideas: NicheIdeas, brandName: string): IntentPreset[] {
+function intentPresets(
+  playbook: IntelligencePlaybook,
+  ideas: NicheIdeas,
+  brandName: string,
+): IntentPreset[] {
   if (playbook === "market_radar") {
     return [
       {
@@ -300,30 +517,36 @@ export default function IntelligenceMissionAdvisor({
   const regionCount = lines(regions).length;
   const validProductUrls = productUrls(products);
 
-  const checks = playbook === "b2b_prospecting"
-    ? [
-        { ok: objective.trim().length >= 35, label: "Objetivo comercial definido" },
-        { ok: keywordCount >= 1, label: "Público ou atividade selecionado" },
-        { ok: regionCount === 1, label: "Uma única cidade ou região" },
-        { ok: keywordCount <= 6, label: "Busca focada, sem termos demais" },
-      ]
-    : playbook === "market_radar"
+  const checks =
+    playbook === "b2b_prospecting"
       ? [
-          { ok: objective.trim().length >= 35, label: "Pergunta de mercado definida" },
-          { ok: keywordCount >= 1, label: "Tema ou atividade selecionado" },
-          { ok: regionCount >= 1, label: "Área de pesquisa informada" },
-          { ok: keywordCount <= 6, label: "Radar com escopo controlado" },
+          { ok: objective.trim().length >= 35, label: "Objetivo comercial definido" },
+          { ok: keywordCount >= 1, label: "Público ou atividade selecionado" },
+          { ok: regionCount === 1, label: "Uma única cidade ou região" },
+          { ok: keywordCount <= 6, label: "Busca focada, sem termos demais" },
         ]
-      : [
-          { ok: objective.trim().length >= 35, label: "Objetivo de comparação definido" },
-          { ok: lines(products).length >= 1, label: "Ao menos um produto cadastrado" },
-          { ok: validProductUrls >= 1, label: "URL real de produto informada" },
-          { ok: lines(products).length <= 20, label: "Lista inicial enxuta" },
-        ];
+      : playbook === "market_radar"
+        ? [
+            { ok: objective.trim().length >= 35, label: "Pergunta de mercado definida" },
+            { ok: keywordCount >= 1, label: "Tema ou atividade selecionado" },
+            { ok: regionCount >= 1, label: "Área de pesquisa informada" },
+            { ok: keywordCount <= 6, label: "Radar com escopo controlado" },
+          ]
+        : [
+            { ok: objective.trim().length >= 35, label: "Objetivo de comparação definido" },
+            { ok: lines(products).length >= 1, label: "Ao menos um produto cadastrado" },
+            { ok: validProductUrls >= 1, label: "URL real de produto informada" },
+            { ok: lines(products).length <= 20, label: "Lista inicial enxuta" },
+          ];
 
   const completed = checks.filter((item) => item.ok).length;
   const score = Math.round((completed / checks.length) * 100);
-  const qualityLabel = score === 100 ? "Pronta para pesquisar" : score >= 50 ? "Quase pronta" : "Vamos completar juntos";
+  const qualityLabel =
+    score === 100
+      ? "Pronta para pesquisar"
+      : score >= 50
+        ? "Quase pronta"
+        : "Vamos completar juntos";
 
   function add(target: "keywords" | "competitors", value: string) {
     onApply({ [target]: appendUnique(target === "keywords" ? keywords : competitors, [value]) });
@@ -353,11 +576,19 @@ export default function IntelligenceMissionAdvisor({
           <h3>{guide.title}</h3>
           <p>{guide.description}</p>
         </div>
-        <button type="button" onClick={applyRecommended}>Usar estratégia recomendada</button>
+        <button type="button" onClick={applyRecommended}>
+          Usar estratégia recomendada
+        </button>
       </div>
 
       <div className="advisor-presets">
-        <div><small>PRIMEIRO, ESCOLHA O QUE VOCÊ QUER DESCOBRIR</small><p>A Modo preenche o objetivo e os termos iniciais. Você só confirma a região e os dados reais.</p></div>
+        <div>
+          <small>PRIMEIRO, ESCOLHA O QUE VOCÊ QUER DESCOBRIR</small>
+          <p>
+            A Modo preenche o objetivo e os termos iniciais. Você só confirma a região e os dados
+            reais.
+          </p>
+        </div>
         <div className="advisor-preset-grid">
           {presets.map((preset) => (
             <button type="button" key={preset.label} onClick={() => applyPreset(preset)}>
@@ -375,28 +606,53 @@ export default function IntelligenceMissionAdvisor({
               <strong>{group.label}</strong>
               <div>
                 {group.values.map((value) => (
-                  <button type="button" key={value} onClick={() => add(group.target, value)}>+ {value}</button>
+                  <button type="button" key={value} onClick={() => add(group.target, value)}>
+                    + {value}
+                  </button>
                 ))}
               </div>
             </article>
           ))}
           {playbook === "b2b_prospecting" && (
-            <p className="advisor-tip"><b>Área:</b> use uma praça concreta, como “Campinas, SP”. Buscar várias cidades na mesma missão dilui o resultado e aumenta o custo.</p>
+            <p className="advisor-tip">
+              <b>Área:</b> use uma praça concreta, como “Campinas, SP”. Buscar várias cidades na
+              mesma missão dilui o resultado e aumenta o custo.
+            </p>
           )}
           {playbook === "market_radar" && (
-            <p className="advisor-tip"><b>Área primeiro:</b> informe uma cidade ou região. Concorrentes conhecidos são opcionais e ajudam apenas a contextualizar a análise.</p>
+            <p className="advisor-tip">
+              <b>Área primeiro:</b> informe uma cidade ou região. Concorrentes conhecidos são
+              opcionais e ajudam apenas a contextualizar a análise.
+            </p>
           )}
           {playbook === "price_monitoring" && (
-            <p className="advisor-tip"><b>Produtos:</b> use o formato “Nome | SKU | URL”. O endereço deve apontar diretamente para a página do produto.</p>
+            <p className="advisor-tip">
+              <b>Produtos:</b> use o formato “Nome | SKU | URL”. O endereço deve apontar diretamente
+              para a página do produto.
+            </p>
           )}
         </div>
 
-        <aside className={`advisor-quality quality-${score === 100 ? "ready" : score >= 50 ? "medium" : "low"}`}>
-          <div><small>PREPARAÇÃO DA MISSÃO</small><strong>{score}%</strong><span>{qualityLabel}</span></div>
+        <aside
+          className={`advisor-quality quality-${score === 100 ? "ready" : score >= 50 ? "medium" : "low"}`}
+        >
+          <div>
+            <small>PREPARAÇÃO DA MISSÃO</small>
+            <strong>{score}%</strong>
+            <span>{qualityLabel}</span>
+          </div>
           <ul>
-            {checks.map((item) => <li key={item.label} className={item.ok ? "done" : "pending"}><span>{item.ok ? "✓" : "·"}</span>{item.label}</li>)}
+            {checks.map((item) => (
+              <li key={item.label} className={item.ok ? "done" : "pending"}>
+                <span>{item.ok ? "✓" : "·"}</span>
+                {item.label}
+              </li>
+            ))}
           </ul>
-          <p>Complete os itens pendentes antes de confirmar. A franquia só é consumida quando a missão é criada.</p>
+          <p>
+            Complete os itens pendentes antes de confirmar. A franquia só é consumida quando a
+            missão é criada.
+          </p>
         </aside>
       </div>
 

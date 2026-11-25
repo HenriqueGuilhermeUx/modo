@@ -47,7 +47,9 @@ export async function getDistributionStatus(brandId: string): Promise<PostizStat
   );
 }
 
-export async function getDistributionQuality(contentRequestId: string): Promise<DistributionQualityReport> {
+export async function getDistributionQuality(
+  contentRequestId: string,
+): Promise<DistributionQualityReport> {
   return DistributionQualityReportSchema.parse(
     await request<unknown>(`/api/v1/content-requests/${contentRequestId}/distribution/quality`),
   );
@@ -98,7 +100,9 @@ export async function distributeContent(
   };
 }
 
-export async function listContentPublications(contentRequestId: string): Promise<PostizPublication[]> {
+export async function listContentPublications(
+  contentRequestId: string,
+): Promise<PostizPublication[]> {
   return PostizPublicationListSchema.parse(
     await request<unknown>(`/api/v1/content-requests/${contentRequestId}/publications`),
   ).publications;

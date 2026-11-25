@@ -58,24 +58,22 @@ function clamp(value: number) {
 }
 
 function score(input: PerformanceSignalCreate) {
-  const engagementRate = input.impressions > 0
-    ? (input.engagements / input.impressions) * 100
-    : 0;
+  const engagementRate = input.impressions > 0 ? (input.engagements / input.impressions) * 100 : 0;
   const clickRate = input.impressions > 0 ? (input.clicks / input.impressions) * 100 : 0;
   const leadRate = input.clicks > 0 ? (input.leads / input.clicks) * 100 : input.leads > 0 ? 25 : 0;
-  const conversionRate = input.leads > 0
-    ? (input.conversions / input.leads) * 100
-    : input.conversions > 0 ? 25 : 0;
-  const revenueSignal = input.revenueCents > 0 ? Math.min(20, 5 + Math.log10(input.revenueCents / 100 + 1) * 4) : 0;
+  const conversionRate =
+    input.leads > 0 ? (input.conversions / input.leads) * 100 : input.conversions > 0 ? 25 : 0;
+  const revenueSignal =
+    input.revenueCents > 0 ? Math.min(20, 5 + Math.log10(input.revenueCents / 100 + 1) * 4) : 0;
   const reachSignal = input.reach > 0 ? Math.min(10, Math.log10(input.reach + 1) * 2.5) : 0;
 
   return clamp(
     Math.min(30, engagementRate * 4) +
-    Math.min(15, clickRate * 3) +
-    Math.min(18, leadRate * 0.8) +
-    Math.min(20, conversionRate * 0.8) +
-    revenueSignal +
-    reachSignal,
+      Math.min(15, clickRate * 3) +
+      Math.min(18, leadRate * 0.8) +
+      Math.min(20, conversionRate * 0.8) +
+      revenueSignal +
+      reachSignal,
   );
 }
 
@@ -220,7 +218,8 @@ export class SignalService {
 
     const now = new Date().toISOString();
     const existingIndex = this.items.findIndex(
-      (item) => item.accountId === accountId &&
+      (item) =>
+        item.accountId === accountId &&
         item.contentRequestId === input.contentRequestId &&
         item.channel === input.channel,
     );
@@ -246,20 +245,24 @@ export class SignalService {
     for (const item of items) {
       channelMap.set(item.channel, [...(channelMap.get(item.channel) ?? []), item]);
     }
-    const channels = [...channelMap.entries()].map(([channel, channelItems]) => ({
-      channel,
-      items: channelItems.length,
-      averageScore: channelItems.length
-        ? Math.round(channelItems.reduce((total, item) => total + item.score, 0) / channelItems.length)
-        : 0,
-      reach: channelItems.reduce((total, item) => total + item.reach, 0),
-      impressions: channelItems.reduce((total, item) => total + item.impressions, 0),
-      engagements: channelItems.reduce((total, item) => total + item.engagements, 0),
-      clicks: channelItems.reduce((total, item) => total + item.clicks, 0),
-      leads: channelItems.reduce((total, item) => total + item.leads, 0),
-      conversions: channelItems.reduce((total, item) => total + item.conversions, 0),
-      revenueCents: channelItems.reduce((total, item) => total + item.revenueCents, 0),
-    })).sort((a, b) => b.averageScore - a.averageScore);
+    const channels = [...channelMap.entries()]
+      .map(([channel, channelItems]) => ({
+        channel,
+        items: channelItems.length,
+        averageScore: channelItems.length
+          ? Math.round(
+              channelItems.reduce((total, item) => total + item.score, 0) / channelItems.length,
+            )
+          : 0,
+        reach: channelItems.reduce((total, item) => total + item.reach, 0),
+        impressions: channelItems.reduce((total, item) => total + item.impressions, 0),
+        engagements: channelItems.reduce((total, item) => total + item.engagements, 0),
+        clicks: channelItems.reduce((total, item) => total + item.clicks, 0),
+        leads: channelItems.reduce((total, item) => total + item.leads, 0),
+        conversions: channelItems.reduce((total, item) => total + item.conversions, 0),
+        revenueCents: channelItems.reduce((total, item) => total + item.revenueCents, 0),
+      }))
+      .sort((a, b) => b.averageScore - a.averageScore);
 
     const averageScore = items.length
       ? Math.round(items.reduce((total, item) => total + item.score, 0) / items.length)
@@ -270,15 +273,23 @@ export class SignalService {
     if (!items.length) {
       insights.push("Registre o desempenho de um conteúdo publicado para iniciar o aprendizado.");
     } else {
-      if (best) insights.push(`${best.channel} é o canal com melhor sinal médio até agora (${best.averageScore}/100).`);
+      if (best)
+        insights.push(
+          `${best.channel} é o canal com melhor sinal médio até agora (${best.averageScore}/100).`,
+        );
       if (weakest && weakest.averageScore + 15 < (best?.averageScore ?? 0)) {
         insights.push(`${weakest.channel} precisa de outro ângulo, formato ou chamada para ação.`);
       }
       const totalLeads = items.reduce((total, item) => total + item.leads, 0);
       const totalConversions = items.reduce((total, item) => total + item.conversions, 0);
-      if (totalLeads > 0) insights.push(`${totalLeads} lead(s) e ${totalConversions} conversão(ões) já foram associados ao conteúdo.`);
+      if (totalLeads > 0)
+        insights.push(
+          `${totalLeads} lead(s) e ${totalConversions} conversão(ões) já foram associados ao conteúdo.`,
+        );
       if (items.some((item) => item.classification === "performed_well")) {
-        insights.push("Padrões dos conteúdos com melhor desempenho terão mais peso nos próximos planos criativos.");
+        insights.push(
+          "Padrões dos conteúdos com melhor desempenho terão mais peso nos próximos planos criativos.",
+        );
       }
     }
 

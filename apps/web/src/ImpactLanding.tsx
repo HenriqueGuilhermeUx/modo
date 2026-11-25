@@ -37,7 +37,9 @@ export default function ImpactLanding() {
   useEffect(() => {
     const refresh = () => {
       const next = readCompletedJob();
-      setJob((current) => current?.id === next?.id && current?.completedAt === next?.completedAt ? current : next);
+      setJob((current) =>
+        current?.id === next?.id && current?.completedAt === next?.completedAt ? current : next,
+      );
     };
     refresh();
     const timer = window.setInterval(refresh, 450);
@@ -59,7 +61,10 @@ export default function ImpactLanding() {
       howSection?.parentElement?.insertBefore(root, howSection);
     }
     setTarget(root);
-    const timer = window.setTimeout(() => root?.scrollIntoView({ behavior: "smooth", block: "start" }), 320);
+    const timer = window.setTimeout(
+      () => root?.scrollIntoView({ behavior: "smooth", block: "start" }),
+      320,
+    );
     return () => window.clearTimeout(timer);
   }, [job?.id, result]);
 
@@ -94,22 +99,24 @@ export default function ImpactLanding() {
       <IntelligenceLandingAddon />
       <SmartBotsLandingAddon />
       <VideoLandingAddon />
-      {target && result && createPortal(
-        <DiagnosticImpactResult
-          result={result}
-          campaigns={campaigns}
-          leadCaptured={leadCaptured}
-          leadLoading={leadLoading}
-          name={name}
-          contact={contact}
-          sectionRef={resultRef}
-          onNameChange={setName}
-          onContactChange={setContact}
-          onLeadSubmit={handleLead}
-          onActivate={activatePlan}
-        />,
-        target,
-      )}
+      {target &&
+        result &&
+        createPortal(
+          <DiagnosticImpactResult
+            result={result}
+            campaigns={campaigns}
+            leadCaptured={leadCaptured}
+            leadLoading={leadLoading}
+            name={name}
+            contact={contact}
+            sectionRef={resultRef}
+            onNameChange={setName}
+            onContactChange={setContact}
+            onLeadSubmit={handleLead}
+            onActivate={activatePlan}
+          />,
+          target,
+        )}
     </>
   );
 }

@@ -1,12 +1,16 @@
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import { z } from "zod";
 import type { AuthService } from "../services/auth-service.js";
-import { MarketIntelligenceError, MarketIntelligenceService } from "../services/market-intelligence-service.js";
+import {
+  MarketIntelligenceError,
+  MarketIntelligenceService,
+} from "../services/market-intelligence-service.js";
 import { assertPublicHttpUrl } from "../security/public-url.js";
 
 function token(request: FastifyRequest) {
   const value = request.headers.authorization;
-  if (!value?.startsWith("Bearer ")) throw new MarketIntelligenceError("UNAUTHORIZED", 401, "Faça login para continuar.");
+  if (!value?.startsWith("Bearer "))
+    throw new MarketIntelligenceError("UNAUTHORIZED", 401, "Faça login para continuar.");
   return value.slice(7).trim();
 }
 const UrlSchema = z.string().url().max(5000);
@@ -30,7 +34,8 @@ export async function registerMarketIntelligenceRoutes(
       try {
         return await options.service.inspectPage(url);
       } catch (error) {
-        if (error instanceof MarketIntelligenceError) return reply.code(error.status).send({ code: error.code, message: error.message });
+        if (error instanceof MarketIntelligenceError)
+          return reply.code(error.status).send({ code: error.code, message: error.message });
         throw error;
       }
     },
@@ -41,7 +46,8 @@ export async function registerMarketIntelligenceRoutes(
     try {
       return await options.service.listWatches();
     } catch (error) {
-      if (error instanceof MarketIntelligenceError) return reply.code(error.status).send({ code: error.code, message: error.message });
+      if (error instanceof MarketIntelligenceError)
+        return reply.code(error.status).send({ code: error.code, message: error.message });
       throw error;
     }
   });
@@ -56,13 +62,16 @@ export async function registerMarketIntelligenceRoutes(
       assertPublicHttpUrl(url);
       const title = typeof body?.title === "string" ? body.title.slice(0, 200) : undefined;
       try {
-        return reply.code(201).send(await options.service.createWatch({
-          url,
-          title,
-          tag: `modo:${context.organization.id}`,
-        }));
+        return reply.code(201).send(
+          await options.service.createWatch({
+            url,
+            title,
+            tag: `modo:${context.organization.id}`,
+          }),
+        );
       } catch (error) {
-        if (error instanceof MarketIntelligenceError) return reply.code(error.status).send({ code: error.code, message: error.message });
+        if (error instanceof MarketIntelligenceError)
+          return reply.code(error.status).send({ code: error.code, message: error.message });
         throw error;
       }
     },

@@ -50,7 +50,10 @@ export async function registerLinkedInRoutes(app: FastifyInstance, options: Opti
       if (error instanceof LinkedInError || error instanceof AuthError) {
         return reply.code(error.statusCode).send({ code: error.code, message: error.message });
       }
-      const message = error instanceof Error ? error.message : "Não foi possível concluir a operação no LinkedIn.";
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Não foi possível concluir a operação no LinkedIn.";
       const validation = error instanceof Error && error.name === "ZodError";
       return reply.code(validation ? 400 : 500).send({
         code: validation ? "INVALID_REQUEST" : "LINKEDIN_INTERNAL_ERROR",
@@ -112,10 +115,7 @@ export async function registerLinkedInRoutes(app: FastifyInstance, options: Opti
       }
       const pdf = await renderLinkedInDocument(content.output);
       reply.header("content-type", "application/pdf");
-      reply.header(
-        "content-disposition",
-        `attachment; filename="modo-linkedin-${content.id}.pdf"`,
-      );
+      reply.header("content-disposition", `attachment; filename="modo-linkedin-${content.id}.pdf"`);
       return reply.send(Buffer.from(pdf));
     });
 

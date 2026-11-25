@@ -71,12 +71,13 @@ async function request(path: string, init?: RequestInit) {
     },
   });
   const payload = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(payload.message || "Não foi possível concluir a missão de inteligência.");
+  if (!response.ok)
+    throw new Error(payload.message || "Não foi possível concluir a missão de inteligência.");
   return payload;
 }
 
 function quotaFromPayload(value: unknown): IntelligenceQuota {
-  const source = value && typeof value === "object" ? value as Record<string, unknown> : {};
+  const source = value && typeof value === "object" ? (value as Record<string, unknown>) : {};
   return {
     plan: (["trial", "start", "presenca", "pro", "business"].includes(String(source.plan))
       ? String(source.plan)
@@ -96,7 +97,7 @@ function quotaFromPayload(value: unknown): IntelligenceQuota {
 }
 
 function leadFromPayload(value: unknown): IntelligenceLeadItem {
-  const source = value && typeof value === "object" ? value as Record<string, unknown> : {};
+  const source = value && typeof value === "object" ? (value as Record<string, unknown>) : {};
   const status = String(source.pipelineStatus || "new") as IntelligenceLeadStatus;
   const priority = String(source.priority || "medium") as IntelligenceLeadPriority;
   return {
@@ -116,7 +117,15 @@ function leadFromPayload(value: unknown): IntelligenceLeadItem {
     mapsUrl: String(source.mapsUrl || ""),
     qualityScore: Number(source.qualityScore || 0),
     contactAvailable: Boolean(source.contactAvailable),
-    pipelineStatus: ["new", "qualified", "contacted", "negotiating", "won", "lost", "archived"].includes(status)
+    pipelineStatus: [
+      "new",
+      "qualified",
+      "contacted",
+      "negotiating",
+      "won",
+      "lost",
+      "archived",
+    ].includes(status)
       ? status
       : "new",
     priority: ["low", "medium", "high"].includes(priority) ? priority : "medium",
@@ -138,9 +147,8 @@ export async function getIntelligencePlaybooks() {
 }
 
 export async function listIntelligenceMissions() {
-  return IntelligenceMissionListSchema.parse(
-    await request("/api/v1/intelligence/missions"),
-  ).missions;
+  return IntelligenceMissionListSchema.parse(await request("/api/v1/intelligence/missions"))
+    .missions;
 }
 
 export async function createIntelligenceMission(input: IntelligenceMissionCreate) {
@@ -153,9 +161,7 @@ export async function createIntelligenceMission(input: IntelligenceMissionCreate
 }
 
 export async function getIntelligenceMission(id: string) {
-  return IntelligenceMissionSchema.parse(
-    await request(`/api/v1/intelligence/missions/${id}`),
-  );
+  return IntelligenceMissionSchema.parse(await request(`/api/v1/intelligence/missions/${id}`));
 }
 
 export async function retryIntelligenceMission(id: string) {
@@ -168,22 +174,25 @@ export async function getIntelligenceResults(id: string, limit = 100) {
   const payload = await request(`/api/v1/intelligence/missions/${id}/results?limit=${limit}`);
   const mission = IntelligenceMissionSchema.parse(payload.mission);
   const rawItems = Array.isArray(payload.items)
-    ? payload.items.filter((item: unknown): item is Record<string, unknown> => Boolean(item) && typeof item === "object")
+    ? payload.items.filter(
+        (item: unknown): item is Record<string, unknown> =>
+          Boolean(item) && typeof item === "object",
+      )
     : [];
   return {
     mission,
-    items: mission.playbook === "b2b_prospecting"
-      ? rawItems.map(leadFromPayload)
-      : rawItems,
+    items: mission.playbook === "b2b_prospecting" ? rawItems.map(leadFromPayload) : rawItems,
   };
 }
 
-export async function listIntelligenceLeads(filters: {
-  status?: IntelligenceLeadStatus;
-  priority?: IntelligenceLeadPriority;
-  search?: string;
-  limit?: number;
-} = {}) {
+export async function listIntelligenceLeads(
+  filters: {
+    status?: IntelligenceLeadStatus;
+    priority?: IntelligenceLeadPriority;
+    search?: string;
+    limit?: number;
+  } = {},
+) {
   const query = new URLSearchParams();
   if (filters.status) query.set("status", filters.status);
   if (filters.priority) query.set("priority", filters.priority);
@@ -197,12 +206,14 @@ export async function updateIntelligenceLead(
   id: string,
   input: Partial<Pick<IntelligenceLeadItem, "pipelineStatus" | "priority" | "notes">>,
 ) {
-  return leadFromPayload(await request(`/api/v1/intelligence/leads/${id}`, {
-    method: "PATCH",
-    body: JSON.stringify({
-      status: input.pipelineStatus,
-      priority: input.priority,
-      notes: input.notes,
+  return leadFromPayload(
+    await request(`/api/v1/intelligence/leads/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify({
+        status: input.pipelineStatus,
+        priority: input.priority,
+        notes: input.notes,
+      }),
     }),
-  }));
+  );
 }

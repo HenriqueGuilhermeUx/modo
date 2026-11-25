@@ -4,13 +4,13 @@
 
 .video-scene-video {
   object-fit: cover;
-  background: rgba(9, 20, 48, .9);
+  background: rgba(9, 20, 48, 0.9);
 }
 
 .video-stock-credit {
   display: block;
   margin: 8px 0 10px;
-  opacity: .72;
+  opacity: 0.72;
   font-size: 12px;
 }
 
@@ -23,16 +23,16 @@
 .video-scene-editor {
   margin-top: 18px;
   padding: 18px;
-  border: 1px solid rgba(255, 255, 255, .12);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 18px;
-  background: rgba(5, 12, 30, .48);
+  background: rgba(5, 12, 30, 0.48);
   display: grid;
   gap: 14px;
 }
 
 .video-scene-editor-grid {
   display: grid;
-  grid-template-columns: 1.35fr .9fr;
+  grid-template-columns: 1.35fr 0.9fr;
   gap: 12px;
 }
 
@@ -41,11 +41,11 @@
   gap: 7px;
   font-size: 12px;
   font-weight: 700;
-  letter-spacing: .01em;
+  letter-spacing: 0.01em;
 }
 
 .video-scene-editor label > span {
-  opacity: .74;
+  opacity: 0.74;
 }
 
 .video-scene-editor input,
@@ -53,9 +53,9 @@
 .video-scene-editor select {
   width: 100%;
   box-sizing: border-box;
-  border: 1px solid rgba(255, 255, 255, .14);
+  border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 12px;
-  background: rgba(7, 16, 39, .82);
+  background: rgba(7, 16, 39, 0.82);
   color: inherit;
   padding: 11px 12px;
   font: inherit;
@@ -75,7 +75,7 @@
 }
 
 .video-scene-editor label small {
-  opacity: .62;
+  opacity: 0.62;
   line-height: 1.4;
   font-weight: 500;
 }

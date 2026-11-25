@@ -31,7 +31,11 @@ interface Options {
 function bearer(request: FastifyRequest) {
   const value = request.headers.authorization;
   if (!value?.startsWith("Bearer ")) {
-    throw new PlatformAdminError("ADMIN_UNAUTHORIZED", 401, "Acesso administrativo não autorizado.");
+    throw new PlatformAdminError(
+      "ADMIN_UNAUTHORIZED",
+      401,
+      "Acesso administrativo não autorizado.",
+    );
   }
   return value.slice(7).trim();
 }
@@ -46,10 +50,7 @@ function intelligenceProvider(): IntelligenceProvider {
   return value === "apify" || value === "n8n" ? value : "queue";
 }
 
-export async function registerPlatformAdminRoutes(
-  app: FastifyInstance,
-  options: Options,
-) {
+export async function registerPlatformAdminRoutes(app: FastifyInstance, options: Options) {
   const credits = new AdminCreditService({
     databaseUrl: options.databaseUrl,
     databaseSsl: options.databaseSsl,
@@ -134,7 +135,10 @@ export async function registerPlatformAdminRoutes(
 
   app.post("/api/v1/admin/organizations/:id/credits", async (request) => {
     await options.admin.authenticate(bearer(request));
-    const accountId = z.string().min(3).parse((request.params as { id: string }).id);
+    const accountId = z
+      .string()
+      .min(3)
+      .parse((request.params as { id: string }).id);
     const input = AdminCreditAdjustmentSchema.parse(request.body);
     const result = await credits.adjust(accountId, input.credits, input.reason);
     await options.admin.audit("credits.adjusted", "organization", accountId, input);
@@ -143,7 +147,10 @@ export async function registerPlatformAdminRoutes(
 
   app.patch("/api/v1/admin/organizations/:id/subscription", async (request) => {
     await options.admin.authenticate(bearer(request));
-    const accountId = z.string().min(3).parse((request.params as { id: string }).id);
+    const accountId = z
+      .string()
+      .min(3)
+      .parse((request.params as { id: string }).id);
     const input = AdminSubscriptionUpdateSchema.parse(request.body);
     let usage = input.plan
       ? await options.billing.createOrUpdateDemoSubscription(accountId, input.plan)
@@ -166,7 +173,10 @@ export async function registerPlatformAdminRoutes(
 
   app.post("/api/v1/admin/invitations/:id/revoke", async (request) => {
     await options.admin.authenticate(bearer(request));
-    const id = z.string().uuid().parse((request.params as { id: string }).id);
+    const id = z
+      .string()
+      .uuid()
+      .parse((request.params as { id: string }).id);
     return options.admin.revokeInvitation(id);
   });
 
@@ -183,13 +193,19 @@ export async function registerPlatformAdminRoutes(
 
   app.patch("/api/v1/admin/discounts/:id", async (request) => {
     await options.admin.authenticate(bearer(request));
-    const id = z.string().uuid().parse((request.params as { id: string }).id);
+    const id = z
+      .string()
+      .uuid()
+      .parse((request.params as { id: string }).id);
     const active = z.object({ active: z.boolean() }).parse(request.body).active;
     return options.admin.setCampaignActive(id, active);
   });
 
   app.get("/api/v1/invitations/:token", async (request) => {
-    const token = z.string().min(20).parse((request.params as { token: string }).token);
+    const token = z
+      .string()
+      .min(20)
+      .parse((request.params as { token: string }).token);
     return options.admin.previewInvitation(token);
   });
 
@@ -197,7 +213,10 @@ export async function registerPlatformAdminRoutes(
     "/api/v1/invitations/:token/accept",
     { config: { rateLimit: { max: 5, timeWindow: "30 minutes" } } },
     async (request, reply) => {
-      const token = z.string().min(20).parse((request.params as { token: string }).token);
+      const token = z
+        .string()
+        .min(20)
+        .parse((request.params as { token: string }).token);
       const invitation = await options.admin.previewInvitation(token);
       const input = InvitationAcceptRequestSchema.parse(request.body);
       const session = await options.auth.register({
@@ -217,11 +236,7 @@ export async function registerPlatformAdminRoutes(
           "Bônus de convite administrativo",
         );
       }
-      await options.admin.consumeInvitation(
-        token,
-        session.user.id,
-        session.organization.id,
-      );
+      await options.admin.consumeInvitation(token, session.user.id, session.organization.id);
       return reply.code(201).send(session);
     },
   );

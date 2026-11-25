@@ -66,10 +66,11 @@ export class OpenAiVideoVisualProvider implements VideoVisualProvider {
       signal: AbortSignal.timeout(120_000),
     });
 
-    const payload = await response.json().catch(() => ({})) as any;
+    const payload = (await response.json().catch(() => ({}))) as any;
     if (!response.ok) {
       throw new Error(
-        safeText(payload.error?.message) || `O provider visual rejeitou a geração da cena (${response.status}).`,
+        safeText(payload.error?.message) ||
+          `O provider visual rejeitou a geração da cena (${response.status}).`,
       );
     }
 

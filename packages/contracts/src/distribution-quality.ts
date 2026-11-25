@@ -1,15 +1,7 @@
 import { z } from "zod";
 
 export const DistributionQualityCheckSchema = z.object({
-  key: z.enum([
-    "approval",
-    "copy",
-    "cta",
-    "hashtags",
-    "media",
-    "brand_safety",
-    "structure",
-  ]),
+  key: z.enum(["approval", "copy", "cta", "hashtags", "media", "brand_safety", "structure"]),
   label: z.string(),
   score: z.number().int().min(0),
   maxScore: z.number().int().positive(),

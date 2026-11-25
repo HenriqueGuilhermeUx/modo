@@ -2,11 +2,7 @@ import type { ContentUnitType, Dashboard } from "@modo/contracts";
 import type { ContentObjective } from "@modo/contracts/content";
 import type { QuickStartOutcome, QuickStartSourceKind } from "@modo/contracts/source";
 import { useRef, useState } from "react";
-import {
-  generateCreativePlan,
-  getCreativeProfile,
-  saveCreativeProfile,
-} from "./director-api";
+import { generateCreativePlan, getCreativeProfile, saveCreativeProfile } from "./director-api";
 import { extractSource } from "./source-api";
 
 interface PreparedContent {
@@ -27,7 +23,11 @@ const sourceOptions: Array<{ id: QuickStartSourceKind; title: string; copy: stri
   { id: "topic", title: "Tenho um tema", copy: "Uma dúvida, assunto, oferta ou oportunidade." },
   { id: "url", title: "Tenho um link", copy: "Artigo, notícia, blog ou página de serviço." },
   { id: "text", title: "Tenho um texto", copy: "Rascunho, documento leve, case ou anotação." },
-  { id: "transcript", title: "Tenho uma transcrição", copy: "Reunião, vídeo, entrevista ou áudio transcrito." },
+  {
+    id: "transcript",
+    title: "Tenho uma transcrição",
+    copy: "Reunião, vídeo, entrevista ou áudio transcrito.",
+  },
   { id: "voice", title: "Quero ditar uma ideia", copy: "Fale livremente. A MODO organiza depois." },
 ];
 
@@ -35,8 +35,16 @@ const outcomeOptions: Array<{ id: QuickStartOutcome; title: string; copy: string
   { id: "decide", title: "A MODO decide", copy: "Formato e canal recomendados automaticamente." },
   { id: "post", title: "Uma publicação", copy: "Post completo para revisar e publicar." },
   { id: "carousel", title: "Um carrossel", copy: "Narrativa em páginas com direção visual." },
-  { id: "video", title: "Um Reel", copy: "Roteiro + primeiro corte com cenas, mídia, legendas e direção automática." },
-  { id: "linkedin", title: "Conteúdo para LinkedIn", copy: "Autoridade profissional ou empresarial." },
+  {
+    id: "video",
+    title: "Um Reel",
+    copy: "Roteiro + primeiro corte com cenas, mídia, legendas e direção automática.",
+  },
+  {
+    id: "linkedin",
+    title: "Conteúdo para LinkedIn",
+    copy: "Autoridade profissional ou empresarial.",
+  },
   { id: "week", title: "Minha semana", copy: "Plano com ações pequenas e executáveis." },
   { id: "campaign", title: "Uma campanha", copy: "Movimentos coordenados para um objetivo." },
 ];
@@ -100,10 +108,12 @@ export default function QuickStart({ dashboard, brandId, onPrepared }: Props) {
     if (outcome === "decide") {
       if (["url", "text", "transcript"].includes(sourceKind)) contentType = "carousel";
       if (sourceKind === "voice") contentType = "short_video_script";
-      if (brand?.niche === "servicos_profissionais" || brand?.niche === "creator") channel = "LinkedIn";
+      if (brand?.niche === "servicos_profissionais" || brand?.niche === "creator")
+        channel = "LinkedIn";
     }
 
-    const outcomeLabel = outcomeOptions.find((item) => item.id === outcome)?.title || "Uma publicação";
+    const outcomeLabel =
+      outcomeOptions.find((item) => item.id === outcome)?.title || "Uma publicação";
     const sourceLabel = sourceOptions.find((item) => item.id === sourceKind)?.title || "Contexto";
     return {
       contentType,
@@ -123,7 +133,9 @@ export default function QuickStart({ dashboard, brandId, onPrepared }: Props) {
         outcome === "decide"
           ? "Atue como Diretor de Criação. Escolha um ângulo forte, evite conteúdo genérico e explique a mensagem de forma prática. Use o formato informado como melhor aproximação para a primeira entrega."
           : "Transforme a matéria-prima em uma entrega clara, específica e pronta para revisão. Preserve fatos reais e não invente números, clientes ou resultados.",
-      ].join("\n").slice(0, 2000),
+      ]
+        .join("\n")
+        .slice(0, 2000),
     };
   }
 
@@ -158,7 +170,9 @@ export default function QuickStart({ dashboard, brandId, onPrepared }: Props) {
         return;
       }
       onPrepared(preparedFormat(source));
-      document.querySelector(".workspace-form")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      document
+        .querySelector(".workspace-form")
+        ?.scrollIntoView({ behavior: "smooth", block: "start" });
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Não foi possível preparar esta fonte.");
     } finally {
@@ -178,10 +192,14 @@ export default function QuickStart({ dashboard, brandId, onPrepared }: Props) {
   }
 
   function startVoice() {
-    const SpeechRecognition = (window as unknown as {
-      SpeechRecognition?: new () => any;
-      webkitSpeechRecognition?: new () => any;
-    }).SpeechRecognition || (window as unknown as { webkitSpeechRecognition?: new () => any }).webkitSpeechRecognition;
+    const SpeechRecognition =
+      (
+        window as unknown as {
+          SpeechRecognition?: new () => any;
+          webkitSpeechRecognition?: new () => any;
+        }
+      ).SpeechRecognition ||
+      (window as unknown as { webkitSpeechRecognition?: new () => any }).webkitSpeechRecognition;
 
     if (!SpeechRecognition) {
       setError("O ditado não está disponível neste navegador. Use Chrome ou cole uma transcrição.");
@@ -210,34 +228,147 @@ export default function QuickStart({ dashboard, brandId, onPrepared }: Props) {
   return (
     <section className="quick-start">
       <div className="quick-start-heading">
-        <div><small>MODO QUICK START</small><h2>Comece com o que você já tem.</h2><p>Você não precisa escrever um prompt. Entregue uma matéria-prima — ou peça ideias — e escolha o resultado.</p></div>
+        <div>
+          <small>MODO QUICK START</small>
+          <h2>Comece com o que você já tem.</h2>
+          <p>
+            Você não precisa escrever um prompt. Entregue uma matéria-prima — ou peça ideias — e
+            escolha o resultado.
+          </p>
+        </div>
         <span>Resultado em poucos passos</span>
       </div>
 
-      <div className="quick-start-step"><strong>1. O que você tem agora?</strong><div className="quick-source-grid">{sourceOptions.map((item) => <button type="button" className={sourceKind === item.id ? "selected" : ""} key={item.id} onClick={() => { setSourceKind(item.id); setSourceValue(""); setSourceTitle(""); setError(""); }}><b>{item.title}</b><span>{item.copy}</span></button>)}</div></div>
+      <div className="quick-start-step">
+        <strong>1. O que você tem agora?</strong>
+        <div className="quick-source-grid">
+          {sourceOptions.map((item) => (
+            <button
+              type="button"
+              className={sourceKind === item.id ? "selected" : ""}
+              key={item.id}
+              onClick={() => {
+                setSourceKind(item.id);
+                setSourceValue("");
+                setSourceTitle("");
+                setError("");
+              }}
+            >
+              <b>{item.title}</b>
+              <span>{item.copy}</span>
+            </button>
+          ))}
+        </div>
+      </div>
 
       {sourceKind !== "ideas" && (
         <div className="quick-source-input">
           {sourceKind === "url" ? (
-            <label>Link da fonte<input value={sourceValue} onChange={(event) => setSourceValue(event.target.value)} placeholder="https://..." /></label>
+            <label>
+              Link da fonte
+              <input
+                value={sourceValue}
+                onChange={(event) => setSourceValue(event.target.value)}
+                placeholder="https://..."
+              />
+            </label>
           ) : (
-            <label>{sourceKind === "voice" ? "Sua ideia ditada" : sourceKind === "transcript" ? "Transcrição" : sourceKind === "topic" ? "Tema ou oportunidade" : "Texto ou conteúdo"}<textarea value={sourceValue} onChange={(event) => setSourceValue(event.target.value)} placeholder={sourceKind === "voice" ? "Clique no microfone e fale naturalmente..." : "Cole ou escreva aqui..."} /></label>
+            <label>
+              {sourceKind === "voice"
+                ? "Sua ideia ditada"
+                : sourceKind === "transcript"
+                  ? "Transcrição"
+                  : sourceKind === "topic"
+                    ? "Tema ou oportunidade"
+                    : "Texto ou conteúdo"}
+              <textarea
+                value={sourceValue}
+                onChange={(event) => setSourceValue(event.target.value)}
+                placeholder={
+                  sourceKind === "voice"
+                    ? "Clique no microfone e fale naturalmente..."
+                    : "Cole ou escreva aqui..."
+                }
+              />
+            </label>
           )}
           <div className="quick-source-tools">
-            {["text", "transcript"].includes(sourceKind) && <><input ref={fileRef} hidden type="file" accept=".txt,.md,.csv,.json,text/plain,text/markdown,text/csv,application/json" onChange={(event) => void handleFile(event.target.files?.[0])} /><button type="button" onClick={() => fileRef.current?.click()}>Importar arquivo leve</button></>}
-            {sourceKind === "voice" && <button type="button" className={listening ? "listening" : ""} onClick={startVoice}>{listening ? "● Ouvindo..." : "🎙 Ditar ideia"}</button>}
+            {["text", "transcript"].includes(sourceKind) && (
+              <>
+                <input
+                  ref={fileRef}
+                  hidden
+                  type="file"
+                  accept=".txt,.md,.csv,.json,text/plain,text/markdown,text/csv,application/json"
+                  onChange={(event) => void handleFile(event.target.files?.[0])}
+                />
+                <button type="button" onClick={() => fileRef.current?.click()}>
+                  Importar arquivo leve
+                </button>
+              </>
+            )}
+            {sourceKind === "voice" && (
+              <button type="button" className={listening ? "listening" : ""} onClick={startVoice}>
+                {listening ? "● Ouvindo..." : "🎙 Ditar ideia"}
+              </button>
+            )}
             {sourceTitle && <span>✓ {sourceTitle}</span>}
           </div>
         </div>
       )}
 
-      <div className="quick-start-step"><strong>2. O que você quer receber?</strong><div className="quick-outcome-grid">{outcomeOptions.map((item) => <button type="button" className={outcome === item.id ? "selected" : ""} key={item.id} onClick={() => setOutcome(item.id)}><b>{item.title}</b><span>{item.copy}</span></button>)}</div></div>
+      <div className="quick-start-step">
+        <strong>2. O que você quer receber?</strong>
+        <div className="quick-outcome-grid">
+          {outcomeOptions.map((item) => (
+            <button
+              type="button"
+              className={outcome === item.id ? "selected" : ""}
+              key={item.id}
+              onClick={() => setOutcome(item.id)}
+            >
+              <b>{item.title}</b>
+              <span>{item.copy}</span>
+            </button>
+          ))}
+        </div>
+      </div>
 
-      <div className="quick-start-step"><strong>3. Qual resultado importa mais?</strong><div className="quick-objectives">{objectiveOptions.map((item) => <button type="button" className={objective === item.id ? "selected" : ""} key={item.id} onClick={() => setObjective(item.id)}>{item.label}</button>)}</div></div>
+      <div className="quick-start-step">
+        <strong>3. Qual resultado importa mais?</strong>
+        <div className="quick-objectives">
+          {objectiveOptions.map((item) => (
+            <button
+              type="button"
+              className={objective === item.id ? "selected" : ""}
+              key={item.id}
+              onClick={() => setObjective(item.id)}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
+      </div>
 
       {error && <div className="portal-error">{error}</div>}
-      <button type="button" className="button button-primary button-full" disabled={loading || !brandId} onClick={() => void prepare()}>{loading ? "A MODO está organizando..." : ["week", "campaign"].includes(outcome) ? "Criar plano com a MODO" : outcome === "video" ? "Preparar meu Reel" : "Preparar meu conteúdo"}</button>
-      <small className="quick-start-note">Links: artigos, blogs, notícias e páginas públicas. Para áudio ou vídeo, use o ditado ou cole uma transcrição nesta versão.</small>
+      <button
+        type="button"
+        className="button button-primary button-full"
+        disabled={loading || !brandId}
+        onClick={() => void prepare()}
+      >
+        {loading
+          ? "A MODO está organizando..."
+          : ["week", "campaign"].includes(outcome)
+            ? "Criar plano com a MODO"
+            : outcome === "video"
+              ? "Preparar meu Reel"
+              : "Preparar meu conteúdo"}
+      </button>
+      <small className="quick-start-note">
+        Links: artigos, blogs, notícias e páginas públicas. Para áudio ou vídeo, use o ditado ou
+        cole uma transcrição nesta versão.
+      </small>
     </section>
   );
 }

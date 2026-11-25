@@ -797,6 +797,9 @@ export class VideoService {
         visualDirection: current.visualPrompt || current.visual,
         sceneIndex: current.index,
         revision: nextRevision,
+        reference: row.id,
+        organizationId: row.organization_id,
+        purpose: "regenerate",
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : "Falha ao gerar a nova cena.";
@@ -1354,6 +1357,9 @@ export class VideoService {
           visualDirection: scene.visualPrompt || scene.visual,
           sceneIndex: scene.index,
           revision: scene.assetRevision,
+          reference: row.id,
+          organizationId: row.organization_id,
+          purpose: "first_cut",
         });
         const asset = await this.saveSceneAsset({
           videoProjectId: row.id,
@@ -1422,6 +1428,8 @@ export class VideoService {
             text: scene.caption,
             targetDurationSeconds,
             language: "pt-BR",
+            reference: prepared.row.id,
+            organizationId: prepared.row.organization_id,
           });
           await this.saveSceneAsset({
             videoProjectId: prepared.row.id,

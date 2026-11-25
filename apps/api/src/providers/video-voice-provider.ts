@@ -1,9 +1,13 @@
+import { recordCost } from "../services/cost-meter.js";
 export type VideoVoiceProviderName = "openai";
 
 export interface VideoVoiceSynthesisInput {
   text: string;
   targetDurationSeconds: number;
   language: "pt-BR";
+  /** Id do projeto de vídeo e da organização, só para medir custo. */
+  reference?: string;
+  organizationId?: string;
 }
 
 export interface VideoVoiceSynthesisResult {
@@ -67,6 +71,15 @@ export class OpenAiVideoVoiceProvider implements VideoVoiceProvider {
       signal: AbortSignal.timeout(60_000),
     });
 
+    recordCost({
+      operation: "tts",
+      purpose: "video_voice",
+      model: this.model,
+      organizationId: input.organizationId,
+      reference: input.reference,
+      characters: narration.length,
+      ok: response.ok,
+    });
     if (!response.ok) {
       const payload = (await response.json().catch(() => ({}))) as any;
       throw new Error(

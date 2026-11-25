@@ -1,3 +1,4 @@
+import { recordCost, usageTokens } from "../services/cost-meter.js";
 export type VideoVisualProviderName = "openai";
 
 export interface VideoVisualSynthesisInput {
@@ -6,6 +7,11 @@ export interface VideoVisualSynthesisInput {
   visualDirection: string;
   sceneIndex: number;
   revision: number;
+  /** Id do projeto de vídeo e da organização, só para medir custo. */
+  reference?: string;
+  organizationId?: string;
+  /** "first_cut" na montagem inicial, "regenerate" quando o usuário troca a cena. */
+  purpose?: "first_cut" | "regenerate";
 }
 
 export interface VideoVisualSynthesisResult {
@@ -67,6 +73,18 @@ export class OpenAiVideoVisualProvider implements VideoVisualProvider {
     });
 
     const payload = (await response.json().catch(() => ({}))) as any;
+    recordCost({
+      operation: "image",
+      purpose: `video_scene_${input.purpose ?? "first_cut"}`,
+      model: this.model,
+      organizationId: input.organizationId,
+      reference: input.reference,
+      quality: this.quality,
+      size: "1024x1536",
+      ok: response.ok,
+      error: response.ok ? undefined : safeText(payload.error?.message)?.slice(0, 200),
+      ...usageTokens(payload.usage),
+    });
     if (!response.ok) {
       throw new Error(
         safeText(payload.error?.message) ||

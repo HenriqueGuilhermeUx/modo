@@ -5,6 +5,7 @@ import {
   type DiagnosticResult,
 } from "@modo/contracts";
 import { extractPublicSite } from "../services/source-extractor.js";
+import { recordCost, usageTokens } from "../services/cost-meter.js";
 import type { DiagnosticProvider } from "./diagnostic-provider.js";
 import { buildDiagnosticFromPage } from "./demo-diagnostic-provider.js";
 
@@ -214,8 +215,18 @@ export class OpenAiDiagnosticProvider implements DiagnosticProvider {
         }),
         signal: controller.signal,
       });
+      const payload = (await response.json().catch(() => ({}))) as {
+        usage?: { input_tokens?: number; output_tokens?: number };
+      };
+      recordCost({
+        operation: "text",
+        purpose: "scan",
+        model: this.options.model || "gpt-5-mini",
+        ok: response.ok,
+        ...usageTokens(payload.usage),
+      });
       if (!response.ok) throw new Error(`OpenAI respondeu com status ${response.status}.`);
-      const outputText = extractOutputText(await response.json());
+      const outputText = extractOutputText(payload);
       if (!outputText) throw new Error("OpenAI não devolveu texto.");
       return toDiagnosticResult(JSON.parse(outputText));
     } catch (error) {

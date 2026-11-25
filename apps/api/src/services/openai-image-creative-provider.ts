@@ -18,7 +18,7 @@ export class OpenAiImageCreativeProvider implements CreativeProvider {
 
   constructor(options: Options = {}) {
     this.apiKey = options.apiKey;
-    this.model = options.model || "gpt-image-1";
+    this.model = options.model || "gpt-image-2";
     this.configured = Boolean(this.apiKey);
   }
 

@@ -50,7 +50,7 @@ import { PlatformAdminError, PlatformAdminService } from "./services/platform-ad
 
 export interface CreateAppOptions {
   provider: DiagnosticProvider;
-  diagnosticProviderName?: "demo" | "n8n";
+  diagnosticProviderName?: "demo" | "n8n" | "openai";
   allowedOrigins?: string[];
   logger?: boolean;
   databaseUrl?: string;

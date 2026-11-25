@@ -2,6 +2,7 @@ import { createApp } from "./app.js";
 import { config } from "./config.js";
 import { DemoDiagnosticProvider } from "./providers/demo-diagnostic-provider.js";
 import { N8nDiagnosticProvider } from "./providers/n8n-diagnostic-provider.js";
+import { OpenAiDiagnosticProvider } from "./providers/openai-diagnostic-provider.js";
 import { registerAgencyApprovalRoutes } from "./routes/agency-approval-routes.js";
 import { registerHumanOperationsRoutes } from "./routes/human-operations-routes.js";
 import { registerMetricoolRoutes } from "./routes/metricool-routes.js";
@@ -22,6 +23,12 @@ function createProvider() {
       throw new Error("N8N_DIAGNOSTIC_WEBHOOK_URL é obrigatório quando DIAGNOSTIC_PROVIDER=n8n.");
     }
     return new N8nDiagnosticProvider(config.N8N_DIAGNOSTIC_WEBHOOK_URL, config.N8N_WEBHOOK_SECRET);
+  }
+  if (config.DIAGNOSTIC_PROVIDER === "openai") {
+    return new OpenAiDiagnosticProvider({
+      apiKey: config.OPENAI_API_KEY,
+      model: config.OPENAI_TEXT_MODEL,
+    });
   }
   return new DemoDiagnosticProvider(config.DEMO_DIAGNOSTIC_DELAY_MS);
 }

@@ -1,5 +1,5 @@
 import { lazy, Suspense, type ReactNode } from "react";
-import { prerenderedLanding } from "./prerender-snapshot";
+import { prerenderedSnapshot } from "./prerender-snapshot";
 import { normalizePath, PORTAL_SHORTCUTS, resolveRoute, type RouteKey } from "./routes";
 const MobilePWA = lazy(() => import("./MobilePWA"));
 const CreativeEngineWorkspace = lazy(() => import("./CreativeEngineWorkspace"));
@@ -55,9 +55,9 @@ const VideoLabCommercial = lazy(() => import("./VideoLabCommercial"));
 const VideoWorkspace = lazy(() => import("./VideoWorkspaceV18"));
 const WeekWorkspace = lazy(() => import("./WeekWorkspace"));
 function RouteLoading() {
-  const snapshot = prerenderedLanding();
+  const snapshot = prerenderedSnapshot();
   if (snapshot) {
-    // HTML pré-renderizado da landing: evita piscar o spinner enquanto o chunk carrega.
+    // HTML pré-renderizado da página: evita piscar o spinner enquanto o chunk carrega.
     return <div style={{ display: "contents" }} dangerouslySetInnerHTML={{ __html: snapshot }} />;
   }
   return (

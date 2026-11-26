@@ -7,6 +7,14 @@ import {
 } from "@modo/contracts/content";
 import { nicheTemplates, type NicheTemplate } from "@modo/contracts/niche-templates";
 import { ContentAssetService } from "./content-asset-service.js";
+import {
+  isRevision,
+  KEPT_VISUALS_NOTE,
+  reusableMainImage,
+  reusableVisual,
+  revisionPromptBlock,
+  wantsNewVisuals,
+} from "./content-revision.js";
 import { recordCost, usageTokens } from "./cost-meter.js";
 import { formatCreativeContext, loadCreativeGenerationContext } from "./creative-context.js";
 
@@ -349,6 +357,7 @@ export class OpenAiContentProvider {
       `MODELO DO SEGMENTO — SUGESTÕES DE DIREÇÃO:\n${formatNicheTemplate(nicheTemplate)}`,
       "HIERARQUIA OBRIGATÓRIA: fatos e restrições do briefing > Base Estratégica e memória real > mapa do canal e objetivo comercial > modelo genérico do segmento.",
       "Crie uma entrega que possa ser aprovada por um cliente real e usada em campanha. O visual deve representar a oferta, o público e o contexto, não apenas produzir uma imagem genérica bonita.",
+      revisionPromptBlock(request),
     ]
       .filter(Boolean)
       .join("\n\n");
@@ -406,10 +415,15 @@ export class OpenAiContentProvider {
     });
     const generated = normalizeForFormat(request, parsed);
     const specs = visualSpecsFor(request, generated, brand);
+    // Revisão sem pedido visual: reaproveita as imagens anteriores e refaz só o texto.
+    const keepVisuals = isRevision(request) && !wantsNewVisuals(request.revisionInstructions);
+    const previous = keepVisuals ? request.output : null;
 
     try {
       if (specs.length > 0) {
-        const visualAssets = await mapWithConcurrency(specs, 2, async (spec) => {
+        const visualAssets = await mapWithConcurrency(specs, 2, async (spec, index) => {
+          const kept = reusableVisual(previous, index);
+          if (kept) return { ...spec, ...kept };
           try {
             const asset = await this.generateImage(
               request,
@@ -440,13 +454,27 @@ export class OpenAiContentProvider {
           imageAlt: firstGenerated?.imageAlt || generated.imageAlt,
           imageStatus: firstGenerated ? "generated" : "failed",
           visualAssets,
-          adaptationNotes:
-            failedCount > 0
+          adaptationNotes: [
+            ...generated.adaptationNotes,
+            ...(failedCount > 0
               ? [
-                  ...generated.adaptationNotes,
                   `${failedCount} visual(is) complementar(es) não foi(ram) concluído(s) e pode(m) ser regenerado(s).`,
-                ].slice(0, 10)
-              : generated.adaptationNotes,
+                ]
+              : []),
+            ...(previous ? [KEPT_VISUALS_NOTE] : []),
+          ].slice(0, 10),
+        });
+        return { output, providerRunId: textPayload.id || `openai:${request.id}` };
+      }
+
+      const keptImage = reusableMainImage(previous);
+      if (keptImage) {
+        const output: GeneratedContent = GeneratedContentSchema.parse({
+          ...generated,
+          imageUrl: keptImage,
+          imageStatus: "generated",
+          visualAssets: [],
+          adaptationNotes: [...generated.adaptationNotes, KEPT_VISUALS_NOTE].slice(0, 10),
         });
         return { output, providerRunId: textPayload.id || `openai:${request.id}` };
       }

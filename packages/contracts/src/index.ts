@@ -232,7 +232,8 @@ export const planEntitlements: Record<PlanSlug, PlanEntitlement> = {
     maxBrands: 5,
     maxChannels: 20,
     maxUsers: 5,
-    maxCarouselsPerMonth: 120,
+    // Teto de carrosséis (o formato mais caro: até 7 imagens) para manter a margem.
+    maxCarouselsPerMonth: 20,
     maxShortVideoScriptsPerMonth: 20,
     includedRevisionCycles: 3,
     scheduling: true,

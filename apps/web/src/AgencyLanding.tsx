@@ -9,6 +9,7 @@ const agencyPlans = [
     features: [
       "Tudo do MODO Presença para cada marca",
       "24 peças e 4 Reels por marca/mês",
+      "Até 20 carrosséis por mês na conta",
       "Clientes separados por workspace",
       "Aprovação do cliente por link",
       "Vários usuários",

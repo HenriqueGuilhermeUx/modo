@@ -29,7 +29,8 @@ const planDescriptions: Record<PublicPlanSlug, string> = {
   presenca: "24 peças e 4 Reels por mês, 4 redes e relatório mensal.",
   pro: "Para quem já vende e quer avançar.",
   business: "Para equipes e operações mais complexas.",
-  agency_professional: "5 marcas, tudo do Presença por marca, aprovação por link.",
+  agency_professional:
+    "5 marcas, tudo do Presença por marca (até 20 carrosséis/mês), aprovação por link.",
   agency_studio: "Para microagências e times enxutos.",
   agency: "Para operações com carteira ativa e escala.",
 };

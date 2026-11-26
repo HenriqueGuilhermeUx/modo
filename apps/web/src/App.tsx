@@ -82,6 +82,7 @@ const pricingPlans: PricingPlan[] = [
       "Tudo do Presença por marca",
       "Aprovação do cliente por link",
       "Vários usuários",
+      "Até 20 carrosséis por mês na conta",
       "Marca extra: R$ 59/mês",
     ],
     cta: "Conhecer o plano Agência",

@@ -2,7 +2,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import Root from "./Root";
 import PwaChrome from "./PwaChrome";
-import { capturePrerenderedLanding } from "./prerender-snapshot";
+import { capturePrerendered } from "./prerender-snapshot";
 import "./styles.css";
 import "./pwa-mobile.css";
 import "./creative-engine.css";
@@ -50,7 +50,7 @@ import "./demand.css";
 import "./demand-public.css";
 import "./legal.css";
 const rootElement = document.getElementById("root")!;
-capturePrerenderedLanding(rootElement);
+capturePrerendered(rootElement);
 
 createRoot(rootElement).render(
   <StrictMode>

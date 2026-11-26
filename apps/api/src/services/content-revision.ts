@@ -1,4 +1,4 @@
-import type { ContentRequest, ContentVisualAsset, GeneratedContent } from "@modo/contracts";
+import type { ContentRequest, ContentVisualAsset, GeneratedContent } from "@modo/contracts/content";
 
 /**
  * Regras da revisão de conteúdo.

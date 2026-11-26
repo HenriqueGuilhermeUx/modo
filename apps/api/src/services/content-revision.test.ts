@@ -1,4 +1,4 @@
-import { GeneratedContentSchema, type GeneratedContent } from "@modo/contracts";
+import { GeneratedContentSchema, type GeneratedContent } from "@modo/contracts/content";
 import { describe, expect, it } from "vitest";
 import {
   isRevision,

@@ -74,8 +74,9 @@ Permissões pedidas pelo fluxo atual:
 pages_show_list
 pages_read_engagement
 pages_manage_posts
-read_insights
 ```
+
+`read_insights` não é pedido: as métricas de post do Facebook vêm dos campos do próprio post (`shares`, `likes.summary`, `comments.summary`), que exigem só `pages_read_engagement`. Reels na Página (`/{page-id}/video_reels`) também usam só essas três permissões.
 
 A conexão é salva por organização + marca + Página, permitindo que uma agência ou empresa mantenha destinos separados por marca.
 
@@ -84,13 +85,13 @@ A conexão é salva por organização + marca + Página, permitindo que uma agê
 ### Política de Privacidade
 
 ```text
-https://modo1.netlify.app/politica-de-privacidade
+https://trymodo.com.br/politica-de-privacidade
 ```
 
 ### Instruções públicas de exclusão
 
 ```text
-https://modo1.netlify.app/exclusao-de-dados
+https://trymodo.com.br/exclusao-de-dados
 ```
 
 ### Deauthorization callback
@@ -144,7 +145,7 @@ O seed é idempotente e prepara:
 
 Gravar um vídeo curto, contínuo e sem cortes que escondam etapas relevantes.
 
-1. Abrir `https://modo1.netlify.app/app`.
+1. Abrir `https://trymodo.com.br/app`.
 2. Fazer login com a conta de revisão.
 3. Abrir **Publisher** (`/app/publisher`).
 4. Selecionar `Marca de Teste · Meta Review`.

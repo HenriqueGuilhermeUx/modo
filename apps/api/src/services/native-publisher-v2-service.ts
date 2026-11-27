@@ -115,7 +115,8 @@ function mapConnection(row: ConnectionRow): NativeConnection {
   const scopes = row.scopes || [];
   const insightScopes: Record<NativePublisherProvider, string[]> = {
     instagram: ["instagram_business_manage_insights"],
-    facebook: ["read_insights", "pages_read_engagement"],
+    // Métricas de post do Facebook vêm dos campos do post (shares, likes, comments).
+    facebook: ["pages_read_engagement"],
     threads: ["threads_manage_insights"],
     linkedin: [],
   };
@@ -525,7 +526,8 @@ export class NativePublisherV2Service {
     url.searchParams.set("state", state);
     url.searchParams.set(
       "scope",
-      "pages_show_list,pages_read_engagement,pages_manage_posts,read_insights",
+      // Só o que o produto usa: listar Páginas, publicar (posts e Reels) e ler engajamento.
+      "pages_show_list,pages_read_engagement,pages_manage_posts",
     );
     return { authorizationUrl: url.toString() };
   }
@@ -588,12 +590,7 @@ export class NativePublisherV2Service {
             this.options.facebookAppSecret,
           ),
           tokenExpiresAt: null,
-          scopes: [
-            "pages_show_list",
-            "pages_read_engagement",
-            "pages_manage_posts",
-            "read_insights",
-          ],
+          scopes: ["pages_show_list", "pages_read_engagement", "pages_manage_posts"],
           metadata: { source: "facebook_login" },
         }),
       );
